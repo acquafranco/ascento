@@ -1,8 +1,8 @@
 <x-app-layout>
 
-<div class="h-[calc(100dvh-64px)] pt-16">
+<div class="fixed inset-0 top-16 bottom-20 lg:bottom-0 overflow-y-auto">
 
-    <div class="grid grid-cols-2 grid-rows-4 h-full overflow-y-auto">
+    <div class="grid grid-cols-2 grid-rows-4 h-full">
 
         {{-- PENDIENTES --}}
         <a href="/work-orders?status=pending"
