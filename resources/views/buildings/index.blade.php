@@ -144,8 +144,15 @@
 
                         @if(!$done)
 
-                            <a
-                                href="{{ route('delivery-notes.building', $building) }}"
+                            <a href="{{ route('delivery-notes.building', [
+
+                                    'building' => $building,
+
+                                    'month' => $month,
+
+                                    'year' => $year,
+
+                                ]) }}"
                                 class="block text-center bg-slate-800 hover:bg-slate-900 text-white py-3 rounded-2xl font-bold transition"
                             >
                                 Marcar mantenimiento

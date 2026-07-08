@@ -37,7 +37,7 @@
             @endif
 
             <input type="hidden" name="building_id"               value="{{ $building->id }}">
-            <input type="hidden" name="year"                      value="{{ now()->year }}">
+            <input type="hidden" name="year" value="{{ $year }}">
             <input type="hidden" name="elevator_quantity"         value="{{ $building->elevator_count }}">
             <input type="hidden" name="freight_elevator_quantity" value="{{ $building->freight_elevator_count }}">
             <input type="hidden" name="signature"        id="sig-tech-input">
@@ -73,7 +73,7 @@
                             <select name="month" id="month"
                                 class="w-full rounded-xl border-slate-300 h-11 px-3 text-sm font-semibold bg-white">
                                 @foreach(range(1, 12) as $m)
-                                    <option value="{{ $m }}" {{ now()->month === $m ? 'selected' : '' }}>
+                                    <option value="{{ $m }}" {{ $month == $m ? 'selected' : '' }}>
                                         {{ \Carbon\Carbon::create()->month($m)->translatedFormat('F') }}
                                     </option>
                                 @endforeach

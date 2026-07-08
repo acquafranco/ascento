@@ -47,13 +47,15 @@ class DeliveryNoteController extends Controller
         );
     }
 
-    public function createFromBuilding(Building $building)
+    public function createFromBuilding(Request $request, Building $building)
     {
         return view(
             'delivery-notes.create',
             [
                 'building' => $building,
                 'workOrder' => null,
+                'month' => $request->month ?? now()->month,
+                'year' => $request->year ?? now()->year,
             ]
         );
     }
@@ -92,25 +94,20 @@ class DeliveryNoteController extends Controller
             $request->building_id
         );
 
-        $visit = BuildingVisit::create([
-            'building_id' => $building->id,
-            'user_id' => auth()->id(),
-
-            'visit_type' => $request->work_order_id
-                ? 'work_order'
-                : 'fixed',
-
-            'work_order_id' => $request->work_order_id,
-
-            'status' => $request->boolean('performed')
-                ? 'done'
-                : 'failed',
-
-            'month' => $request->month,
-            'year' => $request->year,
-
-            'visited_at' => now(),
-        ]);
+        $visit = BuildingVisit::firstOrCreate(
+            [
+                'building_id' => $building->id,
+                'user_id' => auth()->id(),
+                'visit_type' => $request->work_order_id ? 'work_order' : 'fixed',
+                'month' => $request->month,
+                'year' => $request->year,
+            ],
+            [
+                'status' => $request->boolean('performed') ? 'done' : 'failed',
+                'work_order_id' => $request->work_order_id,
+                'visited_at' => now(),
+            ]
+        );
 
         $deliveryNote = DeliveryNote::create([
 
