@@ -3,18 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Models\Building;
+use Illuminate\Http\Request;
 
 class BuildingController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $user = auth()->user();
 
-        /*
-        |--------------------------------------------------------------------------
-        | SOLO VER ASIGNADOS
-        |--------------------------------------------------------------------------
-        */
+        $month = $request->get('month', now()->month);
+        $year = $request->get('year', now()->year);
 
         $buildings = $user
             ->buildings()
@@ -23,7 +21,11 @@ class BuildingController extends Controller
 
         return view(
             'buildings.index',
-            compact('buildings')
+            compact(
+                'buildings',
+                'month',
+                'year'
+            )
         );
     }
 

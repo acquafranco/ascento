@@ -14,20 +14,24 @@ class BuildingCheckController extends Controller
         Building $building
     ) {
 
-        $this->authorizeBuilding(
-            $building
-        );
-
-        $now = Carbon::now();
+        $this->authorizeBuilding($building);
 
         /*
         |--------------------------------------------------------------------------
-        | SOLO EDIFICIOS FIJOS
+        | PERIODO SELECCIONADO
         |--------------------------------------------------------------------------
         */
 
-        $visit =
-            BuildingVisit::where(
+        $month = $request->month ?? now()->month;
+        $year  = $request->year ?? now()->year;
+
+        /*
+        |--------------------------------------------------------------------------
+        | BUSCAR VISITA DEL PERIODO
+        |--------------------------------------------------------------------------
+        */
+
+        $visit = BuildingVisit::where(
                 'building_id',
                 $building->id
             )
@@ -36,16 +40,16 @@ class BuildingCheckController extends Controller
                 auth()->id()
             )
             ->where(
+                'visit_type',
+                'fixed'
+            )
+            ->where(
                 'month',
-                now()->month
+                $month
             )
             ->where(
                 'year',
-                now()->year
-            )
-            ->where(
-                'visit_type',
-                'fixed'
+                $year
             )
             ->first();
 
@@ -60,39 +64,33 @@ class BuildingCheckController extends Controller
             $visit->delete();
 
             return back();
+
         }
 
         /*
         |--------------------------------------------------------------------------
-        | CREAR MANTENIMIENTO FIJO
+        | CREAR MANTENIMIENTO
         |--------------------------------------------------------------------------
         */
 
         BuildingVisit::create([
 
-            'building_id' =>
-                $building->id,
+            'building_id' => $building->id,
 
-            'user_id' =>
-                auth()->id(),
+            'user_id' => auth()->id(),
 
-            'visit_type' =>
-                'fixed',
+            'visit_type' => 'fixed',
 
-            'status' =>
-                'done',
+            'status' => 'done',
 
-            'month' =>
-                $now->month,
+            'month' => $month,
 
-            'year' =>
-                $now->year,
+            'year' => $year,
 
-            'delivery_note' =>
-                $request->delivery_note,
+            'delivery_note' => $request->delivery_note,
 
-            'visited_at' =>
-                $now,
+            'visited_at' => now(),
+
         ]);
 
         return back();
@@ -113,6 +111,10 @@ class BuildingCheckController extends Controller
                 ->exists(),
 
             403
+
         );
+
     }
 }
+
+

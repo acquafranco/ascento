@@ -15,6 +15,46 @@
 
     </div>
 
+    <form method="GET" class="mb-5 flex gap-2">
+
+    <select name="month" class="rounded-xl border-gray-300">
+
+        @for($m = 1; $m <= 12; $m++)
+
+            <option
+                value="{{ $m }}"
+                {{ $month == $m ? 'selected' : '' }}
+            >
+                {{ \Carbon\Carbon::create()->month($m)->translatedFormat('F') }}
+            </option>
+
+        @endfor
+
+    </select>
+
+    <select name="year" class="rounded-xl border-gray-300">
+
+        @for($y = now()->year - 2; $y <= now()->year + 2; $y++)
+
+            <option
+                value="{{ $y }}"
+                {{ $year == $y ? 'selected' : '' }}
+            >
+                {{ $y }}
+            </option>
+
+        @endfor
+
+    </select>
+
+    <button
+        class="px-4 bg-slate-800 text-white rounded-xl"
+    >
+        Ver
+    </button>
+
+</form>
+
     {{-- BUSCADOR --}}
     <div class="mb-5">
 
@@ -37,8 +77,8 @@
                     \App\Models\BuildingVisit::where('building_id', $building->id)
                         ->where('user_id', auth()->id())
                         ->where('visit_type', 'fixed')
-                        ->where('month', now()->month)
-                        ->where('year', now()->year)
+                        ->where('month', $month)
+                        ->where('year', $year)
                         ->first();
 
                 $done = $visit !== null;
@@ -128,27 +168,33 @@
                                     @endif
 
                                 </div>
+                            <form
+                                method="POST"
+                                action="{{ route('building-check.done', $building) }}"
+                                onsubmit="return confirmarDesmarcar();"
+                            >
+                                @csrf
 
-                                <form
-                                    method="POST"
-                                    action="{{ route('building-check.done', $building) }}"
-                                    onsubmit="return confirm(
-                                'Este mantenimiento ya posee un remito asociado.
-
-                                Si lo desmarcás, el remito NO será eliminado.
-
-                                El edificio volverá a aparecer como pendiente y podrías generar un remito duplicado.
-
-                                ¿Deseás continuar?'
-                                )"
+                                <input
+                                    type="hidden"
+                                    name="month"
+                                    value="{{ $month }}"
                                 >
-                                    @csrf
 
-                                    <button class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl font-semibold">
-                                        Desmarcar
-                                    </button>
+                                <input
+                                    type="hidden"
+                                    name="year"
+                                    value="{{ $year }}"
+                                >
 
-                                </form>
+                                <button
+                                    type="submit"
+                                    class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl font-semibold"
+                                >
+                                    Desmarcar
+                                </button>
+
+                            </form>
 
                             </div>
 
@@ -171,7 +217,23 @@
     </div>
 
 </div>
+<script>
+function confirmarDesmarcar() {
 
+    return confirm(
+`Este mantenimiento ya tiene un remito asociado.
+
+Si lo desmarcás:
+
+• El remito NO se eliminará.
+• El edificio volverá a quedar pendiente.
+• Podrías generar un remito duplicado si volvés a realizar el mantenimiento.
+
+¿Querés continuar?`
+    );
+
+}
+</script>
 <script>
 document.getElementById('searchBuilding').addEventListener('keyup', function () {
 
