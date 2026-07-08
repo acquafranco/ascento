@@ -15,9 +15,6 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
         <!-- Espacio para barra mobile -->
         <style>
-            @media (min-width: 1023px) {
-                .menu { margin-top: 64px; }
-            }
 
         input,
         textarea,
