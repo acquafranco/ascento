@@ -1,34 +1,50 @@
 <div
-    x-data="{
-        menu: false,
-        showNav: true,
-        lastScroll: 0,
+x-data="{
+    menu: false,
+    showNav: true,
+    lastScroll: 0,
 
-        init() {
-            window.addEventListener('scroll', () => {
-                const current = window.scrollY;
-                const delta = current - this.lastScroll;
+    fixedPage: {{ request()->routeIs('dashboard') ? 'true' : 'false' }},
 
-                if (delta > 10 && current > 50) {
-                    this.showNav = false;
-                }
+    init() {
 
-                if (delta < -10) {
-                    this.showNav = true;
-                }
-
-                this.lastScroll = current;
-            });
-
-            // 👇 CERRAR AL HACER CLICK FUERA
-            window.addEventListener('click', (e) => {
-                if (this.menu && !this.$refs.menu.contains(e.target) && !this.$refs.button.contains(e.target)) {
-                    this.menu = false;
-                }
-            });
+        if (this.fixedPage) {
+            this.showNav = true;
+            return;
         }
-    }"
-    :style="showNav ? 'transform: translateY(0);' : 'transform: translateY(100%);'"
+
+        window.addEventListener('scroll', () => {
+
+            const current = window.scrollY;
+            const delta = current - this.lastScroll;
+
+            if (delta > 10 && current > 50) {
+                this.showNav = false;
+            }
+
+            if (delta < -10) {
+                this.showNav = true;
+            }
+
+            this.lastScroll = current;
+        });
+
+        window.addEventListener('click', (e) => {
+            if (
+                this.menu &&
+                !this.$refs.menu.contains(e.target) &&
+                !this.$refs.button.contains(e.target)
+            ) {
+                this.menu = false;
+            }
+        });
+    }
+}"
+    :style="fixedPage
+    ? 'transform:translateY(0)'
+    : (showNav
+        ? 'transform:translateY(0)'
+        : 'transform:translateY(100%)')"
     class="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-50 transition-all duration-300"
 >
     <div class="grid grid-cols-4 py-3">
