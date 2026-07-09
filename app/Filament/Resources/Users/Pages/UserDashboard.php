@@ -7,6 +7,7 @@ use Filament\Resources\Pages\Page;
 use App\Models\User;
 use App\Models\BuildingVisit;
 use Carbon\Carbon;
+use Illuminate\Contracts\View\View;
 
 class UserDashboard extends Page
 {
@@ -14,6 +15,7 @@ class UserDashboard extends Page
 
     protected string $view =
         'filament.resources.users.pages.user-dashboard';
+
 
     public User $record;
 
@@ -32,12 +34,15 @@ class UserDashboard extends Page
     }
 
 
-    public function render()
+
+    public function render(): View
     {
         Carbon::setLocale('es');
 
+
         $this->month = request('month', now()->month);
         $this->year  = request('year', now()->year);
+
 
 
         $visits = BuildingVisit::with([
@@ -54,6 +59,7 @@ class UserDashboard extends Page
             ->get();
 
 
+
         $weeks = [];
 
 
@@ -64,26 +70,23 @@ class UserDashboard extends Page
         )->startOfWeek(Carbon::MONDAY);
 
 
+
         $end = Carbon::create(
             $this->year,
             $this->month,
             1
         )
-            ->endOfMonth()
-            ->endOfWeek(Carbon::SUNDAY);
+        ->endOfMonth()
+        ->endOfWeek(Carbon::SUNDAY);
 
 
 
         while ($current->lte($end)) {
 
 
-            $weekStart = $current
-                ->copy()
-                ->startOfDay();
+            $weekStart = $current->copy()->startOfDay();
 
-
-            $weekEnd = $current
-                ->copy()
+            $weekEnd = $current->copy()
                 ->addDays(6)
                 ->endOfDay();
 
@@ -113,6 +116,7 @@ class UserDashboard extends Page
             $current->addWeek();
 
         }
+
 
 
         return view(
