@@ -69,17 +69,22 @@
                         </div>
                         <div>
                             <label class="block text-xs text-slate-500 uppercase tracking-wider mb-1.5">
-                                Mes
+                                Mes del mantenimiento
                             </label>
 
-                      <div class="w-full rounded-xl border border-slate-300 h-11 px-3 flex items-center text-sm font-semibold bg-white">
-    {{ $month }}
-</div>
-                            <input
-                                type="hidden"
+                            <select
                                 name="month"
-                                value="{{ $month }}"
+                                class="w-full rounded-xl border-slate-300 h-11 px-3 text-sm font-semibold"
                             >
+                                @foreach(range(1,12) as $m)
+                                    <option
+                                        value="{{ $m }}"
+                                        @selected($month == $m)
+                                    >
+                                        {{ \Carbon\Carbon::create()->month($m)->locale('es')->monthName }}
+                                    </option>
+                                @endforeach
+                            </select>
                         </div>
                     </div>
 

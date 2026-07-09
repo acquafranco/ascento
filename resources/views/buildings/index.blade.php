@@ -17,43 +17,37 @@
 
     <form method="GET" class="mb-5 flex gap-2">
 
-    <select name="month" class="rounded-xl border-gray-300">
+        <select
+            name="month"
+            onchange="this.form.submit()"
+            class="rounded-xl border-gray-300"
+        >
+            @for($m = 1; $m <= 12; $m++)
+                <option
+                    value="{{ $m }}"
+                    @selected($month == $m)
+                >
+                    {{ \Carbon\Carbon::create()->month($m)->translatedFormat('F') }}
+                </option>
+            @endfor
+        </select>
 
-        @for($m = 1; $m <= 12; $m++)
+        <select
+            name="year"
+            onchange="this.form.submit()"
+            class="rounded-xl border-gray-300"
+        >
+            @for($y = now()->year - 2; $y <= now()->year + 2; $y++)
+                <option
+                    value="{{ $y }}"
+                    @selected($year == $y)
+                >
+                    {{ $y }}
+                </option>
+            @endfor
+        </select>
 
-            <option
-                value="{{ $m }}"
-                {{ $month == $m ? 'selected' : '' }}
-            >
-                {{ \Carbon\Carbon::create()->month($m)->translatedFormat('F') }}
-            </option>
-
-        @endfor
-
-    </select>
-
-    <select name="year" class="rounded-xl border-gray-300">
-
-        @for($y = now()->year - 2; $y <= now()->year + 2; $y++)
-
-            <option
-                value="{{ $y }}"
-                {{ $year == $y ? 'selected' : '' }}
-            >
-                {{ $y }}
-            </option>
-
-        @endfor
-
-    </select>
-
-    <button
-        class="px-4 bg-slate-800 text-white rounded-xl"
-    >
-        Ver
-    </button>
-
-</form>
+    </form>
 
     {{-- BUSCADOR --}}
     <div class="mb-5">
