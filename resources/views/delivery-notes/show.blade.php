@@ -34,9 +34,24 @@
                 <div class="grid grid-cols-2 gap-3">
                     <div class="bg-slate-50 rounded-xl p-3 md:p-4">
                         <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">Período</div>
-                        <div class="font-bold text-sm md:text-base capitalize leading-snug">
-                            {{ \Carbon\Carbon::create()->month($deliveryNote->month)->translatedFormat('F') }}
-                            {{ $deliveryNote->year }}
+                        {{-- Período del servicio --}}
+                        <div class="bg-slate-50 rounded-xl p-3 md:p-4">
+                            <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">
+                                Período del servicio
+                            </div>
+
+                            <div class="font-bold text-sm md:text-base capitalize leading-snug">
+                                @if($deliveryNote->month && $deliveryNote->year)
+                                    {{ \Carbon\Carbon::create()
+                                        ->month($deliveryNote->month)
+                                        ->locale('es')
+                                        ->monthName
+                                    }}
+                                    {{ $deliveryNote->year }}
+                                @else
+                                    Sin período asignado
+                                @endif
+                            </div>
                         </div>
                     </div>
                     <div class="bg-slate-50 rounded-xl p-3 md:p-4">
