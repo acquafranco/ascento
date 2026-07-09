@@ -23,14 +23,22 @@ class UserDashboard extends Page
 
     public $year;
 
+
     public function mount(User $record): void
     {
         Carbon::setLocale('es');
 
         $this->record = $record;
+    }
+
+
+    public function render()
+    {
+        Carbon::setLocale('es');
 
         $this->month = request('month', now()->month);
         $this->year  = request('year', now()->year);
+
 
         $visits = BuildingVisit::with([
                 'building',
@@ -38,20 +46,23 @@ class UserDashboard extends Page
                 'workOrder',
                 'deliveryNote',
             ])
-            ->where('user_id', $record->id)
+            ->where('user_id', $this->record->id)
             ->whereNotNull('visited_at')
             ->whereMonth('visited_at', $this->month)
             ->whereYear('visited_at', $this->year)
             ->orderBy('visited_at')
             ->get();
 
+
         $weeks = [];
+
 
         $current = Carbon::create(
             $this->year,
             $this->month,
             1
         )->startOfWeek(Carbon::MONDAY);
+
 
         $end = Carbon::create(
             $this->year,
@@ -61,26 +72,56 @@ class UserDashboard extends Page
             ->endOfMonth()
             ->endOfWeek(Carbon::SUNDAY);
 
+
+
         while ($current->lte($end)) {
 
-            $weekStart = $current->copy()->startOfDay();
 
-            $weekEnd = $current->copy()->addDays(6)->endOfDay();
+            $weekStart = $current
+                ->copy()
+                ->startOfDay();
+
+
+            $weekEnd = $current
+                ->copy()
+                ->addDays(6)
+                ->endOfDay();
+
+
 
             $weekVisits = $visits->filter(function ($visit) use ($weekStart, $weekEnd) {
+
                 return Carbon::parse($visit->visited_at)
                     ->between($weekStart, $weekEnd);
+
             });
 
+
+
             $weeks[] = [
-                'start'  => $weekStart,
-                'end'    => $weekEnd,
+
+                'start' => $weekStart,
+
+                'end' => $weekEnd,
+
                 'visits' => $weekVisits,
+
             ];
 
+
+
             $current->addWeek();
+
         }
 
-        $this->weeks = $weeks;
+
+        return view(
+            'filament.resources.users.pages.user-dashboard',
+            [
+                'weeks' => $weeks,
+                'month' => $this->month,
+                'year' => $this->year,
+            ]
+        );
     }
 }
