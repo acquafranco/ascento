@@ -68,18 +68,19 @@
                             </div>
                         </div>
                         <div>
-                            <label class="block text-xs text-slate-500 uppercase tracking-wider mb-1.5" for="month">
+                            <label class="block text-xs text-slate-500 uppercase tracking-wider mb-1.5">
                                 Mes
                             </label>
-                            <select
-                                disabled
-                                class="w-full rounded-xl border-slate-300 h-11 px-3 text-sm font-semibold bg-white"
-                            >
+
+                            <div class="w-full rounded-xl border border-slate-300 h-11 px-3 flex items-center text-sm font-semibold bg-white">
+                                {{ \Carbon\Carbon::create()->month($month)->locale('es')->monthName }}
+                            </div>
+
                             <input
                                 type="hidden"
                                 name="month"
                                 value="{{ $month }}"
-                                >
+                            >
                         </div>
                     </div>
 
