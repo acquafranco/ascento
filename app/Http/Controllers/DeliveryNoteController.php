@@ -86,7 +86,7 @@ class DeliveryNoteController extends Controller
 
             'elevator_quantity' => 'required|integer|min:0',
             'freight_elevator_quantity' => 'required|integer|min:0',
-
+            'assignment_type' => 'required|in:maintenance,inspection',
             'signature_name' => 'required|string|max:255',
             'signature' => 'required|string|min:100',
             'client_signature' => 'nullable|string',
@@ -97,13 +97,10 @@ class DeliveryNoteController extends Controller
             $request->building_id
         );
 
-        $assignmentType = $building
-            ->users()
-            ->where('users.id', auth()->id())
-            ->first()
-            ?->pivot
-            ->type;
+        $assignmentType = $request->assignment_type;
+
         $existingVisit = BuildingVisit::where('building_id', $building->id)
+             ->where('user_id', auth()->id())
             ->where('visit_type', 'fixed')
             ->where('month', $request->month)
             ->where('year', $request->year)
