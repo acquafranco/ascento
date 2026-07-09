@@ -12,7 +12,6 @@ class UserDashboard extends Page
 {
     protected static string $resource = UserResource::class;
 
-    // 👇 IMPORTANTE: NO static
     protected string $view =
         'filament.resources.users.pages.user-dashboard';
 
@@ -20,33 +19,86 @@ class UserDashboard extends Page
 
     public $weeks = [];
 
+    public $month;
+
+    public $year;
+
+
     public function mount(User $record): void
     {
+        Carbon::setLocale('es');
+
         $this->record = $record;
 
-        $visits = BuildingVisit::with(['building', 'user'])
+        // Leer filtros del formulario
+        $this->month = request('month', now()->month);
+        $this->year  = request('year', now()->year);
+
+
+        $visits = BuildingVisit::with([
+                'building',
+                'user'
+            ])
             ->where('user_id', $record->id)
+            ->whereNotNull('visited_at')
+            ->whereMonth('visited_at', $this->month)
+            ->whereYear('visited_at', $this->year)
+            ->orderBy('visited_at')
             ->get();
 
-        $start = now()->subDays(30)->startOfWeek();
 
         $weeks = [];
 
-        for ($w = 0; $w < 6; $w++) {
 
-            $weekStart = $start->copy()->addWeeks($w);
-            $weekEnd = $weekStart->copy()->endOfWeek();
+        $current = Carbon::create(
+            $this->year,
+            $this->month,
+            1
+        )->startOfWeek(Carbon::MONDAY);
+
+
+        $end = Carbon::create(
+            $this->year,
+            $this->month,
+            1
+        )
+        ->endOfMonth()
+        ->endOfWeek(Carbon::SUNDAY);
+
+
+
+        while ($current->lte($end)) {
+
+            $weekStart = $current->copy()->startOfDay();
+
+            $weekEnd = $current->copy()
+                ->addDays(6)
+                ->endOfDay();
+
+
+            $weekVisits = $visits->filter(function ($visit) use ($weekStart, $weekEnd) {
+
+                return Carbon::parse($visit->visited_at)
+                    ->between($weekStart, $weekEnd);
+
+            });
+
 
             $weeks[] = [
+
                 'start' => $weekStart,
+
                 'end' => $weekEnd,
-                'visits' => $visits->filter(
-                    fn ($v) =>
-                        Carbon::parse($v->visited_at)
-                            ->between($weekStart, $weekEnd)
-                ),
+
+                'visits' => $weekVisits,
+
             ];
+
+
+            $current->addWeek();
+
         }
+
 
         $this->weeks = $weeks;
     }
