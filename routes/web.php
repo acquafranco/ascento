@@ -90,27 +90,45 @@ Route::middleware(['auth'])->group(function () {
     |--------------------------------------------------------------------------
     */
 
-    Route::get('/users/{user}/template', function (User $user) {
+   Route::get('/users/{user}/template', function (User $user) {
 
-         abort_unless(
+        abort_unless(
             Gate::forUser(auth()->user())->allows('view-user-template', $user),
             403,
             'Solo admin puede ver esto'
         );
 
-        // 📦 DATA
+        $month = request('month', now()->month);
+        $year  = request('year', now()->year);
+
         $visits = BuildingVisit::with(['building', 'user'])
             ->where('user_id', $user->id)
+            ->whereNotNull('visited_at')
+            ->whereMonth('visited_at', $month)
+            ->whereYear('visited_at', $year)
+            ->orderBy('visited_at')
             ->get();
-
-        $start = now()->subDays(30)->startOfWeek();
 
         $weeks = [];
 
-        for ($w = 0; $w < 6; $w++) {
+        $current = \Carbon\Carbon::create(
+            $year,
+            $month,
+            1
+        )->startOfWeek(\Carbon\Carbon::MONDAY);
 
-            $weekStart = $start->copy()->addWeeks($w);
-            $weekEnd = $weekStart->copy()->endOfWeek();
+        $end = \Carbon\Carbon::create(
+            $year,
+            $month,
+            1
+        )
+            ->endOfMonth()
+            ->endOfWeek(\Carbon\Carbon::SUNDAY);
+
+        while ($current->lte($end)) {
+
+            $weekStart = $current->copy()->startOfDay();
+            $weekEnd = $current->copy()->addDays(6)->endOfDay();
 
             $weeks[] = [
                 'start' => $weekStart,
@@ -121,13 +139,15 @@ Route::middleware(['auth'])->group(function () {
                             ->between($weekStart, $weekEnd)
                 ),
             ];
+
+            $current->addWeek();
         }
 
         return view('admin.user-template', [
             'user' => $user,
             'weeks' => $weeks,
-            'month' => request('month', now()->month),
-            'year' => request('year', now()->year),
+            'month' => $month,
+            'year' => $year,
         ]);
 
     })->name('users.template');
