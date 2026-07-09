@@ -15,50 +15,43 @@
     </div>
 
     {{-- FILTROS --}}
-    <form
-        method="GET"
-        class="flex gap-3 mb-8"
+    <form method="GET" class="flex gap-3 mb-8">
+
+    <select
+        name="month"
+        onchange="this.form.submit()"
+        class="rounded-xl border-gray-300"
     >
+        @foreach(range(1,12) as $m)
 
-        <select
-            name="month"
-            onchange="this.form.submit()"
-            class="rounded-xl border-gray-300"
-        >
-            @foreach(range(1,12) as $m)
+            <option
+                value="{{ $m }}"
+                {{ $month == $m ? 'selected' : '' }}
+            >
+                {{ \Carbon\Carbon::create()->month($m)->translatedFormat('F') }}
+            </option>
 
-                <option
-                    value="{{ $m }}"
-                    @selected($month == $m)
-                >
-                    {{
-                        \Carbon\Carbon::create()
-                            ->month($m)
-                            ->translatedFormat('F')
-                    }}
-                </option>
+        @endforeach
+    </select>
 
-            @endforeach
-        </select>
+    <select
+        name="year"
+        onchange="this.form.submit()"
+        class="rounded-xl border-gray-300"
+    >
+        @foreach(range($year - 3, $year + 1) as $y)
 
-        <select
-            name="year"
-            onchange="this.form.submit()"
-            class="rounded-xl border-gray-300"
-        >
-            @foreach(range(now()->year - 3, now()->year + 1) as $y)
+            <option
+                value="{{ $y }}"
+                {{ $year == $y ? 'selected' : '' }}
+            >
+                {{ $y }}
+            </option>
 
-                <option
-                    value="{{ $y }}"
-                    @selected($year == $y)
-                >
-                    {{ $y }}
-                </option>
+        @endforeach
+    </select>
 
-            @endforeach
-        </select>
-
-    </form>
+</form>
 
     <div class="space-y-8">
 
