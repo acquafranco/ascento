@@ -17,8 +17,9 @@ class BuildingController extends Controller
         $buildings = $user
             ->buildings()
             ->with('client')
-            ->groupBy('buildings.id')
-            ->paginate(20);
+            ->get()
+            ->unique('id')
+            ->values();
 
         return view(
             'buildings.index',
