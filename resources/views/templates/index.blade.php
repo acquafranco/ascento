@@ -21,10 +21,9 @@
     >
 
         <select
-            name="month"
-            onchange="this.form.submit()"
-            class="rounded-xl border-gray-300"
-        >
+    wire:model.live="month"
+    class="rounded-xl border-gray-300"
+>
             @foreach(range(1,12) as $m)
 
                 <option
@@ -42,10 +41,9 @@
         </select>
 
         <select
-            name="year"
-            onchange="this.form.submit()"
-            class="rounded-xl border-gray-300"
-        >
+    wire:model.live="year"
+    class="rounded-xl border-gray-300"
+>
             @foreach(range(now()->year - 3, now()->year + 1) as $y)
 
                 <option

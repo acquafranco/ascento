@@ -19,11 +19,14 @@ class UserDashboard extends Page
 
     public User $record;
 
+
     public $weeks = [];
+
 
     public $month;
 
     public $year;
+
 
 
     public function mount(User $record): void
@@ -31,36 +34,52 @@ class UserDashboard extends Page
         Carbon::setLocale('es');
 
         $this->record = $record;
+
+        $this->month = now()->month;
+
+        $this->year = now()->year;
+
+
+        $this->loadWeeks();
     }
 
 
 
-    public function render(): View
+    public function updatedMonth(): void
     {
-        Carbon::setLocale('es');
+        $this->loadWeeks();
+    }
 
 
-        $this->month = request('month', now()->month);
-        $this->year  = request('year', now()->year);
+
+    public function updatedYear(): void
+    {
+        $this->loadWeeks();
+    }
 
 
+
+
+    private function loadWeeks(): void
+    {
 
         $visits = BuildingVisit::with([
-                'building',
-                'user',
-                'workOrder',
-                'deliveryNote',
-            ])
-            ->where('user_id', $this->record->id)
-            ->whereNotNull('visited_at')
-            ->whereMonth('visited_at', $this->month)
-            ->whereYear('visited_at', $this->year)
-            ->orderBy('visited_at')
-            ->get();
+            'building',
+            'user',
+            'workOrder',
+            'deliveryNote',
+        ])
+        ->where('user_id', $this->record->id)
+        ->whereNotNull('visited_at')
+        ->whereMonth('visited_at', $this->month)
+        ->whereYear('visited_at', $this->year)
+        ->orderBy('visited_at')
+        ->get();
 
 
 
         $weeks = [];
+
 
 
         $current = Carbon::create(
@@ -81,12 +100,18 @@ class UserDashboard extends Page
 
 
 
+
         while ($current->lte($end)) {
 
 
-            $weekStart = $current->copy()->startOfDay();
+            $weekStart = $current
+                ->copy()
+                ->startOfDay();
 
-            $weekEnd = $current->copy()
+
+
+            $weekEnd = $current
+                ->copy()
                 ->addDays(6)
                 ->endOfDay();
 
@@ -119,10 +144,19 @@ class UserDashboard extends Page
 
 
 
+        $this->weeks = $weeks;
+
+    }
+
+
+
+
+    public function render(): View
+    {
         return view(
             'filament.resources.users.pages.user-dashboard',
             [
-                'weeks' => $weeks,
+                'weeks' => $this->weeks,
                 'month' => $this->month,
                 'year' => $this->year,
             ]
