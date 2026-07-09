@@ -11,30 +11,53 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class DeliveryNoteController extends Controller
 {
-    public function index()
-    {
-        $deliveryNotes = DeliveryNote::with([
+   public function index(Request $request)
+
+{
+
+        $query = DeliveryNote::with([
+
             'building',
+
             'user',
+
         ])
-        ->where('user_id', auth()->id())
-        ->latest()
-        ->get();
+
+        ->where('user_id', auth()->id());
+
         if ($request->filled('day')) {
 
-        $query->whereDay('created_at', $request->day);
+            $query->whereDay(
+
+                'created_at',
+
+                $request->day
+
+            );
 
         }
 
         if ($request->filled('month')) {
 
-            $query->whereMonth('created_at', $request->month);
+            $query->whereMonth(
+
+                'created_at',
+
+                $request->month
+
+            );
 
         }
 
         if ($request->filled('year')) {
 
-            $query->whereYear('created_at', $request->year);
+            $query->whereYear(
+
+                'created_at',
+
+                $request->year
+
+            );
 
         }
 
@@ -45,9 +68,13 @@ class DeliveryNoteController extends Controller
             ->get();
 
         return view(
+
             'delivery-notes.index',
+
             compact('deliveryNotes')
+
         );
+
     }
 
     public function show(DeliveryNote $deliveryNote)
