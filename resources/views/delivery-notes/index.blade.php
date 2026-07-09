@@ -19,6 +19,73 @@
 
 </div>
 
+<form method="GET" class="mb-6 flex flex-wrap gap-3">
+
+    <select
+        name="day"
+        onchange="this.form.submit()"
+        class="rounded-xl border-gray-300"
+    >
+        <option value="">Todos los días</option>
+
+        @for($d=1;$d<=31;$d++)
+            <option
+                value="{{ $d }}"
+                @selected(request('day')==$d)
+            >
+                {{ $d }}
+            </option>
+        @endfor
+
+    </select>
+
+    <select
+        name="month"
+        onchange="this.form.submit()"
+        class="rounded-xl border-gray-300"
+    >
+
+        <option value="">Todos los meses</option>
+
+        @for($m=1;$m<=12;$m++)
+            <option
+                value="{{ $m }}"
+                @selected(request('month')==$m)
+            >
+                {{ \Carbon\Carbon::create()->month($m)->translatedFormat('F') }}
+            </option>
+        @endfor
+
+    </select>
+
+    <select
+        name="year"
+        onchange="this.form.submit()"
+        class="rounded-xl border-gray-300"
+    >
+
+        <option value="">Todos los años</option>
+
+        @for($y=now()->year-3;$y<=now()->year+1;$y++)
+            <option
+                value="{{ $y }}"
+                @selected(request('year')==$y)
+            >
+                {{ $y }}
+            </option>
+        @endfor
+
+    </select>
+
+    <a
+        href="{{ route('delivery-notes.index') }}"
+        class="px-4 py-2 rounded-xl bg-gray-200 hover:bg-gray-300"
+    >
+        Limpiar
+    </a>
+
+</form>
+
 <div class="grid gap-4">
 
     @forelse($deliveryNotes as $note)

@@ -20,6 +20,29 @@ class DeliveryNoteController extends Controller
         ->where('user_id', auth()->id())
         ->latest()
         ->get();
+        if ($request->filled('day')) {
+
+        $query->whereDay('created_at', $request->day);
+
+        }
+
+        if ($request->filled('month')) {
+
+            $query->whereMonth('created_at', $request->month);
+
+        }
+
+        if ($request->filled('year')) {
+
+            $query->whereYear('created_at', $request->year);
+
+        }
+
+        $deliveryNotes = $query
+
+            ->latest()
+
+            ->get();
 
         return view(
             'delivery-notes.index',
