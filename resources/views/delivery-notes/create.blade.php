@@ -72,10 +72,9 @@
                                 Mes
                             </label>
 
-                            <div class="w-full rounded-xl border border-slate-300 h-11 px-3 flex items-center text-sm font-semibold bg-white">
-                                {{ \Carbon\Carbon::create()->month($month)->locale('es')->monthName }}
-                            </div>
-
+                      <div class="w-full rounded-xl border border-slate-300 h-11 px-3 flex items-center text-sm font-semibold bg-white">
+    {{ $month }}
+</div>
                             <input
                                 type="hidden"
                                 name="month"
