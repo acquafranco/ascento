@@ -30,6 +30,7 @@ class BuildingVisit extends Model
         'finished_at',
 
         'work_type',
+        'source',
     ];
 
     protected $casts = [
