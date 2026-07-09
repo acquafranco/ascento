@@ -17,6 +17,8 @@ class BuildingController extends Controller
         $buildings = $user
             ->buildings()
             ->with('client')
+            ->select('buildings.*')
+            ->distinct()
             ->paginate(20);
 
         return view(
