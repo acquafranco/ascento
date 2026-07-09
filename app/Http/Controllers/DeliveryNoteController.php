@@ -120,6 +120,9 @@ class DeliveryNoteController extends Controller
                 'workOrder' => $workOrder,
                 'month' => $request->month ?? now()->month,
                 'year' => $request->year ?? now()->year,
+                'assignmentType' => $workOrder->type === 'inspection'
+                    ? 'inspection'
+                    : 'maintenance',
             ]
         );
     }
