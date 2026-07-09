@@ -74,6 +74,7 @@ return new class extends Migration
                 'building_id',
                 'user_id',
                 'visit_type',
+                'assignment_type',
                 'month',
                 'year'
             ]);

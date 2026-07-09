@@ -140,7 +140,7 @@ class BuildingsTable
                 */
 
                 Action::make('removeTechnician')
-                    ->label('Quitar empleado')
+                    ->label('Quitar asignación')
                     ->icon('heroicon-o-user-minus')
                     ->color('danger')
 
@@ -148,36 +148,43 @@ class BuildingsTable
 
                         Select::make('user_id')
                             ->label('Empleado')
-
                             ->options(
                                 fn ($record) =>
-
-                                $record->users()
-                                    ->pluck(
-                                        'name',
-                                        'users.id'
-                                    )
-                                    ->toArray()
+                                    $record->users()
+                                        ->pluck(
+                                            'name',
+                                            'users.id'
+                                        )
                             )
-
                             ->searchable()
+                            ->required(),
+
+
+                        Select::make('type')
+                            ->label('Trabajo')
+                            ->options([
+                                'maintenance' => 'Mantenimiento',
+                                'inspection' => 'Inspección',
+                            ])
                             ->required(),
 
                     ])
 
-                    ->action(function (
-                        array $data,
-                        $record
-                    ) {
+                    ->action(function(array $data, $record){
 
                         $record->users()
+                            ->wherePivot(
+                                'type',
+                                $data['type']
+                            )
                             ->detach(
                                 $data['user_id']
                             );
+
                     })
 
                     ->successNotificationTitle(
-                        'Empleado quitado'
+                        'Asignación eliminada'
                     ),
             ])
 
