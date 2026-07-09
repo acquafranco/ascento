@@ -49,10 +49,7 @@ return new class extends Migration
             ]);
 
              $table->string('assignment_type')
-
-                ->nullable()
-
-                ->after('visit_type');
+            ->default('maintenance');
 
             /*
             |--------------------------------------------------------------------------
