@@ -60,13 +60,15 @@ class DeliveryNoteController extends Controller
         );
     }
 
-    public function createFromWorkOrder(WorkOrder $workOrder)
+    public function createFromWorkOrder(Request $request, WorkOrder $workOrder)
     {
         return view(
             'delivery-notes.create',
             [
                 'building' => $workOrder->building,
                 'workOrder' => $workOrder,
+                'month' => $request->month ?? now()->month,
+                'year' => $request->year ?? now()->year,
             ]
         );
     }
@@ -94,20 +96,39 @@ class DeliveryNoteController extends Controller
             $request->building_id
         );
 
+
+
+        if($existingVisit){
+
+            return back()
+                ->withErrors([
+                    'month' =>
+                    'Este edificio ya tiene un mantenimiento registrado para este mes.'
+                ]);
+
+        }
+
         $visit = BuildingVisit::firstOrCreate(
-            [
-                'building_id' => $building->id,
-                'user_id' => auth()->id(),
-                'visit_type' => $request->work_order_id ? 'work_order' : 'fixed',
-                'month' => $request->month,
-                'year' => $request->year,
-            ],
-            [
-                'status' => $request->boolean('performed') ? 'done' : 'failed',
-                'work_order_id' => $request->work_order_id,
-                'visited_at' => now(),
-            ]
-        );
+
+        [
+            'building_id' => $building->id,
+            'user_id' => auth()->id(),
+            'visit_type' => 'fixed',
+            'month' => $request->month,
+            'year' => $request->year,
+        ],
+
+        [
+            'source' => 'building',
+
+            'status' => $request->boolean('performed')
+                ? 'done'
+                : 'failed',
+
+            'visited_at' => now(),
+        ]
+
+    );
 
         $deliveryNote = DeliveryNote::create([
 

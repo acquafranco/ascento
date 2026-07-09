@@ -5,10 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\Building;
 use App\Models\BuildingVisit;
 use Illuminate\Http\Request;
-use Carbon\Carbon;
 
 class BuildingCheckController extends Controller
 {
+
     public function done(
         Request $request,
         Building $building
@@ -16,89 +16,59 @@ class BuildingCheckController extends Controller
 
         $this->authorizeBuilding($building);
 
-        /*
-        |--------------------------------------------------------------------------
-        | PERIODO SELECCIONADO
-        |--------------------------------------------------------------------------
-        */
 
         $month = $request->month ?? now()->month;
         $year  = $request->year ?? now()->year;
 
+
         /*
         |--------------------------------------------------------------------------
-        | BUSCAR VISITA DEL PERIODO
+        | BUSCAR MANTENIMIENTO DEL PERIODO
         |--------------------------------------------------------------------------
         */
 
-        $visit = BuildingVisit::where(
-                'building_id',
-                $building->id
-            )
-            ->where(
-                'user_id',
-                auth()->id()
-            )
-            ->where(
-                'visit_type',
-                'fixed'
-            )
-            ->where(
-                'month',
-                $month
-            )
-            ->where(
-                'year',
-                $year
-            )
+        $visit = BuildingVisit::where('building_id', $building->id)
+            ->where('user_id', auth()->id())
+            ->where('visit_type', 'fixed')
+            ->where('month', $month)
+            ->where('year', $year)
             ->first();
 
+
         /*
         |--------------------------------------------------------------------------
-        | DESMARCAR
+        | SI EXISTE, DESMARCAR
         |--------------------------------------------------------------------------
         */
 
-        if ($visit) {
+        if($visit){
 
             $visit->delete();
 
-            return back();
+            return back()->with(
+                'success',
+                'Mantenimiento desmarcado correctamente.'
+            );
 
         }
 
+
         /*
         |--------------------------------------------------------------------------
-        | CREAR MANTENIMIENTO
+        | SI NO EXISTE NO CREA NADA
         |--------------------------------------------------------------------------
         */
 
-        BuildingVisit::create([
-
-            'building_id' => $building->id,
-
-            'user_id' => auth()->id(),
-
-            'visit_type' => 'fixed',
-
-            'status' => 'done',
-
-            'month' => $month,
-
-            'year' => $year,
-
-            'delivery_note' => $request->delivery_note,
-
-            'visited_at' => now(),
-
-        ]);
-
         return back();
+
     }
+
+
 
     private function authorizeBuilding(
         Building $building
     ): void {
+
 
         abort_unless(
 
@@ -115,6 +85,5 @@ class BuildingCheckController extends Controller
         );
 
     }
+
 }
-
-

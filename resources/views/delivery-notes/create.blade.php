@@ -38,6 +38,7 @@
 
             <input type="hidden" name="building_id"               value="{{ $building->id }}">
             <input type="hidden" name="year" value="{{ $year }}">
+            <input type="hidden" name="month" value="{{ $month }}">
             <input type="hidden" name="elevator_quantity"         value="{{ $building->elevator_count }}">
             <input type="hidden" name="freight_elevator_quantity" value="{{ $building->freight_elevator_count }}">
             <input type="hidden" name="signature"        id="sig-tech-input">
@@ -70,14 +71,15 @@
                             <label class="block text-xs text-slate-500 uppercase tracking-wider mb-1.5" for="month">
                                 Mes
                             </label>
-                            <select name="month" id="month"
-                                class="w-full rounded-xl border-slate-300 h-11 px-3 text-sm font-semibold bg-white">
-                                @foreach(range(1, 12) as $m)
-                                    <option value="{{ $m }}" {{ $month == $m ? 'selected' : '' }}>
-                                        {{ \Carbon\Carbon::create()->month($m)->translatedFormat('F') }}
-                                    </option>
-                                @endforeach
-                            </select>
+                            <select
+                                disabled
+                                class="w-full rounded-xl border-slate-300 h-11 px-3 text-sm font-semibold bg-white"
+                            >
+                            <input
+                                type="hidden"
+                                name="month"
+                                value="{{ $month }}"
+                                >
                         </div>
                     </div>
 
