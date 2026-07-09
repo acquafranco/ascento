@@ -96,7 +96,10 @@ class DeliveryNoteController extends Controller
             $request->building_id
         );
 
-
+        $existingVisit = BuildingVisit::where('building_id', $building->id)
+    ->where('month', $request->month)
+    ->where('year', $request->year)
+    ->exists();
 
         if($existingVisit){
 
