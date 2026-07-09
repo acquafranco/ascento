@@ -17,7 +17,7 @@ return new class extends Migration {
 
         $table->timestamps();
 
-        $table->unique(['building_id', 'user_id']);
+        $table->unique(['building_id', 'user_id', 'type']);
     });
     }
 

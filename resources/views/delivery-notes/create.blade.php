@@ -87,6 +87,11 @@
                             </select>
                         </div>
                     </div>
+                    <input
+    type="hidden"
+    name="assignment_type"
+    value="{{ $assignmentType }}"
+>
 
                     {{-- 3. Descripción --}}
                     <div>

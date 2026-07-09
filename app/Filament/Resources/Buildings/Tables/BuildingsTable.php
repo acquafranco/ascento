@@ -112,14 +112,21 @@ class BuildingsTable
                         $record
                     ) {
 
-                        $record->users()
-                            ->syncWithoutDetaching([
+                        $exists = $record->users()
+                            ->where('users.id',$data['user_id'])
+                            ->wherePivot('type',$data['type'])
+                            ->exists();
 
-                                $data['user_id'] => [
-                                    'type'
-                                        => $data['type'],
-                                ],
-                            ]);
+                        if(!$exists){
+
+                            $record->users()->attach(
+                                $data['user_id'],
+                                [
+                                    'type'=>$data['type']
+                                ]
+                            );
+
+                        }
                     })
 
                     ->successNotificationTitle(

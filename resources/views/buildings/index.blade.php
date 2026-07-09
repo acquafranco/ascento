@@ -67,16 +67,29 @@
         @forelse($buildings as $building)
 
             @php
-                $visit =
-                    \App\Models\BuildingVisit::where('building_id', $building->id)
-                        ->where('user_id', auth()->id())
-                        ->where('visit_type', 'fixed')
-                        ->where('month', $month)
-                        ->where('year', $year)
-                        ->first();
 
-                $done = $visit !== null;
-            @endphp
+                $types = $building->users
+                    ->where('id', auth()->id())
+                    ->pluck('pivot.type')
+                    ->toArray();
+
+                $maintenanceVisit = \App\Models\BuildingVisit::where('building_id', $building->id)
+                    ->where('user_id', auth()->id())
+                    ->where('visit_type', 'fixed')
+                    ->where('assignment_type', 'maintenance')
+                    ->where('month', $month)
+                    ->where('year', $year)
+                    ->first();
+
+                $inspectionVisit = \App\Models\BuildingVisit::where('building_id', $building->id)
+                    ->where('user_id', auth()->id())
+                    ->where('visit_type', 'fixed')
+                    ->where('assignment_type', 'inspection')
+                    ->where('month', $month)
+                    ->where('year', $year)
+                    ->first();
+
+                @endphp
 
             {{-- 🔥 UN SOLO DISEÑO (mobile + desktop) --}}
             <div
@@ -134,74 +147,129 @@
                     </div>
 
                     {{-- ESTADO --}}
-                    <div class="mt-4">
+                    <div class="mt-4 space-y-3">
 
-                        @if(!$done)
+                {{-- MANTENIMIENTO --}}
+                @if(in_array('maintenance', $types))
 
-                            <a href="{{ route('delivery-notes.building', [
+                    @if(!$maintenanceVisit)
 
-                                    'building' => $building,
+                        <a
+                            href="{{ route('delivery-notes.building',[
+                                'building'=>$building,
+                                'month'=>$month,
+                                'year'=>$year,
+                                'assignment_type'=>'maintenance'
+                            ]) }}"
+                            class="block text-center bg-slate-800 hover:bg-slate-900 text-white py-3 rounded-2xl font-bold"
+                        >
+                            🔧 Marcar mantenimiento
+                        </a>
 
-                                    'month' => $month,
+                    @else
 
-                                    'year' => $year,
+                        <div class="flex items-center justify-between bg-green-50 border border-green-200 rounded-2xl p-4">
 
-                                ]) }}"
-                                class="block text-center bg-slate-800 hover:bg-slate-900 text-white py-3 rounded-2xl font-bold transition"
-                            >
-                                Marcar mantenimiento
-                            </a>
+                            <div>
 
-                        @else
-
-                            <div class="flex items-center justify-between bg-green-50 border border-green-200 rounded-2xl p-4">
-
-                                <div>
-
-                                    <div class="font-bold text-green-700">
-                                        Mantenimiento realizado
-                                    </div>
-
-                                    @if($visit->delivery_note)
-                                        <div class="text-sm text-slate-500">
-                                            Remito #{{ $visit->delivery_note }}
-                                        </div>
-                                    @endif
-
+                                <div class="font-bold text-green-700">
+                                    🔧 Mantenimiento realizado
                                 </div>
+
+                                @if($maintenanceVisit->delivery_note)
+                                    <div class="text-sm text-slate-500">
+                                        Remito #{{ $maintenanceVisit->delivery_note }}
+                                    </div>
+                                @endif
+
+                            </div>
+
                             <form
                                 method="POST"
-                                action="{{ route('building-check.done', $building) }}"
-                                onsubmit="return confirmarDesmarcar();"
+                                action="{{ route('building-check.done',$building) }}"
                             >
                                 @csrf
 
-                                <input
-                                    type="hidden"
-                                    name="month"
-                                    value="{{ $month }}"
-                                >
-
-                                <input
-                                    type="hidden"
-                                    name="year"
-                                    value="{{ $year }}"
-                                >
+                                <input type="hidden" name="month" value="{{ $month }}">
+                                <input type="hidden" name="year" value="{{ $year }}">
+                                <input type="hidden" name="assignment_type" value="maintenance">
 
                                 <button
-                                    type="submit"
-                                    class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl font-semibold"
+                                    class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl"
                                 >
                                     Desmarcar
                                 </button>
 
                             </form>
 
+                        </div>
+
+                    @endif
+
+                @endif
+
+
+
+                {{-- INSPECCIÓN --}}
+                @if(in_array('inspection', $types))
+
+                    @if(!$inspectionVisit)
+
+                        <a
+                            href="{{ route('delivery-notes.building',[
+                                'building'=>$building,
+                                'month'=>$month,
+                                'year'=>$year,
+                                'assignment_type'=>'inspection'
+                            ]) }}"
+                            class="block text-center bg-blue-700 hover:bg-blue-800 text-white py-3 rounded-2xl font-bold"
+                        >
+                            🔎 Marcar inspección
+                        </a>
+
+                    @else
+
+                        <div class="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-2xl p-4">
+
+                            <div>
+
+                                <div class="font-bold text-blue-700">
+                                    🔎 Inspección realizada
+                                </div>
+
+                                @if($inspectionVisit->delivery_note)
+                                    <div class="text-sm text-slate-500">
+                                        Remito #{{ $inspectionVisit->delivery_note }}
+                                    </div>
+                                @endif
+
                             </div>
 
-                        @endif
+                            <form
+                                method="POST"
+                                action="{{ route('building-check.done',$building) }}"
+                            >
+                                @csrf
 
-                    </div>
+                                <input type="hidden" name="month" value="{{ $month }}">
+                                <input type="hidden" name="year" value="{{ $year }}">
+                                <input type="hidden" name="assignment_type" value="inspection">
+
+                                <button
+                                    class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl"
+                                >
+                                    Desmarcar
+                                </button>
+
+                            </form>
+
+                        </div>
+
+                    @endif
+
+                @endif
+
+            </div>
 
                 </div>
 

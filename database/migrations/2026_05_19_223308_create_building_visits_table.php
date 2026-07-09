@@ -48,6 +48,12 @@ return new class extends Migration
                 'work_order',
             ]);
 
+             $table->string('assignment_type')
+
+                ->nullable()
+
+                ->after('visit_type');
+
             /*
             |--------------------------------------------------------------------------
             | ESTADO

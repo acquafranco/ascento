@@ -26,10 +26,17 @@ class BuildingCheckController extends Controller
         | BUSCAR MANTENIMIENTO DEL PERIODO
         |--------------------------------------------------------------------------
         */
+        $assignmentType = $building
+            ->users()
+            ->where('users.id', auth()->id())
+            ->first()
+            ?->pivot
+            ->type;
 
         $visit = BuildingVisit::where('building_id', $building->id)
             ->where('user_id', auth()->id())
             ->where('visit_type', 'fixed')
+            ->where('assignment_type', $assignmentType)
             ->where('month', $month)
             ->where('year', $year)
             ->first();

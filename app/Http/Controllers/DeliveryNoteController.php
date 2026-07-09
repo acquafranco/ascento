@@ -56,6 +56,7 @@ class DeliveryNoteController extends Controller
                 'workOrder' => null,
                 'month' => $request->month ?? now()->month,
                 'year' => $request->year ?? now()->year,
+                'assignmentType' => $request->assignment_type,
             ]
         );
     }
@@ -96,10 +97,18 @@ class DeliveryNoteController extends Controller
             $request->building_id
         );
 
+        $assignmentType = $building
+            ->users()
+            ->where('users.id', auth()->id())
+            ->first()
+            ?->pivot
+            ->type;
         $existingVisit = BuildingVisit::where('building_id', $building->id)
-    ->where('month', $request->month)
-    ->where('year', $request->year)
-    ->exists();
+            ->where('visit_type', 'fixed')
+            ->where('month', $request->month)
+            ->where('year', $request->year)
+            ->where('assignment_type', $assignmentType)
+            ->exists();
 
         if($existingVisit){
 
@@ -113,23 +122,21 @@ class DeliveryNoteController extends Controller
 
         $visit = BuildingVisit::firstOrCreate(
 
-        [
-            'building_id' => $building->id,
-            'user_id' => auth()->id(),
-            'visit_type' => 'fixed',
-            'month' => $request->month,
-            'year' => $request->year,
-        ],
+            [
+                'building_id' => $building->id,
+                'user_id' => auth()->id(),
+                'visit_type' => 'fixed',
+                'assignment_type' => $assignmentType,
+                'month' => $request->month,
+                'year' => $request->year,
+            ],
 
-        [
-            'source' => 'building',
+            [
+                'source' => 'building',
+                'status' => $request->boolean('performed') ? 'done' : 'failed',
+                'visited_at' => now(),
+            ]
 
-            'status' => $request->boolean('performed')
-                ? 'done'
-                : 'failed',
-
-            'visited_at' => now(),
-        ]
 
     );
 
