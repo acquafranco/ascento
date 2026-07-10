@@ -150,7 +150,7 @@
                     <input
                         type="hidden"
                         name="assignment_type"
-                        value="{{ $assignmentType }}"
+                        value="{{ $workOrder ? 'work_order' : $assignmentType }}"
                     >
 
                     {{-- 3. Descripción --}}
