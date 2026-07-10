@@ -147,7 +147,7 @@ class DeliveryNoteController extends Controller
         'elevator_quantity' => 'required|integer|min:0',
         'freight_elevator_quantity' => 'required|integer|min:0',
 
-        'assignment_type' => 'nullable|in:maintenance,inspection,work_order',
+        'assignment_type' => 'required|in:maintenance,inspection,work_order',
         'signature_name' => 'required|string|max:255',
         'signature' => 'required|string|min:100',
         'client_signature' => 'nullable|string',
@@ -166,13 +166,14 @@ class DeliveryNoteController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    if ($request->filled('work_order_id')) {
+        if ($request->filled('work_order_id')) {
 
-        // Trabajo puntual
         $visitType = 'work_order';
-        $assignmentType = null;
 
-    } else {
+        $assignmentType = $request->assignment_type
+            ?? 'work_order';
+
+        }else {
 
         // Mantenimiento / inspección mensual
         $visitType = 'fixed';
