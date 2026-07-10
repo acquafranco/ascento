@@ -45,7 +45,9 @@ class User extends Authenticatable implements FilamentUser
     {
         return $this->belongsToMany(Building::class)
             ->withPivot('type')
-            ->withTimestamps();
+            ->withTimestamps()
+            ->select('buildings.*')
+            ->distinct();
     }
 
     public function workOrders()
@@ -62,11 +64,11 @@ class User extends Authenticatable implements FilamentUser
     }
 
     public function buildingVisits()
-{
-    return $this->hasMany(BuildingVisit::class);
-}
-public function deliveryNotes()
-{
-    return $this->hasMany(DeliveryNote::class);
-}
-}
+    {
+        return $this->hasMany(BuildingVisit::class);
+    }
+    public function deliveryNotes()
+    {
+        return $this->hasMany(DeliveryNote::class);
+    }
+    }
