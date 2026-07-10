@@ -58,4 +58,5 @@ class Building extends Model
     {
         return "{$this->name} - {$this->address}";
     }
+
 }

@@ -81,7 +81,6 @@
             <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
                 <div class="p-5 md:p-7 space-y-5">
 
-                    {{-- 1. Cliente / Dirección --}}
                     {{-- 1. Cliente / Dirección / Fecha --}}
 <div class="grid grid-cols-3 gap-3">
 
@@ -102,7 +101,7 @@
         </div>
 
         <div class="font-semibold text-sm leading-snug">
-            {{ $building->name }}{{ $building->address }}
+            {{ $building->name }} {{ $building->address }}
         </div>
     </div>
 

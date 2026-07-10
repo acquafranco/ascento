@@ -104,7 +104,7 @@
                     </h2>
 
                     <p class="text-gray-500 mt-1">
-                        {{ $note->building?->name }}{{ $note->building?->address }}
+                        {{ $note->building?->name }} {{ $note->building?->address }}
 
                     </p>
 

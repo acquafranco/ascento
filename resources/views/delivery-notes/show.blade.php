@@ -69,7 +69,7 @@
                     </div>
                     <div class="bg-slate-50 rounded-xl p-3 md:p-4">
                         <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">Dirección</div>
-                        <div class="font-semibold text-xs md:text-sm leading-snug">{{ $deliveryNote->building?->name }}</div>
+                        <div class="font-semibold text-xs md:text-sm leading-snug">{{ $deliveryNote->building?->name }} {{ $deliveryNote->building?->address }}</div>
                     </div>
                     <div class="bg-slate-50 rounded-xl p-3 md:p-4">
                 <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">

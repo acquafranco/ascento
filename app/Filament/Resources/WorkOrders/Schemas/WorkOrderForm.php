@@ -14,22 +14,20 @@ class WorkOrderForm
         return $schema
             ->components([
 
-                Forms\Components\Select::make(
-                    'building_id'
-                )
-                    ->relationship(
-                        name: 'building',
-                        titleAttribute: 'name'
-                    )
-                    ->getOptionLabelFromRecordUsing(
-                        fn ($record) =>
-                            "{$record->name} {$record->address}"
-                    )
+                Forms\Components\Select::make('building_id')
+                    ->label('Edificio')
+                    ->options(function () {
+                        return \App\Models\Building::query()
+                            ->get()
+                            ->mapWithKeys(fn ($building) => [
+                                $building->id => "{$building->name}  {$building->address}"
+                            ])
+                            ->toArray();
+                    })
                     ->searchable()
                     ->preload()
                     ->live()
-                    ->required()
-                    ->label('Edificio'),
+                    ->required(),
 
                 Forms\Components\Select::make('unit')
                     ->options(function (callable $get) {

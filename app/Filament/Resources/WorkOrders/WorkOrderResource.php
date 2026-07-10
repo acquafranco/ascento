@@ -14,7 +14,6 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables;
 use Filament\Tables\Table;
 use App\Support\WorkOrderLabels;
-
 class WorkOrderResource extends Resource
 {
     protected static ?string $model = WorkOrder::class;
@@ -44,11 +43,20 @@ class WorkOrderResource extends Resource
 
                 Tables\Columns\TextColumn::make('building.name')
                     ->label('Edificio')
-                    ->description(fn ($record) => $record->building?->address)
-                    ->searchable()
+                    ->formatStateUsing(fn ($state, $record) =>
+
+                            "{$record->building?->name} {$record->building?->address}"
+
+                        )
+                    ->searchable(query: function ($query, $search) {
+                        $query->whereHas('building', function ($query) use ($search) {
+                            $query
+                                ->where('name', 'like', "%{$search}%")
+                                ->orWhere('address', 'like', "%{$search}%");
+                        });
+                    })
                     ->sortable()
                     ->weight('bold'),
-
                 Tables\Columns\TextColumn::make('unit')
                     ->label('Unidad')
                     ->badge()

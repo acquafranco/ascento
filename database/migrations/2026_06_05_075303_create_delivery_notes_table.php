@@ -31,6 +31,10 @@ return new class extends Migration
         ->constrained()
         ->nullOnDelete();
 
+    $table->string('assignment_type')
+        ->nullable()
+        ->after('work_order_id');
+
     $table->foreignId('user_id')
         ->constrained()
         ->cascadeOnDelete();

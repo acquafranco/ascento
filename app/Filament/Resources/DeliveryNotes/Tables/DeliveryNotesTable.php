@@ -23,10 +23,18 @@ class DeliveryNotesTable
                 ->searchable()
                 ->sortable(),
 
-            TextColumn::make('building.address')
-                ->label('Edificio')
-                ->searchable()
-                ->sortable(),
+           TextColumn::make('building.name')
+    ->label('Edificio')
+    ->formatStateUsing(fn ($state, $record) =>
+        "{$record->building->name} {$record->building->address}"
+    )
+    ->searchable(query: function ($query, $search) {
+        $query->whereHas('building', function ($query) use ($search) {
+            $query->where('name', 'like', "%{$search}%")
+                  ->orWhere('address', 'like', "%{$search}%");
+        });
+    })
+    ->sortable(),
 
             TextColumn::make('user.name')
                 ->label('Técnico')
