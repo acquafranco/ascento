@@ -46,12 +46,29 @@ class BuildingsTable
                     ->label('Activo')
                     ->boolean(),
 
-                TextColumn::make('users.name')
-                    ->label('Técnico')
-                    ->badge()
-                    ->separator(',')
-                    ->placeholder('Sin asignar')
-                    ->color(fn ($state) => $state ? 'success' : 'danger'),
+                TextColumn::make('technicians')
+                ->label('Técnico')
+                ->state(function ($record) {
+
+                    if ($record->users->isEmpty()) {
+                        return 'Sin asignar';
+                    }
+
+                    return $record->users
+                        ->map(function ($user) {
+
+                            $tipo = match ($user->pivot->type) {
+                                'maintenance' => 'Mantenimiento',
+                                'inspection' => 'Inspección',
+                                default => '',
+                            };
+
+                            return "{$user->name} ({$tipo})";
+                        })
+                        ->implode(', ');
+                })
+                ->badge()
+                ->color('success'),
             ])
 
             ->recordActions([
@@ -107,31 +124,36 @@ class BuildingsTable
 
                     ])
 
-                    ->action(function (
-                        array $data,
-                        $record
-                    ) {
+                   ->action(function (array $data, $record) {
 
-                        $exists = $record->users()
-                            ->where('users.id',$data['user_id'])
-                            ->wherePivot('type',$data['type'])
-                            ->exists();
+    $exists = $record->users()
+        ->where('users.id', $data['user_id'])
+        ->wherePivot('type', $data['type'])
+        ->exists();
 
-                        if(!$exists){
+    if ($exists) {
 
-                            $record->users()->attach(
-                                $data['user_id'],
-                                [
-                                    'type'=>$data['type']
-                                ]
-                            );
+        \Filament\Notifications\Notification::make()
+            ->title('Este empleado ya tiene este edificio asignado para ese trabajo.')
+            ->danger()
+            ->send();
 
-                        }
-                    })
+        return;
+    }
 
-                    ->successNotificationTitle(
-                        'Empleado asignado'
-                    ),
+    $record->users()->attach(
+        $data['user_id'],
+        [
+            'type' => $data['type'],
+        ]
+    );
+
+    \Filament\Notifications\Notification::make()
+        ->title('Empleado asignado correctamente.')
+        ->success()
+        ->send();
+
+}),
 
                 /*
                 |--------------------------------------------------------------------------

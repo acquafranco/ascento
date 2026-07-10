@@ -6,6 +6,7 @@ use App\Models\WorkOrder;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
+use App\Support\WorkOrderLabels;
 
 class UserOrdersWidget extends TableWidget
 {
@@ -39,19 +40,20 @@ class UserOrdersWidget extends TableWidget
                 )
                 ->label('Dirección'),
 
-                Tables\Columns\TextColumn::make(
-                    'type'
-                )
-                ->label('Tipo'),
+                Tables\Columns\TextColumn::make('type')
+    ->label('Tipo')
+    ->badge()
+    ->formatStateUsing(fn ($state) => WorkOrderLabels::type($state)),
 
-                Tables\Columns\BadgeColumn::make(
-                    'status'
-                )
-                ->colors([
-                    'warning' => 'pending',
-                    'primary' => 'in_progress',
-                    'success' => 'completed',
-                ]),
+Tables\Columns\BadgeColumn::make('status')
+    ->label('Estado')
+    ->formatStateUsing(fn ($state) => WorkOrderLabels::status($state))
+    ->colors([
+        'warning' => 'pending',
+        'primary' => 'in_progress',
+        'success' => 'completed',
+        'danger' => 'failed',
+    ]),
             ]);
     }
 }

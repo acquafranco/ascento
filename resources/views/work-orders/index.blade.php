@@ -149,6 +149,12 @@
                         </span>
                     @endif
 
+                    @if($workOrder->deliveryNote)
+                        <span class="px-2.5 py-1 rounded-full bg-green-50 text-green-700 text-xs font-semibold">
+                            Remito: {{ $workOrder->deliveryNote->number }}
+                        </span>
+                    @endif
+
                     @php
                         $priorityColors = [
                             'urgent' => 'bg-red-100 text-red-700',
