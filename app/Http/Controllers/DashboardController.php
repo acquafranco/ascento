@@ -75,7 +75,8 @@ class DashboardController extends Controller
 
         $totalBuildings = $user
             ->buildings()
-            ->count();
+            ->distinct('buildings.id')
+            ->count('buildings.id');
 
         /*
         |--------------------------------------------------------------------------

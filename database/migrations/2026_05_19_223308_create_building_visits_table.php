@@ -49,7 +49,7 @@ return new class extends Migration
             ]);
 
              $table->string('assignment_type')
-            ->default('maintenance');
+                ->nullable();
 
             /*
             |--------------------------------------------------------------------------
@@ -72,15 +72,15 @@ return new class extends Migration
             $table->integer('year');
 
             $table->unique(
-                [
-                    'building_id',
-                    'user_id',
-                    'visit_type',
-                    'assignment_type',
-                    'month',
-                    'year'
-                ],
-                'building_visits_unique'
+            [
+                'building_id',
+                'user_id',
+                'visit_type',
+                'month',
+                'year',
+                'assignment_type'
+            ],
+            'building_visits_unique'
             );
             /*
             |--------------------------------------------------------------------------

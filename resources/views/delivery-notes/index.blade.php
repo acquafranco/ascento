@@ -109,12 +109,50 @@
                     </p>
 
                     @if($note->workOrder)
-                        <p class="text-sm text-slate-500 mt-1">
 
-                            OT: {{ ucfirst($note->workOrder->type) }}
+                        @php
+                            $type = $note->workOrder->type;
+                            $label = \App\Support\WorkOrderLabels::type($type);
+
+                            $colors = [
+                                'maintenance' => 'bg-blue-100 text-blue-700',
+                                'inspection' => 'bg-yellow-100 text-yellow-700',
+                                'claim' => 'bg-red-100 text-red-700',
+                                'installation' => 'bg-green-100 text-green-700',
+                                'modernization' => 'bg-purple-100 text-purple-700',
+                            ];
+                        @endphp
+
+                        <p class="text-sm mt-2">
+                            OT:
+
+                            <span class="px-3 py-1 rounded-full text-xs font-black {{ $colors[$type] ?? 'bg-gray-100 text-gray-700' }}">
+                                {{ $label }}
+                            </span>
                         </p>
-                    @endif
 
+
+                    @elseif($note->buildingVisit)
+
+                        @php
+                            $type = $note->buildingVisit->assignment_type;
+                            $label = \App\Support\WorkOrderLabels::type($type);
+
+                            $colors = [
+                                'maintenance' => 'bg-blue-100 text-blue-700',
+                                'inspection' => 'bg-yellow-100 text-yellow-700',
+                            ];
+                        @endphp
+
+                        <p class="text-sm mt-2">
+                            Visita:
+
+                            <span class="px-3 py-1 rounded-full text-xs font-black {{ $colors[$type] ?? 'bg-gray-100 text-gray-700' }}">
+                                {{ $label }}
+                            </span>
+                        </p>
+
+                    @endif
                 </div>
 
                 <div>

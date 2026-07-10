@@ -50,9 +50,9 @@ class UserStatsWidget extends StatsOverviewWidget
 
             Stat::make(
                 'Edificios',
-                $this->record
-                    ->buildings()
-                    ->count()
+                $this->record->buildings()
+                    ->distinct('buildings.id')
+                    ->count('buildings.id')
             ),
         ];
     }

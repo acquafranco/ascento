@@ -8,7 +8,41 @@
             <div class="flex items-center justify-between">
                 <div>
                     <h1 class="text-3xl font-black leading-tight">Nuevo Remito</h1>
-                    <p class="text-slate-400 text-sm mt-1">Registrar trabajo realizado</p>
+                    @if($workOrder)
+
+                    <div class="mt-3 inline-flex items-center gap-2
+                        bg-orange-100 text-orange-700
+                        px-3 py-2 rounded-xl text-sm font-black">
+
+                        🔧 Orden de trabajo:
+                        {{ \App\Support\WorkOrderLabels::type($workOrder->type) }}
+
+                    </div>
+
+
+                    @elseif($assignmentType === 'maintenance')
+
+                    <div class="mt-3 inline-flex items-center gap-2
+                        bg-blue-100 text-blue-700
+                        px-3 py-2 rounded-xl text-sm font-black">
+
+                        🔄 Mantenimiento mensual
+
+                    </div>
+
+
+                    @elseif($assignmentType === 'inspection')
+
+                 <div class="mt-3 inline-flex items-center gap-2
+                    px-3 py-2 rounded-xl text-sm font-black"
+                    style="background-color:#ddd6fe; color:#3b0764;">
+
+                    🔍 Inspección
+
+                </div>
+
+
+                    @endif
                 </div>
                 <span class="text-5xl leading-none">📄</span>
             </div>
@@ -48,16 +82,42 @@
                 <div class="p-5 md:p-7 space-y-5">
 
                     {{-- 1. Cliente / Dirección --}}
-                    <div class="grid grid-cols-2 gap-3">
-                        <div class="bg-slate-50 rounded-xl p-4">
-                            <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">Cliente</div>
-                            <div class="font-bold text-base leading-snug">{{ $building->client?->name }}</div>
-                        </div>
-                        <div class="bg-slate-50 rounded-xl p-4">
-                            <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">Dirección</div>
-                            <div class="font-semibold text-sm">{{ $building->name }}{{ $building->address }}</div>
-                        </div>
-                    </div>
+                    {{-- 1. Cliente / Dirección / Fecha --}}
+<div class="grid grid-cols-3 gap-3">
+
+    <div class="bg-slate-50 rounded-xl p-4">
+        <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">
+            Cliente
+        </div>
+
+        <div class="font-bold text-base leading-snug">
+            {{ $building->client?->name }}
+        </div>
+    </div>
+
+
+    <div class="bg-slate-50 rounded-xl p-4">
+        <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">
+            Dirección
+        </div>
+
+        <div class="font-semibold text-sm leading-snug">
+            {{ $building->name }}{{ $building->address }}
+        </div>
+    </div>
+
+
+    <div class="bg-slate-50 rounded-xl p-4">
+        <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">
+            Fecha
+        </div>
+
+        <div class="font-bold text-base leading-snug">
+            {{ now()->format('d/m/Y') }}
+        </div>
+    </div>
+
+</div>
 
                     {{-- 2. Equipos + Mes en la misma fila --}}
                     <div class="grid grid-cols-2 gap-3">

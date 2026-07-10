@@ -33,10 +33,29 @@ class DeliveryNotesTable
                 ->searchable()
                 ->sortable(),
 
-            TextColumn::make('workOrder.type')
+            TextColumn::make('trabajo')
                 ->label('Trabajo')
                 ->badge()
-                ->formatStateUsing(fn ($state) => WorkOrderLabels::type($state))
+                ->state(function ($record) {
+
+                    if ($record->workOrder) {
+
+                        return WorkOrderLabels::type(
+                            $record->workOrder->type
+                        );
+
+                    }
+
+                    if ($record->buildingVisit) {
+
+                        return WorkOrderLabels::type(
+                            $record->buildingVisit->assignment_type
+                        );
+
+                    }
+
+                    return '-';
+                })
                 ->colors([
                     'primary' => 'maintenance',
                     'warning' => 'inspection',
@@ -69,29 +88,29 @@ class DeliveryNotesTable
             ])
             ->filters([
                     SelectFilter::make('month')
-    ->label('Mes')
-    ->options([
-        1 => 'Enero',
-        2 => 'Febrero',
-        3 => 'Marzo',
-        4 => 'Abril',
-        5 => 'Mayo',
-        6 => 'Junio',
-        7 => 'Julio',
-        8 => 'Agosto',
-        9 => 'Septiembre',
-        10 => 'Octubre',
-        11 => 'Noviembre',
-        12 => 'Diciembre',
-    ]),
+            ->label('Mes')
+            ->options([
+                1 => 'Enero',
+                2 => 'Febrero',
+                3 => 'Marzo',
+                4 => 'Abril',
+                5 => 'Mayo',
+                6 => 'Junio',
+                7 => 'Julio',
+                8 => 'Agosto',
+                9 => 'Septiembre',
+                10 => 'Octubre',
+                11 => 'Noviembre',
+                12 => 'Diciembre',
+            ]),
 
-SelectFilter::make('performed')->label('Estado')->options([
+        SelectFilter::make('performed')->label('Estado')->options([
 
-        1 => 'Realizado',
+                1 => 'Realizado',
 
-        0 => 'No realizado',
+                0 => 'No realizado',
 
-    ]),
+            ]),
 
 
             ])

@@ -4,11 +4,53 @@
     <div class="max-w-2xl mx-auto px-4">
 
         {{-- Header --}}
-        <div class="bg-gradient-to-r from-slate-900 to-slate-700 rounded-2xl p-5 md:p-6 text-white shadow-lg mb-5">
+        <div class="pdf-header bg-gradient-to-r from-slate-900 to-slate-700 rounded-2xl p-5 md:p-6 text-white shadow-lg mb-5">
             <div class="flex items-center justify-between">
                 <div>
                     <h1 class="text-2xl md:text-3xl font-black leading-tight">Remito #{{ str_pad($deliveryNote->number, 6, '0', STR_PAD_LEFT) }}</h1>
-                    <p class="text-slate-400 text-xs md:text-sm mt-1">{{ $deliveryNote->created_at->format('d/m/Y H:i') }} hs</p>
+                   @if($deliveryNote->workOrder)
+
+                    <div class="mt-3 inline-flex items-center gap-2
+                        bg-orange-200 text-orange-900
+                        border border-orange-300
+                        px-3 py-1.5 rounded-xl text-xs font-black">
+
+                        🔧
+                        <span>
+                            Orden de trabajo:
+                            {{ \App\Support\WorkOrderLabels::type($deliveryNote->workOrder->type) }}
+                        </span>
+
+                    </div>
+
+                @elseif($deliveryNote->buildingVisit)
+
+                    @if($deliveryNote->buildingVisit->assignment_type === 'maintenance')
+
+                        <div class="mt-3 inline-flex items-center gap-2
+                            bg-blue-100 text-blue-900
+                            border border-blue-200
+                            px-3 py-1.5 rounded-xl text-xs font-black">
+
+                            🔄 Mantenimiento mensual
+
+                        </div>
+
+
+                    @elseif($deliveryNote->buildingVisit->assignment_type === 'inspection')
+
+                        <div class="mt-3 inline-flex items-center gap-2
+                            bg-violet-200 text-violet-950
+                            border border-violet-300
+                            px-3 py-1.5 rounded-xl text-xs font-black">
+
+                            🔍 Inspección
+
+                        </div>
+
+                    @endif
+
+                @endif
                 </div>
                 <span class="text-4xl md:text-5xl leading-none">📄</span>
             </div>
@@ -18,8 +60,9 @@
         <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
             <div class="p-4 md:p-7 space-y-4 md:space-y-5">
 
-                {{-- 1. Cliente / Dirección --}}
-                <div class="grid grid-cols-2 gap-3">
+                {{-- 1. Cliente / Dirección / Fecha --}}
+
+                <div class="grid grid-cols-3 gap-3">
                     <div class="bg-slate-50 rounded-xl p-3 md:p-4">
                         <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">Cliente</div>
                         <div class="font-bold text-sm md:text-base leading-snug">{{ $deliveryNote->building?->client?->name }}</div>
@@ -28,6 +71,15 @@
                         <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">Dirección</div>
                         <div class="font-semibold text-xs md:text-sm leading-snug">{{ $deliveryNote->building?->name }}</div>
                     </div>
+                    <div class="bg-slate-50 rounded-xl p-3 md:p-4">
+                <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">
+                    Fecha
+                </div>
+
+                <div class="font-bold text-sm md:text-base leading-snug">
+                    {{ $deliveryNote->created_at->format('d/m/Y') }}
+                </div>
+            </div>
                 </div>
 
                 {{-- 2. Período / Equipos --}}
@@ -72,6 +124,7 @@
                         @endif
                     </div>
                 </div>
+
 
                 {{-- 4. Descripción --}}
                 <div>
@@ -137,9 +190,8 @@
             </div>
 
             {{-- Acciones --}}
-            <div class="border-t border-slate-100 bg-slate-50 px-4 py-3 md:px-7 md:py-4 flex gap-3">
-
-                {{-- Botón Compartir --}}
+<div class="pdf-actions border-t border-slate-100 bg-slate-50 px-4 py-3 md:px-7 md:py-4 flex gap-3">
+                    {{-- Botón Compartir --}}
                 <button
                     id="btn-share"
                     type="button"
@@ -252,33 +304,74 @@
 {{-- Estilos de impresión para PDF --}}
 <style>
 @media print {
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: white !important; }
-    body * { visibility: hidden; }
 
-    .bg-white.rounded-2xl { visibility: visible !important; }
-    .bg-white.rounded-2xl * { visibility: visible !important; }
-
-    .bg-white.rounded-2xl {
-        position: absolute !important;
-        left: 0 !important;
-        top: 0 !important;
-        width: 100% !important;
-        margin: 0 !important;
-        padding: 30px !important;
-        background: white !important;
-        box-shadow: none !important;
-        border-radius: 0 !important;
+    .pdf-header {
+        background: #0f172a !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color: white !important;
     }
 
-    .border-t.border-slate-100 { display: none !important; }
+    .pdf-header * {
+        color: white !important;
+    }
 
-    /* Mejorar tamaños en impresión */
-    .bg-white.rounded-2xl h1 { font-size: 20pt !important; }
-    .bg-white.rounded-2xl .text-base { font-size: 12pt !important; }
-    .bg-white.rounded-2xl .text-sm { font-size: 11pt !important; }
 
-    @page { margin: 15mm; size: A4; }
+    .inline-flex.rounded-full {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+
+    .bg-orange-100 {
+        background-color: #ffedd5 !important;
+    }
+
+    .text-orange-800 {
+        color: #9a3412 !important;
+    }
+
+
+    .bg-blue-100 {
+        background-color: #dbeafe !important;
+    }
+
+    .text-blue-800 {
+        color: #1e40af !important;
+    }
+
+
+    .bg-violet-200 {
+        background-color: #ddd6fe !important;
+    }
+
+    .text-violet-950 {
+        color: #3b0764 !important;
+    }
+
+
+    .border-violet-300 {
+        border-color: #c4b5fd !important;
+    }
+}
+@page {
+
+    margin: 10mm;
+
+}
+@media print {
+
+    .pdf-actions {
+        display: none !important;
+    }
+
+}
+@media print {
+
+    #share-modal {
+        display: none !important;
+    }
+
 }
 </style>
 
@@ -377,10 +470,14 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // PDF via print
-    btnPDF.addEventListener('click', function () {
-        closeShare();
-        setTimeout(function () { window.print(); }, 300);
-    });
+    // PDF via print
+btnPDF.addEventListener('click', function () {
+    closeShare();
+
+    setTimeout(function () {
+        window.print();
+    }, 300);
+});
 
 });
 </script>

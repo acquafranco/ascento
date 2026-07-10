@@ -79,7 +79,7 @@ protected static function booted(): void
     {
         return $this->belongsTo(User::class);
     }
-    public function visit()
+    public function buildingVisit()
     {
         return $this->belongsTo(
             BuildingVisit::class,

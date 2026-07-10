@@ -41,15 +41,18 @@ class User extends Authenticatable implements FilamentUser
         return $this->role === 'admin';
     }
 
-        public function buildings()
-        {
-            return $this->belongsToMany(Building::class)
-                ->withPivot('type')
-                ->withTimestamps()
-                ->select('buildings.*')
-                ->distinct();
-        }
-
+   public function buildings()
+    {
+        return $this->belongsToMany(Building::class)
+            ->withPivot('type')
+            ->withTimestamps();
+    }
+    public function buildingAssignments()
+    {
+        return $this->belongsToMany(Building::class)
+            ->withPivot('type')
+            ->withTimestamps();
+    }
     public function workOrders()
     {
         return $this->hasMany(WorkOrder::class);

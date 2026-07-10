@@ -34,19 +34,19 @@ class UsersTable
                     ->badge(),
 
                 TextColumn::make('job_type')
-    ->label('Tipo de trabajo')
-    ->formatStateUsing(fn ($state) => match (strtolower($state)) {
+            ->label('Tipo de trabajo')
+            ->formatStateUsing(fn ($state) => match (strtolower($state)) {
 
-        'technician', 'technico' => 'Técnico',
-        'client' => 'Cliente',
+                'technician', 'technico' => 'Técnico',
+                'client' => 'Cliente',
 
-        'electrician', 'electricista' => 'Electricista',
+                'electrician', 'electricista' => 'Electricista',
 
-        null, '' => 'Sin definir',
+                null, '' => 'Sin definir',
 
-        default => ucfirst($state),
-    })
-    ->badge(),
+                default => ucfirst($state),
+            })
+            ->badge(),
 
                 TextColumn::make('created_at')
                     ->label('Creado')
