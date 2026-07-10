@@ -140,9 +140,10 @@ class DeliveryNoteController extends Controller
         'work_order_id' => 'nullable|exists:work_orders,id',
         'description' => 'required|string',
 
-        'month' => 'required|integer|min:1|max:12',
-        'year' => 'required|integer',
 
+        'month' => 'nullable|integer|min:1|max:12',
+
+        'year' => 'nullable|integer',
         'elevator_quantity' => 'required|integer|min:0',
         'freight_elevator_quantity' => 'required|integer|min:0',
 
@@ -240,46 +241,49 @@ class DeliveryNoteController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    $deliveryNote = DeliveryNote::create([
+        $deliveryNote = DeliveryNote::create([
 
-        'building_id' => $building->id,
+            'building_id' => $building->id,
 
-        'building_visit_id' => $visit->id,
+            'building_visit_id' => $visit->id,
 
-        'user_id' => auth()->id(),
+            'user_id' => auth()->id(),
 
-        'work_order_id' => $request->work_order_id,
+            'work_order_id' => $request->work_order_id,
 
-        'description' => $request->description,
+            'assignment_type' => $request->filled('work_order_id')
+                ? 'work_order'
+                : $request->assignment_type,
 
-        'elevator_quantity' =>
-            $request->elevator_quantity,
+            'description' => $request->description,
 
-        'freight_elevator_quantity' =>
-            $request->freight_elevator_quantity,
+            'elevator_quantity' =>
+                $request->elevator_quantity,
 
-        'performed' =>
-            $request->boolean('performed'),
+            'freight_elevator_quantity' =>
+                $request->freight_elevator_quantity,
 
-        'month' =>
-            $request->month,
+            'performed' =>
+                $request->boolean('performed'),
 
-        'year' =>
-            $request->year,
+            'month' =>
+                $request->month,
 
-        'signature_name' =>
-            $request->signature_name,
+            'year' =>
+                $request->year,
 
-        'signature' =>
-            $request->signature,
+            'signature_name' =>
+                $request->signature_name,
 
-        'client_signature' =>
-            $request->client_signature,
+            'signature' =>
+                $request->signature,
 
-        'client_signature_name' =>
-            $request->client_signature_name,
-    ]);
+            'client_signature' =>
+                $request->client_signature,
 
+            'client_signature_name' =>
+                $request->client_signature_name,
+        ]);
 
 
     /*

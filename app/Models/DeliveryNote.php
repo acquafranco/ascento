@@ -19,7 +19,7 @@ class DeliveryNote extends Model
      'elevator_quantity',
 
     'freight_elevator_quantity',
-
+    'assignment_type',
     'performed',
 
     'month',
