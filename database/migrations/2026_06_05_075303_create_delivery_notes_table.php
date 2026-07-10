@@ -32,8 +32,7 @@ return new class extends Migration
         ->nullOnDelete();
 
     $table->string('assignment_type')
-        ->nullable()
-        ->after('work_order_id');
+        ->nullable();
 
     $table->foreignId('user_id')
         ->constrained()
