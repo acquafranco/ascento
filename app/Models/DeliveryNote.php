@@ -13,13 +13,13 @@ class DeliveryNote extends Model
     'building_id',
     'building_visit_id',
     'work_order_id',
+    'assignment_type',
     'user_id',
 
     'description',
      'elevator_quantity',
 
     'freight_elevator_quantity',
-    'assignment_type',
     'performed',
 
     'month',
