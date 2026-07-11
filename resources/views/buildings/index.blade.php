@@ -184,7 +184,7 @@
 
                             </div>
 
-                            <form
+                            <!-- <form
                                 method="POST"
                                 action="{{ route('building-check.done',$building) }}"
                             >
@@ -200,7 +200,7 @@
                                     Desmarcar
                                 </button>
 
-                            </form>
+                            </form> -->
 
                         </div>
 
@@ -245,7 +245,7 @@
 
                             </div>
 
-                            <form
+                            <!-- <form
                                 method="POST"
                                 action="{{ route('building-check.done',$building) }}"
                             >
@@ -261,7 +261,7 @@
                                     Desmarcar
                                 </button>
 
-                            </form>
+                            </form> -->
 
                         </div>
 

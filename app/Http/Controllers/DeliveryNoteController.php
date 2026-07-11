@@ -304,14 +304,8 @@ class DeliveryNoteController extends Controller
 
 
     return redirect()
-        ->route(
-            'delivery-notes.show',
-            $deliveryNote
-        )
-        ->with(
-            'success',
-            'Remito generado correctamente.'
-        );
+    ->route('dashboard')
+    ->with('success', 'Remito generado correctamente.');
 }
     public function pdf(DeliveryNote $deliveryNote)
     {

@@ -1,5 +1,11 @@
 <x-app-layout>
-
+@if(session('success'))
+    <div
+        class="mb-5 rounded-xl border border-green-200 bg-green-50 p-4 text-green-700 font-semibold"
+    >
+        {{ session('success') }}
+    </div>
+@endif
 <div class="fixed left-0 right-0 top-0 bottom-20 lg:top-16 lg:bottom-0 overflow-y-auto">
 
     <div class="grid grid-cols-2 grid-rows-4 h-full">
