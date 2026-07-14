@@ -1,4 +1,9 @@
 <x-app-layout>
+    @if(session('success'))
+    <div class="mb-4 rounded-lg bg-green-100 px-4 py-3 text-green-800">
+        {{ session('success') }}
+    </div>
+@endif
     <div class="max-w-7xl mx-auto p-6">
 
  <div class="flex items-center justify-between mb-8">

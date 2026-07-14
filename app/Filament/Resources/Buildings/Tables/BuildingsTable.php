@@ -126,34 +126,88 @@ class BuildingsTable
 
                    ->action(function (array $data, $record) {
 
-    $exists = $record->users()
-        ->where('users.id', $data['user_id'])
-        ->wherePivot('type', $data['type'])
-        ->exists();
+                    /*
+                    |--------------------------------------------------------------------------
+                    | VALIDAR QUE NO EXISTA OTRO TECNICO PARA ESE TIPO
+                    |--------------------------------------------------------------------------
+                    */
 
-    if ($exists) {
+                    $existsType = $record->users()
+                        ->wherePivot(
+                            'type',
+                            $data['type']
+                        )
+                        ->exists();
 
-        \Filament\Notifications\Notification::make()
-            ->title('Este empleado ya tiene este edificio asignado para ese trabajo.')
-            ->danger()
-            ->send();
 
-        return;
-    }
+                    if ($existsType) {
 
-    $record->users()->attach(
-        $data['user_id'],
-        [
-            'type' => $data['type'],
-        ]
-    );
+                        \Filament\Notifications\Notification::make()
+                            ->title(
+                                'Este edificio ya tiene un empleado asignado para este trabajo.'
+                            )
+                            ->body(
+                                $data['type'] === 'maintenance'
+                                    ? 'Ya existe un mantenimiento asignado.'
+                                    : 'Ya existe una inspección asignada.'
+                            )
+                            ->danger()
+                            ->send();
 
-    \Filament\Notifications\Notification::make()
-        ->title('Empleado asignado correctamente.')
-        ->success()
-        ->send();
+                        return;
+                    }
 
-}),
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | EVITAR DUPLICADO DEL MISMO EMPLEADO
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $existsUser = $record->users()
+                        ->where('users.id', $data['user_id'])
+                        ->wherePivot(
+                            'type',
+                            $data['type']
+                        )
+                        ->exists();
+
+
+                    if ($existsUser) {
+
+                        \Filament\Notifications\Notification::make()
+                            ->title(
+                                'Este empleado ya tiene este trabajo asignado.'
+                            )
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | ASIGNAR
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $record->users()->attach(
+                        $data['user_id'],
+                        [
+                            'type' => $data['type'],
+                        ]
+                    );
+
+
+                    \Filament\Notifications\Notification::make()
+                        ->title(
+                            'Empleado asignado correctamente.'
+                        )
+                        ->success()
+                        ->send();
+
+                }),
 
                 /*
                 |--------------------------------------------------------------------------
