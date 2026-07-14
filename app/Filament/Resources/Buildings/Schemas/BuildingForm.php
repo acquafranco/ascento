@@ -17,79 +17,103 @@ class BuildingForm
     {
         return $schema->components([
 
-            Select::make('client_id')
-                ->relationship('client', 'name')
-                ->searchable()
-                ->preload()
-                ->required()
-                ->label('Cliente'),
-
-            TextInput::make('name')
-                ->required()
-                ->label('Nombre de calle'),
-
-            TextInput::make('address')
-                ->required()
-                ->label('Dirección (Numero)'),
+        Select::make('client_id')
+            ->relationship('client', 'name')
+            ->searchable()
+            ->preload()
+            ->required()
+            ->columnSpanFull()
+            ->label('Cliente'),
 
             Grid::make(2)
-                ->schema([
-                    TextInput::make('contact_person')
-                        ->label('Contacto'),
+    ->schema([
 
-                    TextInput::make('phone')
-                        ->tel()
-                        ->label('Teléfono'),
-                ]),
+        TextInput::make('name')
+            ->required()
+            ->label('Calle')
+            ->rule('regex:/^[\pL\s]+$/u')
+            ->validationMessages([
+                'regex' => 'Solo letras.',
+            ]),
 
-            Grid::make(2)
-                ->schema([
+        TextInput::make('address')
+            ->required()
+            ->integer()
+            ->inputMode('numeric')
+            ->label('Número'),
 
-                    TextInput::make('elevator_count')
-                        ->integer()
-                        ->default(0)
-                        ->minValue(0)
-                        ->required()
-                        ->live()
-                        ->label('Ascensores')
-                        ->afterStateUpdated(fn (Get $get, Set $set) =>
-                            self::syncElevators($get, $set)
-                        ),
+    ]),
 
-                    TextInput::make('freight_elevator_count')
-                        ->integer()
-                        ->default(0)
-                        ->minValue(0)
-                        ->required()
-                        ->live()
-                        ->label('Montacargas')
-                        ->afterStateUpdated(fn (Get $get, Set $set) =>
-                            self::syncElevators($get, $set)
-                        ),
+       Grid::make(2)
+    ->schema([
 
-                    TextInput::make('traction_elevator_count')
-                        ->integer()
-                        ->minValue(0)
-                        ->required()
-                        ->live()
-                        ->label('Ascensores de tracción')
+        TextInput::make('contact_person')
+            ->label('Contacto')
+            ->rule('regex:/^[\pL\s]+$/u')
+            ->validationMessages([
+                'regex' => 'Solo letras.',
+            ]),
 
-                        ->formatStateUsing(fn ($state) => $state ?: null)
+        TextInput::make('phone')
+            ->label('Teléfono')
+            ->tel()
+            ->inputMode('tel')
+            ->rule('regex:/^[0-9+\-\s()]+$/')
+            ->validationMessages([
+                'regex' => 'Solo números.',
+            ]),
 
-                        ->dehydrateStateUsing(fn ($state) =>
-                            $state === null ? 0 : $state
-                        )
+    ]),
 
-                        ->afterStateUpdated(fn (Get $get, Set $set) =>
-                            self::syncElevators($get, $set)
-                        ),
+           Grid::make(4)
+    ->schema([
 
-                    TextInput::make('hydraulic_elevator_count')
-                        ->disabled()
-                        ->dehydrated()
-                        ->default(0)
-                        ->label('Ascensores hidráulicos'),
-                ]),
+        TextInput::make('elevator_count')
+            ->numeric()
+            ->minValue(0)
+            ->placeholder('-')
+            ->inputMode('numeric')
+            ->extraInputAttributes(['class' => 'text-center'])
+            ->live()
+            ->label('Asc.')
+            ->formatStateUsing(fn ($state) => blank($state) || $state == 0 ? null : $state)
+            ->dehydrateStateUsing(fn ($state) => blank($state) ? 0 : $state)
+            ->afterStateUpdated(fn (Get $get, Set $set) => self::syncElevators($get, $set)),
+
+        TextInput::make('freight_elevator_count')
+            ->numeric()
+            ->minValue(0)
+            ->placeholder('-')
+            ->inputMode('numeric')
+            ->extraInputAttributes(['class' => 'text-center'])
+            ->live()
+            ->label('Mont.')
+            ->formatStateUsing(fn ($state) => blank($state) || $state == 0 ? null : $state)
+            ->dehydrateStateUsing(fn ($state) => blank($state) ? 0 : $state)
+            ->afterStateUpdated(fn (Get $get, Set $set) => self::syncElevators($get, $set)),
+
+        TextInput::make('traction_elevator_count')
+            ->numeric()
+            ->minValue(0)
+            ->placeholder('-')
+            ->inputMode('numeric')
+            ->extraInputAttributes(['class' => 'text-center'])
+            ->live()
+            ->label('Tracción')
+            ->formatStateUsing(fn ($state) => blank($state) || $state == 0 ? null : $state)
+            ->dehydrateStateUsing(fn ($state) => blank($state) ? 0 : $state)
+            ->afterStateUpdated(fn (Get $get, Set $set) => self::syncElevators($get, $set)),
+
+        TextInput::make('hydraulic_elevator_count')
+            ->disabled()
+            ->dehydrated()
+            ->placeholder('-')
+            ->extraInputAttributes(['class' => 'text-center'])
+            ->label('Hidráulicos')
+            ->formatStateUsing(fn ($state) => blank($state) || $state == 0 ? null : $state)
+            ->dehydrateStateUsing(fn ($state) => blank($state) ? 0 : $state),
+
+    ]),
 
             Textarea::make('notes')
                 ->columnSpanFull()

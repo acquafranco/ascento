@@ -237,26 +237,32 @@ class WorkOrderController extends Controller
 
         BuildingVisit::create([
 
-            'building_id' =>
-                $workOrder->building_id,
+        'building_id' =>
+            $workOrder->building_id,
 
-            'user_id' =>
-                $user->id,
+        'user_id' =>
+            $user->id,
 
-            'visit_type' =>
-                'work_order',
+        'source' =>
+            'work_order',
 
-            'work_order_id' =>
-                $workOrder->id,
+        'visit_type' =>
+            'work_order',
 
-            'status' =>
-                'done',
+        'assignment_type' =>
+            'work_order_' . $workOrder->id,
 
-            'month' =>
-                $finishedAt->month,
+        'work_order_id' =>
+            $workOrder->id,
 
-            'year' =>
-                $finishedAt->year,
+        'status' =>
+            'done',
+
+        'month' =>
+            $finishedAt->month,
+
+        'year' =>
+            $finishedAt->year,
 
             'visited_at' =>
                 $finishedAt,
