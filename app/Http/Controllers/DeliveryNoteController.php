@@ -209,7 +209,7 @@ class DeliveryNoteController extends Controller
 
 
 
-        $visit = BuildingVisit::firstOrCreate(
+    $visit = BuildingVisit::firstOrCreate(
     [
         'building_id' => $building->id,
         'user_id' => auth()->id(),
@@ -231,7 +231,6 @@ class DeliveryNoteController extends Controller
         'visited_at' => now(),
     ]
 );
-
 
 
     /*
