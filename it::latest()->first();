@@ -1,0 +1,34 @@
+[90m= [39m[
+    {#9095
+      +"[1mTable[22m": [32m"[39m[32mbuilding_visits[39m[32m"[39m,
+      +"[1mCreate Table[22m": <<<[32mEOS[39m
+        [32mCREATE TABLE `building_visits` ([39m
+        [32m  `id` bigint unsigned NOT NULL AUTO_INCREMENT,[39m
+        [32m  `building_id` bigint unsigned NOT NULL,[39m
+        [32m  `user_id` bigint unsigned NOT NULL,[39m
+        [32m  `source` enum('building','work_order') COLLATE utf8mb4_unicode_ci NOT NULL,[39m
+        [32m  `work_order_id` bigint unsigned DEFAULT NULL,[39m
+        [32m  `visit_type` enum('fixed','work_order') COLLATE utf8mb4_unicode_ci NOT NULL,[39m
+        [32m  `assignment_type` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,[39m
+        [32m  `status` enum('done','failed') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'done',[39m
+        [32m  `month` int NOT NULL,[39m
+        [32m  `year` int NOT NULL,[39m
+        [32m  `visited_at` timestamp NOT NULL,[39m
+        [32m  `started_at` timestamp NULL DEFAULT NULL,[39m
+        [32m  `finished_at` timestamp NULL DEFAULT NULL,[39m
+        [32m  `unit` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,[39m
+        [32m  `work_type` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,[39m
+        [32m  `notes` text COLLATE utf8mb4_unicode_ci,[39m
+        [32m  `created_at` timestamp NULL DEFAULT NULL,[39m
+        [32m  `updated_at` timestamp NULL DEFAULT NULL,[39m
+        [32m  PRIMARY KEY (`id`),[39m
+        [32m  UNIQUE KEY `building_visits_unique` (`building_id`,`user_id`,`visit_type`,`month`,`year`,`assignment_type`),[39m
+        [32m  KEY `building_visits_user_id_foreign` (`user_id`),[39m
+        [32m  KEY `building_visits_work_order_id_foreign` (`work_order_id`),[39m
+        [32m  CONSTRAINT `building_visits_building_id_foreign` FOREIGN KEY (`building_id`) REFERENCES `buildings` (`id`) ON DELETE CASCADE,[39m
+        [32m  CONSTRAINT `building_visits_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,[39m
+        [32m  CONSTRAINT `building_visits_work_order_id_foreign` FOREIGN KEY (`work_order_id`) REFERENCES `work_orders` (`id`) ON DELETE SET NULL[39m
+        [32m) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci[39m
+        [32mEOS[39m,
+    },
+  ]

@@ -207,32 +207,30 @@ class DeliveryNoteController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    $visit = BuildingVisit::create([
 
+
+        $visit = BuildingVisit::firstOrCreate(
+    [
         'building_id' => $building->id,
-
         'user_id' => auth()->id(),
-
         'visit_type' => $visitType,
-
         'assignment_type' => $assignmentType,
-
         'source' => $request->filled('work_order_id')
             ? 'work_order'
             : 'building',
-
-        'work_order_id' => $request->work_order_id,
-
         'month' => $request->month,
-
         'year' => $request->year,
+    ],
+    [
+        'work_order_id' => $request->work_order_id,
 
         'status' => $request->boolean('performed')
             ? 'done'
             : 'failed',
 
         'visited_at' => now(),
-    ]);
+    ]
+);
 
 
 
@@ -304,7 +302,7 @@ class DeliveryNoteController extends Controller
 
 
     return redirect()
-    ->route('delivery-notes.index')
+    ->route('delivery-notes.index', $deliveryNote)
     ->with('success', 'Remito generado correctamente.');
 }
     public function pdf(DeliveryNote $deliveryNote)
