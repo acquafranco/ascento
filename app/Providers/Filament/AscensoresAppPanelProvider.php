@@ -40,6 +40,7 @@ class AscensoresAppPanelProvider extends PanelProvider
             ->widgets([
 
             ])
+            ->globalSearch(false)
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

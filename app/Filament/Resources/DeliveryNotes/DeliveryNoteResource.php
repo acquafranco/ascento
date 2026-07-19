@@ -29,7 +29,7 @@ class DeliveryNoteResource extends Resource
 
     public static function getNavigationGroup(): string
     {
-        return 'Operaciones';
+        return 'Gestión';
     }
 
         public static function getModelLabel(): string
