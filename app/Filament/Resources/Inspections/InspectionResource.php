@@ -14,13 +14,13 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use App\Models\BuildingVisit;
+use App\Models\DeliveryNote;
 use Illuminate\Database\Eloquent\Builder;
 
 
 class InspectionResource extends Resource
 {
-    protected static ?string $model = BuildingVisit::class;
+    protected static ?string $model = DeliveryNote::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
@@ -42,10 +42,19 @@ class InspectionResource extends Resource
         return InspectionForm::configure($schema);
     }
 
-    public static function getEloquentQuery(): Builder
+   public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->where('assignment_type', 'inspection');
+            ->where(function (Builder $query) {
+                $query->where('assignment_type', 'inspection')
+
+                ->orWhere(function (Builder $query) {
+                    $query->where('assignment_type', 'work_order')
+                        ->whereHas('workOrder', function (Builder $query) {
+                            $query->where('type', 'inspection');
+                        });
+                });
+            });
     }
 
     public static function infolist(Schema $schema): Schema

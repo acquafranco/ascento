@@ -14,13 +14,13 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use App\Models\BuildingVisit;
+use App\Models\DeliveryNote;
 use Illuminate\Database\Eloquent\Builder;
 
 
 class MaintenanceResource extends Resource
 {
-    protected static ?string $model = BuildingVisit::class;
+protected static ?string $model = DeliveryNote::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
@@ -42,11 +42,35 @@ class MaintenanceResource extends Resource
         return MaintenanceForm::configure($schema);
     }
 
-    public static function getEloquentQuery(): Builder
-    {
-        return parent::getEloquentQuery()
-            ->where('assignment_type', 'maintenance');
-    }
+   public static function getEloquentQuery(): Builder
+
+{
+
+    return parent::getEloquentQuery()
+
+        ->where(function (Builder $query) {
+
+            // Mantenimientos mensuales
+
+            $query->where('assignment_type', 'maintenance')
+
+            // Órdenes de trabajo de mantenimiento
+
+            ->orWhere(function (Builder $query) {
+
+                $query->where('assignment_type', 'work_order')
+
+                    ->whereHas('workOrder', function (Builder $query) {
+
+                        $query->where('type', 'maintenance');
+
+                    });
+
+            });
+
+        });
+
+}
 
     public static function infolist(Schema $schema): Schema
     {
