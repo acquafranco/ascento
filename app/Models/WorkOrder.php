@@ -43,4 +43,6 @@ class WorkOrder extends Model
         DeliveryNote::class
     );
 }
+
+
 }

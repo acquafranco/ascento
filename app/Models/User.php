@@ -19,6 +19,11 @@ class User extends Authenticatable implements FilamentUser
         'password',
         'role',
         'job_type',
+        'name',
+        'email',
+        'password',
+        'phone',
+
     ];
 
     protected $hidden = [
@@ -40,6 +45,8 @@ class User extends Authenticatable implements FilamentUser
     {
         return $this->role === 'admin';
     }
+
+
 
    public function buildings()
     {
@@ -74,4 +81,27 @@ class User extends Authenticatable implements FilamentUser
     {
         return $this->hasMany(DeliveryNote::class);
     }
+    public function setPhoneAttribute($value)
+{
+    if (!$value) {
+        $this->attributes['phone'] = null;
+        return;
+    }
+
+    $phone = preg_replace('/\D/', '', $value);
+
+    $phone = ltrim($phone, '0');
+
+    if (str_starts_with($phone, '549')) {
+        $this->attributes['phone'] = $phone;
+        return;
+    }
+
+    if (str_starts_with($phone, '54')) {
+        $phone = substr($phone, 2);
+    }
+
+    $this->attributes['phone'] = '549' . $phone;
+}
+
     }

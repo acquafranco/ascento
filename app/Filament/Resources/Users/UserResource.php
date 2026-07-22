@@ -12,6 +12,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Filament\RelationManagers\DeliveryNotesRelationManager;
 use Filament\Tables;
+use Illuminate\Support\Facades\Hash;
 
 class UserResource extends Resource
 {
@@ -45,11 +46,21 @@ class UserResource extends Resource
                     ->unique(ignoreRecord: true)
                     ->maxLength(255),
 
-                TextInput::make('password')
-                    ->label('Contraseña')
-                    ->password()
-                    ->required()
-                    ->minLength(8),
+               TextInput::make('phone')
+                ->label('WhatsApp')
+                ->tel()
+                ->required()
+                ->dehydrateStateUsing(function ($state) {
+                    return preg_replace('/\D/', '', $state);
+                }),
+
+            TextInput::make('password')
+                ->label('Contraseña')
+                ->password()
+                ->required(fn (string $operation) => $operation === 'create')
+                ->dehydrated(fn ($state) => filled($state))
+                ->dehydrateStateUsing(fn ($state) => Hash::make($state))
+                ->minLength(8),
             ]);
     }
 
