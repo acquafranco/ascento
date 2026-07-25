@@ -344,17 +344,21 @@ public function show($company, DeliveryNote $deliveryNote)
         return view('delivery-notes.show', compact('deliveryNote'));
 
     }
+public function showPublic(Company $company, DeliveryNote $deliveryNote)
+{
+    abort_unless(
+        $deliveryNote->company_id === $company->id,
+        404
+    );
 
-    public function showPublic($id)
-    {
-        $deliveryNote = DeliveryNote::with([
-            'building',
-            'user',
-            'workOrder',
-            'buildingVisit',
-        ])->findOrFail($id);
+    $deliveryNote->load([
+        'building',
+        'user',
+        'workOrder',
+        'buildingVisit',
+    ]);
 
-        return view('delivery-notes.show', compact('deliveryNote'));
-    }
+    return view('delivery-notes.show', compact('deliveryNote'));
+}
 }
 ?>
