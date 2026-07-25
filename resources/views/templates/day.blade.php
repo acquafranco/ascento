@@ -30,10 +30,10 @@
                     @if($visit->deliveryNote)
 
                         <a
-                            href="{{ route(
-                                'delivery-notes.show',
-                                $visit->deliveryNote
-                            ) }}"
+                           href="{{ route('delivery-notes.show', [
+                            'company' => auth()->user()->company->slug,
+                            'deliveryNote' => $visit->deliveryNote->number
+                        ]) }}"
                             class="inline-flex mt-2 px-3 py-1 rounded-lg bg-green-100 text-green-700 font-semibold"
                         >
                             📄 Ver remito #{{ $visit->deliveryNote->number }}

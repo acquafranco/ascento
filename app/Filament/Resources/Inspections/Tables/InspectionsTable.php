@@ -4,6 +4,9 @@ namespace App\Filament\Resources\Inspections\Tables;
 
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
+use App\Filament\Resources\Inspections\InspectionResource;
+use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
+
 
 class InspectionsTable
 {
@@ -73,6 +76,8 @@ class InspectionsTable
                     }),
 
             ])
-            ->recordUrl(fn ($record) => route('delivery-notes.show', $record));
+           ->recordUrl(fn ($record) => DeliveryNoteResource::getUrl('view', [
+    'record' => $record,
+]));
     }
 }

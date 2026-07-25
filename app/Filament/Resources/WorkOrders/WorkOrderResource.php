@@ -14,6 +14,8 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables;
 use Filament\Tables\Table;
 use App\Support\WorkOrderLabels;
+use Illuminate\Support\Facades\Auth;
+
 class WorkOrderResource extends Resource
 {
     protected static ?string $model = WorkOrder::class;
@@ -130,4 +132,10 @@ class WorkOrderResource extends Resource
             'edit' => EditWorkOrder::route('/{record}/edit'),
         ];
     }
+
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+{
+    return parent::getEloquentQuery()
+        ->where('company_id', Auth::user()->company_id);
+}
 }

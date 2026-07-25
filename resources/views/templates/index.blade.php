@@ -115,10 +115,12 @@
                 @endphp
 
                 <a
-                    href="{{ $dayVisits->count() ? route('templates.day', $date->format('Y-m-d')) : '#' }}"
+                    href="{{ $dayVisits->count() ? route('templates.day', [
+                        'company' => auth()->user()->company->slug,
+                        'date' => $date->format('Y-m-d'),
+                    ]) : '#' }}"
                     class="block bg-white rounded-3xl shadow p-4 min-h-[220px] hover:shadow-xl transition"
                 >
-
                     {{-- DIA --}}
                     <div class="font-black text-lg mb-4">
 

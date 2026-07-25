@@ -10,6 +10,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
+use Filament\Forms\Components\Hidden;
 
 class BuildingForm
 {
@@ -17,13 +18,21 @@ class BuildingForm
     {
         return $schema->components([
 
-        Select::make('client_id')
-            ->relationship('client', 'name')
-            ->searchable()
-            ->preload()
-            ->required()
-            ->columnSpanFull()
-            ->label('Cliente'),
+        Hidden::make('company_id')
+    ->default(fn () => auth()->user()->company_id),
+
+      Select::make('client_id')
+    ->relationship(
+        name: 'client',
+        titleAttribute: 'name',
+        modifyQueryUsing: fn ($query) =>
+            $query->where('company_id', auth()->user()->company_id)
+         )
+        ->searchable()
+        ->preload()
+        ->required()
+        ->columnSpanFull()
+        ->label('Cliente'),
 
             Grid::make(2)
     ->schema([

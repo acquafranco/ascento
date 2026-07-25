@@ -11,6 +11,11 @@ return new class extends Migration
        Schema::create('buildings', function (Blueprint $table) {
         $table->id();
 
+         $table->foreignId('company_id')
+        ->nullable()
+        ->constrained()
+        ->nullOnDelete();
+
         $table->foreignId('client_id')
             ->constrained()
             ->cascadeOnDelete();
@@ -36,6 +41,8 @@ return new class extends Migration
         $table->unsignedInteger('hydraulic_elevator_count')->default(0);
 
         $table->integer('freight_elevator_count')->default(0);
+
+
 
         $table->timestamps();
     });

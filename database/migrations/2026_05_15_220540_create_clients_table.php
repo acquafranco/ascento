@@ -17,8 +17,14 @@ return new class extends Migration {
             $table->string('phone')->nullable();
             $table->string('email')->nullable();
 
+
+
             $table->text('notes')->nullable();
             $table->boolean('is_active')->default(true);
+
+            $table->foreignId('company_id')
+                ->constrained()
+                ->cascadeOnDelete();
 
             $table->timestamps();
         });

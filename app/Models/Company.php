@@ -1,0 +1,56 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+
+class Company extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'name',
+        'slug',
+        'email',
+        'phone',
+        'address',
+        'is_active',
+        'whatsapp_access_token',
+        'whatsapp_phone_number_id',
+        'whatsapp_waba_id',
+        'whatsapp_business_id',
+        'whatsapp_connected',
+    ];
+
+    protected $casts = [
+        'is_active' => 'boolean',
+        'whatsapp_connected' => 'boolean',
+    ];
+
+    public function users()
+    {
+        return $this->hasMany(User::class);
+    }
+
+    public function clients()
+
+    {
+        return $this->hasMany(Client::class);
+    }
+
+    public function workOrders()
+    {
+        return $this->hasMany(WorkOrder::class);
+    }
+
+    public function buildingVisits()
+    {
+        return $this->hasMany(BuildingVisit::class);
+    }
+
+    public function deliveryNotes()
+    {
+        return $this->hasMany(DeliveryNote::class);
+    }
+}

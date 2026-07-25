@@ -12,6 +12,7 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Columns\TextColumn;
 use App\Support\WorkOrderLabels;
+use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
 
 class MaintenancesTable
 {
@@ -69,7 +70,9 @@ class MaintenancesTable
                         })
 
 
-           ])->recordUrl(fn ($record) => route('delivery-notes.show', $record));
+           ])->recordUrl(fn ($record) => DeliveryNoteResource::getUrl('view', [
+                'record' => $record,
+            ]));
 
     }
 

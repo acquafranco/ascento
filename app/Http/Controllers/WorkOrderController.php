@@ -132,8 +132,12 @@ class WorkOrderController extends Controller
     */
 
     public function start(
-        WorkOrder $workOrder
-    ) {
+
+    $company,
+
+    WorkOrder $workOrder
+
+) {
 
         $user = Auth::user();
 
@@ -169,7 +173,11 @@ class WorkOrderController extends Controller
 
 
         return redirect()
-            ->route('work-orders.index', ['status' => 'in_progress'])
+            ->route('work-orders.index', [
+
+            'company' => auth()->user()->company->slug,
+
+            'status' => 'in_progress'])
             ->with('success', 'El trabajo fue tomado y se trasladó a "En progreso".');
             }
 
@@ -181,9 +189,14 @@ class WorkOrderController extends Controller
     */
 
     public function finish(
-        Request $request,
-        WorkOrder $workOrder
-    ) {
+
+    Request $request,
+
+    $company,
+
+    WorkOrder $workOrder
+
+) {
 
         $user = Auth::user();
 
@@ -237,6 +250,8 @@ class WorkOrderController extends Controller
 
         BuildingVisit::create([
 
+        'company_id' => auth()->user()->company_id,
+
         'building_id' =>
             $workOrder->building_id,
 
@@ -284,6 +299,7 @@ class WorkOrderController extends Controller
 
             'notes' =>
                 $workOrder->notes,
+
         ]);
 
         return back();

@@ -18,7 +18,11 @@
 
     </div>
 
-  <form method="GET" class="mb-6 flex flex-wrap items-end gap-3">
+  <form
+    method="GET"
+    class="mb-6 flex flex-wrap items-end gap-3"
+    id="filters-form"
+>
 
     <input
         type="hidden"
@@ -28,7 +32,7 @@
 
     <select
         name="day"
-        class="h-11 rounded-xl border-gray-300 px-3"
+        class="h-11 rounded-xl border-gray-300 px-3 filter-select"
     >
         <option value="">Día</option>
 
@@ -42,9 +46,10 @@
         @endforeach
     </select>
 
+
     <select
         name="month"
-        class="h-11 rounded-xl border-gray-300 px-3"
+        class="h-11 rounded-xl border-gray-300 px-3 filter-select"
     >
         <option value="">Mes</option>
 
@@ -58,9 +63,10 @@
         @endforeach
     </select>
 
+
     <select
         name="year"
-        class="h-11 rounded-xl border-gray-300 px-5"
+        class="h-11 rounded-xl border-gray-300 px-5 filter-select"
     >
         <option value="">Año</option>
 
@@ -74,19 +80,26 @@
         @endforeach
     </select>
 
-    <button
-        type="submit"
-        class="h-11 px-4 rounded-xl bg-blue-600 text-white font-medium hover:bg-blue-700 transition"
+
+    <a
+        href="{{ route('work-orders.index', [
+            'company' => auth()->user()->company->slug,
+            'status' => request('status')
+        ]) }}"
+        class="h-11 px-4 rounded-xl bg-gray-200 text-gray-700 font-medium flex items-center hover:bg-gray-300"
     >
-        Filtrar
-    </button>
+        Limpiar
+    </a>
 
 </form>
 
 <div class="mb-6 grid grid-cols-3 gap-2">
 
     <a
-        href="{{ route('work-orders.index', ['status' => 'pending']) }}"
+        href="{{ route('work-orders.index', [
+            'company' => auth()->user()->company->slug,
+            'status' => 'pending',
+        ]) }}"
         class="py-3 rounded-xl bg-blue-100 hover:bg-blue-200 text-center text-xs sm:text-sm font-semibold"
     >
         📋<br>
@@ -94,7 +107,11 @@
     </a>
 
     <a
-        href="{{ route('work-orders.index', ['status' => 'in_progress']) }}"
+        href="{{ route('work-orders.index', [
+
+        'company' => auth()->user()->company->slug,
+
+        'status' => 'in_progress']) }}"
         class="py-3 rounded-xl bg-yellow-100 hover:bg-yellow-200 text-yellow-800 text-center text-xs sm:text-sm font-semibold"
     >
         🟡<br>
@@ -102,7 +119,11 @@
     </a>
 
     <a
-        href="{{ route('work-orders.index', ['status' => 'completed']) }}"
+        href="{{ route('work-orders.index', [
+
+        'company' => auth()->user()->company->slug,
+
+        'status' => 'completed']) }}"
         class="py-3 rounded-xl bg-green-100 hover:bg-green-200 text-green-700 text-center text-xs sm:text-sm font-semibold"
     >
         ✅<br>
@@ -210,7 +231,10 @@
                         {{-- TOMAR --}}
                         @if($workOrder->status === 'pending')
 
-                            <form method="POST" action="{{ route('work-orders.start', $workOrder) }}">
+                            <form method="POST" action="{{ route('work-orders.start', [
+                                'company' => auth()->user()->company->slug,
+                                'workOrder' => $workOrder,
+                            ]) }}">
                                 @csrf
 
                                 <button class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-2xl font-bold">
@@ -225,15 +249,15 @@
                         {{-- FINALIZAR --}}
                         @if($workOrder->status === 'in_progress' && $workOrder->user_id === auth()->id())
 
-                            <a
-                                    href="{{ route('delivery-notes.work-order', $workOrder) }}"
-                                    class="bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-2xl font-bold"
-                                >
-                                    Finalizar
-                                </a>
-                                @csrf
-
-                            </form>
+                           <a
+                                href="{{ route('delivery-notes.work-order', [
+                                    'company' => auth()->user()->company->slug,
+                                    'workOrder' => $workOrder
+                                ]) }}"
+                                class="bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-2xl font-bold"
+                            >
+                                Finalizar
+                            </a>
 
                         @endif
 
@@ -263,5 +287,18 @@
     </div>
 
 </div>
+<script>
+document.querySelectorAll('.filter-select')
+.forEach(select => {
 
+    select.addEventListener('change', () => {
+
+        document
+            .getElementById('filters-form')
+            .submit();
+
+    });
+
+});
+</script>
 </x-app-layout>

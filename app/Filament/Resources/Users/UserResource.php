@@ -13,6 +13,7 @@ use Filament\Tables\Table;
 use Filament\RelationManagers\DeliveryNotesRelationManager;
 use Filament\Tables;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
 
 class UserResource extends Resource
 {
@@ -93,5 +94,11 @@ class UserResource extends Resource
             'edit' =>
                 Pages\EditUser::route('/{record}/edit'),
         ];
+    }
+
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return parent::getEloquentQuery()
+            ->where('company_id', Auth::user()->company_id);
     }
 }

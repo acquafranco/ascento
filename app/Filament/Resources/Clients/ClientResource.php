@@ -13,6 +13,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Auth;
 
 class ClientResource extends Resource
 {
@@ -56,5 +57,11 @@ class ClientResource extends Resource
             'create' => CreateClient::route('/create'),
             'edit' => EditClient::route('/{record}/edit'),
         ];
+    }
+
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return parent::getEloquentQuery()
+            ->where('company_id', Auth::user()->company_id);
     }
 }

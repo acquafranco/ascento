@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\BuildingVisit;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 
 class TemplateController extends Controller
 {
@@ -137,7 +138,7 @@ class TemplateController extends Controller
         );
     }
 
-    public function day($date)
+   public function day(Request $request, $company, $date)
 {
     $date = Carbon::parse($date);
 

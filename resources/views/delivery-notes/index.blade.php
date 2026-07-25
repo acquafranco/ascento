@@ -83,7 +83,9 @@
     </select>
 
     <a
-        href="{{ route('delivery-notes.index') }}"
+        href="{{ route('delivery-notes.index', [
+            'company' => auth()->user()->company->slug
+        ]) }}"
         class="px-4 py-2 rounded-xl bg-gray-200 hover:bg-gray-300"
     >
         Limpiar
@@ -95,8 +97,11 @@
 
     @forelse($deliveryNotes as $note)
 
-        <a
-            href="{{ route('delivery-notes.show', $note) }}"
+        <a href="{{ route('delivery-notes.show', [
+    'company' => auth()->user()->company->slug,
+    'deliveryNote' => $note->number
+    ]) }}"
+
             class="bg-white rounded-3xl shadow hover:shadow-lg transition p-6 block"
         >
 

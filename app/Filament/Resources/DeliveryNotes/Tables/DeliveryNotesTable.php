@@ -4,7 +4,6 @@ namespace App\Filament\Resources\DeliveryNotes\Tables;
 
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Columns\TextColumn;
@@ -24,17 +23,17 @@ class DeliveryNotesTable
                 ->sortable(),
 
            TextColumn::make('building.name')
-    ->label('Edificio')
-    ->formatStateUsing(fn ($state, $record) =>
-        "{$record->building->name} {$record->building->address}"
-    )
-    ->searchable(query: function ($query, $search) {
-        $query->whereHas('building', function ($query) use ($search) {
-            $query->where('name', 'like', "%{$search}%")
-                  ->orWhere('address', 'like', "%{$search}%");
-        });
-    })
-    ->sortable(),
+            ->label('Edificio')
+            ->formatStateUsing(fn ($state, $record) =>
+                "{$record->building->name} {$record->building->address}"
+            )
+            ->searchable(query: function ($query, $search) {
+                $query->whereHas('building', function ($query) use ($search) {
+                    $query->where('name', 'like', "%{$search}%")
+                        ->orWhere('address', 'like', "%{$search}%");
+                });
+            })
+            ->sortable(),
 
             TextColumn::make('user.name')
                 ->label('Técnico')
@@ -126,7 +125,6 @@ class DeliveryNotesTable
             ->defaultSort('number', 'desc')
           ->recordActions([
                 ViewAction::make(),
-                EditAction::make(),
 
                   \Filament\Actions\Action::make('pdf')
 
@@ -134,11 +132,10 @@ class DeliveryNotesTable
 
                     ->icon('heroicon-o-document-arrow-down')
 
-                    ->url(fn ($record) =>
-
-                        route('delivery-notes.pdf', $record)
-
-                    )
+                    ->url(fn ($record) => route('delivery-notes.pdf', [
+                        'company' => auth()->user()->company->slug,
+                        'deliveryNote' => $record,
+                    ]))
 
                     ->openUrlInNewTab(),
             ]);

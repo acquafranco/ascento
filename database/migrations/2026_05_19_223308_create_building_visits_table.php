@@ -112,6 +112,9 @@ return new class extends Migration
 
             $table->text('notes')
                 ->nullable();
+            $table->foreignId('company_id')
+                ->constrained()
+                ->cascadeOnDelete();
 
             $table->timestamps();
         });

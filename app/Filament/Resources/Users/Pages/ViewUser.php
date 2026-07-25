@@ -23,7 +23,10 @@ class ViewUser extends ViewRecord
     return [
         \Filament\Actions\Action::make('ver_template')
             ->label('📅 Ver plantilla')
-            ->url(fn ($record) => route('users.template', $record))
+            ->url(fn ($record) => route('users.template', [
+                'company' => auth()->user()->company->slug,
+                'user' => $record,
+            ]))
             ->openUrlInNewTab(),
     ];
 }

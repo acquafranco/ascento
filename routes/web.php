@@ -16,29 +16,56 @@ use App\Http\Controllers\{
 
 use App\Models\User;
 use App\Models\BuildingVisit;
-use App\Models\Quote;
+
 
 /*
 |--------------------------------------------------------------------------
-| ROOT
+| PUBLIC ROUTES
 |--------------------------------------------------------------------------
 */
 
-Route::get('/', fn () =>
-    redirect()->route('dashboard')
-);
+Route::get('/', function(){
+
+    if(auth()->check() && auth()->user()->company){
+
+        return redirect()->route('dashboard', [
+            'company' => auth()->user()->company->slug
+        ]);
+
+    }
+
+    return redirect()->route('login');
+
+});
+
+/*
+|--------------------------------------------------------------------------
+| PUBLIC DELIVERY NOTE
+|--------------------------------------------------------------------------
+*/
+
 
 Route::get(
-    '/public/delivery-notes/{deliveryNote}',
+    '/{company:slug}/public/delivery-notes/{deliveryNote}',
     [DeliveryNoteController::class, 'showPublic']
 )->name('delivery-notes.public');
+
+
 /*
 |--------------------------------------------------------------------------
-| 🔐 AUTH MIDDLEWARE GLOBAL
+| COMPANY APPLICATION
 |--------------------------------------------------------------------------
 */
 
-Route::middleware(['auth'])->group(function () {
+Route::prefix('{company:slug}')
+    ->middleware([
+        'auth',
+        'company',
+        'company.defaults',
+    ])
+    ->scopeBindings()
+    ->group(function () {
+
 
     /*
     |--------------------------------------------------------------------------
@@ -46,8 +73,11 @@ Route::middleware(['auth'])->group(function () {
     |--------------------------------------------------------------------------
     */
 
-    Route::get('/dashboard', [DashboardController::class, 'index'])
-        ->name('dashboard');
+    Route::get('/dashboard', [
+        DashboardController::class,
+        'index'
+    ])->name('dashboard');
+
 
     /*
     |--------------------------------------------------------------------------
@@ -56,10 +86,18 @@ Route::middleware(['auth'])->group(function () {
     */
 
     Route::controller(ProfileController::class)->group(function () {
-        Route::get('/profile', 'edit')->name('profile.edit');
-        Route::patch('/profile', 'update')->name('profile.update');
-        Route::delete('/profile', 'destroy')->name('profile.destroy');
+
+        Route::get('/profile', 'edit')
+            ->name('profile.edit');
+
+        Route::patch('/profile', 'update')
+            ->name('profile.update');
+
+        Route::delete('/profile', 'destroy')
+            ->name('profile.destroy');
+
     });
+
 
     /*
     |--------------------------------------------------------------------------
@@ -67,90 +105,132 @@ Route::middleware(['auth'])->group(function () {
     |--------------------------------------------------------------------------
     */
 
-    Route::get('/buildings', [BuildingController::class, 'index'])
-        ->name('buildings.index');
+    Route::get('/buildings', [
+        BuildingController::class,
+        'index'
+    ])->name('buildings.index');
 
-    Route::get('/buildings/{building}', [BuildingController::class, 'show'])
-        ->name('buildings.show');
+
+    Route::get('/buildings/{building}', [
+        BuildingController::class,
+        'show'
+    ])->name('buildings.show');
+
+
 
     /*
     |--------------------------------------------------------------------------
-    | TEMPLATE GENERAL
+    | TEMPLATES
     |--------------------------------------------------------------------------
     */
 
-    Route::get('/my-templates', [TemplateController::class, 'index'])
-        ->name('templates.index');
+    Route::get('/my-templates', [
+        TemplateController::class,
+        'index'
+    ])->name('templates.index');
 
-    Route::get('/my-templates/day/{date}',[TemplateController::class, 'day']
-        )->name('templates.day');
+
+    Route::get('/my-templates/day/{date}', [
+        TemplateController::class,
+        'day'
+    ])->name('templates.day');
+
+
+
     /*
     |--------------------------------------------------------------------------
-    | 🔒 TEMPLATE POR USUARIO (CORRECTO + CERRADO)
+    | USER TEMPLATE ADMIN
     |--------------------------------------------------------------------------
     */
 
-   Route::get('/users/{user}/template', function (User $user) {
+    Route::get('/users/{user}/template', function(User $user){
 
         abort_unless(
-            Gate::forUser(auth()->user())->allows('view-user-template', $user),
-            403,
-            'Solo admin puede ver esto'
+            Gate::forUser(auth()->user())
+                ->allows('view-user-template',$user),
+            403
         );
+
 
         $month = request('month', now()->month);
         $year  = request('year', now()->year);
 
-        $visits = BuildingVisit::with(['building', 'user'])
-            ->where('user_id', $user->id)
+
+        $visits = BuildingVisit::with([
+                'building',
+                'user'
+            ])
+            ->where('user_id',$user->id)
             ->whereNotNull('visited_at')
-            ->whereMonth('visited_at', $month)
-            ->whereYear('visited_at', $year)
+            ->whereMonth('visited_at',$month)
+            ->whereYear('visited_at',$year)
             ->orderBy('visited_at')
             ->get();
 
-        $weeks = [];
 
-        $current = \Carbon\Carbon::create(
+        $weeks=[];
+
+
+        $current=\Carbon\Carbon::create(
             $year,
             $month,
             1
-        )->startOfWeek(\Carbon\Carbon::MONDAY);
+        )->startOfWeek(
+            \Carbon\Carbon::MONDAY
+        );
 
-        $end = \Carbon\Carbon::create(
+
+        $end=\Carbon\Carbon::create(
             $year,
             $month,
             1
         )
-            ->endOfMonth()
-            ->endOfWeek(\Carbon\Carbon::SUNDAY);
+        ->endOfMonth()
+        ->endOfWeek(
+            \Carbon\Carbon::SUNDAY
+        );
 
-        while ($current->lte($end)) {
 
-            $weekStart = $current->copy()->startOfDay();
-            $weekEnd = $current->copy()->addDays(6)->endOfDay();
+        while($current->lte($end)){
 
-            $weeks[] = [
-                'start' => $weekStart,
-                'end' => $weekEnd,
-                'visits' => $visits->filter(
-                    fn ($v) =>
-                        \Carbon\Carbon::parse($v->visited_at)
-                            ->between($weekStart, $weekEnd)
-                ),
+
+            $start=$current->copy()->startOfDay();
+            $finish=$current->copy()
+                ->addDays(6)
+                ->endOfDay();
+
+
+            $weeks[]=[
+                'start'=>$start,
+                'end'=>$finish,
+                'visits'=>$visits->filter(
+                    fn($v)=>
+                    \Carbon\Carbon::parse(
+                        $v->visited_at
+                    )->between($start,$finish)
+                )
             ];
 
+
             $current->addWeek();
+
         }
 
-        return view('admin.user-template', [
-            'user' => $user,
-            'weeks' => $weeks,
-            'month' => $month,
-            'year' => $year,
-        ]);
+
+        return view(
+            'admin.user-template',
+            compact(
+                'user',
+                'weeks',
+                'month',
+                'year'
+            )
+        );
+
 
     })->name('users.template');
+
+
 
     /*
     |--------------------------------------------------------------------------
@@ -158,14 +238,25 @@ Route::middleware(['auth'])->group(function () {
     |--------------------------------------------------------------------------
     */
 
-    Route::get('/work-orders', [WorkOrderController::class, 'index'])
-        ->name('work-orders.index');
 
-    Route::post('/work-orders/{workOrder}/start', [WorkOrderController::class, 'start'])
-        ->name('work-orders.start');
+    Route::get('/work-orders',[
+        WorkOrderController::class,
+        'index'
+    ])->name('work-orders.index');
 
-    Route::post('/work-orders/{workOrder}/finish', [WorkOrderController::class, 'finish'])
-        ->name('work-orders.finish');
+
+    Route::post('/work-orders/{workOrder}/start',[
+        WorkOrderController::class,
+        'start'
+    ])->name('work-orders.start');
+
+
+    Route::post('/work-orders/{workOrder}/finish',[
+        WorkOrderController::class,
+        'finish'
+    ])->name('work-orders.finish');
+
+
 
     /*
     |--------------------------------------------------------------------------
@@ -173,65 +264,122 @@ Route::middleware(['auth'])->group(function () {
     |--------------------------------------------------------------------------
     */
 
-    Route::post('/building-check/{building}/done', [BuildingCheckController::class, 'done'])
-        ->name('building-check.done');
+    Route::post('/building-check/{building}/done',[
+        BuildingCheckController::class,
+        'done'
+    ])->name('building-check.done');
 
-    Route::post('/building-check/{building}/failed', [BuildingCheckController::class, 'failed'])
-        ->name('building-check.failed');
 
-    Route::get(
-        '/delivery-notes/create/building/{building}',
-        [DeliveryNoteController::class, 'createFromBuilding']
-    )->name('delivery-notes.building');
+    Route::post('/building-check/{building}/failed',[
+        BuildingCheckController::class,
+        'failed'
+    ])->name('building-check.failed');
 
-    Route::get(
-        '/delivery-notes/create/work-order/{workOrder}',
-        [DeliveryNoteController::class, 'createFromWorkOrder']
-    )->name('delivery-notes.work-order');
-
-    Route::post(
-        '/delivery-notes/store',
-        [DeliveryNoteController::class, 'store']
-    )->name('delivery-notes.store');
-
-    Route::get(
-    '/delivery-notes/{deliveryNote}',
-    [DeliveryNoteController::class, 'show']
-    )->name('delivery-notes.show');
-
-    Route::get(
-    '/delivery-notes',
-    [DeliveryNoteController::class, 'index']
-    )->name('delivery-notes.index');
 
 
     /*
     |--------------------------------------------------------------------------
-    | ADMIN ONLY
+    | DELIVERY NOTES
     |--------------------------------------------------------------------------
     */
 
-    Route::middleware('admin')->group(function () {
 
-        Route::resource('buildings', BuildingController::class)
-            ->except(['index', 'show']);
+    Route::get('/delivery-notes',[
+        DeliveryNoteController::class,
+        'index'
+    ])->name('delivery-notes.index');
 
-        Route::resource('clients', ClientController::class)
-            ->except(['index', 'show']);
 
-           Route::get(
+    Route::get('/delivery-notes/create/building/{building}',[
+        DeliveryNoteController::class,
+        'createFromBuilding'
+    ])->name('delivery-notes.building');
+
+
+    Route::get('/delivery-notes/create/work-order/{workOrder}',[
+        DeliveryNoteController::class,
+        'createFromWorkOrder'
+    ])->name('delivery-notes.work-order');
+
+
+    Route::post('/delivery-notes/store',[
+        DeliveryNoteController::class,
+        'store'
+    ])->name('delivery-notes.store');
+
+
+    Route::get('/delivery-notes/{deliveryNote}',[
+    DeliveryNoteController::class,
+    'show'
+    ])
+    ->scopeBindings()
+    ->name('delivery-notes.show');
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | ADMIN
+    |--------------------------------------------------------------------------
+    */
+
+
+    Route::middleware('admin')->group(function(){
+
+
+        Route::resource(
+            'buildings',
+            BuildingController::class
+        )->except([
+            'index',
+            'show'
+        ]);
+
+
+        Route::resource(
+            'clients',
+            ClientController::class
+        )->except([
+            'index',
+            'show'
+        ]);
+
+
+
+        Route::get(
             '/delivery-notes/{deliveryNote}/pdf',
-            [DeliveryNoteController::class, 'pdf']
-            )->name('delivery-notes.pdf');
-            });
+            [
+                DeliveryNoteController::class,
+                'pdf'
+            ]
+        )->name('delivery-notes.pdf');
+
+
+    });
+
 
 });
-Route::get('/quote/{token}', function ($token) {
 
-    $quote = \App\Models\Quote::where('public_token', $token)
-        ->firstOrFail();
 
-    return view('quotes.public', compact('quote'));
+
+/*
+|--------------------------------------------------------------------------
+| PUBLIC QUOTES
+|--------------------------------------------------------------------------
+*/
+
+Route::get('/quote/{token}', function($token){
+
+    $quote = \App\Models\Quote::where(
+        'public_token',
+        $token
+    )->firstOrFail();
+
+
+    return view(
+        'quotes.public',
+        compact('quote')
+    );
+
 
 })->name('quotes.public');
 
@@ -239,9 +387,8 @@ Route::get('/quote/{token}', function ($token) {
 
 /*
 |--------------------------------------------------------------------------
-| AUTH ROUTES
+| AUTH
 |--------------------------------------------------------------------------
 */
-
 
 require __DIR__.'/auth.php';

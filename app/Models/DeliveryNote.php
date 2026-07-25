@@ -1,69 +1,80 @@
 <?php
 
 namespace App\Models;
-
+use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Model;
 
 class DeliveryNote extends Model
 {
-    protected $fillable = [
 
-    'number',
+        use BelongsToCompany;
 
-    'building_id',
-    'building_visit_id',
-    'work_order_id',
-    'assignment_type',
-    'user_id',
+        protected $fillable = [
 
-    'description',
-     'elevator_quantity',
+        'number',
+        'company_id',
+        'building_id',
+        'building_visit_id',
+        'work_order_id',
+        'assignment_type',
+        'user_id',
 
-    'freight_elevator_quantity',
-    'performed',
+        'description',
+        'elevator_quantity',
 
-    'month',
-    'year',
+        'freight_elevator_quantity',
+        'performed',
 
-    'signature_name',
-    'signature',
-    'client_signature',
-    'client_signature_name',
-];
+        'month',
+        'year',
 
-protected $casts = [
+        'signature_name',
+        'signature',
+        'client_signature',
+        'client_signature_name',
+    ];
 
-    'performed' => 'boolean',
+    protected $casts = [
 
-    'month' => 'integer',
+        'performed' => 'boolean',
 
-    'year' => 'integer',
+        'month' => 'integer',
 
-    'elevator_quantity' => 'integer',
+        'year' => 'integer',
 
-    'freight_elevator_quantity' => 'integer',
+        'elevator_quantity' => 'integer',
 
-];
+        'freight_elevator_quantity' => 'integer',
+
+    ];
 
 
-protected static function booted(): void
-{
-    static::creating(function ($deliveryNote) {
+    protected static function booted(): void
+    {
+        static::creating(function ($deliveryNote) {
 
-        $lastNumber = static::max('number');
+            $lastNumber = static::where(
+                'company_id',
+                $deliveryNote->company_id
+            )->max('number');
 
-        $nextNumber = $lastNumber
-            ? ((int) $lastNumber) + 1
-            : 1;
+            $nextNumber = $lastNumber
+                ? ((int) $lastNumber) + 1
+                : 1;
 
-        $deliveryNote->number = str_pad(
-            $nextNumber,
-            8,
-            '0',
-            STR_PAD_LEFT
-        );
-    });
-}
+            $deliveryNote->number = str_pad(
+                $nextNumber,
+                8,
+                '0',
+                STR_PAD_LEFT
+            );
+        });
+    }
+
+    public function getRouteKeyName()
+    {
+        return 'number';
+    }
 
     public function building()
     {
@@ -85,6 +96,11 @@ protected static function booted(): void
             BuildingVisit::class,
             'building_visit_id'
         );
+    }
+
+    public function company()
+    {
+        return $this->belongsTo(Company::class);
     }
 
 }

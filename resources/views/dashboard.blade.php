@@ -9,10 +9,12 @@
 <div class="fixed left-0 right-0 top-0 bottom-20 lg:top-16 lg:bottom-0 overflow-y-auto">
 
     <div class="grid grid-cols-2 grid-rows-4 h-full">
-
         {{-- PENDIENTES --}}
-        <a href="/work-orders?status=pending"
-           class="bg-blue-100 flex flex-col items-center justify-center">
+        <a href="{{ route('work-orders.index', [
+            'company' => auth()->user()->company->slug,
+            'status' => 'pending',
+        ]) }}"
+        class="bg-blue-100 flex flex-col items-center justify-center">
 
             <div class="flex items-center gap-2 text-sm text-gray-600">
                 ⏱ Pendientes
@@ -26,8 +28,11 @@
 
 
         {{-- EN PROGRESO --}}
-        <a href="/work-orders?status=in_progress"
-           class="bg-yellow-100 flex flex-col items-center justify-center ">
+        <a href="{{ route('work-orders.index', [
+            'company' => auth()->user()->company->slug,
+            'status' => 'in_progress',
+        ]) }}"
+        class="bg-yellow-100 flex flex-col items-center justify-center">
 
             <div class="flex items-center gap-2 text-sm text-gray-600">
                 ⏳ En progreso
@@ -41,8 +46,11 @@
 
 
         {{-- COMPLETADAS --}}
-        <a href="/work-orders?status=completed"
-           class="bg-green-100 flex flex-col items-center justify-center">
+        <a href="{{ route('work-orders.index', [
+            'company' => auth()->user()->company->slug,
+            'status' => 'completed',
+        ]) }}"
+        class="bg-green-100 flex flex-col items-center justify-center">
 
             <div class="text-sm text-gray-600">
                 ✓ Completadas
@@ -56,8 +64,10 @@
 
 
         {{-- EDIFICIOS --}}
-        <a href="/buildings"
-           class="bg-gray-200 flex flex-col items-center justify-center">
+        <a href="{{ route('buildings.index', [
+            'company' => auth()->user()->company->slug,
+        ]) }}"
+        class="bg-gray-200 flex flex-col items-center justify-center">
 
             <div class="text-sm text-gray-600">
                 🏢 Mis edificios
@@ -71,8 +81,11 @@
 
 
         {{-- HOY --}}
-        <a href="/work-orders?today=1"
-           class="bg-purple-100 flex flex-col items-center justify-center ">
+        <a href="{{ route('work-orders.index', [
+            'company' => auth()->user()->company->slug,
+            'today' => 1,
+        ]) }}"
+        class="bg-purple-100 flex flex-col items-center justify-center">
 
             <div class="text-sm text-gray-600">
                 📅 Trabajos de hoy
@@ -86,8 +99,10 @@
 
 
         {{-- REMITOS --}}
-        <a href="{{ route('delivery-notes.index') }}"
-           class="bg-cyan-100 flex flex-col items-center justify-center">
+        <a href="{{ route('delivery-notes.index', [
+            'company' => auth()->user()->company->slug,
+        ]) }}"
+        class="bg-cyan-100 flex flex-col items-center justify-center">
 
             <div class="text-sm text-gray-600">
                 📄 Mis remitos
@@ -101,8 +116,10 @@
 
 
         {{-- PLANTILLAS --}}
-        <a href="/my-templates"
-           class="col-span-2 bg-orange-100 flex items-center justify-center ">
+        <a href="{{ route('templates.index', [
+            'company' => auth()->user()->company->slug,
+        ]) }}"
+        class="col-span-2 bg-orange-100 flex items-center justify-center">
 
             <div class="text-xl font-bold flex items-center gap-2">
                 Mis plantillas →

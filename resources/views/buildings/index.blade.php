@@ -156,6 +156,7 @@
 
                         <a
                             href="{{ route('delivery-notes.building',[
+                                'company' => auth()->user()->company->slug,
                                 'building'=>$building,
                                 'month'=>$month,
                                 'year'=>$year,
@@ -184,23 +185,7 @@
 
                             </div>
 
-                            <!-- <form
-                                method="POST"
-                                action="{{ route('building-check.done',$building) }}"
-                            >
-                                @csrf
 
-                                <input type="hidden" name="month" value="{{ $month }}">
-                                <input type="hidden" name="year" value="{{ $year }}">
-                                <input type="hidden" name="assignment_type" value="maintenance">
-
-                                <button
-                                    class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl"
-                                >
-                                    Desmarcar
-                                </button>
-
-                            </form> -->
 
                         </div>
 
@@ -217,6 +202,7 @@
 
                         <a
                             href="{{ route('delivery-notes.building',[
+                                'company' => auth()->user()->company->slug,
                                 'building'=>$building,
                                 'month'=>$month,
                                 'year'=>$year,
@@ -245,23 +231,7 @@
 
                             </div>
 
-                            <!-- <form
-                                method="POST"
-                                action="{{ route('building-check.done',$building) }}"
-                            >
-                                @csrf
 
-                                <input type="hidden" name="month" value="{{ $month }}">
-                                <input type="hidden" name="year" value="{{ $year }}">
-                                <input type="hidden" name="assignment_type" value="inspection">
-
-                                <button
-                                    class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl"
-                                >
-                                    Desmarcar
-                                </button>
-
-                            </form> -->
 
                         </div>
 

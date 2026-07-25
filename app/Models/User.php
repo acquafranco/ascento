@@ -7,13 +7,15 @@ use Filament\Panel;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Notifications\Notifiable;
-use deliveryNotes;
+
 
 class User extends Authenticatable implements FilamentUser
 {
     use HasFactory, Notifiable;
 
+
     protected $fillable = [
+        'company_id',
         'name',
         'email',
         'password',
@@ -23,7 +25,6 @@ class User extends Authenticatable implements FilamentUser
         'email',
         'password',
         'phone',
-
     ];
 
     protected $hidden = [
@@ -102,6 +103,11 @@ class User extends Authenticatable implements FilamentUser
     }
 
     $this->attributes['phone'] = '549' . $phone;
-}
+    }
+
+    public function company()
+    {
+        return $this->belongsTo(Company::class);
+    }
 
     }

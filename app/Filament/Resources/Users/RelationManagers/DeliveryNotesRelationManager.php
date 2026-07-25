@@ -50,7 +50,13 @@ class DeliveryNotesRelationManager extends RelationManager
         ->icon('heroicon-o-eye')
 
         ->url(fn ($record) =>
-            route('delivery-notes.show', $record)
+            route('delivery-notes.show', [
+
+                'company' => auth()->user()->company->slug,
+
+                'deliveryNote' => $record->number,
+
+            ])
         )
 
         ->openUrlInNewTab(),

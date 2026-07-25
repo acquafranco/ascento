@@ -93,7 +93,7 @@ class BuildingsTable
 
                             ->options(
                                 User::query()
-
+                                   ->where('company_id', auth()->user()->company_id)
                                     // NO admins
                                     ->where(
                                         'role',

@@ -13,6 +13,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Auth;
 
 class DeliveryNoteResource extends Resource
 {
@@ -68,10 +69,20 @@ class DeliveryNoteResource extends Resource
     {
         return [
             'index' => ListDeliveryNotes::route('/'),
-            'edit' => EditDeliveryNote::route('/{record}/edit'),
             'view' => ViewDeliveryNote::route('/{record}'),
         ];
     }
+
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+{
+    return parent::getEloquentQuery()
+        ->where('company_id', Auth::user()->company_id);
+}
+
+public static function canEdit($record): bool
+{
+    return false;
+}
 
 }
 

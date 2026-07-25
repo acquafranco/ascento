@@ -63,7 +63,11 @@
                 </ul>
             </div>
         @endif
-        <form method="POST" action="{{ route('delivery-notes.store') }}" id="remito-form">
+        <form method="POST" action="{{ route('delivery-notes.store', [
+
+                    'company' => auth()->user()->company->slug
+
+                        ])}}" id="remito-form">
             @csrf
 
             @if($workOrder)

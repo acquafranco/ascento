@@ -8,75 +8,81 @@ use App\Models\BuildingVisit;
 use App\Models\DeliveryNote;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
+use App\Models\Company;
 
 class DeliveryNoteController extends Controller
 {
-   public function index(Request $request)
+   public function index(Request $request, Company $company)
 
 {
 
-        $query = DeliveryNote::with([
-            'building',
-            'user',
-            'workOrder',
-            'buildingVisit',
-        ])
+    $query = DeliveryNote::with([
 
-        ->where('user_id', auth()->id());
+        'building',
 
-        if ($request->filled('day')) {
+        'user',
 
-            $query->whereDay(
+        'workOrder',
 
-                'created_at',
+        'buildingVisit',
 
-                $request->day
+    ])
 
-            );
+    ->where('company_id', $company->id);
 
-        }
+    if ($request->filled('day')) {
 
-        if ($request->filled('month')) {
+        $query->whereDay(
 
-            $query->whereMonth(
+            'created_at',
 
-                'created_at',
-
-                $request->month
-
-            );
-
-        }
-
-        if ($request->filled('year')) {
-
-            $query->whereYear(
-
-                'created_at',
-
-                $request->year
-
-            );
-
-        }
-
-        $deliveryNotes = $query
-
-            ->latest()
-
-            ->get();
-
-        return view(
-
-            'delivery-notes.index',
-
-            compact('deliveryNotes')
+            $request->day
 
         );
 
     }
 
-    public function show(DeliveryNote $deliveryNote)
+    if ($request->filled('month')) {
+
+        $query->whereMonth(
+
+            'created_at',
+
+            $request->month
+
+        );
+
+    }
+
+    if ($request->filled('year')) {
+
+        $query->whereYear(
+
+            'created_at',
+
+            $request->year
+
+        );
+
+    }
+
+    $deliveryNotes = $query
+
+        ->latest()
+
+        ->get();
+
+    return view(
+
+        'delivery-notes.index',
+
+        compact('deliveryNotes')
+
+    );
+
+}
+
+public function show($company, DeliveryNote $deliveryNote)
         {
             $user = auth()->user();
 
@@ -103,7 +109,7 @@ class DeliveryNoteController extends Controller
         );
     }
 
-    public function createFromBuilding(Request $request, Building $building)
+    public function createFromBuilding(Request $request, $company, Building $building)
     {
         return view(
             'delivery-notes.create',
@@ -117,7 +123,7 @@ class DeliveryNoteController extends Controller
         );
     }
 
-    public function createFromWorkOrder(Request $request, WorkOrder $workOrder)
+    public function createFromWorkOrder(Request $request, $company, WorkOrder $workOrder)
     {
         return view(
             'delivery-notes.create',
@@ -210,26 +216,34 @@ class DeliveryNoteController extends Controller
 
 
     $visit = BuildingVisit::firstOrCreate(
-    [
-        'building_id' => $building->id,
-        'user_id' => auth()->id(),
-        'visit_type' => $visitType,
-        'assignment_type' => $assignmentType,
-        'source' => $request->filled('work_order_id')
-            ? 'work_order'
-            : 'building',
-        'month' => $request->month,
-        'year' => $request->year,
-    ],
-    [
-        'work_order_id' => $request->work_order_id,
+[
+    'company_id' => auth()->user()->company_id,
 
-        'status' => $request->boolean('performed')
-            ? 'done'
-            : 'failed',
+    'building_id' => $building->id,
 
-        'visited_at' => now(),
-    ]
+    'user_id' => auth()->id(),
+
+    'visit_type' => $visitType,
+
+    'assignment_type' => $assignmentType,
+
+    'source' => $request->filled('work_order_id')
+        ? 'work_order'
+        : 'building',
+
+    'month' => $request->month,
+
+    'year' => $request->year,
+],
+[
+    'work_order_id' => $request->work_order_id,
+
+    'status' => $request->boolean('performed')
+        ? 'done'
+        : 'failed',
+
+    'visited_at' => now(),
+]
 );
 
 
@@ -240,6 +254,8 @@ class DeliveryNoteController extends Controller
     */
 
         $deliveryNote = DeliveryNote::create([
+
+            'company_id' => auth()->user()->company_id,
 
             'building_id' => $building->id,
 
@@ -301,19 +317,32 @@ class DeliveryNoteController extends Controller
 
 
     return redirect()
-    ->route('delivery-notes.index', $deliveryNote)
-    ->with('success', 'Remito generado correctamente.');
+
+    ->route('delivery-notes.index', [
+
+        'company' => auth()->user()->company->slug
+
+    ])->with('success', 'Remito generado correctamente.');
+
 }
-    public function pdf(DeliveryNote $deliveryNote)
+
+
+    public function pdf(Company $company, DeliveryNote $deliveryNote)
+
     {
+
         $user = auth()->user();
 
         abort_unless(
+
             $user->isAdmin() || $deliveryNote->user_id === $user->id,
+
             403
+
         );
 
         return view('delivery-notes.show', compact('deliveryNote'));
+
     }
 
     public function showPublic($id)

@@ -28,6 +28,10 @@ return new class extends Migration
 
                 $table->string('status')->default('pending');
 
+                $table->foreignId('company_id')
+                ->constrained()
+                ->cascadeOnDelete();
+
                 // pending | sent | approved | rejected
 
                 $table->string('priority')->default('normal');

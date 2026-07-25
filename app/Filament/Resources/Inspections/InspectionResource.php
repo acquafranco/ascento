@@ -16,7 +16,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use App\Models\DeliveryNote;
 use Illuminate\Database\Eloquent\Builder;
-
+use Illuminate\Support\Facades\Auth;
 
 class InspectionResource extends Resource
 {
@@ -42,20 +42,30 @@ class InspectionResource extends Resource
         return InspectionForm::configure($schema);
     }
 
-   public static function getEloquentQuery(): Builder
-    {
-        return parent::getEloquentQuery()
-            ->where(function (Builder $query) {
-                $query->where('assignment_type', 'inspection')
+public static function getEloquentQuery(): Builder
+{
+    return parent::getEloquentQuery()
+
+        ->where('company_id', Auth::user()->company_id)
+
+        ->where(function (Builder $query) {
+
+            $query->where('assignment_type', 'inspection')
 
                 ->orWhere(function (Builder $query) {
+
                     $query->where('assignment_type', 'work_order')
+
                         ->whereHas('workOrder', function (Builder $query) {
+
                             $query->where('type', 'inspection');
+
                         });
+
                 });
-            });
-    }
+
+        });
+}
 
     public static function infolist(Schema $schema): Schema
     {

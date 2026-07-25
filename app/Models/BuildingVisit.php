@@ -3,10 +3,14 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Concerns\BelongsToCompany;
 
 class BuildingVisit extends Model
 {
+    use BelongsToCompany;
+
     protected $fillable = [
+        'company_id',
 
         'building_id',
         'user_id',
@@ -74,5 +78,11 @@ public function deliveryNote()
         DeliveryNote::class
     );
 }
+
+public function company()
+{
+    return $this->belongsTo(Company::class);
+}
+
 
 }

@@ -368,7 +368,10 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
-    const pageURL = "{{ route('delivery-notes.public', $deliveryNote) }}";
+    const pageURL = "{{ route('delivery-notes.public', [
+    'company' => $deliveryNote->company->slug,
+    'deliveryNote' => $deliveryNote,
+    ]) }}";
     const noteNum = '{{ str_pad($deliveryNote->number, 6, "0", STR_PAD_LEFT) }}';
     const subject = encodeURIComponent('Remito #' + noteNum);
 

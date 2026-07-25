@@ -15,6 +15,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Auth;
 
 class QuoteResource extends Resource
 {
@@ -67,5 +68,11 @@ class QuoteResource extends Resource
             'view' => ViewQuote::route('/{record}'),
             'edit' => EditQuote::route('/{record}/edit'),
         ];
+    }
+
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return parent::getEloquentQuery()
+            ->where('company_id', Auth::user()->company_id);
     }
 }

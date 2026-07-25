@@ -15,7 +15,9 @@ return new class extends Migration
 
     $table->id();
 
-    $table->string('number')->unique();
+    $table->string('number');
+
+    $table->unique(['company_id', 'number']);
 
     $table->foreignId('building_id')
         ->constrained()
@@ -58,6 +60,10 @@ return new class extends Migration
     $table->longText('client_signature')->nullable();
 
     $table->string('client_signature_name')->nullable();
+
+    $table->foreignId('company_id')
+    ->constrained()
+    ->cascadeOnDelete();
 
     $table->timestamps();
 });

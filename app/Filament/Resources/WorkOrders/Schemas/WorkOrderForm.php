@@ -4,6 +4,9 @@ namespace App\Filament\Resources\WorkOrders\Schemas;
 
 use Filament\Forms;
 use Filament\Schemas\Schema;
+use App\Models\User;
+use Illuminate\Support\Facades\Auth;
+use App\Models\Building;
 
 class WorkOrderForm
 {
@@ -16,17 +19,20 @@ class WorkOrderForm
 
                 Forms\Components\Select::make('building_id')
                     ->label('Edificio')
-                    ->options(function () {
-                        return \App\Models\Building::query()
-                            ->get()
-                            ->mapWithKeys(fn ($building) => [
-                                $building->id => "{$building->name}  {$building->address}"
-                            ])
-                            ->toArray();
-                    })
-                    ->searchable()
+                    ->relationship(
+                        name: 'building',
+                        titleAttribute: 'name',
+                        modifyQueryUsing: fn ($query) => $query
+                            ->where('company_id', Auth::user()->company_id)
+                            ->orderBy('name'),
+                    )
+                    ->getOptionLabelFromRecordUsing(
+                        fn (Building $record) => "{$record->name} {$record->address}"
+                    )
+                    ->searchable(['name', 'address'])
                     ->preload()
                     ->live()
+                    ->afterStateUpdated(fn (callable $set) => $set('unit', null))
                     ->required(),
 
                 Forms\Components\Select::make('unit')
@@ -38,9 +44,10 @@ class WorkOrderForm
                             return [];
                         }
 
-                        $building = \App\Models\Building::find(
-                            $buildingId
-                        );
+                        $building = Building::query()
+                            ->whereKey($buildingId)
+                            ->where('company_id', Auth::user()->company_id)
+                            ->first();
 
                         if (!$building) {
                             return [];
@@ -106,17 +113,19 @@ class WorkOrderForm
                     ->required()
                     ->label('Unidad'),
 
-                Forms\Components\Select::make(
-                    'user_id'
-                )
+                Forms\Components\Select::make('user_id')
+                    ->label('Técnico')
                     ->relationship(
-                        'technician',
-                        'name'
+                        name: 'technician',
+                        titleAttribute: 'name',
+                        modifyQueryUsing: fn ($query) => $query
+                            ->where('company_id', Auth::user()->company_id)
+                            ->where('role', 'technician')
+                            ->orderBy('name'),
                     )
                     ->searchable()
                     ->preload()
-                    ->required()
-                    ->label('Técnico'),
+                    ->required(),
 
                 Forms\Components\Select::make(
                     'type'
