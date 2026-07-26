@@ -21,8 +21,7 @@
                    <img
                         src="{{ asset('images/logo.png') }}"
                         alt="Logo"
-                        class="size-[20px] object-contain mx-auto"
-                    />
+class="w-20 h-20 object-contain mx-auto"                    />
                 </a>
             </div>
 

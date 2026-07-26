@@ -24,6 +24,14 @@ return new class extends Migration
 
             $table->boolean('is_active')->default(true);
 
+            $table->string('business_name')->nullable();
+
+            $table->string('cuit')->nullable();
+
+            $table->string('logo')->nullable();
+
+            $table->string('primary_color')->default('#2563eb');
+
             /*
             |--------------------------------------------------------------------------
             | WhatsApp

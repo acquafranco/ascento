@@ -4,7 +4,22 @@
 
         <!-- Compania -->
         <div>
-            <x-input-label for="company_name" value="Empresa" />
+
+                <!-- Name -->
+            <div>
+                <x-input-label for="name" :value="__('Nombre Completo')" />
+                <x-text-input id="name" class="block mt-1 w-full" type="text" name="name" :value="old('name')" required autofocus autocomplete="name" />
+                <x-input-error :messages="$errors->get('name')" class="mt-2" />
+            </div>
+
+            <!-- Email Address -->
+            <div class="mt-4">
+                <x-input-label for="email" :value="__('Email')" />
+                <x-text-input id="email" class="block mt-1 w-full" type="email" name="email" :value="old('email')" required autocomplete="username" />
+                <x-input-error :messages="$errors->get('email')" class="mt-2" />
+            </div>
+
+            <x-input-label for="company_name" value="Nombre de Empresa" />
                 <x-text-input
                     id="company_name"
                     class="block mt-1 w-full"
@@ -14,23 +29,61 @@
                     required/>
             <x-input-error :messages="$errors->get('company_name')" class="mt-2" />
         </div>
-        <!-- Name -->
-        <div>
-            <x-input-label for="name" :value="__('Name')" />
-            <x-text-input id="name" class="block mt-1 w-full" type="text" name="name" :value="old('name')" required autofocus autocomplete="name" />
-            <x-input-error :messages="$errors->get('name')" class="mt-2" />
+        <!-- Razón social -->
+        <div class="mt-4">
+            <x-input-label for="business_name" value="Razón social" />
+            <x-text-input
+                id="business_name"
+                class="block mt-1 w-full"
+                type="text"
+                name="business_name"
+                :value="old('business_name')"
+            />
+            <x-input-error :messages="$errors->get('business_name')" class="mt-2" />
         </div>
 
-        <!-- Email Address -->
+        <!-- CUIT -->
         <div class="mt-4">
-            <x-input-label for="email" :value="__('Email')" />
-            <x-text-input id="email" class="block mt-1 w-full" type="email" name="email" :value="old('email')" required autocomplete="username" />
-            <x-input-error :messages="$errors->get('email')" class="mt-2" />
+            <x-input-label for="cuit" value="CUIT" />
+            <x-text-input
+                id="cuit"
+                class="block mt-1 w-full"
+                type="text"
+                name="cuit"
+                :value="old('cuit')"
+            />
+            <x-input-error :messages="$errors->get('cuit')" class="mt-2" />
+        </div>
+
+        <!-- Teléfono -->
+        <div class="mt-4">
+            <x-input-label for="phone" value="Teléfono" />
+            <x-text-input
+                id="phone"
+                class="block mt-1 w-full"
+                type="text"
+                name="phone"
+                :value="old('phone')"
+            />
+            <x-input-error :messages="$errors->get('phone')" class="mt-2" />
+        </div>
+
+        <!-- Dirección -->
+        <div class="mt-4">
+            <x-input-label for="address" value="Dirección" />
+            <x-text-input
+                id="address"
+                class="block mt-1 w-full"
+                type="text"
+                name="address"
+                :value="old('address')"
+            />
+            <x-input-error :messages="$errors->get('address')" class="mt-2" />
         </div>
 
         <!-- Password -->
         <div class="mt-4">
-            <x-input-label for="password" :value="__('Password')" />
+            <x-input-label for="password" :value="__('Contraseña')" />
 
             <x-text-input id="password" class="block mt-1 w-full"
                             type="password"
@@ -42,7 +95,7 @@
 
         <!-- Confirm Password -->
         <div class="mt-4">
-            <x-input-label for="password_confirmation" :value="__('Confirm Password')" />
+            <x-input-label for="password_confirmation" :value="__('Repetir Contraseña')" />
 
             <x-text-input id="password_confirmation" class="block mt-1 w-full"
                             type="password"
