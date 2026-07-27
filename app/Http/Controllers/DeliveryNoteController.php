@@ -17,18 +17,15 @@ class DeliveryNoteController extends Controller
 {
 
     $query = DeliveryNote::with([
+    'building',
+    'user',
+    'workOrder',
+    'buildingVisit',
+    ])->where('company_id', $company->id);
 
-        'building',
-
-        'user',
-
-        'workOrder',
-
-        'buildingVisit',
-
-    ])
-
-    ->where('company_id', $company->id);
+    if (!auth()->user()->isAdmin()) {
+        $query->where('user_id', auth()->id());
+    }
 
     if ($request->filled('day')) {
 
