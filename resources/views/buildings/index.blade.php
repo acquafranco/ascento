@@ -73,16 +73,16 @@
                     ->pluck('pivot.type')
                     ->toArray();
 
-                $maintenanceVisit = \App\Models\BuildingVisit::where('building_id', $building->id)
-                    ->where('user_id', auth()->id())
+                $maintenanceVisit = \App\Models\BuildingVisit::where('company_id', auth()->user()->company_id)
+                    ->where('building_id', $building->id)
                     ->where('visit_type', 'fixed')
                     ->where('assignment_type', 'maintenance')
                     ->where('month', $month)
                     ->where('year', $year)
                     ->first();
 
-                $inspectionVisit = \App\Models\BuildingVisit::where('building_id', $building->id)
-                    ->where('user_id', auth()->id())
+                $inspectionVisit = \App\Models\BuildingVisit::where('company_id', auth()->user()->company_id)
+                    ->where('building_id', $building->id)
                     ->where('visit_type', 'fixed')
                     ->where('assignment_type', 'inspection')
                     ->where('month', $month)
