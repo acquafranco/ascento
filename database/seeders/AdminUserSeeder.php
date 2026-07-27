@@ -13,29 +13,25 @@ class AdminUserSeeder extends Seeder
     {
         /*
         |--------------------------------------------------------------------------
-        | EMPRESA 1
+        | EMPRESA 1 - ASCENTO
         |--------------------------------------------------------------------------
         */
 
         $company1 = Company::updateOrCreate(
+            ['slug' => 'ascento'],
             [
-                'slug' => 'cento-ascensores',
-            ],
-            [
-                'name' => 'Cento Ascensores',
-                'email' => 'contacto@cento.com',
-                'phone' => '01111111111',
-                'address' => 'Buenos Aires',
+                'name' => 'Ascento',
+                'email' => 'contacto@ascento.com',
+                'phone' => '11 4321-1000',
+                'address' => 'Av. Corrientes 1234, CABA',
+                'primary_color' => '#0f172a',
+                'logo' => null,
                 'is_active' => true,
             ]
         );
 
-
-        // ADMIN FRANCO
         User::updateOrCreate(
-            [
-                'email' => 'francohares@gmail.com',
-            ],
+            ['email' => 'franco@ascento.com'],
             [
                 'company_id' => $company1->id,
                 'name' => 'Franco',
@@ -45,68 +41,96 @@ class AdminUserSeeder extends Seeder
             ]
         );
 
-
-        // TÉCNICO FRANCO
         User::updateOrCreate(
-            [
-                'email' => 'tecnico@cento.com',
-            ],
+            ['email' => 'tecnico@ascento.com'],
             [
                 'company_id' => $company1->id,
-                'name' => 'Técnico Franco',
+                'name' => 'Técnico Ascento',
                 'password' => Hash::make('1234'),
                 'role' => 'technician',
-                'job_type' => 'Tecnico',
+                'job_type' => 'Técnico',
             ]
         );
 
-
         /*
         |--------------------------------------------------------------------------
-        | EMPRESA 2
+        | EMPRESA 2 - VERTICAL
         |--------------------------------------------------------------------------
         */
 
         $company2 = Company::updateOrCreate(
+            ['slug' => 'vertical-elevadores'],
             [
-                'slug' => 'elevadores-del-sur',
-            ],
-            [
-                'name' => 'Elevadores del Sur',
-                'email' => 'contacto@elevadoresdelsur.com',
-                'phone' => '02222222222',
-                'address' => 'Buenos Aires',
+                'name' => 'Vertical Elevadores',
+                'email' => 'info@vertical.com',
+                'phone' => '341 555-0101',
+                'address' => 'Rosario, Santa Fe',
+                'primary_color' => '#2563eb',
+                'logo' => null,
                 'is_active' => true,
             ]
         );
 
-
-        // ADMIN EMPRESA 2
         User::updateOrCreate(
-            [
-                'email' => 'carlos@elevadoresdelsur.com',
-            ],
+            ['email' => 'admin@vertical.com'],
             [
                 'company_id' => $company2->id,
-                'name' => 'Carlos',
+                'name' => 'María González',
                 'password' => Hash::make('1234'),
                 'role' => 'admin',
                 'job_type' => null,
             ]
         );
 
-
-        // TÉCNICO EMPRESA 2
         User::updateOrCreate(
-            [
-                'email' => 'tecnico@elevadoresdelsur.com',
-            ],
+            ['email' => 'tecnico@vertical.com'],
             [
                 'company_id' => $company2->id,
-                'name' => 'Técnico Carlos',
+                'name' => 'Juan Pérez',
                 'password' => Hash::make('1234'),
                 'role' => 'technician',
-                'job_type' => 'Tecnico',
+                'job_type' => 'Técnico',
+            ]
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | EMPRESA 3 - ANDES LIFT
+        |--------------------------------------------------------------------------
+        */
+
+        $company3 = Company::updateOrCreate(
+            ['slug' => 'andes-lift'],
+            [
+                'name' => 'Andes Lift',
+                'email' => 'contacto@andeslift.com',
+                'phone' => '261 555-0202',
+                'address' => 'Mendoza',
+                'primary_color' => '#16a34a',
+                'logo' => null,
+                'is_active' => true,
+            ]
+        );
+
+        User::updateOrCreate(
+            ['email' => 'admin@andeslift.com'],
+            [
+                'company_id' => $company3->id,
+                'name' => 'Luciano Díaz',
+                'password' => Hash::make('1234'),
+                'role' => 'admin',
+                'job_type' => null,
+            ]
+        );
+
+        User::updateOrCreate(
+            ['email' => 'tecnico@andeslift.com'],
+            [
+                'company_id' => $company3->id,
+                'name' => 'Pedro Ruiz',
+                'password' => Hash::make('1234'),
+                'role' => 'technician',
+                'job_type' => 'Técnico',
             ]
         );
     }
