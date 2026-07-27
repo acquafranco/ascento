@@ -58,4 +58,19 @@ class BuildingController extends Controller
             compact('building')
         );
     }
+
+public function all()
+{
+    $buildings = Building::where(
+        'company_id',
+        auth()->user()->company_id
+    )
+    ->with('client')
+    ->get();
+
+    return view(
+        'buildings.all',
+        compact('buildings')
+    );
+}
 }

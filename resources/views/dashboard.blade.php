@@ -63,15 +63,14 @@
         </a>
 
 
-        {{-- EDIFICIOS --}}
+        {{-- Mantenimientos / Inspecciones --}}
         <a href="{{ route('buildings.index', [
             'company' => auth()->user()->company->slug,
-            'date' => now()->format('Y-m-d')
-        ]) }}">
+        ]) }}"
         class="bg-gray-200 flex flex-col items-center justify-center">
 
             <div class="text-sm text-gray-600">
-                🏢 Mis edificios
+                🏢 Mis Mantenimientos / Inspecciones
             </div>
 
             <div class="text-4xl font-black">
@@ -80,20 +79,19 @@
 
         </a>
 
+        {{-- EDIFICIOS --}}
 
-        {{-- HOY --}}
-        <a href="{{ route('buildings.index', [
+        <a href="{{ route('buildings.all', [
             'company' => auth()->user()->company->slug,
-            'date' => now()->format('Y-m-d')
         ]) }}"
         class="bg-gray-200 flex flex-col items-center justify-center">
 
             <div class="text-sm text-gray-600">
-                📅 Trabajos de hoy
+                🏢 Edificios
             </div>
 
             <div class="text-4xl font-black">
-                {{ $tasks_today }}
+                {{ $total_company_buildings }}
             </div>
 
         </a>

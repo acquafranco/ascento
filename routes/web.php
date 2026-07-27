@@ -73,11 +73,10 @@ Route::prefix('{company:slug}')
     |--------------------------------------------------------------------------
     */
 
-    Route::get('/dashboard', [
-        DashboardController::class,
+ Route::get('/dashboard', [
+    DashboardController::class,
         'index'
     ])->name('dashboard');
-
 
     /*
     |--------------------------------------------------------------------------
@@ -104,6 +103,11 @@ Route::prefix('{company:slug}')
     | BUILDINGS
     |--------------------------------------------------------------------------
     */
+
+        Route::get('/buildings/all', [
+        BuildingController::class,
+        'all'
+    ])->name('buildings.all');
 
     Route::get('/buildings', [
         BuildingController::class,

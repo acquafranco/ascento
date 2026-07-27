@@ -6,6 +6,7 @@ use App\Models\WorkOrder;
 use Illuminate\Http\Request;
 use App\Models\DeliveryNote;
 use App\Models\BuildingVisit;
+use App\Models\Building;
 
 class DashboardController extends Controller
 {
@@ -83,6 +84,10 @@ class DashboardController extends Controller
             ->distinct('buildings.id')
             ->count('buildings.id');
 
+        $totalCompanyBuildings = Building::where(
+            'company_id',
+            $user->company_id
+        )->count();
         /*
         |--------------------------------------------------------------------------
         | TEMPLATES
@@ -105,6 +110,7 @@ class DashboardController extends Controller
             'in_progress' => $inProgress,
             'completed_today' => $completed,
             'total_buildings' => $totalBuildings,
+            'total_company_buildings' => $totalCompanyBuildings,
             'templates' => $templates,
             'deliveryNotes' => $deliveryNotes,
 
