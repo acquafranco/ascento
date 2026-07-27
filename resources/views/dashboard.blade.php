@@ -66,7 +66,8 @@
         {{-- EDIFICIOS --}}
         <a href="{{ route('buildings.index', [
             'company' => auth()->user()->company->slug,
-        ]) }}"
+            'date' => now()->format('Y-m-d')
+        ]) }}">
         class="bg-gray-200 flex flex-col items-center justify-center">
 
             <div class="text-sm text-gray-600">
@@ -81,11 +82,11 @@
 
 
         {{-- HOY --}}
-        <a href="{{ route('work-orders.index', [
+        <a href="{{ route('buildings.index', [
             'company' => auth()->user()->company->slug,
-            'today' => 1,
+            'date' => now()->format('Y-m-d')
         ]) }}"
-        class="bg-purple-100 flex flex-col items-center justify-center">
+        class="bg-gray-200 flex flex-col items-center justify-center">
 
             <div class="text-sm text-gray-600">
                 📅 Trabajos de hoy

@@ -64,11 +64,12 @@ x-data="{
     </a>
 
     <a href="{{ route('buildings.index', [
-        'company' => auth()->user()->company->slug
-    ]) }}" class="text-center">
-        <div class="text-2xl">🏢</div>
-        <div class="text-xs">Edificios</div>
-    </a>
+    'company' => auth()->user()->company->slug,
+    'date' => now()->format('Y-m-d')
+    ]) }}"  class="text-center">
+            <div class="text-2xl">🏢</div>
+            <div class="text-xs">Edificios</div>
+        </a>
 
     <!-- BOTÓN MENU -->
     <button

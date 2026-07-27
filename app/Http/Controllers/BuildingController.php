@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Building;
 use Illuminate\Http\Request;
+use App\Models\BuildingVisit;
+use App\Models\DeliveryNote;
 
 class BuildingController extends Controller
 {
@@ -13,6 +15,7 @@ class BuildingController extends Controller
 
         $month = $request->get('month', now()->month);
         $year = $request->get('year', now()->year);
+        $date = $request->get('date');
 
         $buildings = $user
             ->buildings()
@@ -26,7 +29,8 @@ class BuildingController extends Controller
             compact(
                 'buildings',
                 'month',
-                'year'
+                'year',
+                'date'
             )
         );
     }

@@ -15,7 +15,37 @@
 
     </div>
 
-    <form method="GET" class="mb-5 flex gap-2">
+     <form method="GET" class="mb-5 flex gap-2">
+
+            <select
+            name="date"
+            onchange="this.form.submit()"
+            class="rounded-xl border-gray-300"
+        >
+            <option value="">
+                Todos los días
+            </option>
+
+            @for($d = 1; $d <= now()->daysInMonth; $d++)
+
+                @php
+                    $day = \Carbon\Carbon::create(
+                        $year,
+                        $month,
+                        $d
+                    );
+                @endphp
+
+                <option
+                    value="{{ $day->format('Y-m-d') }}"
+                    @selected(request('date') == $day->format('Y-m-d'))
+                >
+                    {{ $day->format('d/m/Y') }}
+                </option>
+
+            @endfor
+
+        </select>
 
         <select
             name="month"
@@ -73,21 +103,39 @@
                     ->pluck('pivot.type')
                     ->toArray();
 
-                $maintenanceVisit = \App\Models\BuildingVisit::where('company_id', auth()->user()->company_id)
+                $maintenanceQuery = \App\Models\BuildingVisit::where('company_id', auth()->user()->company_id)
                     ->where('building_id', $building->id)
                     ->where('visit_type', 'fixed')
                     ->where('assignment_type', 'maintenance')
                     ->where('month', $month)
-                    ->where('year', $year)
-                    ->first();
+                    ->where('year', $year);
 
-                $inspectionVisit = \App\Models\BuildingVisit::where('company_id', auth()->user()->company_id)
+
+                if($date){
+
+                    $maintenanceQuery->whereDate('visited_at', $date);
+
+                }
+
+
+                $maintenanceVisit = $maintenanceQuery->first();
+
+                 $inspectionQuery = \App\Models\BuildingVisit::where('company_id', auth()->user()->company_id)
                     ->where('building_id', $building->id)
                     ->where('visit_type', 'fixed')
                     ->where('assignment_type', 'inspection')
                     ->where('month', $month)
-                    ->where('year', $year)
-                    ->first();
+                    ->where('year', $year);
+
+
+                if($date){
+
+                    $inspectionQuery->whereDate('visited_at', $date);
+
+                }
+
+
+                $inspectionVisit = $inspectionQuery->first();
 
                 @endphp
 

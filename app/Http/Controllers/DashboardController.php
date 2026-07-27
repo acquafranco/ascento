@@ -3,9 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\WorkOrder;
-use App\Models\BuildingVisit;
 use Illuminate\Http\Request;
 use App\Models\DeliveryNote;
+use App\Models\BuildingVisit;
 
 class DashboardController extends Controller
 {
@@ -40,13 +40,15 @@ class DashboardController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $tasksToday =
+       $tasksToday =
             BuildingVisit::where('user_id', $user->id)
                 ->whereDate('visited_at', today())
+                ->where('status', 'completed')
                 ->count()
             +
             WorkOrder::where('user_id', $user->id)
                 ->whereDate('finished_at', today())
+                ->where('status', 'completed')
                 ->count();
 
         $pending = (clone $workOrdersBase)
