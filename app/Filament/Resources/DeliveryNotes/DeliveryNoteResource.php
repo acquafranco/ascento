@@ -14,12 +14,21 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
+use UnitEnum;
 
 class DeliveryNoteResource extends Resource
 {
     protected static ?string $model = DeliveryNote::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon =
+
+        Heroicon::OutlinedRectangleStack;
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Gestión';
+
+    protected static ?int $navigationSort = 3;
+
+    protected static ?string $navigationLabel = 'Remitos';
 
     protected static ?string $recordTitleAttribute = 'number';
 
@@ -28,10 +37,7 @@ class DeliveryNoteResource extends Resource
         return 'Remitos';
     }
 
-    public static function getNavigationGroup(): string
-    {
-        return 'Gestión';
-    }
+
 
         public static function getModelLabel(): string
     {

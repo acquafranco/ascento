@@ -28,6 +28,7 @@ return new class extends Migration
         $table->string('password');
         $table->string('role')->default('technician');
         $table->string('job_type')->nullable();
+        $table->string('avatar')->nullable();
 
         $table->rememberToken();
         $table->timestamps();

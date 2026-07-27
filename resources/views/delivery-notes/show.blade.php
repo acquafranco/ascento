@@ -1,59 +1,90 @@
 <x-delivery-note-layout>
 
-<div class="min-h-screen bg-slate-100 py-4 md:py-6">
-    <div class="max-w-2xl mx-auto px-4">
+    <div class="min-h-screen bg-slate-100 py-4 md:py-6">
+        <div class="max-w-2xl mx-auto px-4">
 
-        {{-- Header --}}
-        <div class="pdf-header bg-gradient-to-r from-slate-900 to-slate-700 rounded-2xl p-5 md:p-6 text-white shadow-lg mb-5">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-2xl md:text-3xl font-black leading-tight">Remito #{{ str_pad($deliveryNote->number, 6, '0', STR_PAD_LEFT) }}</h1>
-                   @if($deliveryNote->workOrder)
+            {{-- Header --}}
+                <div
+                    class="pdf-header rounded-2xl p-5 md:p-6 text-white shadow-lg mb-5"
+                    style="
+                        background-color: {{ $deliveryNote->company->primary_color ?? '#0f172a' }};
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
+                    "
+                >
+                <div class="flex items-center gap-4">
+
+        {{-- Logo empresa --}}
+        @if($deliveryNote->company?->logo)
+            <div class="flex items-center justify-center flex-shrink-0">
+                <img
+                    src="{{ asset('storage/' . $deliveryNote->company->logo) }}"
+                    alt="{{ $deliveryNote->company->name }}"
+                    class="w-20 h-20 md:w-24 md:h-24 object-contain"
+                >
+            </div>
+        @endif
+
+
+        {{-- Títulos --}}
+        <div class="flex-1">
+            <h1 class="text-2xl md:text-3xl font-black leading-tight">
+                Remito #{{ str_pad($deliveryNote->number, 6, '0', STR_PAD_LEFT) }}
+            </h1>
+
+            @if($deliveryNote->workOrder)
+
+                <div class="mt-3 inline-flex items-center gap-2
+                    bg-orange-200 text-orange-900
+                    border border-orange-300
+                    px-3 py-1.5 rounded-xl text-xs font-black">
+
+                    🔧
+                    <span>
+                        Orden de trabajo:
+                        {{ \App\Support\WorkOrderLabels::type($deliveryNote->workOrder->type) }}
+                    </span>
+
+                </div>
+
+
+            @elseif($deliveryNote->buildingVisit)
+
+                @if($deliveryNote->buildingVisit->assignment_type === 'maintenance')
 
                     <div class="mt-3 inline-flex items-center gap-2
-                        bg-orange-200 text-orange-900
-                        border border-orange-300
+                        bg-blue-100 text-blue-900
+                        border border-blue-200
                         px-3 py-1.5 rounded-xl text-xs font-black">
 
-                        🔧
-                        <span>
-                            Orden de trabajo:
-                            {{ \App\Support\WorkOrderLabels::type($deliveryNote->workOrder->type) }}
-                        </span>
+                        🔄 Mantenimiento mensual
 
                     </div>
 
-                @elseif($deliveryNote->buildingVisit)
 
-                    @if($deliveryNote->buildingVisit->assignment_type === 'maintenance')
+                @elseif($deliveryNote->buildingVisit->assignment_type === 'inspection')
 
-                        <div class="mt-3 inline-flex items-center gap-2
-                            bg-blue-100 text-blue-900
-                            border border-blue-200
-                            px-3 py-1.5 rounded-xl text-xs font-black">
+                    <div class="mt-3 inline-flex items-center gap-2
+                        bg-violet-200 text-violet-950
+                        border border-violet-300
+                        px-3 py-1.5 rounded-xl text-xs font-black">
 
-                            🔄 Mantenimiento mensual
+                        🔍 Inspección
 
-                        </div>
-
-
-                    @elseif($deliveryNote->buildingVisit->assignment_type === 'inspection')
-
-                        <div class="mt-3 inline-flex items-center gap-2
-                            bg-violet-200 text-violet-950
-                            border border-violet-300
-                            px-3 py-1.5 rounded-xl text-xs font-black">
-
-                            🔍 Inspección
-
-                        </div>
-
-                    @endif
+                    </div>
 
                 @endif
-                </div>
-                <span class="text-4xl md:text-5xl leading-none">📄</span>
-            </div>
+
+            @endif
+        </div>
+
+
+        {{-- Icono remito --}}
+        <span class="text-4xl md:text-5xl leading-none">
+            📄
+        </span>
+
+    </div>
         </div>
 
         {{-- Tarjeta Principal --}}
@@ -190,39 +221,24 @@
             </div>
 
             {{-- Acciones --}}
-<div class="pdf-actions border-t border-slate-100 bg-slate-50 px-4 py-3 md:px-7 md:py-4 flex gap-3">
-                    {{-- Botón Compartir --}}
-                <button
-                    id="btn-share"
-                    type="button"
-                    class="flex-1 flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 active:bg-black
-                           text-white font-bold text-sm md:text-base py-2 rounded-xl transition"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                    </svg>
-                    Compartir
-                </button>
+        <div class="pdf-actions border-t border-slate-100 bg-slate-50 px-4 py-3 md:px-7 md:py-4">
 
-                {{-- Botón PDF --}}
-                <button
-                    id="btn-pdf"
-                    type="button"
-                    class="flex-1 flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 active:bg-red-700
-                           text-white font-bold text-sm md:text-base py-2 rounded-xl transition"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                    </svg>
-                    PDF
-                </button>
+            <button
+                id="btn-share"
+                type="button"
+                style="background-color: {{ $deliveryNote->company->primary_color ?? '#0f172a' }};"
+                class="w-full flex items-center justify-center gap-2 text-white font-bold text-sm md:text-base py-2 rounded-xl transition"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none"
+                    viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                </svg>
 
+                Compartir
+            </button>
 
-            </div>
         </div>
-
-    </div>
-</div>
 
 {{-- ═══════════════════════════ MODAL COMPARTIR ═══════════════════════════ --}}
 <div id="share-modal" role="dialog" aria-modal="true"
@@ -270,7 +286,31 @@
                     </span>
                     <span>Enviar por Email</span>
                 </a>
+                {{-- PDF --}}
+                <button id="share-pdf" type="button"
+                    style="display:flex; align-items:center; gap:14px; padding:16px;
+                        border:1.5px solid #e2e8f0; border-radius:14px; cursor:pointer;
+                        color:#1e293b; font-weight:700; font-size:15px; background:#fff; width:100%;">
 
+                    <span style="width:44px; height:44px; border-radius:50%; background:#ef4444;
+                                display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+
+                        <svg xmlns="http://www.w3.org/2000/svg"
+                            width="22" height="22"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="white"
+                            stroke-width="2">
+                            <path stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                        </svg>
+
+                    </span>
+
+                    <span>Generar PDF</span>
+
+                </button>
                 {{-- Copiar enlace --}}
                 <button id="share-copy" type="button"
                     style="display:flex; align-items:center; gap:14px; padding:16px;
@@ -295,8 +335,8 @@
 <style>
 @media print {
 
+
     .pdf-header {
-        background: #0f172a !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
         color: white !important;
@@ -397,7 +437,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Modal
     const modal      = document.getElementById('share-modal');
     const btnShare   = document.getElementById('btn-share');
-    const btnPDF     = document.getElementById('btn-pdf');
+    const btnPDF = document.getElementById('share-pdf');
     const btnClose   = document.getElementById('share-close');
     const btnCopy    = document.getElementById('share-copy');
     const copyLabel  = document.getElementById('copy-label');
@@ -415,7 +455,11 @@ document.addEventListener('DOMContentLoaded', function () {
     btnShare.addEventListener('click', openShare);
     btnClose.addEventListener('click', closeShare);
     modal.addEventListener('click', function (e) {
-        if (e.target === modal) closeShare();
+
+    if (!e.target.closest('#share-modal > div > div')) {
+        closeShare();
+    }
+
     });
 
     // Copiar enlace - versión mejorada

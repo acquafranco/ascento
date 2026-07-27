@@ -141,31 +141,57 @@ public function show($company, DeliveryNote $deliveryNote)
 
     public function store(Request $request)
 {
-    $request->validate([
-        'building_id' => 'required|exists:buildings,id',
-        'work_order_id' => 'nullable|exists:work_orders,id',
-        'description' => 'required|string',
-
-
-        'month' => 'nullable|integer|min:1|max:12',
-
-        'year' => 'nullable|integer',
-        'elevator_quantity' => 'required|integer|min:0',
-        'freight_elevator_quantity' => 'required|integer|min:0',
-
-        'assignment_type' => 'required|in:maintenance,inspection,work_order',
-        'signature_name' => 'required|string|max:255',
-        'signature' => 'required|string|min:100',
-        'client_signature' => 'nullable|string',
-        'client_signature_name' => 'nullable|string|max:255',
-    ]);
+    $request->validate(
+        [
+            'building_id' => 'required|exists:buildings,id',
+            'work_order_id' => 'nullable|exists:work_orders,id',
+            'description' => 'required|string',
+            'month' => 'nullable|integer|min:1|max:12',
+            'year' => 'nullable|integer',
+            'elevator_quantity' => 'required|integer|min:0',
+            'freight_elevator_quantity' => 'required|integer|min:0',
+            'assignment_type' => 'required|in:maintenance,inspection,work_order',
+            'signature_name' => 'required|string|max:255',
+            'signature' => 'required|string|min:100',
+            'client_signature' => 'nullable|string',
+            'client_signature_name' => 'nullable|string|max:255',
+        ],
+        [
+            'description.required' => 'Debe escribir el trabajo realizado.',
+            'signature.required' => 'Debe realizar la firma del técnico.',
+            'signature_name.required' => 'Debe escribir el nombre del técnico.',
+            'building_id.required' => 'No se encontró el edificio.',
+            'assignment_type.required' => 'No se pudo identificar el tipo de trabajo.',
+        ]
+    );
 
 
     $building = Building::findOrFail(
         $request->building_id
     );
 
+    $assignmentType = $request->filled('work_order_id')
+    ? 'work_order'
+    : $request->assignment_type;
 
+
+    $existingDelivery = DeliveryNote::where('building_id', $building->id)
+        ->where('user_id', auth()->id())
+        ->where('month', $request->month)
+        ->where('year', $request->year)
+        ->where('assignment_type', $assignmentType)
+        ->exists();
+
+
+    if ($existingDelivery) {
+
+        return back()
+            ->withErrors([
+                'general' =>
+                'Este remito ya fue generado.'
+            ]);
+
+    }
     /*
     |--------------------------------------------------------------------------
     | TIPO DE VISITA
@@ -213,38 +239,25 @@ public function show($company, DeliveryNote $deliveryNote)
     |--------------------------------------------------------------------------
     */
 
-
-
     $visit = BuildingVisit::firstOrCreate(
-[
-    'company_id' => auth()->user()->company_id,
+    [
+        'company_id' => auth()->user()->company_id,
+        'building_id' => $building->id,
+        'user_id' => auth()->id(),
+        'visit_type' => $visitType,
+        'assignment_type' => $assignmentType,
+        'month' => $request->month,
+        'year' => $request->year,
+    ],
+    [
+        'work_order_id' => $request->work_order_id,
+        'status' => $request->boolean('performed')
+            ? 'done'
+            : 'failed',
+        'visited_at' => now(),
+    ]
+    );
 
-    'building_id' => $building->id,
-
-    'user_id' => auth()->id(),
-
-    'visit_type' => $visitType,
-
-    'assignment_type' => $assignmentType,
-
-    'source' => $request->filled('work_order_id')
-        ? 'work_order'
-        : 'building',
-
-    'month' => $request->month,
-
-    'year' => $request->year,
-],
-[
-    'work_order_id' => $request->work_order_id,
-
-    'status' => $request->boolean('performed')
-        ? 'done'
-        : 'failed',
-
-    'visited_at' => now(),
-]
-);
 
 
     /*

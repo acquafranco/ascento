@@ -4,64 +4,93 @@
     <div class="max-w-2xl mx-auto px-4">
 
         {{-- Header --}}
-        <div class="bg-gradient-to-r from-slate-900 to-slate-700 rounded-2xl p-6 text-white shadow-lg mb-5">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-3xl font-black leading-tight">Nuevo Remito</h1>
-                    @if($workOrder)
+            <div
+                class="rounded-2xl p-6 text-white shadow-lg mb-5"
+                style="
+                    background-color: {{ auth()->user()->company?->primary_color ?? '#0f172a' }};
+                "
+            >
+                <div class="flex items-center gap-4">
 
-                    <div class="mt-3 inline-flex items-center gap-2
-                        bg-orange-100 text-orange-700
-                        px-3 py-2 rounded-xl text-sm font-black">
-
-                        🔧 Orden de trabajo:
-                        {{ \App\Support\WorkOrderLabels::type($workOrder->type) }}
-
-                    </div>
-
-
-                    @elseif($assignmentType === 'maintenance')
-
-                    <div class="mt-3 inline-flex items-center gap-2
-                        bg-blue-100 text-blue-700
-                        px-3 py-2 rounded-xl text-sm font-black">
-
-                        🔄 Mantenimiento mensual
-
-                    </div>
-
-
-                    @elseif($assignmentType === 'inspection')
-
-                 <div class="mt-3 inline-flex items-center gap-2
-                    px-3 py-2 rounded-xl text-sm font-black"
-                    style="background-color:#ddd6fe; color:#3b0764;">
-
-                    🔍 Inspección
-
-                </div>
-
-
+                    {{-- Logo empresa --}}
+                    @if(auth()->user()->company?->logo)
+                        <img
+                            src="{{ asset('storage/' . auth()->user()->company->logo) }}"
+                            alt="Logo"
+                            class="w-20 h-20 rounded-xl object-contain"                        >
                     @endif
-                </div>
-                <span class="text-5xl leading-none">📄</span>
-            </div>
-        </div>
-        @if ($errors->any())
-            <div class="mb-5 bg-red-50 border border-red-200 rounded-xl p-4">
-                <div class="flex items-center gap-2 mb-2">
-                    <span class="text-red-600 text-lg">⚠️</span>
-                    <h3 class="font-bold text-red-700">
-                        Faltan completar algunos datos
-                    </h3>
-                </div>
 
-                <ul class="list-disc list-inside text-sm text-red-600 space-y-1">
-                    @foreach ($errors->all() as $error)
-                        <li>{{ $error }}</li>
-                    @endforeach
-                </ul>
+                    {{-- Títulos --}}
+                    <div class="flex-1">
+                        <h1 class="text-3xl font-black leading-tight">
+                            Nuevo Remito
+                        </h1>
+
+                        @if($workOrder)
+
+                            <div class="mt-3 inline-flex items-center gap-2
+                                bg-orange-100 text-orange-700
+                                px-3 py-2 rounded-xl text-sm font-black">
+
+                                🔧 Orden de trabajo:
+                                {{ \App\Support\WorkOrderLabels::type($workOrder->type) }}
+
+                            </div>
+
+                        @elseif($assignmentType === 'maintenance')
+
+                            <div class="mt-3 inline-flex items-center gap-2
+                                bg-blue-100 text-blue-700
+                                px-3 py-2 rounded-xl text-sm font-black">
+
+                                🔄 Mantenimiento mensual
+
+                            </div>
+
+                        @elseif($assignmentType === 'inspection')
+
+                            <div class="mt-3 inline-flex items-center gap-2
+                                px-3 py-2 rounded-xl text-sm font-black"
+                                style="background-color:#ddd6fe; color:#3b0764;">
+
+                                🔍 Inspección
+
+                            </div>
+
+                        @endif
+                    </div>
+
+                    {{-- Icono remito --}}
+                    <span class="text-5xl leading-none">
+                        📄
+                    </span>
+
+                </div>
             </div>
+
+
+
+
+
+
+        @if ($errors->any())
+        <div class="mb-5 bg-red-50 border border-red-200 rounded-xl p-4">
+
+            <div class="flex items-center gap-2 mb-2">
+                <span class="text-red-600 text-lg">⚠️</span>
+
+                <h3 class="font-bold text-red-700">
+                    No se pudo generar el remito
+                </h3>
+            </div>
+
+            <ul class="list-disc list-inside text-sm text-red-600 space-y-1">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+
+        </div>
         @endif
         <form method="POST" action="{{ route('delivery-notes.store', [
 
@@ -276,10 +305,15 @@
 
                 {{-- Submit --}}
                 <div class="border-t border-slate-100 bg-slate-50 px-5 py-4 md:px-7">
-                    <button type="submit"
-                        class="w-full bg-slate-900 hover:bg-slate-800 active:bg-black
-                               text-white font-black text-base py-2 rounded-xl transition">
-                        Generar Remito
+                    <button
+                        id="submit-remito"
+                        type="submit"
+                        class="w-full text-white font-black text-base py-3 rounded-xl transition"
+                        style="background-color: {{ auth()->user()->company?->primary_color ?? '#0f172a' }};"
+                    >
+                        <span id="submit-text">
+                            Generar Remito
+                        </span>
                     </button>
                 </div>
             </div>
@@ -481,29 +515,50 @@ document.addEventListener('DOMContentLoaded', function () {
         resizeTimer = setTimeout(resizeCanvas, 150);
     });
 
-    form.addEventListener('submit', function (e) {
-        const description = document.getElementById('description');
+    let sending = false;
 
-        if (!description.value.trim()) {
-            e.preventDefault();
+form.addEventListener('submit', function (e) {
 
-            alert('Debe completar el campo "Trabajo realizado".');
+    if (sending) {
+        e.preventDefault();
+        return;
+    }
 
-            description.focus();
+    const description = document.getElementById('description');
 
-            return;
-        }
-        if (!pads.tech.dataURL) {
-            e.preventDefault();
-            techError.classList.remove('hidden');
-            pads.tech.trigger.style.borderStyle = 'solid';
-            pads.tech.trigger.style.borderColor = '#f87171';
-            pads.tech.trigger.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            return;
-        }
-        pads.tech.hiddenInput.value   = pads.tech.dataURL;
-        pads.client.hiddenInput.value = pads.client.dataURL || '';
-    });
+    if (!description.value.trim()) {
+        e.preventDefault();
+        alert('Debe completar el campo "Trabajo realizado".');
+        description.focus();
+        return;
+    }
+
+    if (!pads.tech.dataURL) {
+        e.preventDefault();
+        techError.classList.remove('hidden');
+        pads.tech.trigger.style.borderStyle = 'solid';
+        pads.tech.trigger.style.borderColor = '#f87171';
+        pads.tech.trigger.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+        });
+        return;
+    }
+
+    sending = true;
+
+    const btn = document.getElementById('submit-remito');
+    const text = document.getElementById('submit-text');
+
+    btn.disabled = true;
+    btn.style.opacity = '.7';
+    btn.style.cursor = 'not-allowed';
+
+    text.textContent = 'Generando remito...';
+
+    pads.tech.hiddenInput.value = pads.tech.dataURL;
+    pads.client.hiddenInput.value = pads.client.dataURL || '';
+});
 
 });
 @if ($errors->any())

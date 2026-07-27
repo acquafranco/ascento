@@ -9,18 +9,46 @@ class Company extends Model
 {
     use HasFactory;
 
+
+
     protected $fillable = [
+
         'name',
+
+        'business_name',
+
+        'cuit',
+
+        'tax_condition',
+
         'slug',
+
         'email',
+
         'phone',
+
         'address',
+
+        'city',
+
+        'province',
+
+        'logo',
+
+        'primary_color',
+
         'is_active',
+
         'whatsapp_access_token',
+
         'whatsapp_phone_number_id',
+
         'whatsapp_waba_id',
+
         'whatsapp_business_id',
+
         'whatsapp_connected',
+
     ];
 
     protected $casts = [
