@@ -39,12 +39,14 @@ class DashboardController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $tasksToday = (clone $workOrdersBase)
-            ->whereDate(
-                'created_at',
-                today()
-            )
-            ->count();
+        $tasksToday =
+            BuildingVisit::where('user_id', $user->id)
+                ->whereDate('visited_at', today())
+                ->count()
+            +
+            WorkOrder::where('user_id', $user->id)
+                ->whereDate('finished_at', today())
+                ->count();
 
         $pending = (clone $workOrdersBase)
             ->where(
