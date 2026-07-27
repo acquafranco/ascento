@@ -231,17 +231,39 @@
                         {{-- TOMAR --}}
                         @if($workOrder->status === 'pending')
 
-                            <form method="POST" action="{{ route('work-orders.start', [
+                          <form
+                            method="POST"
+                            action="{{ route('work-orders.start', [
                                 'company' => auth()->user()->company->slug,
                                 'workOrder' => $workOrder,
-                            ]) }}">
-                                @csrf
+                            ]) }}"
+                            x-data="{ loading:false }"
+                            @submit="loading=true"
+                        >
+                            @csrf
 
-                                <button class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-2xl font-bold">
-                                    Tomar trabajo
-                                </button>
+                            <button
+                                type="submit"
+                                :disabled="loading"
+                                class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white px-5 py-3 rounded-2xl font-bold transition"
+                            >
+                                <span x-show="!loading">
+                                    🛠 Tomar trabajo
+                                </span>
 
-                            </form>
+                                <span
+                                    x-show="loading"
+                                    class="flex items-center justify-center gap-2"
+                                >
+                                    <svg class="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
+                                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity=".25"/>
+                                        <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" stroke-width="3"/>
+                                    </svg>
+
+                                    Tomando...
+                                </span>
+                            </button>
+                        </form>
 
 
                         @endif
@@ -249,15 +271,34 @@
                         {{-- FINALIZAR --}}
                         @if($workOrder->status === 'in_progress' && $workOrder->user_id === auth()->id())
 
-                           <a
-                                href="{{ route('delivery-notes.work-order', [
-                                    'company' => auth()->user()->company->slug,
-                                    'workOrder' => $workOrder
-                                ]) }}"
-                                class="bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-2xl font-bold"
+                          <a
+                            href="{{ route('delivery-notes.work-order', [
+                                'company' => auth()->user()->company->slug,
+                                'workOrder' => $workOrder
+                            ]) }}"
+                            x-data="{ loading:false }"
+                            @click="loading=true"
+                            :class="{ 'pointer-events-none opacity-70': loading }"
+                            class="bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-2xl font-bold text-center transition"
+                        >
+
+                            <span x-show="!loading">
+                                ✅ Finalizar
+                            </span>
+
+                            <span
+                                x-show="loading"
+                                class="flex items-center justify-center gap-2"
                             >
-                                Finalizar
-                            </a>
+                                <svg class="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity=".25"/>
+                                    <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" stroke-width="3"/>
+                                </svg>
+
+                                Abriendo...
+                            </span>
+
+                        </a>
 
                         @endif
 
@@ -287,6 +328,7 @@
     </div>
 
 </div>
+
 <script>
 document.querySelectorAll('.filter-select')
 .forEach(select => {
@@ -301,4 +343,9 @@ document.querySelectorAll('.filter-select')
 
 });
 </script>
+@if(session('success'))
+<script>
+    navigator.vibrate?.(40);
+</script>
+@endif
 </x-app-layout>

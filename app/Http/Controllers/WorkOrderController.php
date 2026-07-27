@@ -6,7 +6,7 @@ use App\Models\WorkOrder;
 use App\Models\BuildingVisit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-
+use Illuminate\Support\Facades\DB;
 class WorkOrderController extends Controller
 {
    public function index(Request $request)
@@ -130,57 +130,33 @@ class WorkOrderController extends Controller
     | TOMAR TRABAJO
     |--------------------------------------------------------------------------
     */
-
-    public function start(
-
-    $company,
-
-    WorkOrder $workOrder
-
-) {
-
+    public function start($company, WorkOrder $workOrder)
+    {
         $user = Auth::user();
 
-        /*
-        |--------------------------------------------------------------------------
-        | NO ROBAR TRABAJOS DE OTRO TECNICO
-        |--------------------------------------------------------------------------
-        */
+        DB::transaction(function () use ($workOrder, $user) {
 
-        if ($workOrder->status !== 'pending') {
-            abort(403, 'Este trabajo ya fue tomado.');
-        }
+            $workOrder = WorkOrder::lockForUpdate()->find($workOrder->id);
 
-        if (
-            $workOrder->user_id &&
-            $workOrder->user_id !== $user->id
-        ) {
-            abort(403);
-        }
+            if ($workOrder->status !== 'pending') {
+                return;
+            }
 
-        $workOrder->update([
+            $workOrder->update([
+                'user_id' => $user->id,
+                'status' => 'in_progress',
+                'started_at' => now(),
+            ]);
 
-            'user_id' =>
-                $user->id,
-
-            'status' =>
-                'in_progress',
-
-            'started_at' =>
-                now(),
-
-        ]);
-
+        });
 
         return redirect()
             ->route('work-orders.index', [
-
-            'company' => auth()->user()->company->slug,
-
-            'status' => 'in_progress'])
-            ->with('success', 'El trabajo fue tomado y se trasladó a "En progreso".');
-            }
-
+                'company' => $user->company->slug,
+                'status' => 'in_progress',
+            ])
+            ->with('success', 'Trabajo tomado correctamente.');
+    }
 
     /*
     |--------------------------------------------------------------------------
