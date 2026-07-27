@@ -46,7 +46,7 @@ class AscensoresAppPanelProvider extends PanelProvider
                 return asset('storage/' . $company->logo);
 
             })
-
+            ->brandLogoHeight('60px')
             ->brandName('ASCENTO')
 
             ->discoverResources(
