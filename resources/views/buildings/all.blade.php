@@ -6,7 +6,7 @@
     <div class="mb-6">
 
         <h1 class="text-3xl font-black">
-            Edificios
+             🏢 Edificios
         </h1>
 
         <p class="text-gray-500">
@@ -39,165 +39,102 @@
         @forelse($buildings as $building)
 
 
-        <div
-            class="building-card bg-white rounded-3xl border border-slate-200 shadow-sm p-5"
-            data-search="
-            {{ strtolower(
-                $building->name.' '.
-                $building->address.' '.
-                $building->client?->name.' '.
-                $building->phone
-            ) }}"
-        >
+       <div class="bg-white rounded-3xl border border-slate-200 shadow-sm p-5">
 
 
-            {{-- TITULO --}}
-            <div class="mb-4">
+    <h2 class="text-xl font-black">
+        {{ $building->name }}
+    </h2>
 
-                <h2 class="text-xl font-black text-slate-900">
-                    {{ $building->name }}
-                </h2>
 
-                <p class="text-sm text-slate-500">
-                    📍 {{ $building->address }}
-                </p>
+    <div class="text-sm text-gray-500 mt-1">
+        📍 {{ $building->address }}
+    </div>
 
+
+    <div class="mt-4 grid grid-cols-2 gap-3">
+
+
+        <div class="bg-slate-50 rounded-xl p-3">
+
+            <div class="text-gray-500 text-xs">
+                Cliente
             </div>
 
-
-
-            {{-- CLIENTE --}}
-            <div class="grid grid-cols-2 gap-3 text-sm">
-
-
-                <div class="bg-slate-50 rounded-xl p-3">
-
-                    <div class="text-gray-500">
-                        Cliente
-                    </div>
-
-                    <div class="font-bold">
-                        {{ $building->client?->name ?? $building->client_name ?? '—' }}
-                    </div>
-
-                </div>
-
-
-
-                <div class="bg-slate-50 rounded-xl p-3">
-
-                    <div class="text-gray-500">
-                        Contacto
-                    </div>
-
-                    <div class="font-bold">
-                        {{ $building->contact_person ?? '—' }}
-                    </div>
-
-                </div>
-
-
-
-                <div class="bg-slate-50 rounded-xl p-3">
-
-                    <div class="text-gray-500">
-                        Teléfono
-                    </div>
-
-                    <div class="font-bold">
-                        {{ $building->phone ?? '—' }}
-                    </div>
-
-                </div>
-
-
-
-                <div class="bg-slate-50 rounded-xl p-3">
-
-                    <div class="text-gray-500">
-                        Ascensores
-                    </div>
-
-                    <div class="font-bold">
-                        {{ $building->elevator_count }}
-                    </div>
-
-                </div>
-
-
+            <div class="font-bold">
+                {{ $building->client?->name ?? $building->client_name ?? '—' }}
             </div>
-
-
-
-            {{-- DATOS TECNICOS --}}
-            <div class="mt-4 grid grid-cols-3 gap-2">
-
-
-                <div class="rounded-xl bg-blue-50 p-3 text-center">
-
-                    <div class="text-xs text-gray-500">
-                        Tracción
-                    </div>
-
-                    <div class="font-black">
-                        {{ $building->traction_elevator_count }}
-                    </div>
-
-                </div>
-
-
-
-                <div class="rounded-xl bg-green-50 p-3 text-center">
-
-                    <div class="text-xs text-gray-500">
-                        Hidráulicos
-                    </div>
-
-                    <div class="font-black">
-                        {{ $building->hydraulic_elevator_count }}
-                    </div>
-
-                </div>
-
-
-
-                <div class="rounded-xl bg-orange-50 p-3 text-center">
-
-                    <div class="text-xs text-gray-500">
-                        Montacargas
-                    </div>
-
-                    <div class="font-black">
-                        {{ $building->freight_elevator_count }}
-                    </div>
-
-                </div>
-
-
-            </div>
-
-
-
-            {{-- NOTAS --}}
-            @if($building->notes)
-
-            <div class="mt-4 bg-yellow-50 rounded-xl p-3 text-sm">
-
-                <div class="font-bold">
-                    Observaciones
-                </div>
-
-                <div>
-                    {{ $building->notes }}
-                </div>
-
-            </div>
-
-            @endif
-
-
 
         </div>
+
+
+        <div class="bg-slate-50 rounded-xl p-3">
+
+            <div class="text-gray-500 text-xs">
+                Contacto
+            </div>
+
+            <div class="font-bold">
+                {{ $building->contact_person ?? '—' }}
+            </div>
+
+        </div>
+
+
+    </div>
+
+
+    {{-- EQUIPOS --}}
+    <div class="mt-4 flex gap-3">
+
+
+        <div class="flex-1 bg-blue-50 rounded-xl p-3 text-center">
+
+            <div class="text-xs text-gray-500">
+                🛗 Ascensores
+            </div>
+
+            <div class="text-xl font-black">
+                {{ $building->elevator_count }}
+            </div>
+
+        </div>
+
+
+        <div class="flex-1 bg-orange-50 rounded-xl p-3 text-center">
+
+            <div class="text-xs text-gray-500">
+                🏗️ Montacargas
+            </div>
+
+            <div class="text-xl font-black">
+                {{ $building->freight_elevator_count }}
+            </div>
+
+        </div>
+
+
+    </div>
+
+
+    @if($building->notes)
+
+    <div class="mt-4 bg-yellow-50 rounded-xl p-3 text-sm">
+
+        <strong>
+            Observaciones:
+        </strong>
+
+        <div>
+            {{ $building->notes }}
+        </div>
+
+    </div>
+
+    @endif
+
+
+</div>
 
 
         @empty
@@ -217,7 +154,9 @@
 
 
 </div>
-
+<div class="mt-6">
+    {{ $buildings->links() }}
+</div>
 
 
 <script>

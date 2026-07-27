@@ -3,17 +3,32 @@
 <div class="max-w-7xl mx-auto px-4 py-6">
 
     {{-- HEADER --}}
-    <div class="mb-6">
+<div class="mb-6 flex items-center justify-between">
 
-        <h1 class="text-3xl font-black">
-            Mis edificios
+    <div>
+        <h1 class="text-3xl font-black flex items-center gap-2">
+            📍 Mis visitas
         </h1>
 
         <p class="text-gray-500">
-            Marcá los mantenimientos realizados
+            Mantenimientos e inspecciones asignados
         </p>
+    </div>
+
+
+    <div class="bg-green-100 border border-green-200 rounded-2xl px-5 py-3 text-center min-w-[90px]">
+
+        <div class="text-xs text-green-700 font-semibold">
+            Visitas de hoy
+        </div>
+
+        <div class="text-3xl font-black text-green-800">
+            {{ $visitsToday ?? 0 }}
+        </div>
 
     </div>
+
+</div>
 
      <form method="GET" class="mb-5 flex gap-2">
 
@@ -79,6 +94,8 @@
 
     </form>
 
+
+
     {{-- BUSCADOR --}}
     <div class="mb-5">
 
@@ -91,54 +108,22 @@
 
     </div>
 
+
     {{-- LISTA --}}
     <div class="space-y-3" id="buildingsList">
 
         @forelse($buildings as $building)
-
             @php
 
-                $types = $building->users
-                    ->where('id', auth()->id())
-                    ->pluck('pivot.type')
-                    ->toArray();
+            $maintenanceVisit = $building->visits
+                ->where('assignment_type','maintenance')
+                ->first();
 
-                $maintenanceQuery = \App\Models\BuildingVisit::where('company_id', auth()->user()->company_id)
-                    ->where('building_id', $building->id)
-                    ->where('visit_type', 'fixed')
-                    ->where('assignment_type', 'maintenance')
-                    ->where('month', $month)
-                    ->where('year', $year);
+            $inspectionVisit = $building->visits
+                ->where('assignment_type','inspection')
+                ->first();
 
-
-                if($date){
-
-                    $maintenanceQuery->whereDate('visited_at', $date);
-
-                }
-
-
-                $maintenanceVisit = $maintenanceQuery->first();
-
-                 $inspectionQuery = \App\Models\BuildingVisit::where('company_id', auth()->user()->company_id)
-                    ->where('building_id', $building->id)
-                    ->where('visit_type', 'fixed')
-                    ->where('assignment_type', 'inspection')
-                    ->where('month', $month)
-                    ->where('year', $year);
-
-
-                if($date){
-
-                    $inspectionQuery->whereDate('visited_at', $date);
-
-                }
-
-
-                $inspectionVisit = $inspectionQuery->first();
-
-                @endphp
-
+            @endphp
             {{-- 🔥 UN SOLO DISEÑO (mobile + desktop) --}}
             <div
                 class="building-card bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden"
@@ -152,13 +137,7 @@
 
                         <div>
 
-                            <div class="font-semibold text-slate-900">
                                 {{ $building->client?->name ?? 'Sin cliente' }}
-                            </div>
-
-                            <p class="text-sm text-slate-500 mt-1">
-                                {{ $building->name }} {{ $building->address }}
-                            </p>
 
                         </div>
 
@@ -303,6 +282,10 @@
 
     </div>
 
+</div>
+
+<div class="mt-6">
+    {{ $buildings->links() }}
 </div>
 <script>
 function confirmarDesmarcar() {

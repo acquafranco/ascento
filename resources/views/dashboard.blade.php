@@ -63,14 +63,14 @@
         </a>
 
 
-        {{-- Mantenimientos / Inspecciones --}}
+        {{--  Visitas Tecnicas --}}
         <a href="{{ route('buildings.index', [
             'company' => auth()->user()->company->slug,
         ]) }}"
         class="bg-gray-200 flex flex-col items-center justify-center">
 
             <div class="text-sm text-gray-600">
-                🏢 Mis Mantenimientos / Inspecciones
+                📍 Visitas
             </div>
 
             <div class="text-4xl font-black">
@@ -84,7 +84,7 @@
         <a href="{{ route('buildings.all', [
             'company' => auth()->user()->company->slug,
         ]) }}"
-        class="bg-gray-200 flex flex-col items-center justify-center">
+       class="bg-purple-100 flex flex-col items-center justify-center">
 
             <div class="text-sm text-gray-600">
                 🏢 Edificios
