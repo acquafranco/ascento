@@ -19,6 +19,7 @@ return new class extends Migration
 
     $table->unique(['company_id', 'number']);
 
+
     $table->foreignId('building_id')
         ->constrained()
         ->cascadeOnDelete();
@@ -33,8 +34,7 @@ return new class extends Migration
         ->constrained()
         ->nullOnDelete();
 
-    $table->string('assignment_type')
-        ->nullable();
+    $table->string('assignment_type');
 
     $table->foreignId('user_id')
         ->constrained()

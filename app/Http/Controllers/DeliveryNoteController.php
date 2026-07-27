@@ -175,13 +175,21 @@ public function show($company, DeliveryNote $deliveryNote)
     : $request->assignment_type;
 
 
-    $existingDelivery = DeliveryNote::where('building_id', $building->id)
-        ->where('user_id', auth()->id())
-        ->where('month', $request->month)
-        ->where('year', $request->year)
-        ->where('assignment_type', $assignmentType)
-        ->exists();
+   if (in_array($assignmentType, ['maintenance', 'inspection'])) {
 
+        $existingDelivery = DeliveryNote::where('company_id', auth()->user()->company_id)
+            ->where('building_id', $building->id)
+            ->where('month', $request->month)
+            ->where('year', $request->year)
+            ->where('assignment_type', $assignmentType)
+            ->exists();
+
+        if ($existingDelivery) {
+            return back()->withErrors([
+                'general' => 'Este remito ya fue generado.'
+            ]);
+        }
+    }
 
     if ($existingDelivery) {
 
