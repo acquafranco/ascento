@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\WorkOrder;
+use App\Models\BuildingVisit;
 use Illuminate\Http\Request;
 use App\Models\DeliveryNote;
 
