@@ -187,16 +187,6 @@ public function show($company, DeliveryNote $deliveryNote)
             ]);
         }
     }
-
-    if ($existingDelivery) {
-
-        return back()
-            ->withErrors([
-                'general' =>
-                'Este remito ya fue generado.'
-            ]);
-
-    }
     /*
     |--------------------------------------------------------------------------
     | TIPO DE VISITA
