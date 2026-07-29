@@ -3,8 +3,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>AscensorPro — Software de gestión para empresas de mantenimiento de ascensores</title>
-    <meta name="description" content="AscensorPro es la plataforma para administrar clientes, edificios, técnicos, órdenes de trabajo, mantenimientos e inspecciones de tu empresa de ascensores, todo en un solo lugar.">
+    <title>Ascento — Software de gestión para empresas de mantenimiento de ascensores</title>
+    <meta name="description" content="Ascento es la plataforma para administrar clientes, edificios, técnicos, órdenes de trabajo, mantenimientos e inspecciones de tu empresa de ascensores, todo en un solo lugar.">
     <meta name="theme-color" content="#12151C">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -75,7 +75,7 @@
                         <path d="M8 15L4.5 10.5H11.5L8 15Z" fill="currentColor" opacity="0.45"/>
                     </svg>
                 </span>
-                <span class="font-display font-semibold text-[17px] tracking-tight">AscensorPro</span>
+                <span class="font-display font-semibold text-[17px] tracking-tight">Ascento</span>
             </a>
 
             <div class="hidden lg:flex items-center gap-8 text-sm font-medium text-ink/70">
@@ -147,7 +147,7 @@
                         </h1>
 
                         <p class="mt-6 text-lg text-ink/60 max-w-xl leading-relaxed">
-                            Clientes, edificios, técnicos y órdenes de trabajo en tiempo real. AscensorPro centraliza cada mantenimiento, inspección y reclamo, piso por piso, para que nada se pierda entre planillas.
+                            Clientes, edificios, técnicos y órdenes de trabajo en tiempo real. Ascento centraliza cada mantenimiento, inspección y reclamo, piso por piso, para que nada se pierda entre planillas.
                         </p>
 
                         <div class="mt-9 flex flex-col sm:flex-row gap-3">
@@ -308,7 +308,7 @@
                         <span class="h-2.5 w-2.5 rounded-full bg-ink/15"></span>
                         <span class="h-2.5 w-2.5 rounded-full bg-ink/15"></span>
                         <span class="h-2.5 w-2.5 rounded-full bg-ink/15"></span>
-                        <span class="ml-3 font-mono text-[11px] text-ink/35">panel.ascensorpro.com</span>
+                        <span class="ml-3 font-mono text-[11px] text-ink/35">Ascento.online</span>
                     </div>
                     <div class="p-5 sm:p-8 grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
                         <div class="rounded-2xl bg-paper border border-ink/10 p-5 lg:col-span-2">
@@ -423,7 +423,7 @@
             <div class="mx-auto max-w-3xl px-5 sm:px-8 text-center" data-reveal>
                 <svg width="28" height="22" viewBox="0 0 28 22" fill="none" class="mx-auto text-amber-500"><path d="M0 22V13.8C0 6 4.6 1.2 11 0L12.4 3.4C8.4 4.6 6.2 7.4 6 11.2H11V22H0ZM16 22V13.8C16 6 20.6 1.2 27 0L28.4 3.4C24.4 4.6 22.2 7.4 22 11.2H27V22H16Z" fill="currentColor" opacity="0.85"/></svg>
                 <p class="mt-6 font-display text-xl sm:text-2xl leading-snug text-ink/85">
-                    Desde que implementamos AscensorPro redujimos muchísimo el tiempo administrativo y tenemos un mejor control de los mantenimientos de cada edificio.
+                    Desde que implementamos Ascento redujimos muchísimo el tiempo administrativo y tenemos un mejor control de los mantenimientos de cada edificio.
                 </p>
                 <div class="mt-6 text-sm text-ink/50">Gerente de Operaciones — empresa de mantenimiento de ascensores</div>
             </div>
@@ -440,7 +440,7 @@
                 <div class="mt-12 divide-y divide-ink/10 border-t border-b border-ink/10" x-data="{ openIndex: 0 }">
                     @php
                         $faqs = [
-                            ['¿Necesito instalar algo?', 'No. AscensorPro funciona directamente desde el navegador, tanto en la oficina como en el campo.'],
+                            ['¿Necesito instalar algo?', 'No. Ascento funciona directamente desde el navegador, tanto en la oficina como en el campo.'],
                             ['¿Puedo acceder desde el celular?', 'Sí. La plataforma está pensada mobile first, para que tus técnicos la usen desde cualquier teléfono.'],
                             ['¿Mis técnicos pueden usarlo?', 'Sí. Cada técnico tiene su propio acceso para ver sus órdenes, cargar avances y firmar remitos.'],
                             ['¿Se hace backup de la información?', 'Sí. Toda la información de clientes, edificios y trabajos se respalda de forma automática.'],
@@ -490,7 +490,7 @@
                         <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 text-amber-500">
                             <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1L11.5 5.5H4.5L8 1Z" fill="currentColor"/><path d="M8 15L4.5 10.5H11.5L8 15Z" fill="currentColor" opacity="0.45"/></svg>
                         </span>
-                        <span class="font-display font-semibold text-white text-[15px]">AscensorPro</span>
+                        <span class="font-display font-semibold text-white text-[15px]">Ascento</span>
                     </div>
                     <p class="mt-4 text-sm leading-relaxed max-w-xs">El sistema de gestión para empresas de mantenimiento de ascensores.</p>
                 </div>
@@ -506,7 +506,7 @@
                 <div>
                     <div class="text-xs font-semibold text-white/40 uppercase tracking-wide">Contacto</div>
                     <ul class="mt-4 space-y-2.5 text-sm">
-                        <li><a href="mailto:hola@ascensorpro.com" class="hover:text-white transition-colors">hola@ascensorpro.com</a></li>
+                        <li><a href="mailto:hola@ascento.com" class="hover:text-white transition-colors">hola@ascento.com</a></li>
                         <li><a href="tel:+541100000000" class="hover:text-white transition-colors">+54 11 0000-0000</a></li>
                         <li>Buenos Aires, Argentina</li>
                     </ul>
@@ -524,7 +524,7 @@
                 </div>
             </div>
             <div class="mt-12 pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-white/35">
-                <span>© {{ date('Y') }} AscensorPro. Todos los derechos reservados.</span>
+                <span>© {{ date('Y') }} Ascento. Todos los derechos reservados.</span>
                 <span>Hecho para empresas de mantenimiento de ascensores.</span>
             </div>
         </div>
