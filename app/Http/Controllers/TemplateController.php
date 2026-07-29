@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\BuildingVisit;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use App\Models\User;
 
 class TemplateController extends Controller
 {
@@ -142,20 +143,110 @@ class TemplateController extends Controller
 {
     $date = Carbon::parse($date);
 
-  $visits = BuildingVisit::with([
-    'building',
-    'user',
-    'workOrder',
-    'deliveryNote',
-])
+    $visits = BuildingVisit::with([
+        'building',
+        'user',
+        'workOrder',
+        'deliveryNote',
+    ])
     ->where('user_id', auth()->id())
-    ->whereDate('visited_at', $date)
-    ->orderBy('started_at')
+    ->where(function($query) use ($date){
+
+        // visitas normales
+        $query->whereDate('visited_at', $date)
+
+        // work orders
+        ->orWhere(function($q) use ($date){
+
+            $q->where('source', 'work_order')
+              ->whereDate('finished_at', $date);
+
+        });
+
+    })
+    ->orderByRaw('COALESCE(started_at, visited_at) ASC')
+    ->orderBy('visited_at')
     ->get();
+
 
     return view(
         'templates.day',
         compact('visits', 'date')
     );
+}
+
+public function userTemplate($company, User $user)
+{
+    abort_unless(auth()->user()->isAdmin(), 403);
+
+    Carbon::setLocale('es');
+
+    $month = request('month', now()->month);
+    $year  = request('year', now()->year);
+
+    $visits = BuildingVisit::with([
+        'building',
+        'workOrder',
+    ])
+    ->where('user_id', $user->id)
+    ->whereNotNull('visited_at')
+    ->whereMonth('visited_at', $month)
+    ->whereYear('visited_at', $year)
+    ->orderBy('visited_at')
+    ->get();
+
+    $weeks = [];
+
+    $current = Carbon::create($year, $month, 1)
+        ->startOfWeek(Carbon::MONDAY);
+
+    $end = Carbon::create($year, $month, 1)
+        ->endOfMonth()
+        ->endOfWeek(Carbon::SUNDAY);
+
+    while ($current->lte($end)) {
+
+        $start = $current->copy()->startOfDay();
+        $finish = $current->copy()->addDays(6)->endOfDay();
+
+        $weeks[] = [
+            'start' => $start,
+            'end' => $finish,
+            'visits' => $visits->filter(fn($v) =>
+                $v->visited_at->between($start, $finish)
+            ),
+        ];
+
+        $current->addWeek();
+    }
+
+    return view('admin.user-template', compact(
+        'user',
+        'weeks',
+        'month',
+        'year'
+    ));
+}
+
+public function userTemplateDay($company, User $user, $date)
+{
+    $date = Carbon::parse($date);
+
+    $visits = BuildingVisit::with([
+        'building.client',
+        'user',
+        'workOrder',
+        'deliveryNote',
+    ])
+    ->where('user_id', $user->id)
+    ->whereDate('visited_at', $date)
+    ->orderByRaw('COALESCE(started_at, visited_at)')
+    ->get();
+
+    return view('templates.day', [
+        'visits' => $visits,
+        'date' => $date,
+        'user' => $user,
+    ]);
 }
 }

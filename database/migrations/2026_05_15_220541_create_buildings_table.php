@@ -42,6 +42,18 @@ return new class extends Migration
 
         $table->integer('freight_elevator_count')->default(0);
 
+        $table->string('province')
+            ->nullable();
+
+        $table->string('municipality')
+            ->nullable();
+
+        $table->string('locality')
+            ->nullable();
+
+        $table->string('neighborhood')
+            ->nullable();
+
 
 
         $table->timestamps();

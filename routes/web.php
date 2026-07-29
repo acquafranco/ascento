@@ -24,17 +24,17 @@ use App\Models\BuildingVisit;
 |--------------------------------------------------------------------------
 */
 
-Route::get('/', function(){
+Route::get('/', function () {
 
-    if(auth()->check() && auth()->user()->company){
+    if (auth()->check() && auth()->user()->company) {
 
         return redirect()->route('dashboard', [
-            'company' => auth()->user()->company->slug
+            'company' => auth()->user()->company->slug,
         ]);
 
     }
 
-    return redirect()->route('login');
+    return view('welcome');
 
 });
 
@@ -147,93 +147,22 @@ Route::prefix('{company:slug}')
     |--------------------------------------------------------------------------
     */
 
-    Route::get('/users/{user}/template', function(User $user){
+       Route::middleware('admin')->group(function () {
 
-        abort_unless(
-            Gate::forUser(auth()->user())
-                ->allows('view-user-template',$user),
-            403
-        );
+            Route::get('/users/{user}/template', [
+                TemplateController::class,
+                'userTemplate',
+            ])->name('users.template');
 
+        });
+        Route::middleware('admin')->group(function () {
 
-        $month = request('month', now()->month);
-        $year  = request('year', now()->year);
+            Route::get('/users/{user}/template/day/{date}', [
+                TemplateController::class,
+                'userTemplateDay',
+            ])->name('users.template.day');
 
-
-        $visits = BuildingVisit::with([
-                'building',
-                'user'
-            ])
-            ->where('user_id',$user->id)
-            ->whereNotNull('visited_at')
-            ->whereMonth('visited_at',$month)
-            ->whereYear('visited_at',$year)
-            ->orderBy('visited_at')
-            ->get();
-
-
-        $weeks=[];
-
-
-        $current=\Carbon\Carbon::create(
-            $year,
-            $month,
-            1
-        )->startOfWeek(
-            \Carbon\Carbon::MONDAY
-        );
-
-
-        $end=\Carbon\Carbon::create(
-            $year,
-            $month,
-            1
-        )
-        ->endOfMonth()
-        ->endOfWeek(
-            \Carbon\Carbon::SUNDAY
-        );
-
-
-        while($current->lte($end)){
-
-
-            $start=$current->copy()->startOfDay();
-            $finish=$current->copy()
-                ->addDays(6)
-                ->endOfDay();
-
-
-            $weeks[]=[
-                'start'=>$start,
-                'end'=>$finish,
-                'visits'=>$visits->filter(
-                    fn($v)=>
-                    \Carbon\Carbon::parse(
-                        $v->visited_at
-                    )->between($start,$finish)
-                )
-            ];
-
-
-            $current->addWeek();
-
-        }
-
-
-        return view(
-            'admin.user-template',
-            compact(
-                'user',
-                'weeks',
-                'month',
-                'year'
-            )
-        );
-
-
-    })->name('users.template');
-
+        });
 
 
     /*

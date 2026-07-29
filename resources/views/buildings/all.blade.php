@@ -43,29 +43,17 @@
 
 
     <h2 class="text-xl font-black">
-        {{ $building->name }}
+         {{ $building->client?->name ?? $building->client_name ?? '—' }}
+
     </h2>
 
 
     <div class="text-sm text-gray-500 mt-1">
-        📍 {{ $building->address }}
+        📍 {{ $building->name }} {{ $building->address }}
     </div>
 
 
     <div class="mt-4 grid grid-cols-2 gap-3">
-
-
-        <div class="bg-slate-50 rounded-xl p-3">
-
-            <div class="text-gray-500 text-xs">
-                Cliente
-            </div>
-
-            <div class="font-bold">
-                {{ $building->client?->name ?? $building->client_name ?? '—' }}
-            </div>
-
-        </div>
 
 
         <div class="bg-slate-50 rounded-xl p-3">
@@ -81,6 +69,19 @@
         </div>
 
 
+        <div class="bg-slate-50 rounded-xl p-3">
+
+            <div class="text-gray-500 text-xs">
+                Telefono
+            </div>
+
+            <div class="font-bold">
+                 {{ $building->phone ?? '—' }}
+            </div>
+
+        </div>
+
+
     </div>
 
 
@@ -88,7 +89,7 @@
     <div class="mt-4 flex gap-3">
 
 
-        <div class="flex-1 bg-blue-50 rounded-xl p-3 text-center">
+        <div class="flex-1 bg-blue-100 rounded-xl p-3 text-center">
 
             <div class="text-xs text-gray-500">
                 🛗 Ascensores
@@ -101,7 +102,7 @@
         </div>
 
 
-        <div class="flex-1 bg-orange-50 rounded-xl p-3 text-center">
+        <div class="flex-1 bg-rose-200 rounded-xl p-3 text-center">
 
             <div class="text-xs text-gray-500">
                 🏗️ Montacargas
@@ -119,7 +120,7 @@
 
     @if($building->notes)
 
-    <div class="mt-4 bg-yellow-50 rounded-xl p-3 text-sm">
+    <div class="mt-4 bg-amber-200 rounded-xl p-3 text-sm">
 
         <strong>
             Observaciones:

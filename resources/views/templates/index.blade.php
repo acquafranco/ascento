@@ -115,10 +115,18 @@
                 @endphp
 
                 <a
-                    href="{{ $dayVisits->count() ? route('templates.day', [
-                        'company' => auth()->user()->company->slug,
-                        'date' => $date->format('Y-m-d'),
-                    ]) : '#' }}"
+                    href="{{ $dayVisits->count() ? (
+                        isset($user)
+                            ? route('users.template.day', [
+                                'company' => auth()->user()->company->slug,
+                                'user' => $user->id,
+                                'date' => $date->format('Y-m-d'),
+                            ])
+                            : route('templates.day', [
+                                'company' => auth()->user()->company->slug,
+                                'date' => $date->format('Y-m-d'),
+                            ])
+                    ) : '#' }}"
                     class="block bg-white rounded-3xl shadow p-4 min-h-[220px] hover:shadow-xl transition"
                 >
                     {{-- DIA --}}

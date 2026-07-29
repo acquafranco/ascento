@@ -26,6 +26,13 @@ namespace App\Models;
 
             'notes',
             'is_active',
+            'province',
+
+            'municipality',
+
+            'locality',
+
+            'neighborhood',
         ];
 
         protected $casts = [

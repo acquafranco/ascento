@@ -226,55 +226,40 @@ class WorkOrderController extends Controller
 
         BuildingVisit::create([
 
-        'company_id' => auth()->user()->company_id,
+            'company_id' => auth()->user()->company_id,
 
-        'building_id' =>
-            $workOrder->building_id,
+            'building_id' => $workOrder->building_id,
 
-        'user_id' =>
-            $user->id,
+            'user_id' => $user->id,
 
-        'source' =>
-            'work_order',
+            'source' => 'work_order',
 
-        'visit_type' =>
-            'work_order',
+            'visit_type' => 'work_order',
 
-        'assignment_type' =>
-            'work_order_' . $workOrder->id,
+            'work_order_id' => $workOrder->id,
 
-        'work_order_id' =>
-            $workOrder->id,
+            'assignment_type' => 'work_order',
 
-        'status' =>
-            'done',
+            'status' => 'done',
 
-        'month' =>
-            $finishedAt->month,
+            'month' => $finishedAt->month,
 
-        'year' =>
-            $finishedAt->year,
+            'year' => $finishedAt->year,
 
-            'visited_at' =>
-                $finishedAt,
+            'visited_at' => $finishedAt,
 
-            'started_at' =>
-                $workOrder->started_at,
+            // ESTO FALTABA BIEN
+            'started_at' => $workOrder->started_at,
 
-            'finished_at' =>
-                $finishedAt,
+            'finished_at' => $finishedAt,
 
-            'delivery_note' =>
-                $request->delivery_note,
+            'work_type' => $workOrder->type,
 
-            'unit' =>
-                $workOrder->unit,
+            'delivery_note' => $request->delivery_note,
 
-            'work_type' =>
-                $workOrder->type,
+            'unit' => $workOrder->unit,
 
-            'notes' =>
-                $workOrder->notes,
+            'notes' => $workOrder->notes,
 
         ]);
 

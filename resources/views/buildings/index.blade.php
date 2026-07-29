@@ -3,7 +3,7 @@
 <div class="max-w-7xl mx-auto px-4 py-6">
 
     {{-- HEADER --}}
-<div class="mb-6 flex items-center justify-between">
+<div class="mb-6 flex flex-col gap-4">
 
     <div>
         <h1 class="text-3xl font-black flex items-center gap-2">
@@ -13,58 +13,65 @@
         <p class="text-gray-500">
             Mantenimientos e inspecciones asignados
         </p>
+
+    </div>
+
+<div class="grid grid-cols-3 gap-2 w-full">
+
+    {{-- TOTAL --}}
+<div class="bg-blue-100 border border-blue-200 rounded-2xl p-2 text-center">
+<div class="text-xs font-semibold text-blue-700">
+                🛗 Máquinas totales
+        </div>
+
+<div class="text-3xl font-black text-blue-800">
+                {{ $totalMachines }}
+        </div>
     </div>
 
 
-    <div class="bg-green-100 border border-green-200 rounded-2xl px-5 py-3 text-center min-w-[90px]">
+    {{-- MANTENIMIENTO --}}
+    @if($maintenanceTotalMachines > 0)
 
-        <div class="text-xs text-green-700 font-semibold">
-            Visitas de hoy
+<div class="bg-green-100 border border-green-200 rounded-2xl p-2 text-center">
+        <div class="text-xs font-semibold text-green-700">
+            🔧 Mant. restantes
         </div>
 
         <div class="text-3xl font-black text-green-800">
-            {{ $visitsToday ?? 0 }}
+            {{ $maintenanceRemaining }}
         </div>
-
     </div>
 
+    @endif
+
+
+
+    {{-- INSPECCION --}}
+    @if($inspectionTotalMachines > 0)
+
+<div class="bg-purple-100 border border-purple-200 rounded-2xl p-2 text-center">
+        <div class="text-xs font-semibold text-purple-700">
+            🔎 Insp. restantes
+        </div>
+
+        <div class="text-3xl font-black text-purple-800">
+            {{ $inspectionRemaining }}
+        </div>
+    </div>
+
+    @endif
+
+</div>
 </div>
 
-     <form method="GET" class="mb-5 flex gap-2">
+<form method="GET" id="filtersForm" class="mb-5 space-y-3">
 
-            <select
-            name="date"
-            onchange="this.form.submit()"
-            class="rounded-xl border-gray-300"
-        >
-            <option value="">
-                Todos los días
-            </option>
-
-            @for($d = 1; $d <= now()->daysInMonth; $d++)
-
-                @php
-                    $day = \Carbon\Carbon::create(
-                        $year,
-                        $month,
-                        $d
-                    );
-                @endphp
-
-                <option
-                    value="{{ $day->format('Y-m-d') }}"
-                    @selected(request('date') == $day->format('Y-m-d'))
-                >
-                    {{ $day->format('d/m/Y') }}
-                </option>
-
-            @endfor
-
-        </select>
+    <div class="flex gap-2">
 
         <select
             name="month"
-            onchange="this.form.submit()"
+            onchange="document.getElementById('filtersForm').submit()"
             class="rounded-xl border-gray-300"
         >
             @for($m = 1; $m <= 12; $m++)
@@ -77,9 +84,10 @@
             @endfor
         </select>
 
+
         <select
             name="year"
-            onchange="this.form.submit()"
+            onchange="document.getElementById('filtersForm').submit()"
             class="rounded-xl border-gray-300"
         >
             @for($y = now()->year - 2; $y <= now()->year + 2; $y++)
@@ -92,21 +100,19 @@
             @endfor
         </select>
 
-    </form>
-
-
-
-    {{-- BUSCADOR --}}
-    <div class="mb-5">
-
-        <input
-            type="text"
-            id="searchBuilding"
-            placeholder="Buscar edificio..."
-            class="w-full rounded-2xl border-gray-300 shadow-sm"
-        >
-
     </div>
+
+
+    <input
+        type="text"
+        name="search"
+        value="{{ request('search') }}"
+        id="searchInput"
+        placeholder="Buscar calle, cliente, localidad o barrio..."
+        class="w-full rounded-2xl border-gray-300 shadow-sm"
+    >
+
+</form>
 
 
     {{-- LISTA --}}
@@ -114,21 +120,33 @@
 
         @forelse($buildings as $building)
             @php
+            $types = $building->users
+    ->pluck('pivot.type')
+    ->flatMap(function ($type) {
+        return explode(',', $type);
+    })
+    ->toArray();
 
             $maintenanceVisit = $building->visits
-                ->where('assignment_type','maintenance')
+                ->where('assignment_type', 'maintenance')
                 ->first();
 
             $inspectionVisit = $building->visits
-                ->where('assignment_type','inspection')
+                ->where('assignment_type', 'inspection')
                 ->first();
-
             @endphp
             {{-- 🔥 UN SOLO DISEÑO (mobile + desktop) --}}
             <div
                 class="building-card bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden"
-                data-name="{{ strtolower($building->name . ' ' . $building->address . ' ' . ($building->client?->name ?? '')) }}"
-            >
+                data-name="{{ strtolower(
+                    $building->name . ' ' .
+                    $building->address . ' ' .
+                    ($building->client?->name ?? '') . ' ' .
+                    ($building->locality ?? '') . ' ' .
+                    ($building->neighborhood ?? '') . ' ' .
+                    ($building->municipality ?? '')
+                ) }}"
+                 >
 
                 <div class="p-4">
 
@@ -137,13 +155,33 @@
 
                         <div>
 
-                                {{ $building->client?->name ?? 'Sin cliente' }}
+                                <div class="font-bold">
+
+                                    {{ $building->client?->name ?? 'Sin cliente' }}
+
+                                </div>
+
+                                <div class="text-sm text-slate-500">
+
+                                    {{ $building->name }} {{ $building->address }}
+
+                                </div>
 
                         </div>
 
-                        <div class="text-xs text-slate-400 whitespace-nowrap">
-                            #{{ $building->id }}
-                        </div>
+                        <div class="text-xs text-slate-500 mt-1">
+
+                        {{ $building->locality }}
+
+                        @if($building->neighborhood)
+                            · {{ $building->neighborhood }}
+                        @endif
+
+                        @if($building->municipality)
+                            · {{ $building->municipality }}
+                        @endif
+
+                    </div>
 
                     </div>
 
@@ -305,17 +343,42 @@ Si lo desmarcás:
 }
 </script>
 <script>
-document.getElementById('searchBuilding').addEventListener('keyup', function () {
 
-    let value = this.value.toLowerCase();
-    let cards = document.querySelectorAll('.building-card');
+let timer;
 
-    cards.forEach(card => {
-        let name = card.dataset.name;
-        card.style.display = name.includes(value) ? 'block' : 'none';
-    });
+const searchInput = document.getElementById('searchInput');
+
+searchInput.addEventListener('input', function () {
+
+    clearTimeout(timer);
+
+    timer = setTimeout(() => {
+
+        document
+            .getElementById('filtersForm')
+            .submit();
+
+    }, 500);
 
 });
+
+
+window.onload = function () {
+
+    if (searchInput.value) {
+
+        searchInput.focus();
+
+        searchInput.setSelectionRange(
+            searchInput.value.length,
+            searchInput.value.length
+        );
+
+    }
+
+};
+
 </script>
+
 
 </x-app-layout>

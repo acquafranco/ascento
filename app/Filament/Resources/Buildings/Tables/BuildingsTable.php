@@ -11,6 +11,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Filters\SelectFilter;
 
 class BuildingsTable
 {
@@ -29,6 +30,16 @@ class BuildingsTable
                 TextColumn::make('address')
                     ->label('Dirección')
                     ->searchable(),
+
+                TextColumn::make('locality')
+                    ->label('Localidad')
+                    ->searchable()
+                    ->sortable(),
+
+                TextColumn::make('neighborhood')
+                    ->label('Barrio')
+                    ->searchable()
+                    ->sortable(),
 
                 TextColumn::make('client.name')
                     ->label('Cliente')
@@ -263,7 +274,18 @@ class BuildingsTable
                         'Asignación eliminada'
                     ),
             ])
+                ->filters([
+                    SelectFilter::make('locality')
+                        ->label('Localidad')
+                        ->options(
+                            \App\Models\Building::query()
+                                ->where('company_id', auth()->user()->company_id)
+                                ->whereNotNull('locality')
+                                ->pluck('locality','locality')
+                                ->toArray()
+                        )
 
+                ])
             ->toolbarActions([
 
                 BulkActionGroup::make([

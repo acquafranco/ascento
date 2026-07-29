@@ -234,26 +234,73 @@ public function show($company, DeliveryNote $deliveryNote)
     |--------------------------------------------------------------------------
     */
 
+    if ($request->filled('work_order_id')) {
+
+    $visit = BuildingVisit::create([
+        'company_id'      => auth()->user()->company_id,
+        'building_id'     => $building->id,
+        'user_id'         => auth()->id(),
+        'source'          => 'work_order',
+        'visit_type'      => 'work_order',
+        'assignment_type' => 'work_order_' . $request->work_order_id,
+        'work_order_id'   => $request->work_order_id,
+        'status'          => $request->boolean('performed') ? 'done' : 'failed',
+        'month'           => now()->month,
+        'year'            => now()->year,
+        'visited_at'      => now(),
+    ]);
+
+} else {
+
     $visit = BuildingVisit::firstOrCreate(
-    [
-        'company_id' => auth()->user()->company_id,
-        'building_id' => $building->id,
-        'user_id' => auth()->id(),
-        'visit_type' => $visitType,
-        'assignment_type' => $assignmentType,
-        'month' => $request->month,
-        'year' => $request->year,
-    ],
-    [
-        'work_order_id' => $request->work_order_id,
-        'status' => $request->boolean('performed')
-            ? 'done'
-            : 'failed',
-        'visited_at' => now(),
-    ]
+        [
+            'company_id'      => auth()->user()->company_id,
+            'building_id'     => $building->id,
+            'user_id'         => auth()->id(),
+            'visit_type'      => 'fixed',
+            'assignment_type' => $assignmentType,
+            'month'           => $request->month,
+            'year'            => $request->year,
+        ],
+        [
+            'status'     => $request->boolean('performed') ? 'done' : 'failed',
+            'visited_at' => now(),
+            'source'     => 'building',
+        ]
     );
 
+}
 
+if ($request->filled('work_order_id')) {
+
+    $workOrder = WorkOrder::findOrFail($request->work_order_id);
+
+    $workOrder->update([
+        'status' => 'completed',
+        'finished_at' => now(),
+    ]);
+
+    $workOrder->refresh();
+
+    $visit->update([
+        'source'        => 'work_order',
+        'work_order_id' => $workOrder->id,
+        'started_at'    => $workOrder->started_at,
+        'finished_at'   => $workOrder->finished_at,
+        'visited_at'    => $workOrder->finished_at,
+        'work_type'     => $workOrder->type,
+        'unit'          => $workOrder->unit,
+        'notes'         => $workOrder->notes,
+        'assignment_type' => 'work_order_' . $workOrder->id,
+        ]);
+
+    } else {
+
+        $visit->update([
+            'source' => 'building',
+        ]);
+
+    }
 
     /*
     |--------------------------------------------------------------------------
