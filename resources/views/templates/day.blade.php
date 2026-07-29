@@ -63,12 +63,12 @@
 
                         @if($remito)
 
-                            @if($remito->user_id == auth()->id())
+                            @if((int) $remito->user_id === (int) auth()->id())
 
                                 <a
                                     href="{{ route('delivery-notes.show', [
                                         'company' => auth()->user()->company->slug,
-                                        'deliveryNote' => $remito->number
+                                        'deliveryNote' => $remito->number,
                                     ]) }}"
                                     class="inline-flex mt-2 px-3 py-1 rounded-lg bg-green-100 text-green-700 font-semibold"
                                 >
@@ -76,15 +76,22 @@
                                 </a>
 
                             @else
-
-                                <a
-                                    href="{{ url('/'.auth()->user()->company->slug.'/public/delivery-notes/'.$remito->number) }}"
-                                    class="inline-flex mt-2 px-3 py-1 rounded-lg bg-blue-100 text-blue-700 font-semibold"
-                                    target="_blank"
-                                >
-                                    📄 Ver remito público #{{ $remito->number }}
-                                </a>
-
+                                @if($remito->public_token)
+                                    <a
+                                        href="{{ route('delivery-notes.public', [
+                                            'company' => auth()->user()->company->slug,
+                                            'token' => $remito->public_token,
+                                        ]) }}"
+                                        class="inline-flex mt-2 px-3 py-1 rounded-lg bg-blue-100 text-blue-700 font-semibold"
+                                        target="_blank"
+                                    >
+                                        📄 Ver remito público #{{ $remito->number }}
+                                    </a>
+                                @else
+                                    <span class="inline-flex mt-2 px-3 py-1 rounded-lg bg-yellow-100 text-yellow-700 font-semibold">
+                                        ⚠️ Remito público no disponible
+                                    </span>
+                                @endif
                             @endif
 
                         @endif

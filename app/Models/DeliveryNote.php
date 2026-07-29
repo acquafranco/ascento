@@ -3,6 +3,7 @@
 namespace App\Models;
 use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class DeliveryNote extends Model
 {
@@ -52,6 +53,12 @@ class DeliveryNote extends Model
     protected static function booted(): void
     {
         static::creating(function ($deliveryNote) {
+
+        if (!$deliveryNote->public_token) {
+
+            $deliveryNote->public_token = Str::uuid();
+
+        }
 
             $lastNumber = static::where(
                 'company_id',

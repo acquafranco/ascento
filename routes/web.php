@@ -46,8 +46,11 @@ Route::get('/', function () {
 
 
 Route::get(
-    '/{company:slug}/public/delivery-notes/{deliveryNote}',
+
+    '/{company:slug}/public/delivery-notes/{token}',
+
     [DeliveryNoteController::class, 'showPublic']
+
 )->name('delivery-notes.public');
 
 

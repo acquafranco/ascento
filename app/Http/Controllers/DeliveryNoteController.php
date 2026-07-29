@@ -335,12 +335,22 @@ return redirect()
         return view('delivery-notes.show', compact('deliveryNote'));
 
     }
-public function showPublic(Company $company, DeliveryNote $deliveryNote)
+public function showPublic(
+    Company $company,
+    $token
+)
 {
-    abort_unless(
-        $deliveryNote->company_id === $company->id,
-        404
-    );
+
+    $deliveryNote = DeliveryNote::where(
+        'public_token',
+        $token
+    )
+    ->where(
+        'company_id',
+        $company->id
+    )
+    ->firstOrFail();
+
 
     $deliveryNote->load([
         'building',
@@ -349,7 +359,11 @@ public function showPublic(Company $company, DeliveryNote $deliveryNote)
         'buildingVisit',
     ]);
 
-    return view('delivery-notes.show', compact('deliveryNote'));
+
+    return view(
+        'delivery-notes.show',
+        compact('deliveryNote')
+    );
 }
 }
 ?>
