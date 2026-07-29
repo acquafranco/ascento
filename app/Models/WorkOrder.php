@@ -8,13 +8,11 @@ use App\Models\Concerns\BelongsToCompany;
 
 class WorkOrder extends Model
 {
-
     use BelongsToCompany;
 
     protected $fillable = [
         'company_id',
         'building_id',
-        'user_id',
         'type',
         'status',
         'priority',
@@ -41,38 +39,71 @@ class WorkOrder extends Model
         });
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | RELACIONES
+    |--------------------------------------------------------------------------
+    */
+
     public function building()
     {
         return $this->belongsTo(Building::class);
     }
 
-    public function technician()
+    /**
+     * Técnicos asignados a la orden.
+     */
+    public function users()
     {
-        return $this->belongsTo(
+        return $this->belongsToMany(
             User::class,
-            'user_id'
-        );
+            'work_order_user'
+        )
+        ->withTimestamps();
     }
 
+    /**
+     * Compatibilidad con código viejo.
+     * Devuelve el primer técnico asignado.
+     */
+
+
     public function deliveryNote()
-{
-    return $this->hasOne(
-        DeliveryNote::class
-    );
-}
+    {
+        return $this->hasOne(DeliveryNote::class);
+    }
 
-public function company()
-{
-    return $this->belongsTo(Company::class);
-}
+    public function company()
+    {
+        return $this->belongsTo(Company::class);
+    }
 
-public function scopeForCompany($query, $companyId)
-{
-    return $query->whereHas('building.client', function ($q) use ($companyId) {
+    /*
+    |--------------------------------------------------------------------------
+    | SCOPES
+    |--------------------------------------------------------------------------
+    */
 
-        $q->where('company_id', $companyId);
+    public function scopeForCompany($query, $companyId)
+    {
+        return $query->where('company_id', $companyId);
+    }
 
-    });
-}
+    /*
+    |--------------------------------------------------------------------------
+    | HELPERS
+    |--------------------------------------------------------------------------
+    */
 
+    public function getTechniciansNamesAttribute(): string
+    {
+        return $this->users
+            ->pluck('name')
+            ->implode(', ');
+    }
+
+    public function getIsSharedAttribute(): bool
+    {
+        return $this->users()->count() > 1;
+    }
 }

@@ -64,7 +64,8 @@ class User extends Authenticatable implements FilamentUser
     }
     public function workOrders()
     {
-        return $this->hasMany(WorkOrder::class);
+        return $this->belongsToMany(WorkOrder::class, 'work_order_user')
+            ->withTimestamps();
     }
 
     public function isTechnician(): bool

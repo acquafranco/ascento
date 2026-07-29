@@ -113,10 +113,11 @@ class WorkOrderForm
                     ->required()
                     ->label('Unidad'),
 
-                Forms\Components\Select::make('user_id')
-                    ->label('Técnico')
+                Forms\Components\Select::make('users')
+                    ->label('Técnicos asignados')
+                    ->multiple()
                     ->relationship(
-                        name: 'technician',
+                        name: 'users',
                         titleAttribute: 'name',
                         modifyQueryUsing: fn ($query) => $query
                             ->where('company_id', Auth::user()->company_id)

@@ -24,16 +24,22 @@ class DashboardController extends Controller
             return redirect('/admin');
         }
 
+
         /*
         |--------------------------------------------------------------------------
         | SOLO DATOS DEL USUARIO LOGUEADO
         |--------------------------------------------------------------------------
         */
 
-        $workOrdersBase = WorkOrder::where(
-            'user_id',
-            $user->id
-        );
+        $workOrdersBase = WorkOrder::whereHas('users', function ($query) use ($user) {
+
+            $query->where(
+                'users.id',
+                $user->id
+            );
+
+        });
+
 
         /*
         |--------------------------------------------------------------------------
@@ -41,16 +47,26 @@ class DashboardController extends Controller
         |--------------------------------------------------------------------------
         */
 
-       $tasksToday =
+
+        $tasksToday =
             BuildingVisit::where('user_id', $user->id)
                 ->whereDate('visited_at', today())
-                ->where('status', 'completed')
+                ->where('status', 'done')
                 ->count()
             +
-            WorkOrder::where('user_id', $user->id)
-                ->whereDate('finished_at', today())
-                ->where('status', 'completed')
-                ->count();
+            WorkOrder::whereHas('users', function ($query) use ($user) {
+
+                $query->where(
+                    'users.id',
+                    $user->id
+                );
+
+            })
+            ->whereDate('finished_at', today())
+            ->where('status', 'completed')
+            ->count();
+
+
 
         $pending = (clone $workOrdersBase)
             ->where(
@@ -59,12 +75,14 @@ class DashboardController extends Controller
             )
             ->count();
 
+
         $inProgress = (clone $workOrdersBase)
             ->where(
                 'status',
                 'in_progress'
             )
             ->count();
+
 
         $completed = (clone $workOrdersBase)
             ->where(
@@ -73,45 +91,63 @@ class DashboardController extends Controller
             )
             ->count();
 
+
+
         /*
         |--------------------------------------------------------------------------
         | EDIFICIOS
         |--------------------------------------------------------------------------
         */
 
+
         $totalBuildings = $user
             ->buildings()
             ->distinct('buildings.id')
             ->count('buildings.id');
 
+
         $totalCompanyBuildings = Building::where(
             'company_id',
             $user->company_id
         )->count();
+
+
+
         /*
         |--------------------------------------------------------------------------
         | TEMPLATES
         |--------------------------------------------------------------------------
         */
 
+
         $templates = $user
             ->buildingVisits()
             ->count();
 
-            $deliveryNotes = DeliveryNote::where(
-                'user_id',
-                $user->id
-            )->count();
+
+        $deliveryNotes = DeliveryNote::where(
+            'user_id',
+            $user->id
+        )->count();
+
+
 
         return view('dashboard', [
 
             'tasks_today' => $tasksToday,
+
             'pending' => $pending,
+
             'in_progress' => $inProgress,
+
             'completed_today' => $completed,
+
             'total_buildings' => $totalBuildings,
+
             'total_company_buildings' => $totalCompanyBuildings,
+
             'templates' => $templates,
+
             'deliveryNotes' => $deliveryNotes,
 
         ]);

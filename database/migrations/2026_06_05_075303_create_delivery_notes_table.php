@@ -61,6 +61,12 @@ return new class extends Migration
 
     $table->string('client_signature_name')->nullable();
 
+    $table->uuid('public_token')
+
+        ->unique()
+
+        ->nullable();
+
     $table->foreignId('company_id')
     ->constrained()
     ->cascadeOnDelete();

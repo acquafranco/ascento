@@ -12,34 +12,50 @@ class UserStatsWidget extends StatsOverviewWidget
 
     protected function getStats(): array
     {
+        if (!$this->record) {
+            return [];
+        }
+
         return [
 
             Stat::make(
                 'Pendientes',
-                WorkOrder::where(
-                    'user_id',
-                    $this->record->id
-                )
+                WorkOrder::whereHas('users', function ($q) {
+
+                    $q->where(
+                        'users.id',
+                        $this->record->id
+                    );
+
+                })
                 ->where('status', 'pending')
                 ->count()
             ),
 
             Stat::make(
                 'En progreso',
-                WorkOrder::where(
-                    'user_id',
-                    $this->record->id
-                )
+                WorkOrder::whereHas('users', function ($q) {
+
+                    $q->where(
+                        'users.id',
+                        $this->record->id
+                    );
+
+                })
                 ->where('status', 'in_progress')
                 ->count()
             ),
 
             Stat::make(
                 'Completadas hoy',
-                WorkOrder::where(
-                    'user_id',
-                    $this->record->id
-                )
+                WorkOrder::whereHas('users', function ($q) {
+
+                    $q->where(
+                        'users.id',
+                        $this->record->id
+                    );
+
+                })
                 ->where('status', 'completed')
                 ->whereDate(
                     'finished_at',
@@ -54,6 +70,7 @@ class UserStatsWidget extends StatsOverviewWidget
                     ->distinct('buildings.id')
                     ->count('buildings.id')
             ),
+
         ];
     }
 }

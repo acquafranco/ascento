@@ -30,26 +30,27 @@ class TemplateController extends Controller
         */
 
         $visits = BuildingVisit::with([
-            'building',
-            'workOrder',
+            'building.client',
+            'workOrder.users',
             'user',
+            'deliveryNote',
         ])
-            ->whereHas('building.users', fn($q) => $q->where('users.id', auth()->id()))
-            ->whereNotNull(
-                'visited_at'
-            )
-            ->whereMonth(
-                'visited_at',
-                $month
-            )
-            ->whereYear(
-                'visited_at',
-                $year
-            )
-            ->orderBy(
-                'visited_at'
-            )
-            ->get();
+        ->where(function ($query) {
+            $query
+                ->where(function ($q) {
+                    $q->where('source', 'work_order')
+                      ->whereHas('workOrder.users', fn($users) => $users->where('users.id', auth()->id()));
+                })
+                ->orWhere(function ($q) {
+                    $q->where('source', 'building')
+                      ->whereHas('building.users', fn($users) => $users->where('users.id', auth()->id()));
+                });
+        })
+        ->whereNotNull('visited_at')
+        ->whereMonth('visited_at', $month)
+        ->whereYear('visited_at', $year)
+        ->orderBy('visited_at')
+        ->get();
 
         $weeks = [];
 
@@ -142,12 +143,22 @@ class TemplateController extends Controller
     $date = Carbon::parse($date);
 
     $visits = BuildingVisit::with([
-        'building',
+        'building.client',
         'user',
-        'workOrder',
+        'workOrder.users',
         'deliveryNote',
     ])
-    ->whereHas('building.users', fn($q) => $q->where('users.id', auth()->id()))
+    ->where(function ($query) {
+        $query
+            ->where(function ($q) {
+                $q->where('source', 'work_order')
+                  ->whereHas('workOrder.users', fn($users) => $users->where('users.id', auth()->id()));
+            })
+            ->orWhere(function ($q) {
+                $q->where('source', 'building')
+                  ->whereHas('building.users', fn($users) => $users->where('users.id', auth()->id()));
+            });
+    })
     ->where(function($query) use ($date){
 
         // visitas normales
@@ -183,11 +194,22 @@ public function userTemplate($company, User $user)
     $year  = request('year', now()->year);
 
     $visits = BuildingVisit::with([
-        'building',
-        'workOrder',
+        'building.client',
+        'workOrder.users',
         'user',
+        'deliveryNote',
     ])
-    ->whereHas('building.users', fn($q) => $q->where('users.id', $user->id))
+    ->where(function ($query) use ($user) {
+        $query
+            ->where(function ($q) use ($user) {
+                $q->where('source', 'work_order')
+                  ->whereHas('workOrder.users', fn($users) => $users->where('users.id', $user->id));
+            })
+            ->orWhere(function ($q) use ($user) {
+                $q->where('source', 'building')
+                  ->whereHas('building.users', fn($users) => $users->where('users.id', $user->id));
+            });
+    })
     ->whereNotNull('visited_at')
     ->whereMonth('visited_at', $month)
     ->whereYear('visited_at', $year)
@@ -234,10 +256,20 @@ public function userTemplateDay($company, User $user, $date)
     $visits = BuildingVisit::with([
         'building.client',
         'user',
-        'workOrder',
+        'workOrder.users',
         'deliveryNote',
     ])
-    ->whereHas('building.users', fn($q) => $q->where('users.id', $user->id))
+    ->where(function ($query) use ($user) {
+        $query
+            ->where(function ($q) use ($user) {
+                $q->where('source', 'work_order')
+                  ->whereHas('workOrder.users', fn($users) => $users->where('users.id', $user->id));
+            })
+            ->orWhere(function ($q) use ($user) {
+                $q->where('source', 'building')
+                  ->whereHas('building.users', fn($users) => $users->where('users.id', $user->id));
+            });
+    })
     ->whereDate('visited_at', $date)
     ->orderByRaw('COALESCE(started_at, visited_at)')
     ->get();

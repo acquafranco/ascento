@@ -36,30 +36,56 @@
                     <div class="text-gray-500">
                         {{ trim(($visit->building?->name ?? '').' '.($visit->building?->address ?? '')) }}
                     </div>
-                    @if($visit->user_id === auth()->id())
-                        <div class="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-green-100 text-green-700 text-sm font-semibold">
-                            ✅ Trabajo realizado por vos
+                    @php
+                        $currentUser = isset($user) ? $user : auth()->user();
+                        $performedByMe = (int) $visit->user_id === (int) $currentUser->id;
+                        $performedBy = $visit->user?->name ?? 'Técnico asignado';
+                    @endphp
+
+                    @if($visit->user_id == auth()->id())
+
+                        <div class="bg-green-100 text-green-700">
+                            ✅ Orden realizada por vos
                         </div>
+
                     @else
-                        <div class="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-blue-100 text-blue-700 text-sm font-semibold">
-                            🤝 Trabajo conjunto · Realizado por {{ $visit->user?->name }}
+
+                        <div class="bg-blue-100 text-blue-700">
+                            🤝 Acompañaste a {{ $visit->user?->name }}
                         </div>
+
                     @endif
                       <div class="text-gray-500">
 
-                            @if(
-                                $visit->deliveryNote &&
-                                $visit->user_id == auth()->id()
-                            )
-                            <a
-                               href="{{ route('delivery-notes.show', [
-                                'company' => auth()->user()->company->slug,
-                                'deliveryNote' => $visit->deliveryNote->number
-                            ]) }}"
-                                class="inline-flex mt-2 px-3 py-1 rounded-lg bg-green-100 text-green-700 font-semibold"
-                            >
-                                📄 Ver remito #{{ $visit->deliveryNote->number }}
-                            </a>
+                        @php
+                            $remito = $visit->deliveryNote ?? $visit->workOrder?->deliveryNote;
+                        @endphp
+
+                        @if($remito)
+
+                            @if($remito->user_id == auth()->id())
+
+                                <a
+                                    href="{{ route('delivery-notes.show', [
+                                        'company' => auth()->user()->company->slug,
+                                        'deliveryNote' => $remito->number
+                                    ]) }}"
+                                    class="inline-flex mt-2 px-3 py-1 rounded-lg bg-green-100 text-green-700 font-semibold"
+                                >
+                                    📄 Ver remito #{{ $remito->number }}
+                                </a>
+
+                            @else
+
+                                <a
+                                    href="{{ url('/'.auth()->user()->company->slug.'/public/delivery-notes/'.$remito->number) }}"
+                                    class="inline-flex mt-2 px-3 py-1 rounded-lg bg-blue-100 text-blue-700 font-semibold"
+                                    target="_blank"
+                                >
+                                    📄 Ver remito público #{{ $remito->number }}
+                                </a>
+
+                            @endif
 
                         @endif
 

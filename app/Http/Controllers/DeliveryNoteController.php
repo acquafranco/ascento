@@ -195,10 +195,7 @@ public function show($company, DeliveryNote $deliveryNote)
 
         if ($request->filled('work_order_id')) {
 
-        $visitType = 'work_order';
-
-        $assignmentType = $request->assignment_type
-            ?? 'work_order';
+        $visit = null;
 
         }else {
 
@@ -233,150 +230,90 @@ public function show($company, DeliveryNote $deliveryNote)
     |--------------------------------------------------------------------------
     */
 
-    if ($request->filled('work_order_id')) {
+/*
+|--------------------------------------------------------------------------
+| CREAR / OBTENER VISITA
+|--------------------------------------------------------------------------
+*/
 
-    $visit = BuildingVisit::create([
-        'company_id'      => auth()->user()->company_id,
-        'building_id'     => $building->id,
-        'user_id'         => auth()->id(),
-        'source'          => 'work_order',
-        'visit_type'      => 'work_order',
-        'assignment_type' => 'work_order_' . $request->work_order_id,
-        'work_order_id'   => $request->work_order_id,
-        'status'          => $request->boolean('performed') ? 'done' : 'failed',
-        'month'           => now()->month,
-        'year'            => now()->year,
-        'visited_at'      => now(),
-    ]);
+if ($request->filled('work_order_id')) {
+
+    $visit = null;
 
 } else {
 
     $visit = BuildingVisit::firstOrCreate(
         [
-    'company_id'      => auth()->user()->company_id,
-    'building_id'     => $building->id,
-    'visit_type'      => 'fixed',
-    'assignment_type' => $assignmentType,
-    'month'           => $request->month,
-    'year'            => $request->year,
-],
-       [
-    'user_id'    => auth()->id(),
-    'status'     => $request->boolean('performed') ? 'done' : 'failed',
-    'visited_at' => now(),
-    'source'     => 'building',
-]
+            'company_id'      => auth()->user()->company_id,
+            'building_id'     => $building->id,
+            'visit_type'      => 'fixed',
+            'assignment_type' => $assignmentType,
+            'month'           => $request->month,
+            'year'            => $request->year,
+        ],
+        [
+            'user_id'    => auth()->id(),
+            'status'     => $request->boolean('performed') ? 'done' : 'failed',
+            'visited_at' => now(),
+            'source'     => 'building',
+        ]
     );
-
 }
 
-if ($request->filled('work_order_id')) {
+$deliveryNote = DeliveryNote::create([
+    'company_id' => auth()->user()->company_id,
+    'building_id' => $building->id,
+    'building_visit_id' => $visit?->id,
+    'user_id' => auth()->id(),
+    'work_order_id' => $request->work_order_id,
+    'assignment_type' => $request->filled('work_order_id') ? 'work_order' : $request->assignment_type,
+    'description' => $request->description,
+    'elevator_quantity' => $request->elevator_quantity,
+    'freight_elevator_quantity' => $request->freight_elevator_quantity,
+    'performed' => $request->boolean('performed'),
+    'month' => $request->month,
+    'year' => $request->year,
+    'signature_name' => $request->signature_name,
+    'signature' => $request->signature,
+    'client_signature' => $request->client_signature,
+    'client_signature_name' => $request->client_signature_name,
+]);
 
+if ($request->filled('work_order_id')) {
     $workOrder = WorkOrder::findOrFail($request->work_order_id);
+
+    $finishedAt = now();
 
     $workOrder->update([
         'status' => 'completed',
-        'finished_at' => now(),
+        'finished_at' => $finishedAt,
     ]);
 
-    $workOrder->refresh();
-
-    $visit->update([
-        'source'        => 'work_order',
+    BuildingVisit::create([
+        'company_id' => $workOrder->company_id,
+        'building_id' => $workOrder->building_id,
+        'user_id' => auth()->id(),
+        'source' => 'work_order',
+        'visit_type' => 'work_order',
         'work_order_id' => $workOrder->id,
-        'started_at'    => $workOrder->started_at,
-        'finished_at'   => $workOrder->finished_at,
-        'visited_at'    => $workOrder->finished_at,
-        'work_type'     => $workOrder->type,
-        'unit'          => $workOrder->unit,
-        'notes'         => $workOrder->notes,
-        'assignment_type' => 'work_order_' . $workOrder->id,
-        ]);
+        'assignment_type' => 'work_order',
+        'month' => $finishedAt->month,
+        'year' => $finishedAt->year,
+        'status' => 'done',
+        'visited_at' => $finishedAt,
+        'started_at' => $workOrder->started_at,
+        'finished_at' => $finishedAt,
+        'work_type' => $workOrder->type,
+        'unit' => $workOrder->unit,
+        'notes' => $workOrder->notes,
+    ]);
+}
 
-    } else {
-
-        $visit->update([
-            'source' => 'building',
-        ]);
-
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | CREAR REMITO
-    |--------------------------------------------------------------------------
-    */
-
-        $deliveryNote = DeliveryNote::create([
-
-            'company_id' => auth()->user()->company_id,
-
-            'building_id' => $building->id,
-
-            'building_visit_id' => $visit->id,
-
-            'user_id' => auth()->id(),
-
-            'work_order_id' => $request->work_order_id,
-
-            'assignment_type' => $request->filled('work_order_id')
-                ? 'work_order'
-                : $request->assignment_type,
-
-            'description' => $request->description,
-
-            'elevator_quantity' =>
-                $request->elevator_quantity,
-
-            'freight_elevator_quantity' =>
-                $request->freight_elevator_quantity,
-
-            'performed' =>
-                $request->boolean('performed'),
-
-            'month' =>
-                $request->month,
-
-            'year' =>
-                $request->year,
-
-            'signature_name' =>
-                $request->signature_name,
-
-            'signature' =>
-                $request->signature,
-
-            'client_signature' =>
-                $request->client_signature,
-
-            'client_signature_name' =>
-                $request->client_signature_name,
-        ]);
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | FINALIZAR ORDEN
-    |--------------------------------------------------------------------------
-    */
-
-    if ($request->filled('work_order_id')) {
-
-        WorkOrder::find($request->work_order_id)
-            ?->update([
-                'status' => 'completed',
-                'finished_at' => now(),
-            ]);
-    }
-
-
-    return redirect()
-
+return redirect()
     ->route('delivery-notes.index', [
-
-        'company' => auth()->user()->company->slug
-
-    ])->with('success', 'Remito generado correctamente.');
+        'company' => auth()->user()->company->slug,
+    ])
+    ->with('success', 'Remito generado correctamente.');
 
 }
 

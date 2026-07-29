@@ -269,9 +269,13 @@
                         @endif
 
                         {{-- FINALIZAR --}}
-                        @if($workOrder->status === 'in_progress' && $workOrder->user_id === auth()->id())
+                        @if(
+                            $workOrder->status === 'in_progress'
+                            &&
+                            $workOrder->users->contains(auth()->id())
+                        )
 
-                          <a
+                        <a
                             href="{{ route('delivery-notes.work-order', [
                                 'company' => auth()->user()->company->slug,
                                 'workOrder' => $workOrder
@@ -291,7 +295,7 @@
                                 class="flex items-center justify-center gap-2"
                             >
                                 <svg class="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
-                                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity=".25"/>
+                                    <circle cx="12" cy="24" r="10" stroke="currentColor" stroke-width="3" opacity=".25"/>
                                     <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" stroke-width="3"/>
                                 </svg>
 

@@ -21,10 +21,14 @@ class UserOrdersWidget extends TableWidget
 
             ->query(
                 WorkOrder::query()
-                    ->where(
-                        'user_id',
-                        $this->record->id
-                    )
+                    ->whereHas('users', function ($q) {
+
+                        $q->where(
+                            'users.id',
+                            $this->record->id
+                        );
+
+                    })
                     ->latest()
             )
 
@@ -41,19 +45,19 @@ class UserOrdersWidget extends TableWidget
                 ->label('Dirección'),
 
                 Tables\Columns\TextColumn::make('type')
-    ->label('Tipo')
-    ->badge()
-    ->formatStateUsing(fn ($state) => WorkOrderLabels::type($state)),
+                    ->label('Tipo')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => WorkOrderLabels::type($state)),
 
-Tables\Columns\BadgeColumn::make('status')
-    ->label('Estado')
-    ->formatStateUsing(fn ($state) => WorkOrderLabels::status($state))
-    ->colors([
-        'warning' => 'pending',
-        'primary' => 'in_progress',
-        'success' => 'completed',
-        'danger' => 'failed',
-    ]),
+                Tables\Columns\BadgeColumn::make('status')
+                    ->label('Estado')
+                    ->formatStateUsing(fn ($state) => WorkOrderLabels::status($state))
+                    ->colors([
+                        'warning' => 'pending',
+                        'primary' => 'in_progress',
+                        'success' => 'completed',
+                        'danger' => 'failed',
+                    ]),
             ]);
     }
 }

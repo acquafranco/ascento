@@ -71,16 +71,7 @@ return new class extends Migration
             $table->integer('month');
             $table->integer('year');
 
-            $table->unique(
-                [
-                    'building_id',
-                    'visit_type',
-                    'month',
-                    'year',
-                    'assignment_type'
-                ],
-                'building_visits_unique'
-                );
+
             /*
             |--------------------------------------------------------------------------
             | HORARIOS

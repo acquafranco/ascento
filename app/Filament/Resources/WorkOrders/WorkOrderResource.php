@@ -64,9 +64,16 @@ class WorkOrderResource extends Resource
                     ->badge()
                     ->placeholder('—'),
 
-                Tables\Columns\TextColumn::make('technician.name')
-                    ->label('Técnico')
-                    ->placeholder('Sin asignar')
+               Tables\Columns\TextColumn::make('users')
+    ->label('Técnicos')
+    ->getStateUsing(function ($record) {
+
+        return $record->users
+            ->pluck('name')
+            ->unique()
+            ->implode(', ');
+
+    })
                     ->searchable(),
 
                 // 🔥 TIPOS EN ESPAÑOL

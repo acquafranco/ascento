@@ -161,7 +161,7 @@
                         </div>
                         <div>
                             <label class="block text-xs text-slate-500 uppercase tracking-wider mb-1.5">
-                                Mes del mantenimiento
+                                Corresponde al mes
                             </label>
 
                             <select

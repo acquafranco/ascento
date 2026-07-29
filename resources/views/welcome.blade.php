@@ -71,8 +71,10 @@
             <a href="/" class="flex items-center gap-2.5 shrink-0">
                 <span class="relative flex h-8 w-8 items-center justify-center rounded-lg bg-graphite text-amber-500">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M8 1L11.5 5.5H4.5L8 1Z" fill="currentColor"/>
-                        <path d="M8 15L4.5 10.5H11.5L8 15Z" fill="currentColor" opacity="0.45"/>
+                        <circle cx="8" cy="2.3" r="1.3" stroke="currentColor" stroke-width="1.1"/>
+                        <path d="M8 3.6V4.6" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
+                        <path d="M8 4.6L13 7.3V11.7L8 14.4L3 11.7V7.3L8 4.6Z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/>
+                        <path d="M8 4.6V9.5M8 9.5L3 11.9M8 9.5L13 11.9" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                 </span>
                 <span class="font-display font-semibold text-[17px] tracking-tight">Ascento</span>
