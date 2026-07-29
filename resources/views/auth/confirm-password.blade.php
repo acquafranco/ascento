@@ -1,26 +1,23 @@
 <x-guest-layout>
-    <div class="mb-4 text-sm text-gray-600">
-        {{ __('This is a secure area of the application. Please confirm your password before continuing.') }}
-    </div>
+    <span class="font-mono text-xs tracking-widest text-amber-600 uppercase">Confirmación</span>
+    <h1 class="mt-2 font-display font-semibold text-2xl tracking-tight text-ink">Confirmá tu contraseña</h1>
+    <p class="mt-1.5 text-sm text-ink/50 leading-relaxed">
+        Esta es un área segura de la aplicación. Confirmá tu contraseña antes de continuar.
+    </p>
 
-    <form method="POST" action="{{ route('password.confirm') }}">
+    <form method="POST" action="{{ route('password.confirm') }}" class="mt-8 space-y-5">
         @csrf
 
-        <!-- Password -->
         <div>
-            <x-input-label for="password" :value="__('Password')" />
-
-            <x-text-input id="password" class="block mt-1 w-full"
-                            type="password"
-                            name="password"
-                            required autocomplete="current-password" />
-
-            <x-input-error :messages="$errors->get('password')" class="mt-2" />
+            <x-input-label for="password" :value="__('Contraseña')" />
+            <x-text-input id="password" type="password" name="password" required autocomplete="current-password" placeholder="••••••••" autofocus />
+            <x-input-error :messages="$errors->get('password')" class="mt-1.5" />
         </div>
 
-        <div class="flex justify-end mt-4">
+        <div class="flex items-center justify-end pt-2">
             <x-primary-button>
-                {{ __('Confirm') }}
+                Confirmar
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </x-primary-button>
         </div>
     </form>

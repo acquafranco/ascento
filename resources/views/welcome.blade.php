@@ -87,10 +87,6 @@
 
             <div class="hidden lg:flex items-center gap-3">
                 <a href="{{ Route::has('login') ? route('login') : '/login' }}"
-                   class="text-sm font-medium text-ink/80 hover:text-ink px-3 py-2 transition-colors">
-                    Iniciar sesión
-                </a>
-                <a href="{{ Route::has('login') ? route('login') : '/login' }}"
                    class="inline-flex items-center gap-1.5 rounded-full bg-graphite text-white text-sm font-semibold pl-4 pr-3.5 py-2.5 shadow-card hover:shadow-cardHover hover:-translate-y-0.5 transition-all duration-200">
                     Entrar
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -110,7 +106,6 @@
                 <a @click="open=false" href="#planes" class="py-2.5 text-ink/75">Planes</a>
                 <a @click="open=false" href="#faq" class="py-2.5 text-ink/75">Preguntas frecuentes</a>
                 <div class="flex gap-2 pt-3">
-                    <a href="{{ Route::has('login') ? route('login') : '/login' }}" class="flex-1 text-center rounded-full border border-ink/15 px-4 py-2.5 text-sm font-semibold">Iniciar sesión</a>
                     <a href="{{ Route::has('login') ? route('login') : '/login' }}" class="flex-1 text-center rounded-full bg-graphite text-white px-4 py-2.5 text-sm font-semibold">Entrar</a>
                 </div>
             </div>

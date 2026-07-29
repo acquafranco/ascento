@@ -49,62 +49,87 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
 {
     return 'data';
 }
-    public function form(Schema $schema): Schema
-    {
-        return $schema
-            ->statePath('data')
-            ->components([
+  public function form(Schema $schema): Schema
+{
+    return $schema
+        ->statePath('data')
+        ->components([
 
-                Section::make('Datos de empresa')
-                    ->schema([
+            Section::make('Empresa')
+                ->description('Información principal de la empresa.')
+                ->icon('heroicon-o-building-office-2')
+                ->columns(12)
+                ->schema([
 
-                       FileUpload::make('logo')
-                            ->label('Logo de empresa')
-                            ->image()
-                            ->disk('public')
-                            ->directory('companies/logos')
-                            ->visibility('public')
-                            ->maxSize(2048)
-                            ->acceptedFileTypes([
-                                'image/png',
-                                'image/jpeg',
-                                'image/webp',
-                            ])
-                            ->dehydrated(true),
+                    FileUpload::make('logo')
+                        ->label('Logo')
+                        ->image()
+                        ->imageEditor()
+                        ->avatar()
+                        ->disk('public')
+                        ->directory('companies/logos')
+                        ->visibility('public')
+                        ->maxSize(2048)
+                        ->acceptedFileTypes([
+                            'image/png',
+                            'image/jpeg',
+                            'image/webp',
+                        ])
+                        ->columnSpan(3),
 
+                    TextInput::make('name')
+                        ->label('Nombre interno')
+                        ->placeholder('Acqua Ascensores')
+                        ->prefixIcon('heroicon-o-tag')
+                        ->required()
+                        ->columnSpan(4),
 
-                        TextInput::make('name')
-                            ->label('Nombre interno')
-                            ->required(),
+                    TextInput::make('business_name')
+                        ->label('Razón social')
+                        ->placeholder('Acqua Ascensores S.R.L.')
+                        ->prefixIcon('heroicon-o-building-office')
+                        ->columnSpan(5),
 
+                    TextInput::make('cuit')
+                        ->label('CUIT')
+                        ->placeholder('30-12345678-9')
+                        ->prefixIcon('heroicon-o-identification')
+                        ->columnSpan(4),
 
-                        TextInput::make('business_name')
-                            ->label('Nombre comercial / Razón social'),
+                    TextInput::make('phone')
+                        ->label('Teléfono')
+                        ->tel()
+                        ->placeholder('+54 11 1234-5678')
+                        ->prefixIcon('heroicon-o-phone')
+                        ->columnSpan(4),
 
+                    TextInput::make('email')
+                        ->label('Email')
+                        ->email()
+                        ->placeholder('contacto@empresa.com')
+                        ->prefixIcon('heroicon-o-envelope')
+                        ->columnSpan(4),
 
-                        TextInput::make('cuit')
-                            ->label('CUIT'),
+                    TextInput::make('address')
+                        ->label('Dirección')
+                        ->placeholder('Av. Corrientes 1234')
+                        ->prefixIcon('heroicon-o-map-pin')
+                        ->columnSpanFull(),
+                ]),
 
+            Section::make('Apariencia')
+                ->description('Personalizá la identidad visual del sistema.')
+                ->icon('heroicon-o-paint-brush')
+                ->columns(2)
+                ->schema([
 
-                        TextInput::make('email')
-                            ->label('Email empresarial')
-                            ->email(),
+                    ColorPicker::make('primary_color')
+                        ->label('Color principal')
+                        ->default('#2563eb'),
 
-
-                        TextInput::make('phone')
-                            ->label('Teléfono'),
-
-
-                        TextInput::make('address')
-                            ->label('Dirección'),
-
-
-                        ColorPicker::make('primary_color')
-                            ->label('Color principal'),
-
-                    ])
-            ]);
-    }
+                ]),
+        ]);
+}
 
             public function save(): void
             {

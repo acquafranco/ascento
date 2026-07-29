@@ -99,176 +99,184 @@ class BuildingsTable
 
                     ->form([
 
-                        Select::make('user_id')
-                            ->label('Empleado')
-
+                        Select::make('user_ids')
+                            ->label('Empleados')
+                            ->multiple()
+                            ->searchable()
+                            ->preload()
+                            ->required()
                             ->options(
                                 User::query()
-                                   ->where('company_id', auth()->user()->company_id)
-                                    // NO admins
-                                    ->where(
-                                        'role',
-                                        '!=',
-                                        'admin'
-                                    )
-
-                                    ->pluck(
-                                        'name',
-                                        'id'
-                                    )
+                                    ->where('company_id', auth()->user()->company_id)
+                                    ->where('role', '!=', 'admin')
+                                    ->pluck('name', 'id')
                                     ->toArray()
-                            )
+                            ),
 
-                            ->searchable()
-                            ->required(),
+                                                Select::make('type')
+                                                    ->label('Trabajo')
+                                                    ->options([
+                                                        'maintenance'
+                                                            => 'Mantenimiento',
 
-                        Select::make('type')
-                            ->label('Trabajo')
-                            ->options([
-                                'maintenance'
-                                    => 'Mantenimiento',
+                                                        'inspection'
+                                                            => 'Inspección',
+                                                    ])
+                                                    ->required(),
 
-                                'inspection'
-                                    => 'Inspección',
-                            ])
-                            ->required(),
+                                            ])
 
-                    ])
+                                        ->action(function (array $data, $record) {
 
-                   ->action(function (array $data, $record) {
+                            /*
+                            |--------------------------------------------------------------------------
+                            | INSPECCIÓN
+                            |--------------------------------------------------------------------------
+                            */
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | VALIDAR QUE NO EXISTA OTRO TECNICO PARA ESE TIPO
-                    |--------------------------------------------------------------------------
-                    */
+                            if ($data['type'] === 'inspection') {
 
-                    $existsType = $record->users()
-                        ->wherePivot(
-                            'type',
-                            $data['type']
-                        )
-                        ->exists();
+                                if (count($data['user_ids']) > 1) {
 
+                                    \Filament\Notifications\Notification::make()
+                                        ->title('Solo puede existir un inspector por edificio.')
+                                        ->danger()
+                                        ->send();
 
-                    if ($existsType) {
+                                    return;
+                                }
 
-                        \Filament\Notifications\Notification::make()
-                            ->title(
-                                'Este edificio ya tiene un empleado asignado para este trabajo.'
-                            )
-                            ->body(
-                                $data['type'] === 'maintenance'
-                                    ? 'Ya existe un mantenimiento asignado.'
-                                    : 'Ya existe una inspección asignada.'
-                            )
-                            ->danger()
-                            ->send();
-
-                        return;
-                    }
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | EVITAR DUPLICADO DEL MISMO EMPLEADO
-                    |--------------------------------------------------------------------------
-                    */
-
-                    $existsUser = $record->users()
-                        ->where('users.id', $data['user_id'])
-                        ->wherePivot(
-                            'type',
-                            $data['type']
-                        )
-                        ->exists();
-
-
-                    if ($existsUser) {
-
-                        \Filament\Notifications\Notification::make()
-                            ->title(
-                                'Este empleado ya tiene este trabajo asignado.'
-                            )
-                            ->danger()
-                            ->send();
-
-                        return;
-                    }
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | ASIGNAR
-                    |--------------------------------------------------------------------------
-                    */
-
-                    $record->users()->attach(
-                        $data['user_id'],
-                        [
-                            'type' => $data['type'],
-                        ]
-                    );
-
-
-                    \Filament\Notifications\Notification::make()
-                        ->title(
-                            'Empleado asignado correctamente.'
-                        )
-                        ->success()
-                        ->send();
-
-                }),
-
-                /*
-                |--------------------------------------------------------------------------
-                | QUITAR EMPLEADO
-                |--------------------------------------------------------------------------
-                */
-
-                Action::make('removeTechnician')
-                    ->label('Quitar asignación')
-                    ->icon('heroicon-o-user-minus')
-                    ->color('danger')
-
-                    ->form([
-
-                        Select::make('user_id')
-                            ->label('Empleado')
-                            ->options(
-                                fn ($record) =>
+                                if (
                                     $record->users()
-                                        ->pluck(
-                                            'name',
-                                            'users.id'
-                                        )
-                            )
-                            ->searchable()
-                            ->required(),
+                                        ->wherePivot('type', 'inspection')
+                                        ->exists()
+                                ) {
 
+                                    \Filament\Notifications\Notification::make()
+                                        ->title('Este edificio ya tiene un inspector asignado.')
+                                        ->danger()
+                                        ->send();
 
-                        Select::make('type')
-                            ->label('Trabajo')
-                            ->options([
-                                'maintenance' => 'Mantenimiento',
-                                'inspection' => 'Inspección',
-                            ])
-                            ->required(),
+                                    return;
+                                }
+                            }
 
-                    ])
+                            /*
+                            |--------------------------------------------------------------------------
+                            | MANTENIMIENTO
+                            |--------------------------------------------------------------------------
+                            */
 
-                    ->action(function(array $data, $record){
+                            if ($data['type'] === 'maintenance') {
 
-                        $record->users()
-                            ->wherePivot(
-                                'type',
-                                $data['type']
-                            )
-                            ->detach(
-                                $data['user_id']
-                            );
+                                if (count($data['user_ids']) > 2) {
 
-                    })
+                                    \Filament\Notifications\Notification::make()
+                                        ->title('Solo pueden asignarse hasta dos técnicos de mantenimiento.')
+                                        ->danger()
+                                        ->send();
+
+                                    return;
+                                }
+
+                                $actuales = $record->users()
+                                    ->wherePivot('type', 'maintenance')
+                                    ->count();
+
+                                if ($actuales + count($data['user_ids']) > 2) {
+
+                                    \Filament\Notifications\Notification::make()
+                                        ->title('Este edificio ya tiene el máximo de técnicos de mantenimiento.')
+                                        ->danger()
+                                        ->send();
+
+                                    return;
+                                }
+                            }
+
+                            /*
+                            |--------------------------------------------------------------------------
+                            | ASIGNAR
+                            |--------------------------------------------------------------------------
+                            */
+
+                            foreach ($data['user_ids'] as $userId) {
+
+                                $existe = $record->users()
+                                    ->where('users.id', $userId)
+                                    ->wherePivot('type', $data['type'])
+                                    ->exists();
+
+                                if (! $existe) {
+
+                                    $record->users()->attach(
+                                        $userId,
+                                        [
+                                            'type' => $data['type'],
+                                        ]
+                                    );
+
+                                }
+
+                            }
+
+                                    \Filament\Notifications\Notification::make()
+                                        ->title('Empleados asignados correctamente.')
+                                        ->success()
+                                        ->send();
+
+                                }),
+                                                /*
+                                                |--------------------------------------------------------------------------
+                                                | QUITAR EMPLEADO
+                                                |--------------------------------------------------------------------------
+                                                */
+
+                                                Action::make('removeTechnician')
+                                                    ->label('Quitar asignación')
+                                                    ->icon('heroicon-o-user-minus')
+                                                    ->color('danger')
+
+                                                    ->form([
+
+                                    Select::make('assignment')
+                                        ->label('Asignación')
+                                        ->searchable()
+                                        ->required()
+                                        ->options(function ($record) {
+
+                                            return $record->users
+                                                ->mapWithKeys(function ($user) {
+
+                                                    return [
+
+                                                        $user->id.'-'.$user->pivot->type =>
+
+                                                            $user->name.' • '.
+
+                                                            (
+                                                                $user->pivot->type === 'maintenance'
+                                                                    ? 'Mantenimiento'
+                                                                    : 'Inspección'
+                                                            ),
+
+                                                    ];
+
+                                                });
+
+                                        }),
+
+                                ])
+
+                                        ->action(function (array $data, $record) {
+
+                            [$userId, $type] = explode('-', $data['assignment']);
+
+                            $record->users()
+                                ->wherePivot('type', $type)
+                                ->detach($userId);
+
+                        })
 
                     ->successNotificationTitle(
                         'Asignación eliminada'
