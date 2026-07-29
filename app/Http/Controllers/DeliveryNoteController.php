@@ -208,12 +208,11 @@ public function show($company, DeliveryNote $deliveryNote)
 
 
         $existingVisit = BuildingVisit::where('building_id', $building->id)
-            ->where('user_id', auth()->id())
-            ->where('visit_type', 'fixed')
-            ->where('assignment_type', $assignmentType)
-            ->where('month', $request->month)
-            ->where('year', $request->year)
-            ->exists();
+    ->where('visit_type', 'fixed')
+    ->where('assignment_type', $assignmentType)
+    ->where('month', $request->month)
+    ->where('year', $request->year)
+    ->exists();
 
 
         if ($existingVisit) {
@@ -254,19 +253,19 @@ public function show($company, DeliveryNote $deliveryNote)
 
     $visit = BuildingVisit::firstOrCreate(
         [
-            'company_id'      => auth()->user()->company_id,
-            'building_id'     => $building->id,
-            'user_id'         => auth()->id(),
-            'visit_type'      => 'fixed',
-            'assignment_type' => $assignmentType,
-            'month'           => $request->month,
-            'year'            => $request->year,
-        ],
-        [
-            'status'     => $request->boolean('performed') ? 'done' : 'failed',
-            'visited_at' => now(),
-            'source'     => 'building',
-        ]
+    'company_id'      => auth()->user()->company_id,
+    'building_id'     => $building->id,
+    'visit_type'      => 'fixed',
+    'assignment_type' => $assignmentType,
+    'month'           => $request->month,
+    'year'            => $request->year,
+],
+       [
+    'user_id'    => auth()->id(),
+    'status'     => $request->boolean('performed') ? 'done' : 'failed',
+    'visited_at' => now(),
+    'source'     => 'building',
+]
     );
 
 }

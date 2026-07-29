@@ -148,17 +148,30 @@
 
                     @foreach($dayVisits->take(3) as $visit)
 
-                        <div class="mb-2">
+    <div class="mb-3">
 
-                            <div class="text-xs font-semibold truncate">
-                                🏢 {{ $visit->building?->name }}
+        <div class="text-xs font-semibold truncate">
+            🏢 {{ $visit->building?->name }}
+            {{ $visit->building?->address }}
+        </div>
 
-                                {{ $visit->building?->address }}
-                            </div>
+        @if($visit->user_id === auth()->id())
 
-                        </div>
+            <div class="text-[11px] text-green-600 font-medium">
+                ✔ Realizado por vos
+            </div>
 
-                    @endforeach
+        @else
+
+            <div class="text-[11px] text-blue-600 font-medium">
+                🤝 Realizado por {{ $visit->user?->name }}
+            </div>
+
+        @endif
+
+    </div>
+
+@endforeach
 
                     @if($dayVisits->count() > 3)
 

@@ -94,8 +94,7 @@ $maintenanceTotalMachines = $maintenanceBuildings->sum(function ($building) {
 });
 
 // realizados
-$maintenanceCompletedMachines = BuildingVisit::where('user_id', $user->id)
-    ->where('status', 'done')
+$maintenanceCompletedMachines = BuildingVisit::where('status', 'done')
     ->where(function ($q) {
 
         $q->where('assignment_type', 'maintenance')
@@ -119,6 +118,7 @@ $maintenanceCompletedMachines = BuildingVisit::where('user_id', $user->id)
 
     })
     ->with('building')
+    ->distinct('building_id')
     ->get()
     ->sum(function ($visit) {
 
@@ -147,8 +147,7 @@ $inspectionTotalMachines = $inspectionBuildings->sum(function ($building) {
 });
 
 // realizados
-$inspectionCompletedMachines = BuildingVisit::where('user_id', $user->id)
-    ->where('status', 'done')
+$inspectionCompletedMachines = BuildingVisit::where('status', 'done')
     ->where(function ($q) {
 
         $q->where('assignment_type', 'inspection')
@@ -172,6 +171,7 @@ $inspectionCompletedMachines = BuildingVisit::where('user_id', $user->id)
 
     })
     ->with('building')
+    ->distinct('building_id')
     ->get()
     ->sum(function ($visit) {
 

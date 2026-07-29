@@ -32,11 +32,9 @@ class TemplateController extends Controller
         $visits = BuildingVisit::with([
             'building',
             'workOrder',
+            'user',
         ])
-            ->where(
-                'user_id',
-                auth()->id()
-            )
+            ->whereHas('building.users', fn($q) => $q->where('users.id', auth()->id()))
             ->whereNotNull(
                 'visited_at'
             )
@@ -149,7 +147,7 @@ class TemplateController extends Controller
         'workOrder',
         'deliveryNote',
     ])
-    ->where('user_id', auth()->id())
+    ->whereHas('building.users', fn($q) => $q->where('users.id', auth()->id()))
     ->where(function($query) use ($date){
 
         // visitas normales
@@ -187,8 +185,9 @@ public function userTemplate($company, User $user)
     $visits = BuildingVisit::with([
         'building',
         'workOrder',
+        'user',
     ])
-    ->where('user_id', $user->id)
+    ->whereHas('building.users', fn($q) => $q->where('users.id', $user->id))
     ->whereNotNull('visited_at')
     ->whereMonth('visited_at', $month)
     ->whereYear('visited_at', $year)
@@ -238,7 +237,7 @@ public function userTemplateDay($company, User $user, $date)
         'workOrder',
         'deliveryNote',
     ])
-    ->where('user_id', $user->id)
+    ->whereHas('building.users', fn($q) => $q->where('users.id', $user->id))
     ->whereDate('visited_at', $date)
     ->orderByRaw('COALESCE(started_at, visited_at)')
     ->get();
