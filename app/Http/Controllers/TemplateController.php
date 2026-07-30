@@ -44,7 +44,7 @@ class TemplateController extends Controller
             $query
                 ->where(function ($q) {
                     $q->where('source', 'work_order')
-                      ->whereHas('workOrder.users', fn($users) => $users->where('users.id', auth()->id()));
+                      ->whereHas('participants', fn($users) => $users->where('users.id', auth()->id()));
                 })
                 ->orWhere('source', 'building');
         })
@@ -63,7 +63,7 @@ class TemplateController extends Controller
             $currentUser = auth()->user();
 
             if ($visit->source === 'work_order') {
-                return true;
+                return $visit->participants->contains('id', $currentUser->id);
             }
 
             // Inspecciones: pertenecen al técnico que realmente la realizó.
@@ -184,7 +184,7 @@ class TemplateController extends Controller
         $query
             ->where(function ($q) {
                 $q->where('source', 'work_order')
-                  ->whereHas('workOrder.users', fn($users) => $users->where('users.id', auth()->id()));
+                  ->whereHas('participants', fn($users) => $users->where('users.id', auth()->id()));
             })
             ->orWhere('source', 'building');
     })
@@ -215,7 +215,7 @@ class TemplateController extends Controller
         $currentUser = auth()->user();
 
         if ($visit->source === 'work_order') {
-            return true;
+            return $visit->participants->contains('id', $currentUser->id);
         }
 
         // Inspecciones: pertenecen al técnico que realmente la realizó.
@@ -263,7 +263,7 @@ public function userTemplate($company, User $user)
         $query
             ->where(function ($q) use ($user) {
                 $q->where('source', 'work_order')
-                  ->whereHas('workOrder.users', fn($users) => $users->where('users.id', $user->id));
+                  ->whereHas('participants', fn($users) => $users->where('users.id', $user->id));
             })
             ->orWhere('source', 'building');
     })
@@ -282,7 +282,7 @@ public function userTemplate($company, User $user)
         $currentUser = isset($user) ? $user : auth()->user();
 
         if ($visit->source === 'work_order') {
-            return true;
+            return $visit->participants->contains('id', $currentUser->id);
         }
 
         // Inspecciones: pertenecen al técnico que realmente la realizó.
@@ -352,7 +352,7 @@ public function userTemplateDay($company, User $user, $date)
         $query
             ->where(function ($q) use ($user) {
                 $q->where('source', 'work_order')
-                  ->whereHas('workOrder.users', fn($users) => $users->where('users.id', $user->id));
+                  ->whereHas('participants', fn($users) => $users->where('users.id', $user->id));
             })
             ->orWhere('source', 'building');
     })
@@ -369,7 +369,7 @@ public function userTemplateDay($company, User $user, $date)
         $currentUser = isset($user) ? $user : auth()->user();
 
         if ($visit->source === 'work_order') {
-            return true;
+            return $visit->participants->contains('id', $currentUser->id);
         }
 
         // Inspecciones: pertenecen al técnico que realmente la realizó.

@@ -103,8 +103,7 @@ public function show($company, DeliveryNote $deliveryNote)
        $deliveryNote->load([
             'building',
             'user',
-            'workOrder',
-            'buildingVisit',
+            'workOrder.participants',
             'buildingVisit.participants',
         ]);
 
@@ -371,6 +370,18 @@ public function show($company, DeliveryNote $deliveryNote)
             'notes' => $workOrder->notes,
         ]);
 
+        $participants = $request->participants ?? [auth()->id()];
+
+        $visit->participants()->syncWithPivotValues(
+            $participants,
+            ['role' => 'participant']
+        );
+
+        $visit->participants()->updateExistingPivot(
+            auth()->id(),
+            ['role' => 'creator']
+        );
+
         /*
         |--------------------------------------------------------------------------
         | PARTICIPANTES (PREPARADO PARA building_visit_participants)
@@ -382,6 +393,9 @@ public function show($company, DeliveryNote $deliveryNote)
         | $visit->participants()->sync([...]);
         |
         */
+        $deliveryNote->update([
+            'building_visit_id' => $visit->id,
+        ]);
     }
 
     return redirect()
@@ -412,6 +426,13 @@ public function show($company, DeliveryNote $deliveryNote)
 
         );
 
+        $deliveryNote->load([
+            'building',
+            'user',
+            'workOrder.participants',
+            'buildingVisit.participants',
+        ]);
+
         return view('delivery-notes.show', compact('deliveryNote'));
 
     }
@@ -435,8 +456,7 @@ public function showPublic(
     $deliveryNote->load([
         'building',
         'user',
-        'workOrder',
-        'buildingVisit',
+        'workOrder.participants',
         'buildingVisit.participants',
     ]);
 

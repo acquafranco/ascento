@@ -164,33 +164,51 @@
                         {{ $deliveryNote->description }}
                     </div>
                 </div>
-               @if($deliveryNote->buildingVisit?->participants->count())
+              @php
+    $participants = collect();
 
-                <div class="bg-slate-50 rounded-xl p-4">
+    if ($deliveryNote->workOrder) {
+        $participants = $deliveryNote->workOrder->participants()->get();
+    }
 
-                    <div class="text-xs text-slate-500 uppercase tracking-wider mb-2">
-                        Participantes
-                    </div>
+    if ($deliveryNote->buildingVisit) {
+        $participants = $deliveryNote->buildingVisit->participants()->get();
+    }
+@endphp
 
-                    <div class="flex flex-wrap gap-2">
 
-                        @foreach($deliveryNote->buildingVisit->participants as $participant)
+@if($participants->count())
 
-                            <span class="px-3 py-1 rounded-full bg-slate-200 text-slate-700 text-sm font-semibold">
-                                {{ $participant->name }}
+<div class="bg-slate-50 rounded-xl p-4">
 
-                                @if($participant->pivot->role === 'creator')
-                                    <span class="text-xs text-slate-500">(Responsable)</span>
-                                @endif
-                            </span>
+    <div class="text-xs text-slate-500 uppercase tracking-wider mb-2">
+        Técnicos participantes
+    </div>
 
-                        @endforeach
 
-                    </div>
+    <div class="flex flex-wrap gap-2">
 
-                </div>
+        @foreach($participants as $participant)
 
+            <span class="px-3 py-1 rounded-full bg-slate-200 text-slate-700 text-sm font-semibold">
+
+                {{ $participant->name }}
+
+                @if($participant->pivot?->role === 'creator')
+                    <span class="text-xs text-slate-500">
+                        (Responsable)
+                    </span>
                 @endif
+
+            </span>
+
+        @endforeach
+
+    </div>
+
+</div>
+
+@endif
                 {{-- 5. Firmas Compactas --}}
                 <div>
                     <div class="text-xs text-slate-500 uppercase tracking-wider mb-2.5">Firmas</div>

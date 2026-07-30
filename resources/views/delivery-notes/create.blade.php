@@ -213,17 +213,17 @@
 
                     @php
                         $participants = $workOrder
-                            ? $workOrder->users
+                            ? $workOrder->users->unique('id')->values()
                             : $building->users()
                                 ->wherePivot('type', $assignmentType)
                                 ->orderBy('name')
-                                ->get();
+                                ->get()
+                                ->unique('id')
+                                ->values();
 
                         if ($participants->isEmpty()) {
                             $participants = collect([auth()->user()]);
                         }
-
-                        $participants = $participants->unique('id')->values();
                     @endphp
 
                     <div>
@@ -251,8 +251,7 @@
                                         type="checkbox"
                                         name="participants[]"
                                         value="{{ $participant->id }}"
-                                        checked
-                                        @checked($participant->id == auth()->id())
+                                        @checked($participant->id == auth()->id() || in_array($participant->id, old('participants', $participants->pluck('id')->toArray())))
                                         @disabled($participant->id == auth()->id())
                                         class="w-5 h-5 rounded"
                                     >

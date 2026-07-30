@@ -106,4 +106,14 @@ class WorkOrder extends Model
     {
         return $this->users()->count() > 1;
     }
+
+    public function participants()
+    {
+        return $this->belongsToMany(
+            User::class,
+            'work_order_participants'
+        )
+        ->withPivot('role')
+        ->withTimestamps();
+    }
 }
