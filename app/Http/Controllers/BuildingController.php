@@ -96,35 +96,28 @@ $maintenanceTotalMachines = $maintenanceBuildings->sum(function ($building) {
 // realizados
 $maintenanceCompletedMachines = BuildingVisit::where('status', 'done')
     ->where(function ($q) {
-
         $q->where('assignment_type', 'maintenance')
           ->orWhere('work_type', 'maintenance');
-
+    })
+    ->whereHas('building.users', function ($q) use ($user) {
+        $q->where('users.id', $user->id)
+          ->where('building_user.type', 'maintenance');
     })
     ->where(function ($q) use ($month, $year) {
-
         $q->where(function ($q) use ($month, $year) {
-
             $q->whereMonth('visited_at', $month)
               ->whereYear('visited_at', $year);
-
-        })
-        ->orWhere(function ($q) use ($month, $year) {
-
+        })->orWhere(function ($q) use ($month, $year) {
             $q->whereMonth('finished_at', $month)
               ->whereYear('finished_at', $year);
-
         });
-
     })
     ->with('building')
-    ->distinct('building_id')
     ->get()
+    ->unique('building_id')
     ->sum(function ($visit) {
-
         return ($visit->building?->elevator_count ?? 0)
             + ($visit->building?->freight_elevator_count ?? 0);
-
     });
 
 $maintenanceRemaining = max(
@@ -148,36 +141,18 @@ $inspectionTotalMachines = $inspectionBuildings->sum(function ($building) {
 
 // realizados
 $inspectionCompletedMachines = BuildingVisit::where('status', 'done')
-    ->where(function ($q) {
-
-        $q->where('assignment_type', 'inspection')
-          ->orWhere('work_type', 'inspection');
-
-    })
+    ->where('user_id', $user->id)
+    ->where('assignment_type', 'inspection')
     ->where(function ($q) use ($month, $year) {
-
-        $q->where(function ($q) use ($month, $year) {
-
-            $q->whereMonth('visited_at', $month)
-              ->whereYear('visited_at', $year);
-
-        })
-        ->orWhere(function ($q) use ($month, $year) {
-
-            $q->whereMonth('finished_at', $month)
-              ->whereYear('finished_at', $year);
-
-        });
-
+        $q->whereMonth('visited_at', $month)
+          ->whereYear('visited_at', $year);
     })
     ->with('building')
-    ->distinct('building_id')
     ->get()
+    ->unique('building_id')
     ->sum(function ($visit) {
-
-        return $visit->building->elevator_count
-            + $visit->building->freight_elevator_count;
-
+        return ($visit->building?->elevator_count ?? 0)
+            + ($visit->building?->freight_elevator_count ?? 0);
     });
 
 $inspectionRemaining = max(
