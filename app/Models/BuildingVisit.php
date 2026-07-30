@@ -75,4 +75,13 @@ class BuildingVisit extends Model
         return $this->belongsTo(Company::class);
     }
 
+    public function participants()
+    {
+        return $this->belongsToMany(
+            User::class,
+            'building_visit_participants'
+        )->withPivot('role')
+        ->withTimestamps();
+    }
+
 }

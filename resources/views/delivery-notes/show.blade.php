@@ -164,7 +164,33 @@
                         {{ $deliveryNote->description }}
                     </div>
                 </div>
+               @if($deliveryNote->buildingVisit?->participants->count())
 
+                <div class="bg-slate-50 rounded-xl p-4">
+
+                    <div class="text-xs text-slate-500 uppercase tracking-wider mb-2">
+                        Participantes
+                    </div>
+
+                    <div class="flex flex-wrap gap-2">
+
+                        @foreach($deliveryNote->buildingVisit->participants as $participant)
+
+                            <span class="px-3 py-1 rounded-full bg-slate-200 text-slate-700 text-sm font-semibold">
+                                {{ $participant->name }}
+
+                                @if($participant->pivot->role === 'creator')
+                                    <span class="text-xs text-slate-500">(Responsable)</span>
+                                @endif
+                            </span>
+
+                        @endforeach
+
+                    </div>
+
+                </div>
+
+                @endif
                 {{-- 5. Firmas Compactas --}}
                 <div>
                     <div class="text-xs text-slate-500 uppercase tracking-wider mb-2.5">Firmas</div>

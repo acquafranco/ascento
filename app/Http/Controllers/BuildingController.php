@@ -142,7 +142,6 @@ $inspectionTotalMachines = $inspectionBuildings->sum(function ($building) {
 // realizados
 $inspectionCompletedMachines = BuildingVisit::where('status', 'done')
     ->where('company_id', $user->company_id)
-    ->where('user_id', $user->id)
     ->where('assignment_type', 'inspection')
     ->where('month', $month)
 ->where('year', $year)

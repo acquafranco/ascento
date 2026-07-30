@@ -76,9 +76,12 @@ class User extends Authenticatable implements FilamentUser
         ]);
     }
 
-    public function buildingVisits()
+        public function buildingVisits()
     {
-        return $this->hasMany(BuildingVisit::class);
+        return $this->belongsToMany(
+            BuildingVisit::class,
+            'building_visit_participants'
+        );
     }
     public function deliveryNotes()
     {

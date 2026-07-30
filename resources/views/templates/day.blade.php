@@ -42,7 +42,7 @@
                         $performedBy = $visit->user?->name ?? 'Técnico asignado';
                     @endphp
 
-                    @if($visit->user_id == auth()->id())
+                    @if($visit->user_id == $currentUser->id)
 
                         <div class="bg-green-100 text-green-700">
                             ✅ Orden realizada por vos

@@ -37,6 +37,7 @@ class TemplateController extends Controller
             'workOrder.users',
             'user',
             'deliveryNote',
+            'participants',
         ])
         ->where('company_id', $currentCompanyId)
         ->where(function ($query) {
@@ -45,10 +46,7 @@ class TemplateController extends Controller
                     $q->where('source', 'work_order')
                       ->whereHas('workOrder.users', fn($users) => $users->where('users.id', auth()->id()));
                 })
-                ->orWhere(function ($q) {
-                    $q->where('source', 'building')
-                      ->whereHas('building.users', fn($users) => $users->where('users.id', auth()->id()));
-                });
+                ->orWhere('source', 'building');
         })
         ->whereNotNull('visited_at')
         ->whereMonth('visited_at', $month)
@@ -68,17 +66,17 @@ class TemplateController extends Controller
                 return true;
             }
 
-            $assignment = $visit->building?->users
-                ->where('id', $currentUser->id)
-                ->first(function ($user) use ($visit) {
-                    return $user->pivot->type === $visit->assignment_type;
-                });
-
-            if (!$assignment) {
-                return false;
+            // Inspecciones: pertenecen al técnico que realmente la realizó.
+            if ($visit->assignment_type === 'inspection') {
+                return $visit->user_id === $currentUser->id;
             }
 
-            return true;
+            // Mantenimientos: mostrar a quienes realmente participaron.
+            if ($visit->assignment_type === 'maintenance') {
+                return $visit->participants->contains('id', $currentUser->id);
+            }
+
+            return false;
         })->values();
 
         $weeks = [];
@@ -179,6 +177,7 @@ class TemplateController extends Controller
         'user',
         'workOrder.users',
         'deliveryNote',
+        'participants',
     ])
     ->where('company_id', $currentCompanyId)
     ->where(function ($query) {
@@ -187,10 +186,7 @@ class TemplateController extends Controller
                 $q->where('source', 'work_order')
                   ->whereHas('workOrder.users', fn($users) => $users->where('users.id', auth()->id()));
             })
-            ->orWhere(function ($q) {
-                $q->where('source', 'building')
-                  ->whereHas('building.users', fn($users) => $users->where('users.id', auth()->id()));
-            });
+            ->orWhere('source', 'building');
     })
     ->where(function($query) use ($date){
 
@@ -222,17 +218,17 @@ class TemplateController extends Controller
             return true;
         }
 
-        $assignment = $visit->building?->users
-            ->where('id', $currentUser->id)
-            ->first(function ($user) use ($visit) {
-                return $user->pivot->type === $visit->assignment_type;
-            });
-
-        if (!$assignment) {
-            return false;
+        // Inspecciones: pertenecen al técnico que realmente la realizó.
+        if ($visit->assignment_type === 'inspection') {
+            return $visit->user_id === $currentUser->id;
         }
 
-        return true;
+        // Mantenimientos: mostrar a quienes realmente participaron.
+        if ($visit->assignment_type === 'maintenance') {
+            return $visit->participants->contains('id', $currentUser->id);
+        }
+
+        return false;
     })->values();
 
     return view(
@@ -260,6 +256,7 @@ public function userTemplate($company, User $user)
         'workOrder.users',
         'user',
         'deliveryNote',
+        'participants',
     ])
     ->where('company_id', $currentCompanyId)
     ->where(function ($query) use ($user) {
@@ -268,10 +265,7 @@ public function userTemplate($company, User $user)
                 $q->where('source', 'work_order')
                   ->whereHas('workOrder.users', fn($users) => $users->where('users.id', $user->id));
             })
-            ->orWhere(function ($q) use ($user) {
-                $q->where('source', 'building')
-                  ->whereHas('building.users', fn($users) => $users->where('users.id', $user->id));
-            });
+            ->orWhere('source', 'building');
     })
     ->whereNotNull('visited_at')
     ->whereMonth('visited_at', $month)
@@ -291,17 +285,17 @@ public function userTemplate($company, User $user)
             return true;
         }
 
-        $assignment = $visit->building?->users
-            ->where('id', $currentUser->id)
-            ->first(function ($user) use ($visit) {
-                return $user->pivot->type === $visit->assignment_type;
-            });
-
-        if (!$assignment) {
-            return false;
+        // Inspecciones: pertenecen al técnico que realmente la realizó.
+        if ($visit->assignment_type === 'inspection') {
+            return $visit->user_id === $currentUser->id;
         }
 
-        return true;
+        // Mantenimientos: mostrar a quienes realmente participaron.
+        if ($visit->assignment_type === 'maintenance') {
+            return $visit->participants->contains('id', $currentUser->id);
+        }
+
+        return false;
     })->values();
 
     $weeks = [];
@@ -351,6 +345,7 @@ public function userTemplateDay($company, User $user, $date)
         'user',
         'workOrder.users',
         'deliveryNote',
+        'participants',
     ])
     ->where('company_id', $currentCompanyId)
     ->where(function ($query) use ($user) {
@@ -359,10 +354,7 @@ public function userTemplateDay($company, User $user, $date)
                 $q->where('source', 'work_order')
                   ->whereHas('workOrder.users', fn($users) => $users->where('users.id', $user->id));
             })
-            ->orWhere(function ($q) use ($user) {
-                $q->where('source', 'building')
-                  ->whereHas('building.users', fn($users) => $users->where('users.id', $user->id));
-            });
+            ->orWhere('source', 'building');
     })
     ->whereDate('visited_at', $date)
     ->orderByRaw('COALESCE(started_at, visited_at)')
@@ -380,17 +372,17 @@ public function userTemplateDay($company, User $user, $date)
             return true;
         }
 
-        $assignment = $visit->building?->users
-            ->where('id', $currentUser->id)
-            ->first(function ($user) use ($visit) {
-                return $user->pivot->type === $visit->assignment_type;
-            });
-
-        if (!$assignment) {
-            return false;
+        // Inspecciones: pertenecen al técnico que realmente la realizó.
+        if ($visit->assignment_type === 'inspection') {
+            return $visit->user_id === $currentUser->id;
         }
 
-        return true;
+        // Mantenimientos: mostrar a quienes realmente participaron.
+        if ($visit->assignment_type === 'maintenance') {
+            return $visit->participants->contains('id', $currentUser->id);
+        }
+
+        return false;
     })->values();
 
     return view('templates.day', [

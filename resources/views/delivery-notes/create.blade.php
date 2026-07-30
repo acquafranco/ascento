@@ -211,6 +211,63 @@
                         </label>
                     </div>
 
+                    @php
+                        $participants = $workOrder
+                            ? $workOrder->users
+                            : $building->users()
+                                ->wherePivot('type', $assignmentType)
+                                ->orderBy('name')
+                                ->get();
+
+                        if ($participants->isEmpty()) {
+                            $participants = collect([auth()->user()]);
+                        }
+
+                        $participants = $participants->unique('id')->values();
+                    @endphp
+
+                    <div>
+                        <label class="block font-bold text-sm mb-2">
+                            Participantes
+                        </label>
+
+                        <div class="space-y-2">
+
+                            @foreach($participants as $participant)
+
+                                <label class="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+
+                                    <div>
+                                        <div class="font-semibold">
+                                            {{ $participant->name }}
+                                        </div>
+
+                                        <div class="text-xs text-slate-500">
+                                            Participó del trabajo
+                                        </div>
+                                    </div>
+
+                                    <input
+                                        type="checkbox"
+                                        name="participants[]"
+                                        value="{{ $participant->id }}"
+                                        checked
+                                        @checked($participant->id == auth()->id())
+                                        @disabled($participant->id == auth()->id())
+                                        class="w-5 h-5 rounded"
+                                    >
+
+                                    @if($participant->id == auth()->id())
+                                        <input type="hidden" name="participants[]" value="{{ $participant->id }}">
+                                    @endif
+
+                                </label>
+
+                            @endforeach
+
+                        </div>
+                    </div>
+
                     {{-- 5. Firmas --}}
                     <div>
                         <div class="flex items-baseline gap-2 mb-3">

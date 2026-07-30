@@ -105,6 +105,7 @@ public function show($company, DeliveryNote $deliveryNote)
             'user',
             'workOrder',
             'buildingVisit',
+            'buildingVisit.participants',
         ]);
 
         return view(
@@ -167,6 +168,8 @@ public function show($company, DeliveryNote $deliveryNote)
             'signature' => 'required|string|min:100',
             'client_signature' => 'nullable|string',
             'client_signature_name' => 'nullable|string|max:255',
+            'participants' => 'nullable|array',
+            'participants.*' => 'exists:users,id',
         ],
         [
             'description.required' => 'Debe escribir el trabajo realizado.',
@@ -299,6 +302,24 @@ public function show($company, DeliveryNote $deliveryNote)
     }
     }
 
+    $visit?->participants()->syncWithPivotValues(
+        $request->participants ?? [auth()->id()],
+        ['role' => 'participant']
+    );
+    $visit?->participants()->updateExistingPivot(auth()->id(), ['role' => 'creator']);
+
+    /*
+    |--------------------------------------------------------------------------
+    | PARTICIPANTES (PREPARADO PARA building_visit_participants)
+    |--------------------------------------------------------------------------
+    |
+    | Cuando exista la tabla building_visit_participants,
+    | aquí se registrarán el creador y los participantes reales.
+    | Ejemplo:
+    | $visit->participants()->sync([...]);
+    |
+    */
+
     $deliveryNote = DeliveryNote::create([
         'company_id' => auth()->user()->company_id,
         'building_id' => $building->id,
@@ -318,6 +339,7 @@ public function show($company, DeliveryNote $deliveryNote)
         'client_signature_name' => $request->client_signature_name,
     ]);
 
+
     if ($request->filled('work_order_id')) {
         $workOrder = WorkOrder::where('company_id', auth()->user()->company_id)
             ->where('id', $request->work_order_id)
@@ -330,7 +352,7 @@ public function show($company, DeliveryNote $deliveryNote)
             'finished_at' => $finishedAt,
         ]);
 
-        BuildingVisit::create([
+        $visit = BuildingVisit::create([
             'company_id' => $workOrder->company_id,
             'building_id' => $workOrder->building_id,
             'user_id' => auth()->id(),
@@ -348,6 +370,18 @@ public function show($company, DeliveryNote $deliveryNote)
             'unit' => $workOrder->unit,
             'notes' => $workOrder->notes,
         ]);
+
+        /*
+        |--------------------------------------------------------------------------
+        | PARTICIPANTES (PREPARADO PARA building_visit_participants)
+        |--------------------------------------------------------------------------
+        |
+        | Cuando exista la tabla building_visit_participants,
+        | aquí se sincronizarán los participantes del work order.
+        | Ejemplo:
+        | $visit->participants()->sync([...]);
+        |
+        */
     }
 
     return redirect()
@@ -403,6 +437,7 @@ public function showPublic(
         'user',
         'workOrder',
         'buildingVisit',
+        'buildingVisit.participants',
     ]);
 
 
