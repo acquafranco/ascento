@@ -13,10 +13,12 @@ public function index(Request $request)
 {
     $user = auth()->user();
 
+    abort_unless($user->company_id, 403);
+
     $month = $request->get('month', now()->month);
     $year = $request->get('year', now()->year);
 
-    $buildings = Building::whereHas('users', function ($query) use ($user) {
+    $buildings = Building::where('company_id', $user->company_id)->whereHas('users', function ($query) use ($user) {
 
     $query->where('users.id', $user->id);
 
@@ -51,9 +53,10 @@ public function index(Request $request)
             $query->where('users.id', $user->id);
         },
 
-        'visits' => function ($query) use ($month, $year) {
+        'visits' => function ($query) use ($month, $year, $user) {
 
             $query
+                ->where('company_id', $user->company_id)
                 ->where('visit_type', 'fixed')
                 ->where('month', $month)
                 ->where('year', $year);
@@ -67,11 +70,12 @@ public function index(Request $request)
     ->withQueryString();
 
     $visitsToday = BuildingVisit::where('user_id', $user->id)
+        ->where('company_id', $user->company_id)
         ->whereDate('visited_at', today())
         ->where('status', 'done')
         ->count();
 
-   $totalMachines = Building::whereHas('users', function ($query) use ($user) {
+   $totalMachines = Building::where('company_id', $user->company_id)->whereHas('users', function ($query) use ($user) {
         $query->where('users.id', $user->id);
     })
     ->get()
@@ -83,7 +87,7 @@ public function index(Request $request)
 // MÁQUINAS DE MANTENIMIENTO ASIGNADAS
 // =============================
 
-$maintenanceBuildings = Building::whereHas('users', function ($query) use ($user) {
+$maintenanceBuildings = Building::where('company_id', $user->company_id)->whereHas('users', function ($query) use ($user) {
         $query->where('users.id', $user->id)
               ->where('building_user.type', 'maintenance');
     })
@@ -95,27 +99,23 @@ $maintenanceTotalMachines = $maintenanceBuildings->sum(function ($building) {
 
 // realizados
 $maintenanceCompletedMachines = BuildingVisit::where('status', 'done')
+    ->where('company_id', $user->company_id)
     ->where(function ($q) {
-        $q->where('assignment_type', 'maintenance')
-          ->orWhere('work_type', 'maintenance');
+        $q->where('assignment_type', 'maintenance');
     })
     ->whereHas('building.users', function ($q) use ($user) {
         $q->where('users.id', $user->id)
           ->where('building_user.type', 'maintenance');
     })
-    ->where(function ($q) use ($month, $year) {
-        $q->where(function ($q) use ($month, $year) {
-            $q->whereMonth('visited_at', $month)
-              ->whereYear('visited_at', $year);
-        })->orWhere(function ($q) use ($month, $year) {
-            $q->whereMonth('finished_at', $month)
-              ->whereYear('finished_at', $year);
-        });
-    })
+    ->where('month', $month)
+->where('year', $year)
+
     ->with('building')
     ->get()
-    ->unique('building_id')
-    ->sum(function ($visit) {
+->unique(function ($visit) {
+    return $visit->building_id . '-' . $visit->assignment_type . '-' . $visit->month . '-' . $visit->year;
+})
+->sum(function ($visit) {
         return ($visit->building?->elevator_count ?? 0)
             + ($visit->building?->freight_elevator_count ?? 0);
     });
@@ -129,7 +129,7 @@ $maintenanceRemaining = max(
 // MÁQUINAS DE INSPECCIÓN ASIGNADAS
 // =============================
 
-$inspectionBuildings = Building::whereHas('users', function ($query) use ($user) {
+$inspectionBuildings = Building::where('company_id', $user->company_id)->whereHas('users', function ($query) use ($user) {
         $query->where('users.id', $user->id)
               ->where('building_user.type', 'inspection');
     })
@@ -141,16 +141,17 @@ $inspectionTotalMachines = $inspectionBuildings->sum(function ($building) {
 
 // realizados
 $inspectionCompletedMachines = BuildingVisit::where('status', 'done')
+    ->where('company_id', $user->company_id)
     ->where('user_id', $user->id)
     ->where('assignment_type', 'inspection')
-    ->where(function ($q) use ($month, $year) {
-        $q->whereMonth('visited_at', $month)
-          ->whereYear('visited_at', $year);
-    })
+    ->where('month', $month)
+->where('year', $year)
     ->with('building')
     ->get()
-    ->unique('building_id')
-    ->sum(function ($visit) {
+->unique(function ($visit) {
+    return $visit->building_id . '-' . $visit->assignment_type . '-' . $visit->month . '-' . $visit->year;
+})
+->sum(function ($visit) {
         return ($visit->building?->elevator_count ?? 0)
             + ($visit->building?->freight_elevator_count ?? 0);
     });
@@ -181,11 +182,15 @@ return view('buildings.index', compact(
         | SEGURIDAD
         |--------------------------------------------------------------------------
         */
+        if ($building->company_id !== auth()->user()->company_id) {
+            abort(404);
+        }
 
         abort_unless(
 
             auth()->user()
                 ->buildings()
+                ->where('company_id', $building->company_id)
                 ->where('buildings.id', $building->id)
                 ->exists(),
 
@@ -200,8 +205,10 @@ return view('buildings.index', compact(
 
 public function all(Request $request)
 {
+    $user = auth()->user();
+
     $buildings = Building::with('client')
-        ->where('company_id', auth()->user()->company_id)
+        ->where('company_id', $user->company_id)
         ->select([
             'id',
             'name',

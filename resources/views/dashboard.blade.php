@@ -7,7 +7,7 @@
         {{ session('success') }}
     </div>
 @endif
-<div class="fixed left-0 right-0 top-0 bottom-20 lg:top-16 lg:bottom-0 overflow-y-auto" style="background-color:#F7F7F4">
+<div class="fixed left-0 right-0 top-0 bottom-20 lg:top-16 lg:bottom-0 overflow-y-auto" style="background-color:#fff">
 
     <div class="grid grid-cols-2 grid-rows-4 h-full gap-1 p-1">
         {{-- PENDIENTES --}}

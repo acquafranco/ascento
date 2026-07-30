@@ -19,7 +19,7 @@ class WorkOrderController extends Controller
             'building',
             'users',
             'deliveryNote',
-        ]);
+        ])->where('company_id', $user->company_id);
 
 
         /*
@@ -135,6 +135,9 @@ class WorkOrderController extends Controller
 
         $user = Auth::user();
 
+        if ($workOrder->company_id !== $user->company_id) {
+            abort(404);
+        }
 
         DB::transaction(function () use (
             $workOrder,
@@ -143,7 +146,9 @@ class WorkOrderController extends Controller
 
 
             $workOrder = WorkOrder::lockForUpdate()
-                ->find($workOrder->id);
+                ->where('id', $workOrder->id)
+                ->where('company_id', $user->company_id)
+                ->firstOrFail();
 
 
             if(
@@ -214,6 +219,10 @@ class WorkOrderController extends Controller
 
         $user = Auth::user();
 
+        if ($workOrder->company_id !== $user->company_id) {
+            abort(404);
+        }
+
 
 
         /*
@@ -239,69 +248,63 @@ class WorkOrderController extends Controller
 
 
 
-        $request->validate([
-
-            'delivery_note'
-                =>
-                'nullable|string|max:255',
-
-        ]);
-
-
-
         $finishedAt = now();
 
 
 
         /*
         |--------------------------------------------------------------------------
-        | FINALIZAR ORDEN
+        | FINALIZAR ORDEN Y CREAR REGISTROS DE VISITAS EN TRANSACCIÓN
         |--------------------------------------------------------------------------
         */
 
-        $workOrder->update([
+        DB::transaction(function () use ($workOrder, $finishedAt) {
 
-            'status'
-                =>
-                'completed',
+            $workOrder->update([
 
-            'finished_at'
-                =>
-                $finishedAt,
+                'status'
+                    =>
+                    'completed',
 
-        ]);
+                'finished_at'
+                    =>
+                    $finishedAt,
 
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | CREAR REGISTRO DE TEMPLATE PARA LOS TECNICOS
-        |--------------------------------------------------------------------------
-        */
-
-        $workOrder->load('users');
-
-        foreach($workOrder->users as $technician){
-
-            BuildingVisit::create([
-                'company_id' => $workOrder->company_id,
-                'building_id' => $workOrder->building_id,
-                'user_id' => $technician->id,
-                'source' => 'work_order',
-                'visit_type' => 'work_order',
-                'work_order_id' => $workOrder->id,
-                'assignment_type' => 'work_order',
-                'month' => $finishedAt->month,
-                'year' => $finishedAt->year,
-                'visited_at' => $finishedAt,
-                'started_at' => $workOrder->started_at,
-                'finished_at' => $finishedAt,
-                'work_type' => $workOrder->type,
-                'unit' => $workOrder->unit,
-                'notes' => $workOrder->notes,
             ]);
 
-        }
+
+            /*
+            |--------------------------------------------------------------------------
+            | CREAR REGISTRO DE TEMPLATE PARA LOS TECNICOS
+            |--------------------------------------------------------------------------
+            */
+
+            $workOrder->load('users');
+
+            foreach($workOrder->users as $technician){
+
+                BuildingVisit::firstOrCreate([
+                    'company_id' => $workOrder->company_id,
+                    'work_order_id' => $workOrder->id,
+                    'user_id' => $technician->id,
+                ], [
+                    'building_id' => $workOrder->building_id,
+                    'source' => 'work_order',
+                    'visit_type' => 'work_order',
+                    'assignment_type' => 'work_order',
+                    'month' => $finishedAt->month,
+                    'year' => $finishedAt->year,
+                    'visited_at' => $finishedAt,
+                    'started_at' => $workOrder->started_at,
+                    'finished_at' => $finishedAt,
+                    'work_type' => $workOrder->type,
+                    'unit' => $workOrder->unit,
+                    'notes' => $workOrder->notes,
+                ]);
+
+            }
+
+        });
 
 
         return back()

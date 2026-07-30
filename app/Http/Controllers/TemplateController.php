@@ -13,6 +13,8 @@ class TemplateController extends Controller
     {
         Carbon::setLocale('es');
 
+        $currentCompanyId = auth()->user()->company_id;
+
         $month = request(
             'month',
             now()->month
@@ -31,10 +33,12 @@ class TemplateController extends Controller
 
         $visits = BuildingVisit::with([
             'building.client',
+            'building.users',
             'workOrder.users',
             'user',
             'deliveryNote',
         ])
+        ->where('company_id', $currentCompanyId)
         ->where(function ($query) {
             $query
                 ->where(function ($q) {
@@ -51,6 +55,31 @@ class TemplateController extends Controller
         ->whereYear('visited_at', $year)
         ->orderBy('visited_at')
         ->get();
+
+        // Filtro personalizado
+        $visits = $visits->filter(function ($visit) use ($currentCompanyId) {
+            if ($visit->company_id !== $currentCompanyId) {
+                return false;
+            }
+
+            $currentUser = auth()->user();
+
+            if ($visit->source === 'work_order') {
+                return true;
+            }
+
+            $assignment = $visit->building?->users
+                ->where('id', $currentUser->id)
+                ->first(function ($user) use ($visit) {
+                    return $user->pivot->type === $visit->assignment_type;
+                });
+
+            if (!$assignment) {
+                return false;
+            }
+
+            return true;
+        })->values();
 
         $weeks = [];
 
@@ -140,14 +169,18 @@ class TemplateController extends Controller
 
    public function day(Request $request, $company, $date)
 {
+    $currentCompanyId = auth()->user()->company_id;
+
     $date = Carbon::parse($date);
 
     $visits = BuildingVisit::with([
         'building.client',
+        'building.users',
         'user',
         'workOrder.users',
         'deliveryNote',
     ])
+    ->where('company_id', $currentCompanyId)
     ->where(function ($query) {
         $query
             ->where(function ($q) {
@@ -177,6 +210,30 @@ class TemplateController extends Controller
     ->orderBy('visited_at')
     ->get();
 
+    // Filtro personalizado
+    $visits = $visits->filter(function ($visit) use ($currentCompanyId) {
+        if ($visit->company_id !== $currentCompanyId) {
+            return false;
+        }
+
+        $currentUser = auth()->user();
+
+        if ($visit->source === 'work_order') {
+            return true;
+        }
+
+        $assignment = $visit->building?->users
+            ->where('id', $currentUser->id)
+            ->first(function ($user) use ($visit) {
+                return $user->pivot->type === $visit->assignment_type;
+            });
+
+        if (!$assignment) {
+            return false;
+        }
+
+        return true;
+    })->values();
 
     return view(
         'templates.day',
@@ -186,6 +243,10 @@ class TemplateController extends Controller
 
 public function userTemplate($company, User $user)
 {
+    $currentCompanyId = auth()->user()->company_id;
+
+    abort_unless($user->company_id === $currentCompanyId, 404);
+
     abort_unless(auth()->user()->isAdmin(), 403);
 
     Carbon::setLocale('es');
@@ -195,10 +256,12 @@ public function userTemplate($company, User $user)
 
     $visits = BuildingVisit::with([
         'building.client',
+        'building.users',
         'workOrder.users',
         'user',
         'deliveryNote',
     ])
+    ->where('company_id', $currentCompanyId)
     ->where(function ($query) use ($user) {
         $query
             ->where(function ($q) use ($user) {
@@ -215,6 +278,31 @@ public function userTemplate($company, User $user)
     ->whereYear('visited_at', $year)
     ->orderBy('visited_at')
     ->get();
+
+    // Filtro personalizado
+    $visits = $visits->filter(function ($visit) use ($user, $currentCompanyId) {
+        if ($visit->company_id !== $currentCompanyId) {
+            return false;
+        }
+
+        $currentUser = isset($user) ? $user : auth()->user();
+
+        if ($visit->source === 'work_order') {
+            return true;
+        }
+
+        $assignment = $visit->building?->users
+            ->where('id', $currentUser->id)
+            ->first(function ($user) use ($visit) {
+                return $user->pivot->type === $visit->assignment_type;
+            });
+
+        if (!$assignment) {
+            return false;
+        }
+
+        return true;
+    })->values();
 
     $weeks = [];
 
@@ -251,14 +339,20 @@ public function userTemplate($company, User $user)
 
 public function userTemplateDay($company, User $user, $date)
 {
+    $currentCompanyId = auth()->user()->company_id;
+
+    abort_unless($user->company_id === $currentCompanyId, 404);
+
     $date = Carbon::parse($date);
 
     $visits = BuildingVisit::with([
         'building.client',
+        'building.users',
         'user',
         'workOrder.users',
         'deliveryNote',
     ])
+    ->where('company_id', $currentCompanyId)
     ->where(function ($query) use ($user) {
         $query
             ->where(function ($q) use ($user) {
@@ -273,6 +367,31 @@ public function userTemplateDay($company, User $user, $date)
     ->whereDate('visited_at', $date)
     ->orderByRaw('COALESCE(started_at, visited_at)')
     ->get();
+
+    // Filtro personalizado
+    $visits = $visits->filter(function ($visit) use ($user, $currentCompanyId) {
+        if ($visit->company_id !== $currentCompanyId) {
+            return false;
+        }
+
+        $currentUser = isset($user) ? $user : auth()->user();
+
+        if ($visit->source === 'work_order') {
+            return true;
+        }
+
+        $assignment = $visit->building?->users
+            ->where('id', $currentUser->id)
+            ->first(function ($user) use ($visit) {
+                return $user->pivot->type === $visit->assignment_type;
+            });
+
+        if (!$assignment) {
+            return false;
+        }
+
+        return true;
+    })->values();
 
     return view('templates.day', [
         'visits' => $visits,
