@@ -155,10 +155,22 @@
             {{ $visit->building?->address }}
         </div>
 
-        @if($visit->user_id === auth()->id())
+        @php
+            $isMine = (int) $visit->user_id === (int) auth()->id();
+            $participants = $visit->participants ?? collect();
+            $isParticipant = $participants->contains('id', auth()->id());
+        @endphp
+
+        @if($isMine)
 
             <div class="text-[11px] text-green-600 font-medium">
                 ✔ Realizado por vos
+            </div>
+
+        @elseif($isParticipant)
+
+            <div class="text-[11px] text-blue-600 font-medium">
+                🤝 Participaste con {{ $visit->user?->name }}
             </div>
 
         @else

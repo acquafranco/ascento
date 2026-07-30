@@ -18,6 +18,7 @@ class WorkOrderController extends Controller
         $query = WorkOrder::with([
             'building',
             'users',
+            'participants',
             'deliveryNote',
         ])->where('company_id', $user->company_id);
 
@@ -46,17 +47,27 @@ class WorkOrderController extends Controller
 
         if ($user->role !== 'admin') {
 
-            $query->whereHas(
-                'users',
-                function ($q) use ($user) {
+            $query->where(function ($q) use ($user) {
 
-                    $q->where(
+                $q->whereHas('participants', function ($query) use ($user) {
+
+                    $query->where(
                         'users.id',
                         $user->id
                     );
 
-                }
-            );
+                })
+                ->orWhereDoesntHave('participants')
+                ->whereHas('users', function ($query) use ($user) {
+
+                    $query->where(
+                        'users.id',
+                        $user->id
+                    );
+
+                });
+
+            });
 
         }
 
@@ -166,9 +177,11 @@ class WorkOrderController extends Controller
             |--------------------------------------------------------------------------
             */
 
-            $workOrder->users()
+            $workOrder->participants()
                 ->syncWithoutDetaching([
-                    $user->id
+                    $user->id => [
+                        'role' => 'participant'
+                    ]
                 ]);
 
 
@@ -232,7 +245,7 @@ class WorkOrderController extends Controller
         */
 
         if(
-            !$workOrder->users()
+            !$workOrder->participants()
                 ->where(
                     'users.id',
                     $user->id
@@ -279,9 +292,9 @@ class WorkOrderController extends Controller
             |--------------------------------------------------------------------------
             */
 
-            $workOrder->load('users');
+            $workOrder->load('participants');
 
-            foreach($workOrder->users as $technician){
+            foreach($workOrder->participants as $technician){
 
                 BuildingVisit::firstOrCreate([
                     'company_id' => $workOrder->company_id,

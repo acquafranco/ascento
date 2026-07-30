@@ -31,12 +31,24 @@ class DashboardController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $workOrdersBase = WorkOrder::whereHas('users', function ($query) use ($user) {
+        $workOrdersBase = WorkOrder::where(function ($q) use ($user) {
 
-            $query->where(
-                'users.id',
-                $user->id
-            );
+            $q->whereHas('participants', function ($query) use ($user) {
+
+                $query->where(
+                    'users.id',
+                    $user->id
+                );
+
+            })
+            ->orWhereHas('users', function ($query) use ($user) {
+
+                $query->where(
+                    'users.id',
+                    $user->id
+                );
+
+            });
 
         });
 
@@ -49,17 +61,36 @@ class DashboardController extends Controller
 
 
         $tasksToday =
-            BuildingVisit::where('user_id', $user->id)
-                ->whereDate('visited_at', today())
-                ->where('status', 'done')
-                ->count()
-            +
-            WorkOrder::whereHas('users', function ($query) use ($user) {
+            BuildingVisit::whereHas('participants', function ($query) use ($user) {
 
                 $query->where(
                     'users.id',
                     $user->id
                 );
+
+            })
+            ->whereDate('visited_at', today())
+            ->where('status', 'done')
+            ->count()
+            +
+            WorkOrder::where(function ($q) use ($user) {
+
+                $q->whereHas('participants', function ($query) use ($user) {
+
+                    $query->where(
+                        'users.id',
+                        $user->id
+                    );
+
+                })
+                ->orWhereHas('users', function ($query) use ($user) {
+
+                    $query->where(
+                        'users.id',
+                        $user->id
+                    );
+
+                });
 
             })
             ->whereDate('finished_at', today())
@@ -84,12 +115,34 @@ class DashboardController extends Controller
             ->count();
 
 
-        $completed = (clone $workOrdersBase)
-            ->where(
-                'status',
-                'completed'
-            )
-            ->count();
+        $completed = WorkOrder::where(function ($q) use ($user) {
+
+            $q->whereHas('participants', function ($query) use ($user) {
+
+                $query->where(
+                    'users.id',
+                    $user->id
+                );
+
+            })
+            ->orWhere(function ($old) use ($user) {
+
+                $old->whereDoesntHave('participants')
+                    ->whereHas('users', function ($query) use ($user) {
+
+                        $query->where(
+                            'users.id',
+                            $user->id
+                        );
+
+                    });
+
+            });
+
+        })
+        ->where('status', 'completed')
+        ->whereDate('finished_at', today())
+        ->count();
 
 
 
@@ -128,7 +181,9 @@ class DashboardController extends Controller
         $deliveryNotes = DeliveryNote::where(
             'user_id',
             $user->id
-        )->count();
+        )
+        ->whereDate('created_at', today())
+        ->count();
 
 
 

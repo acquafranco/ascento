@@ -67,7 +67,7 @@
             </span>
 
             <div class="text-sm text-white font-medium">
-                Completadas
+                Completadas hoy
             </div>
 
             <div class="text-4xl font-semibold tracking-tight text-white">
@@ -88,7 +88,7 @@
             </span>
 
             <div class="text-sm text-white font-medium">
-                Visitas
+                Visitas hoy
             </div>
 
             <div class="text-4xl font-semibold tracking-tight text-white">
@@ -130,7 +130,7 @@
             </span>
 
             <div class="text-sm text-white font-medium">
-                Mis remitos
+                Remitos hoy
             </div>
 
             <div class="text-4xl font-semibold tracking-tight text-white">

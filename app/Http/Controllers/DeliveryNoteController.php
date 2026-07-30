@@ -351,6 +351,18 @@ public function show($company, DeliveryNote $deliveryNote)
             'finished_at' => $finishedAt,
         ]);
 
+        $participants = $request->participants ?? [auth()->id()];
+
+        $workOrder->participants()->syncWithPivotValues(
+            $participants,
+            ['role' => 'participant']
+        );
+
+        $workOrder->participants()->updateExistingPivot(
+            auth()->id(),
+            ['role' => 'creator']
+        );
+
         $visit = BuildingVisit::create([
             'company_id' => $workOrder->company_id,
             'building_id' => $workOrder->building_id,
