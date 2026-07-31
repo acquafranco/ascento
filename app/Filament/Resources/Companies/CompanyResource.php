@@ -58,8 +58,11 @@ class CompanyResource extends Resource
 
     public static function canAccess(): bool
     {
-        return auth()->check()
-            && auth()->user()->isSuperAdmin();
+        if (! auth()->user()?->isSuperAdmin()) {
+            abort(404);
+        }
+
+        return true;
     }
 
 }

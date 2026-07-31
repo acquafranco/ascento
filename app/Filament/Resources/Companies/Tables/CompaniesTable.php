@@ -44,12 +44,6 @@ class CompaniesTable
                     ->searchable(),
                 IconColumn::make('is_active')
                     ->boolean(),
-                TextColumn::make('whatsapp_phone_number_id')
-                    ->searchable(),
-                TextColumn::make('whatsapp_waba_id')
-                    ->searchable(),
-                TextColumn::make('whatsapp_business_id')
-                    ->searchable(),
                 IconColumn::make('whatsapp_connected')
                     ->boolean(),
                 TextColumn::make('created_at')
@@ -65,7 +59,6 @@ class CompaniesTable
                 //
             ])
             ->recordActions([
-                EditAction::make(),
                 Action::make('entrar')
                     ->label('Entrar')
                     ->icon('heroicon-o-arrow-right')
@@ -76,6 +69,7 @@ class CompaniesTable
 
                         return redirect()->to('/admin');
                     }),
+                EditAction::make(),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
