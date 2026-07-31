@@ -4,9 +4,7 @@
 
             <div class="flex items-center gap-8">
                 <a href="{{ route('dashboard', ['company' => auth()->user()->company->slug]) }}" class="flex items-center gap-2.5 shrink-0">
-                    <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-[#12151C] text-[#FF6A1A]">
-                        <x-application-logo class="h-4 w-4" />
-                    </span>
+                    <x-application-logo class="h-8 w-8" />
                     <span class="font-semibold text-[17px] tracking-tight text-[#14171C]">Ascento</span>
                 </a>
 

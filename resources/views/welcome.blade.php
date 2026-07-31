@@ -69,14 +69,7 @@
             :class="scrolled ? 'bg-paper/90 backdrop-blur border-b border-ink/10' : 'bg-transparent border-b border-transparent'">
         <nav class="mx-auto max-w-7xl px-5 sm:px-8 h-16 flex items-center justify-between">
             <a href="/" class="flex items-center gap-2.5 shrink-0">
-                <span class="relative flex h-8 w-8 items-center justify-center rounded-lg bg-graphite text-amber-500">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="8" cy="2.3" r="1.3" stroke="currentColor" stroke-width="1.1"/>
-                        <path d="M8 3.6V4.6" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
-                        <path d="M8 4.6L13 7.3V11.7L8 14.4L3 11.7V7.3L8 4.6Z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/>
-                        <path d="M8 4.6V9.5M8 9.5L3 11.9M8 9.5L13 11.9" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </span>
+               <img src="{{ asset('images/logo.png') }}" alt="Ascento" class="h-8 w-8 object-contain">
                 <span class="font-display font-semibold text-[17px] tracking-tight">Ascento</span>
             </a>
 
@@ -484,10 +477,7 @@
             <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-10">
                 <div>
                     <div class="flex items-center gap-2.5">
-                        <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 text-amber-500">
-                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1L11.5 5.5H4.5L8 1Z" fill="currentColor"/><path d="M8 15L4.5 10.5H11.5L8 15Z" fill="currentColor" opacity="0.45"/></svg>
-                        </span>
-                        <span class="font-display font-semibold text-white text-[15px]">Ascento</span>
+                        <img src="{{ asset('images/logo.png') }}" alt="Ascento" class="h-7 w-7 object-contain">
                     </div>
                     <p class="mt-4 text-sm leading-relaxed max-w-xs">El sistema de gestión para empresas de mantenimiento de ascensores.</p>
                 </div>
