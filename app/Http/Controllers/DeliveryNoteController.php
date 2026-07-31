@@ -81,7 +81,7 @@ class DeliveryNoteController extends Controller
     );
 
 }
-    public function show($company, DeliveryNote $deliveryNote)
+    public function show(Company $company, DeliveryNote $deliveryNote)
     {
         $user = auth()->user();
 

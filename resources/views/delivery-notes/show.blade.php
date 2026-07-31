@@ -456,10 +456,10 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
-    const pageURL = "{{ route('delivery-notes.public', [
-    'company' => auth()->user()->company->slug,
-    'token' => $deliveryNote->public_token,
-    ]) }}";
+    const pageURL = "{{ $deliveryNote ? route('delivery-notes.public', [
+        'company' => $deliveryNote->company?->slug,
+        'token' => $deliveryNote->public_token,
+    ]) : '#' }}";
     const noteNum = '{{ str_pad($deliveryNote->number, 6, "0", STR_PAD_LEFT) }}';
     const subject = encodeURIComponent('Remito #' + noteNum);
 
