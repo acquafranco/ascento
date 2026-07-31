@@ -11,6 +11,7 @@ use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable implements FilamentUser
 {
+
     use HasFactory, Notifiable;
 
 
@@ -22,10 +23,8 @@ class User extends Authenticatable implements FilamentUser
         'avatar',
         'role',
         'job_type',
-        'name',
-        'email',
-        'password',
         'phone',
+        'is_super_admin',
     ];
 
     protected $hidden = [
@@ -36,12 +35,24 @@ class User extends Authenticatable implements FilamentUser
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
+        'is_super_admin' => 'boolean',
     ];
 
-    public function canAccessPanel(Panel $panel): bool
+   public function canAccessPanel(Panel $panel): bool
     {
-        return $this->role === 'admin';
+        if ($panel->getId() !== 'ascensores_app') {
+            return false;
+        }
+
+        return $this->isSuperAdmin()
+            || $this->isAdmin();
     }
+
+        public function isSuperAdmin(): bool
+    {
+        return $this->is_super_admin;
+    }
+
 
     public function isAdmin(): bool
     {

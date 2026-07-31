@@ -23,10 +23,18 @@ class ViewUser extends ViewRecord
     return [
         \Filament\Actions\Action::make('ver_template')
             ->label('📅 Ver plantilla')
-            ->url(fn ($record) => route('users.template', [
-                'company' => auth()->user()->company->slug,
-                'user' => $record,
-            ]))
+            ->url(function ($record) {
+                $user = auth()->user();
+
+                $companySlug = $user->isSuperAdmin()
+                    ? \App\Models\Company::find(session('selected_company_id'))?->slug
+                    : $user->company?->slug;
+
+                return route('users.template', [
+                    'company' => $companySlug,
+                    'user' => $record,
+                ]);
+            })
             ->openUrlInNewTab(),
     ];
 }

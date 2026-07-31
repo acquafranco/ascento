@@ -11,6 +11,22 @@ class Dashboard extends Page
 {
     protected string $view = 'filament.pages.dashboard';
 
+
+     public function mount($company = null): void
+
+    {
+
+        if ($company) {
+
+            session([
+
+                'selected_company_id' => $company,
+
+            ]);
+
+        }
+
+    }
     public static function getNavigationLabel(): string
     {
         return 'Inicio';

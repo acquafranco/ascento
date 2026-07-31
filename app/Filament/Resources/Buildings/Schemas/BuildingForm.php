@@ -20,18 +20,28 @@ class BuildingForm
 
 
             Hidden::make('company_id')
-                ->default(fn () => auth()->user()->company_id),
+                ->default(function () {
+                    $user = auth()->user();
+
+                    return $user->isSuperAdmin()
+                        ? session('selected_company_id')
+                        : $user->company_id;
+                }),
 
 
             Select::make('client_id')
                 ->relationship(
                     name: 'client',
                     titleAttribute: 'name',
-                    modifyQueryUsing: fn ($query) =>
-                        $query->where(
-                            'company_id',
-                            auth()->user()->company_id
-                        )
+                    modifyQueryUsing: function ($query) {
+                        $user = auth()->user();
+
+                        $companyId = $user->isSuperAdmin()
+                            ? session('selected_company_id')
+                            : $user->company_id;
+
+                        return $query->where('company_id', $companyId);
+                    }
                 )
                 ->searchable()
                 ->preload()

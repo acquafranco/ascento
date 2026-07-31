@@ -135,7 +135,11 @@
                     <div class="bg-slate-50 rounded-xl p-3 md:p-4">
                         <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">Equipos</div>
                         <div class="font-semibold text-xs md:text-sm leading-snug">
-                            {{ $deliveryNote->building->elevator_count }} Asc. / {{ $deliveryNote->building->freight_elevator_count }} Mont.
+                            @if($deliveryNote->workOrder)
+                                {{ $deliveryNote->workOrder->unit ?? 'Sin equipo asignado' }}
+                            @else
+                                {{ $deliveryNote->building->elevator_count }} Asc. / {{ $deliveryNote->building->freight_elevator_count }} Mont.
+                            @endif
                         </div>
                     </div>
                 </div>

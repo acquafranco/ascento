@@ -29,21 +29,31 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
     public ?array $data = [];
 
 
-        public function mount(): void
-    {
-        $company = Auth::user()->company;
+ public function mount(): void
+{
+    $user = Auth::user();
 
-        $this->form->fill([
-            'name' => $company->name,
-            'business_name' => $company->business_name,
-            'cuit' => $company->cuit,
-            'email' => $company->email,
-            'phone' => $company->phone,
-            'address' => $company->address,
-            'logo' => $company->logo,
-            'primary_color' => $company->primary_color,
-        ]);
+    if ($user->isSuperAdmin()) {
+        abort(403);
     }
+
+    $company = $user->company;
+
+    if (!$company) {
+        abort(403);
+    }
+
+    $this->form->fill([
+        'name' => $company->name,
+        'business_name' => $company->business_name,
+        'cuit' => $company->cuit,
+        'email' => $company->email,
+        'phone' => $company->phone,
+        'address' => $company->address,
+        'logo' => $company->logo,
+        'primary_color' => $company->primary_color,
+    ]);
+}
 
     public function getFormStatePath(): string
 {
@@ -131,26 +141,39 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
         ]);
 }
 
-            public function save(): void
-            {
-                $data = $this->form->getState();
+public function save(): void
+{
+    $user = Auth::user();
 
-                if (isset($data['logo']) && is_array($data['logo'])) {
+    if ($user->isSuperAdmin()) {
+        abort(403);
+    }
 
-                    $data['logo'] = $data['logo'][0] ?? null;
+    if (!$user->company) {
+        abort(403);
+    }
 
-                }
+    $data = $this->form->getState();
 
+    $user->company->update($data);
 
-                Auth::user()
-                    ->company
-                    ->update($data);
+    \Filament\Notifications\Notification::make()
+        ->title('Empresa actualizada')
+        ->success()
+        ->send();
+}
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->check()
+            && ! auth()->user()->isSuperAdmin();
+    }
 
-                \Filament\Notifications\Notification::make()
-                    ->title('Empresa actualizada')
-                    ->success()
-                    ->send();
-            }
+    public static function canAccess(): bool
+    {
+        return auth()->check()
+            && ! auth()->user()->isSuperAdmin();
+    }
+
 
 }

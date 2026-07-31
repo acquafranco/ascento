@@ -105,13 +105,19 @@ class BuildingsTable
                             ->searchable()
                             ->preload()
                             ->required()
-                            ->options(
-                                User::query()
-                                    ->where('company_id', auth()->user()->company_id)
+                            ->options(function () {
+                                $user = auth()->user();
+
+                                $companyId = $user->isSuperAdmin()
+                                    ? session('selected_company_id')
+                                    : $user->company_id;
+
+                                return User::query()
+                                    ->where('company_id', $companyId)
                                     ->where('role', '!=', 'admin')
                                     ->pluck('name', 'id')
-                                    ->toArray()
-                            ),
+                                    ->toArray();
+                            }),
 
                                                 Select::make('type')
                                                     ->label('Trabajo')
@@ -285,14 +291,19 @@ class BuildingsTable
                 ->filters([
                     SelectFilter::make('locality')
                         ->label('Localidad')
-                        ->options(
-                            \App\Models\Building::query()
-                                ->where('company_id', auth()->user()->company_id)
-                                ->whereNotNull('locality')
-                                ->pluck('locality','locality')
-                                ->toArray()
-                        )
+                        ->options(function () {
+                            $user = auth()->user();
 
+                            $companyId = $user->isSuperAdmin()
+                                ? session('selected_company_id')
+                                : $user->company_id;
+
+                            return \App\Models\Building::query()
+                                ->where('company_id', $companyId)
+                                ->whereNotNull('locality')
+                                ->pluck('locality', 'locality')
+                                ->toArray();
+                        })
                 ])
             ->toolbarActions([
 

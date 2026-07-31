@@ -270,14 +270,10 @@ Route::prefix('{company:slug}')
             'show'
         ]);
 
-
         Route::resource(
             'clients',
             ClientController::class
-        )->except([
-            'index',
-            'show'
-        ]);
+        );
 
 
 

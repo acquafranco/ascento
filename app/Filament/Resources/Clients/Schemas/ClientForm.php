@@ -16,7 +16,13 @@ class ClientForm
         return $schema->components([
 
             Hidden::make('company_id')
-                ->default(fn () => auth()->user()->company_id),
+                ->default(function () {
+                    $user = auth()->user();
+
+                    return $user->isSuperAdmin()
+                        ? session('selected_company_id')
+                        : $user->company_id;
+                }),
 
             TextInput::make('name')
                 ->label('Nombre')

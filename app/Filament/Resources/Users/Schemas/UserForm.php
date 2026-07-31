@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Users\Schemas;
 
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Hidden;
 use Filament\Schemas\Schema;
 
 class UserForm
@@ -49,6 +50,16 @@ class UserForm
                     'client' => 'Cliente',
                 ])
                 ->default('technician')
+                ->dehydrated(true),
+
+            Hidden::make('company_id')
+                ->default(function () {
+                    $user = auth()->user();
+
+                    return $user->isSuperAdmin()
+                        ? session('selected_company_id')
+                        : $user->company_id;
+                })
                 ->dehydrated(true),
         ]);
     }

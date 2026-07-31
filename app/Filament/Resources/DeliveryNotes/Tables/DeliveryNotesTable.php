@@ -133,7 +133,7 @@ class DeliveryNotesTable
                     ->icon('heroicon-o-document-arrow-down')
 
                     ->url(fn ($record) => route('delivery-notes.pdf', [
-                        'company' => auth()->user()->company->slug,
+                        'company' => \App\Models\Company::find(session('selected_company_id'))?->slug,
                         'deliveryNote' => $record,
                     ]))
 

@@ -28,11 +28,18 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-return redirect()->route('dashboard', [
-    'company' => auth()->user()->company->slug,
-]);    }
+        $user = auth()->user();
 
-    /**
+        if ($user->isSuperAdmin()) {
+            return redirect('/admin');
+        }
+
+        return redirect()->route('dashboard', [
+            'company' => $user->company->slug,
+        ]);
+    }
+
+    /**q
      * Destroy an authenticated session.
      */
     public function destroy(Request $request): RedirectResponse

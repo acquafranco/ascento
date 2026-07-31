@@ -38,11 +38,11 @@
                     </div>
                     @php
                         $currentUser = isset($user) ? $user : auth()->user();
-                        $performedByMe = (int) $visit->user_id === (int) $currentUser->id;
+                        $isParticipant = $visit->participants->contains('id', $currentUser->id);
                         $performedBy = $visit->user?->name ?? 'Técnico asignado';
                     @endphp
 
-                    @if($visit->user_id == $currentUser->id)
+                    @if((int) $visit->user_id === (int) $currentUser->id)
 
                         <div class="bg-green-100 text-green-700">
                             ✅ Orden realizada por vos
@@ -51,7 +51,7 @@
                     @else
 
                         <div class="bg-blue-100 text-blue-700">
-                            🤝 Acompañaste a {{ $visit->user?->name }}
+                            🤝 Participaste junto a {{ $performedBy }}
                         </div>
 
                     @endif
@@ -121,12 +121,12 @@
 
                             <div class="mt-2">
                                 Entrada:
-                                {{ optional($visit->started_at)->format('H:i') }}
+                                {{ $visit->workOrder?->started_at?->format('H:i') ?? $visit->started_at?->format('H:i') ?? '-' }}
                             </div>
 
                             <div>
                                 Salida:
-                                {{ optional($visit->finished_at)->format('H:i') }}
+                                {{ $visit->workOrder?->finished_at?->format('H:i') ?? $visit->finished_at?->format('H:i') ?? '-' }}
                             </div>
 
                         @else

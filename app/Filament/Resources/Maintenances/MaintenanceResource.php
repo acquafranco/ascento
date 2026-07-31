@@ -42,30 +42,34 @@ protected static ?string $model = DeliveryNote::class;
         return MaintenanceForm::configure($schema);
     }
 
-  public static function getEloquentQuery(): Builder
-{
-    return parent::getEloquentQuery()
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
 
-        ->where('company_id', Auth::user()->company_id)
+        $user = auth()->user();
 
-        ->where(function (Builder $query) {
+        if ($user->isSuperAdmin()) {
+            $companyId = session('selected_company_id');
 
+            if (! $companyId) {
+                return $query->whereRaw('1 = 0');
+            }
+
+            $query->where('company_id', $companyId);
+        } else {
+            $query->where('company_id', $user->company_id);
+        }
+
+        return $query->where(function (Builder $query) {
             $query->where('assignment_type', 'maintenance')
-
                 ->orWhere(function (Builder $query) {
-
                     $query->where('assignment_type', 'work_order')
-
                         ->whereHas('workOrder', function (Builder $query) {
-
                             $query->where('type', 'maintenance');
-
                         });
-
                 });
-
         });
-}
+    }
 
     public static function infolist(Schema $schema): Schema
     {
@@ -102,5 +106,15 @@ protected static ?string $model = DeliveryNote::class;
             'view' => ViewMaintenance::route('/{record}'),
             'edit' => EditMaintenance::route('/{record}/edit'),
         ];
+    }
+
+  public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->check();
+    }
+
+    public static function canAccess(): bool
+    {
+        return auth()->check();
     }
 }

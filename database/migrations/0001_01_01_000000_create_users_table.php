@@ -20,6 +20,9 @@ return new class extends Migration
             ->constrained()
 
             ->nullOnDelete();
+
+        $table->boolean('is_super_admin')->default(false);
+
         $table->string('name');
         $table->string('email')->unique();
         $table->string('phone')->nullable();

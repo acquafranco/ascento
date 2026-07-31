@@ -14,6 +14,8 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Database\Eloquent\Builder;
+
 
 class ClientResource extends Resource
 {
@@ -61,9 +63,36 @@ class ClientResource extends Resource
         ];
     }
 
-    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+  public static function getEloquentQuery(): Builder
+{
+    $query = parent::getEloquentQuery();
+
+    $user = auth()->user();
+
+    if ($user->isSuperAdmin()) {
+
+        $companyId = session('selected_company_id');
+
+        if (!$companyId) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where('company_id', $companyId);
+    }
+
+    return $query->where(
+        'company_id',
+        $user->company_id
+    );
+}
+
+ public static function shouldRegisterNavigation(): bool
     {
-        return parent::getEloquentQuery()
-            ->where('company_id', Auth::user()->company_id);
+        return auth()->check();
+    }
+
+    public static function canAccess(): bool
+    {
+        return auth()->check();
     }
 }

@@ -12,7 +12,11 @@ class CreateUser extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        $data['company_id'] = Auth::user()->company_id;
+        $user = Auth::user();
+
+        $data['company_id'] = $user->isSuperAdmin()
+            ? session('selected_company_id')
+            : $user->company_id;
 
         return $data;
     }

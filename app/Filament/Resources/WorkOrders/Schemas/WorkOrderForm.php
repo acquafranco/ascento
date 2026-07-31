@@ -22,9 +22,17 @@ class WorkOrderForm
                     ->relationship(
                         name: 'building',
                         titleAttribute: 'name',
-                        modifyQueryUsing: fn ($query) => $query
-                            ->where('company_id', Auth::user()->company_id)
-                            ->orderBy('name'),
+                        modifyQueryUsing: function ($query) {
+                            $user = Auth::user();
+
+                            $companyId = $user->isSuperAdmin()
+                                ? session('selected_company_id')
+                                : $user->company_id;
+
+                            return $query
+                                ->where('company_id', $companyId)
+                                ->orderBy('name');
+                        },
                     )
                     ->getOptionLabelFromRecordUsing(
                         fn (Building $record) => "{$record->name} {$record->address}"
@@ -44,9 +52,15 @@ class WorkOrderForm
                             return [];
                         }
 
+                        $user = Auth::user();
+
+                        $companyId = $user->isSuperAdmin()
+                            ? session('selected_company_id')
+                            : $user->company_id;
+
                         $building = Building::query()
                             ->whereKey($buildingId)
-                            ->where('company_id', Auth::user()->company_id)
+                            ->where('company_id', $companyId)
                             ->first();
 
                         if (!$building) {
@@ -119,10 +133,18 @@ class WorkOrderForm
                     ->relationship(
                         name: 'users',
                         titleAttribute: 'name',
-                        modifyQueryUsing: fn ($query) => $query
-                            ->where('company_id', Auth::user()->company_id)
-                            ->where('role', 'technician')
-                            ->orderBy('name'),
+                        modifyQueryUsing: function ($query) {
+                            $user = Auth::user();
+
+                            $companyId = $user->isSuperAdmin()
+                                ? session('selected_company_id')
+                                : $user->company_id;
+
+                            return $query
+                                ->where('company_id', $companyId)
+                                ->where('role', 'technician')
+                                ->orderBy('name');
+                        },
                     )
                     ->searchable()
                     ->preload()

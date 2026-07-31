@@ -26,16 +26,25 @@
                             Nuevo Remito
                         </h1>
 
-                        @if($workOrder)
+                       @if($workOrder)
 
-                            <div class="mt-3 inline-flex items-center gap-2
-                                bg-orange-100 text-orange-700
-                                px-3 py-2 rounded-xl text-sm font-black">
+                    <div class="mt-3 flex flex-wrap gap-2">
 
-                                🔧 Orden de trabajo:
-                                {{ \App\Support\WorkOrderLabels::type($workOrder->type) }}
+                        <div class="inline-flex items-center gap-2
+                            bg-orange-200 text-orange-900
+                            border border-orange-300
+                            px-3 py-1.5 rounded-xl text-xs font-black">
 
-                            </div>
+                            🔧
+                            Orden de trabajo:
+                            {{ \App\Support\WorkOrderLabels::type($workOrder->type) }}
+
+                        </div>
+
+
+
+                    </div>
+
 
                         @elseif($assignmentType === 'maintenance')
 
@@ -115,48 +124,52 @@
                 <div class="p-5 md:p-7 space-y-5">
 
                     {{-- 1. Cliente / Dirección / Fecha --}}
-<div class="grid grid-cols-3 gap-3">
+                <div class="grid grid-cols-3 gap-3">
 
-    <div class="bg-slate-50 rounded-xl p-4">
-        <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">
-            Cliente
-        </div>
+                    <div class="bg-slate-50 rounded-xl p-4">
+                        <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">
+                            Cliente
+                        </div>
 
-        <div class="font-bold text-base leading-snug">
-            {{ $building->client?->name }}
-        </div>
-    </div>
-
-
-    <div class="bg-slate-50 rounded-xl p-4">
-        <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">
-            Dirección
-        </div>
-
-        <div class="font-semibold text-sm leading-snug">
-            {{ $building->name }} {{ $building->address }}
-        </div>
-    </div>
+                        <div class="font-bold text-base leading-snug">
+                            {{ $building->client?->name }}
+                        </div>
+                    </div>
 
 
-    <div class="bg-slate-50 rounded-xl p-4">
-        <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">
-            Fecha
-        </div>
+                    <div class="bg-slate-50 rounded-xl p-4">
+                        <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">
+                            Dirección
+                        </div>
 
-        <div class="font-bold text-base leading-snug">
-            {{ now()->format('d/m/Y') }}
-        </div>
-    </div>
+                        <div class="font-semibold text-sm leading-snug">
+                            {{ $building->name }} {{ $building->address }}
+                        </div>
+                    </div>
 
-</div>
+
+                    <div class="bg-slate-50 rounded-xl p-4">
+                        <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">
+                            Fecha
+                        </div>
+
+                        <div class="font-bold text-base leading-snug">
+                            {{ now()->format('d/m/Y') }}
+                        </div>
+                    </div>
+
+                </div>
 
                     {{-- 2. Equipos + Mes en la misma fila --}}
                     <div class="grid grid-cols-2 gap-3">
                         <div class="bg-slate-50 rounded-xl p-4">
                             <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">Equipos</div>
                             <div class="font-semibold text-sm">
-                                {{ $building->elevator_count }} Asc. / {{ $building->freight_elevator_count }} Mont.
+                                @if($workOrder)
+                                    {{ $workOrder->unit }}
+                                @else
+                                    {{ $building->elevator_count }} Asc. / {{ $building->freight_elevator_count }} Mont.
+                                @endif
                             </div>
                         </div>
                         <div>

@@ -77,7 +77,7 @@ class InspectionsTable
 
             ])
            ->recordUrl(fn ($record) => DeliveryNoteResource::getUrl('view', [
-    'record' => $record,
-]));
+            'record' => $record,
+        ]));
     }
 }

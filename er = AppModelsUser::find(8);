@@ -1,0 +1,8 @@
+[90m= [39m[34;4mApp\Models\User[39;24m {#9660
+    [34mid[39m: [35m8[39m,
+    [34mname[39m: [32m"[39m[32mpepe[39m[32m"[39m,
+    [34memail[39m: [32m"[39m[32mpepe@gmail.com[39m[32m"[39m,
+    [34mcompany_id[39m: [36mnull[39m,
+    [34mrole[39m: [32m"[39m[32mtechnician[39m[32m"[39m,
+    [34mis_super_admin[39m: [35m0[39m,
+  }
