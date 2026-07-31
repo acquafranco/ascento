@@ -24,8 +24,17 @@ return Application::configure(basePath: dirname(__DIR__))
                 return null;
             }
 
+            $user = auth()->user();
+
+            $companySlug = $user->company?->slug
+                ?? optional(\App\Models\Company::find(session('selected_company_id')))->slug;
+
+            if (! $companySlug) {
+                return '/admin';
+            }
+
             return route('dashboard', [
-                'company' => auth()->user()->company->slug,
+                'company' => $companySlug,
             ]);
         });
     })

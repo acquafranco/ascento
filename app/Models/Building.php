@@ -75,7 +75,7 @@ namespace App\Models;
             return $this->belongsTo(Company::class);
         }
 
-        public function buildingVisits()
+        public function visits()
         {
             return $this->hasMany(BuildingVisit::class);
         }
