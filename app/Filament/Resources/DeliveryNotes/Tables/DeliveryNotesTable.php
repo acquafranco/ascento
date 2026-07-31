@@ -132,10 +132,18 @@ class DeliveryNotesTable
 
                     ->icon('heroicon-o-document-arrow-down')
 
-                    ->url(fn ($record) => route('delivery-notes.pdf', [
-                        'company' => \App\Models\Company::find(session('selected_company_id'))?->slug,
-                        'deliveryNote' => $record,
-                    ]))
+                    ->url(function ($record) {
+                        $companyId = session('selected_company_id');
+
+                        $company = $companyId
+                            ? \App\Models\Company::find($companyId)
+                            : null;
+
+                        return route('delivery-notes.pdf', [
+                            'company' => $company?->slug ?? $record->company?->slug,
+                            'deliveryNote' => $record,
+                        ]);
+                    })
 
                     ->openUrlInNewTab(),
             ]);

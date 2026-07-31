@@ -10,7 +10,7 @@
 
                 <div class="flex items-center gap-1">
                     <x-nav-link :href="route('dashboard', ['company' => auth()->user()->company->slug])" :active="request()->routeIs('dashboard')">
-                        {{ __('Dashboard') }}
+
                     </x-nav-link>
                 </div>
             </div>

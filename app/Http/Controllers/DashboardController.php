@@ -155,6 +155,9 @@ class DashboardController extends Controller
 
         $totalBuildings = $user
             ->buildings()
+            ->whereHas('buildingVisits', function ($query) {
+                $query->whereDate('visited_at', today());
+            })
             ->distinct('buildings.id')
             ->count('buildings.id');
 

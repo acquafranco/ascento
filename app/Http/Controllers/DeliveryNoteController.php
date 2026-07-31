@@ -81,26 +81,24 @@ class DeliveryNoteController extends Controller
     );
 
 }
+    public function show($company, DeliveryNote $deliveryNote)
+    {
+        $user = auth()->user();
 
-public function show($company, DeliveryNote $deliveryNote)
-        {
-            $user = auth()->user();
+        // La empresa de la URL debe coincidir con el remito
+        if ($deliveryNote->company_id != $company->id) {
+            abort(404);
+        }
 
-            if ($deliveryNote->company_id !== $user->company_id) {
+        // Usuarios normales solo ven sus remitos
+        if (!$user->isAdmin() && !$user->isSuperAdmin()) {
+
+            if ($deliveryNote->user_id !== $user->id) {
                 abort(404);
             }
+        }
 
-            abort_unless(
-
-                $user->isAdmin() ||
-
-                $deliveryNote->user_id === $user->id,
-
-                403
-
-            );
-
-       $deliveryNote->load([
+        $deliveryNote->load([
             'building',
             'user',
             'workOrder.participants',
@@ -420,34 +418,38 @@ public function show($company, DeliveryNote $deliveryNote)
 }
 
 
-    public function pdf(Company $company, DeliveryNote $deliveryNote)
+  public function pdf(Company $company, DeliveryNote $deliveryNote)
+{
+    abort_unless(
+        $deliveryNote->company_id === $company->id,
+        404
+    );
 
-    {
+    $user = auth()->user();
 
-        $user = auth()->user();
+    if (!$user->isSuperAdmin()) {
 
         if ($deliveryNote->company_id !== $user->company_id) {
             abort(404);
         }
 
         abort_unless(
-
             $user->isAdmin() || $deliveryNote->user_id === $user->id,
-
-            403
-
+            404
         );
-
-        $deliveryNote->load([
-            'building',
-            'user',
-            'workOrder.participants',
-            'buildingVisit.participants',
-        ]);
-
-        return view('delivery-notes.show', compact('deliveryNote'));
-
     }
+
+    $deliveryNote->load([
+        'building',
+        'user',
+        'workOrder.participants',
+        'buildingVisit.participants',
+    ]);
+
+    return view('delivery-notes.show', compact('deliveryNote'));
+}
+
+
 public function showPublic(
     Company $company,
     $token

@@ -13,8 +13,10 @@ class AdminMiddleware
         Closure $next
     ): Response {
 
-        if (! auth()->user()?->isAdmin()) {
-            abort(403);
+        $user = auth()->user();
+
+        if (! $user || (! $user->isAdmin() && ! $user->isSuperAdmin())) {
+            abort(404);
         }
 
         return $next($request);
