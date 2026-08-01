@@ -155,6 +155,14 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
                                 ? 'WhatsApp Business conectado ✅'
                                 : 'WhatsApp Business no conectado';
                         }),
+                    Forms\Components\Placeholder::make('connect_whatsapp')
+                        ->hiddenLabel()
+                        ->content(new \Illuminate\Support\HtmlString(
+                            '<a href="' . route('whatsapp.connect', ['company' => auth()->user()->company]) . '" style="display:inline-flex;align-items:center;gap:8px;background:#22c55e;color:#fff;padding:10px 16px;border-radius:10px;font-weight:600;text-decoration:none;box-shadow:0 2px 8px rgba(34,197,94,.25);">'
+                            . '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20.52 3.48A11.86 11.86 0 0 0 12.06 0C5.5 0 .16 5.34.16 11.9c0 2.1.55 4.15 1.6 5.96L0 24l6.33-1.66a11.88 11.88 0 0 0 5.73 1.46h.01c6.56 0 11.9-5.34 11.9-11.9 0-3.18-1.24-6.16-3.45-8.42ZM12.07 21.8a9.9 9.9 0 0 1-5.04-1.38l-.36-.21-3.76.99 1-3.66-.23-.38a9.87 9.87 0 1 1 8.39 4.64Zm5.43-7.42c-.3-.15-1.78-.88-2.06-.98-.27-.1-.47-.15-.67.15-.2.3-.77.98-.95 1.18-.17.2-.35.23-.65.08-.3-.15-1.27-.47-2.42-1.5-.9-.8-1.5-1.8-1.68-2.1-.18-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.18.2-.3.3-.5.1-.2.05-.38-.02-.53-.08-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.5h-.57c-.2 0-.53.08-.8.38-.28.3-1.06 1.03-1.06 2.52 0 1.48 1.08 2.92 1.23 3.12.15.2 2.12 3.23 5.13 4.53.72.31 1.28.5 1.72.64.72.23 1.37.2 1.89.12.58-.09 1.78-.73 2.03-1.43.25-.7.25-1.3.18-1.43-.08-.12-.28-.2-.58-.35Z"/></svg>'
+                            . 'Conectar WhatsApp Business</a>'
+                        ))
+                        ->columnSpanFull(),
                 ]),
         ]);
 }
@@ -186,38 +194,7 @@ public function save(): void
 
 protected function getHeaderActions(): array
 {
-    return [
-        Action::make('testWhatsApp')
-            ->label('Enviar mensaje de prueba')
-            ->icon('heroicon-o-paper-airplane')
-            ->color('success')
-            ->action(function () {
-                $company = auth()->user()->company;
-
-                $recipient = preg_replace('/\D/', '', (string) auth()->user()->phone);
-
-                if (! str_starts_with($recipient, '54')) {
-                    $recipient = '54' . $recipient;
-                }
-
-                app(WhatsAppService::class)->send(
-                    $company,
-                    $recipient,
-                    'Mensaje enviado desde Laravel'
-                );
-                \Filament\Notifications\Notification::make()
-                    ->title('Se intentó enviar el mensaje de prueba.')
-                    ->success()
-                    ->send();
-            }),
-        Action::make('connectWhatsApp')
-            ->label('Conectar WhatsApp Business')
-            ->icon('heroicon-o-link')
-            ->color('success')
-            ->url(fn () => route('whatsapp.connect', [
-                'company' => auth()->user()->company,
-            ])),
-    ];
+    return [];
 }
 
     public static function shouldRegisterNavigation(): bool

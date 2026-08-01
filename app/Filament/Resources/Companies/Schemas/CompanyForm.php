@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Companies\Schemas;
 
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 
 class CompanyForm
@@ -33,12 +34,32 @@ class CompanyForm
                     ->default('#2563eb'),
                 Toggle::make('is_active')
                     ->required(),
-                TextInput::make('whatsapp_phone_number_id')
-                    ->tel(),
-                TextInput::make('whatsapp_waba_id'),
-                TextInput::make('whatsapp_business_id'),
-                Toggle::make('whatsapp_connected')
-                    ->required(),
+                Section::make('WhatsApp Business')
+                    ->components([
+                        Toggle::make('whatsapp_connected')
+                            ->label('Conectado')
+                            ->disabled(),
+
+                        TextInput::make('whatsapp_business_id')
+                            ->label('Business ID')
+                            ->disabled(),
+
+                        TextInput::make('whatsapp_waba_id')
+                            ->label('WABA ID')
+                            ->disabled(),
+
+                        TextInput::make('whatsapp_phone_number_id')
+                            ->label('Phone Number ID')
+                            ->disabled(),
+
+                        TextInput::make('whatsapp_access_token')
+                            ->label('Access Token')
+                            ->password()
+                            ->revealable()
+                            ->disabled()
+                            ->columnSpanFull(),
+                    ])
+                    ->columns(2),
             ]);
     }
 }
