@@ -24,7 +24,7 @@ class CreateWorkOrder extends CreateRecord
                     'phone' => $technician->phone,
                 ]);
 
-                app(WhatsAppService::class)->sendWorkOrder(
+                app(WhatsAppService::class)->sendWorkOrderButton(
                     $workOrder,
                     $technician->phone
                 );

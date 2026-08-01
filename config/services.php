@@ -44,4 +44,8 @@ return [
         'client_secret' => env('FACEBOOK_CLIENT_SECRET'),
     ],
 
+        'whatsapp' => [
+        'version' => env('WHATSAPP_API_VERSION', 'v23.0'),
+        'verify_token' => env('WHATSAPP_VERIFY_TOKEN'),
+    ],
 ];

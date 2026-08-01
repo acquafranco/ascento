@@ -91,6 +91,82 @@ class WhatsAppService
     }
 
 
+    public function sendInteractiveButton(Company $company, string $phone, string $message, string $buttonId, string $buttonText): bool
+    {
+        if (empty($company->whatsapp_access_token) || empty($company->whatsapp_phone_number_id)) {
+            return false;
+        }
+
+        $to = $this->normalizePhone($phone);
+
+        $url = sprintf(
+            'https://graph.facebook.com/%s/%s/messages',
+            config('services.whatsapp.version'),
+            $company->whatsapp_phone_number_id,
+        );
+
+        $response = Http::withToken($company->whatsapp_access_token)->post($url, [
+            'messaging_product' => 'whatsapp',
+            'to' => $to,
+            'type' => 'interactive',
+            'interactive' => [
+                'type' => 'button',
+                'body' => [
+                    'text' => $message,
+                ],
+                'action' => [
+                    'buttons' => [
+                        [
+                            'type' => 'reply',
+                            'reply' => [
+                                'id' => $buttonId,
+                                'title' => $buttonText,
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        Log::info('WhatsApp interactive response', [
+            'status' => $response->status(),
+            'body' => $response->json(),
+            'work_button_id' => $buttonId,
+        ]);
+
+        return $response->successful();
+    }
+
+    public function sendWorkOrderButton(WorkOrder $workOrder, string $phone): bool
+    {
+        $company = $workOrder->company;
+
+        if (! $workOrder->building || ! $company || ! $company->whatsapp_connected) {
+            Log::warning('No se pudo enviar WorkOrder WhatsApp interactivo', [
+                'work_order_id' => $workOrder->id,
+                'company_id' => $company?->id,
+            ]);
+
+            return false;
+        }
+
+        $message =
+            "🔧 Nueva orden de trabajo\n\n" .
+            "Edificio: {$workOrder->building->name}\n" .
+            "Dirección: {$workOrder->building->address}\n" .
+            "Unidad: {$workOrder->unit}\n" .
+            "Tipo: {$workOrder->type}\n" .
+            "Notas: {$workOrder->notes}";
+
+        return $this->sendInteractiveButton(
+            $company,
+            $phone,
+            $message,
+            'take_work_order_' . $workOrder->id,
+            'Tomar trabajo'
+        );
+    }
+
     public function sendWorkOrder(WorkOrder $workOrder, string $phone): bool
     {
         $company = $workOrder->company;
