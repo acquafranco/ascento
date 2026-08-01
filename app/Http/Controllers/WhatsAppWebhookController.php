@@ -28,6 +28,12 @@ class WhatsAppWebhookController extends Controller
 
     public function handle(Request $request)
     {
+
+     Log::info('ENTRO AL WEBHOOK WHATSAPP', [
+
+        'data' => $request->all()
+
+    ]);
         Log::info('WhatsApp webhook recibido', $request->all());
 
         $change = data_get($request->all(), 'entry.0.changes.0.value');
