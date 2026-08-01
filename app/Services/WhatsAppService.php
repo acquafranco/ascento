@@ -5,48 +5,117 @@ namespace App\Services;
 use App\Models\WorkOrder;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use App\Models\Company;
 
 class WhatsAppService
 {
-    public function send(string $phone, string $message): bool
+    public function send(Company $company, string $phone, string $message): bool
     {
+        Log::info('WhatsApp send iniciado', [
+            'company_id' => $company->id,
+            'phone_original' => $phone,
+            'message' => $message,
+        ]);
+
+        if (empty($company->whatsapp_access_token) || empty($company->whatsapp_phone_number_id)) {
+            Log::warning('WhatsApp no configurado para la empresa.', [
+                'company_id' => $company->id,
+            ]);
+
+            return false;
+        }
+
         $to = $this->normalizePhone($phone);
+
+        Log::info('WhatsApp telefono normalizado', [
+            'original' => $phone,
+            'normalizado' => $to,
+        ]);
 
         $url = sprintf(
             'https://graph.facebook.com/%s/%s/messages',
             config('services.whatsapp.version'),
-            config('services.whatsapp.phone_number_id'),
+            $company->whatsapp_phone_number_id,
         );
 
-        $response = Http::withToken(
-            config('services.whatsapp.token')
-        )->post($url, [
-            'messaging_product' => 'whatsapp',
-            'to' => $to,
-            'type' => 'text',
-            'text' => [
-                'body' => $message,
+        Log::info('WhatsApp request', [
+            'url' => $url,
+            'token_prefix' => substr($company->whatsapp_access_token, 0, 10),
+            'api_version' => config('services.whatsapp.version'),
+            'payload' => [
+                'messaging_product' => 'whatsapp',
+                'to' => $to,
+                'type' => 'text',
+                'text' => [
+                    'body' => $message,
+                ],
             ],
         ]);
 
-        Log::info('WhatsApp response', [
-            'status' => $response->status(),
-            'body' => $response->json(),
-            'from_phone' => $phone,
-            'sent_to' => $to,
-        ]);
+        try {
 
-        return $response->successful();
+            $response = Http::withToken(
+                $company->whatsapp_access_token
+            )->post($url, [
+                'messaging_product' => 'whatsapp',
+                'to' => $to,
+                'type' => 'text',
+                'text' => [
+                    'body' => $message,
+                ],
+            ]);
+
+            Log::info('WhatsApp response', [
+                'status' => $response->status(),
+                'successful' => $response->successful(),
+                'body' => $response->json(),
+                'company_id' => $company->id,
+                'phone_number_id' => $company->whatsapp_phone_number_id,
+                'request_url' => $url,
+                'token_prefix' => substr($company->whatsapp_access_token, 0, 10),
+                'sent_to' => $to,
+            ]);
+
+            return $response->successful();
+
+        } catch (\Throwable $e) {
+
+            Log::error('WhatsApp error', [
+                'company_id' => $company->id,
+                'error' => $e->getMessage(),
+                'line' => $e->getLine(),
+            ]);
+
+            return false;
+        }
     }
 
 
-    public function sendWorkOrder(WorkOrder $workOrder): bool
+    public function sendWorkOrder(WorkOrder $workOrder, string $phone): bool
     {
-        $technician = $workOrder->technician;
+        $company = $workOrder->company;
 
-        if (! $technician || ! $technician->phone) {
+        if (! $workOrder->building) {
+            Log::warning('WorkOrder sin edificio', [
+                'work_order_id' => $workOrder->id,
+            ]);
+
             return false;
         }
+
+        if (! $company || ! $company->whatsapp_connected) {
+            Log::warning('Empresa sin WhatsApp conectado', [
+                'work_order_id' => $workOrder->id,
+            ]);
+
+            return false;
+        }
+
+        Log::info('Enviando WhatsApp de WorkOrder', [
+            'work_order_id' => $workOrder->id,
+            'company_id' => $company->id,
+            'technician_phone' => $phone,
+        ]);
 
         $message =
             "🔧 Nueva orden de trabajo\n\n" .
@@ -56,8 +125,10 @@ class WhatsAppService
             "Tipo: {$workOrder->type}\n" .
             "Notas: {$workOrder->notes}";
 
+
         return $this->send(
-            $technician->phone,
+            $company,
+            $phone,
             $message
         );
     }
@@ -65,16 +136,6 @@ class WhatsAppService
 
     private function normalizePhone(string $phone): string
     {
-        $phone = preg_replace('/\D/', '', $phone);
-
-        if (str_starts_with($phone, '549')) {
-            return '54' . substr($phone, 3);
-        }
-
-        if (str_starts_with($phone, '54')) {
-            return $phone;
-        }
-
-        return '54' . $phone;
+        return preg_replace('/\D/', '', $phone);
     }
 }

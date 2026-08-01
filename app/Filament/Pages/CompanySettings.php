@@ -10,6 +10,8 @@ use Filament\Forms\Components\ColorPicker;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
+use Filament\Actions\Action;
+use App\Services\WhatsAppService;
 
 class CompanySettings extends Page implements Forms\Contracts\HasForms
 {
@@ -52,6 +54,10 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
         'address' => $company->address,
         'logo' => $company->logo,
         'primary_color' => $company->primary_color,
+        'whatsapp_business_id' => $company->whatsapp_business_id,
+        'whatsapp_waba_id' => $company->whatsapp_waba_id,
+        'whatsapp_phone_number_id' => $company->whatsapp_phone_number_id,
+        'whatsapp_access_token' => $company->whatsapp_access_token,
     ]);
 }
 
@@ -132,11 +138,23 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
                 ->icon('heroicon-o-paint-brush')
                 ->columns(2)
                 ->schema([
-
                     ColorPicker::make('primary_color')
                         ->label('Color principal')
                         ->default('#2563eb'),
+                ]),
 
+            Section::make('WhatsApp Business')
+                ->description('Configuración temporal para WhatsApp Business. Esta configuración es provisoria hasta implementar la conexión automática con Meta.')
+                ->icon('heroicon-o-chat-bubble-left-right')
+                ->columns(2)
+                ->schema([
+                    Forms\Components\Placeholder::make('whatsapp_status')
+                        ->label('Estado de conexión')
+                        ->content(function () {
+                            return auth()->user()->company?->whatsapp_connected
+                                ? 'WhatsApp Business conectado ✅'
+                                : 'WhatsApp Business no conectado';
+                        }),
                 ]),
         ]);
 }
@@ -155,12 +173,51 @@ public function save(): void
 
     $data = $this->form->getState();
 
+    $data['whatsapp_connected'] = ! empty($data['whatsapp_access_token'])
+        && ! empty($data['whatsapp_phone_number_id']);
+
     $user->company->update($data);
 
     \Filament\Notifications\Notification::make()
         ->title('Empresa actualizada')
         ->success()
         ->send();
+}
+
+protected function getHeaderActions(): array
+{
+    return [
+        Action::make('testWhatsApp')
+            ->label('Enviar mensaje de prueba')
+            ->icon('heroicon-o-paper-airplane')
+            ->color('success')
+            ->action(function () {
+                $company = auth()->user()->company;
+
+                $recipient = preg_replace('/\D/', '', (string) auth()->user()->phone);
+
+                if (! str_starts_with($recipient, '54')) {
+                    $recipient = '54' . $recipient;
+                }
+
+                app(WhatsAppService::class)->send(
+                    $company,
+                    $recipient,
+                    'Mensaje enviado desde Laravel'
+                );
+                \Filament\Notifications\Notification::make()
+                    ->title('Se intentó enviar el mensaje de prueba.')
+                    ->success()
+                    ->send();
+            }),
+        Action::make('connectWhatsApp')
+            ->label('Conectar WhatsApp Business')
+            ->icon('heroicon-o-link')
+            ->color('success')
+            ->url(fn () => route('whatsapp.connect', [
+                'company' => auth()->user()->company,
+            ])),
+    ];
 }
 
     public static function shouldRegisterNavigation(): bool

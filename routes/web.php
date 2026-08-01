@@ -11,7 +11,8 @@ use App\Http\Controllers\{
     WorkOrderController,
     BuildingCheckController,
     TemplateController,
-    DeliveryNoteController
+    DeliveryNoteController,
+    WhatsAppController
 };
 
 use App\Models\User;
@@ -69,6 +70,10 @@ Route::prefix('{company:slug}')
     ->scopeBindings()
     ->group(function () {
 
+    Route::get('/whatsapp/connect', [
+        WhatsAppController::class,
+        'connect'
+    ])->name('whatsapp.connect');
 
     /*
     |--------------------------------------------------------------------------
@@ -292,6 +297,10 @@ Route::prefix('{company:slug}')
 });
 
 
+Route::get('/whatsapp/callback', [
+    WhatsAppController::class,
+    'callback'
+])->name('whatsapp.callback');
 
 /*
 |--------------------------------------------------------------------------

@@ -97,6 +97,12 @@ return new class extends Migration
             $table->boolean('whatsapp_connected')
                 ->default(false);
 
+            $table->timestamp('whatsapp_token_expires_at')
+                ->nullable();
+
+            $table->string('whatsapp_verify_token')
+                ->nullable();
+
 
             $table->timestamps();
 

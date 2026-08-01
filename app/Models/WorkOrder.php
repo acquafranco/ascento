@@ -33,7 +33,11 @@ class WorkOrder extends Model
         static::creating(function (WorkOrder $workOrder) {
 
             if (Auth::check() && empty($workOrder->company_id)) {
-                $workOrder->company_id = Auth::user()->company_id;
+                $user = Auth::user();
+
+                $workOrder->company_id = $user->isSuperAdmin()
+                    ? session('selected_company_id')
+                    : $user->company_id;
             }
 
         });
