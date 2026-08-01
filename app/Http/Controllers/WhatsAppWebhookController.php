@@ -28,25 +28,36 @@ class WhatsAppWebhookController extends Controller
 
     public function handle(Request $request)
     {
+        $payload = $request->all();
 
-     Log::info('ENTRO AL WEBHOOK WHATSAPP', [
+        Log::info('WhatsApp webhook recibido', $payload);
 
-        'data' => $request->all()
-
-    ]);
-        Log::info('WhatsApp webhook recibido', $request->all());
-
-        $change = data_get($request->all(), 'entry.0.changes.0.value');
-
-        $buttonId = data_get(
-            $change,
-            'messages.0.interactive.button_reply.id'
+        $message = data_get(
+            $payload,
+            'entry.0.changes.0.value.messages.0'
         );
 
-        $phone = data_get(
-            $change,
-            'messages.0.from'
-        );
+        if (! $message) {
+            return response()->json(['status' => 'ignored']);
+        }
+
+        $phone = data_get($message, 'from');
+        $type = data_get($message, 'type');
+
+        $buttonId = null;
+
+        if ($type === 'interactive') {
+            $buttonId = data_get(
+                $message,
+                'interactive.button_reply.id'
+            );
+        }
+
+        Log::info('WhatsApp mensaje procesado', [
+            'type' => $type,
+            'phone' => $phone,
+            'button_id' => $buttonId,
+        ]);
 
         if (! $buttonId || ! $phone) {
             return response()->json(['status' => 'ignored']);
@@ -62,17 +73,26 @@ class WhatsAppWebhookController extends Controller
             $technician = User::where('phone', $phone)->first();
             $workOrder = WorkOrder::find($workOrderId);
 
-            if ($technician && $workOrder) {
-                $this->workOrderService->start(
-                    $workOrder,
-                    $technician
-                );
+            Log::info('Datos para iniciar orden desde WhatsApp', [
+                'work_order_id' => $workOrderId,
+                'technician_id' => $technician?->id,
+            ]);
 
-                Log::info('Orden tomada desde WhatsApp', [
-                    'work_order_id' => $workOrderId,
-                    'technician_id' => $technician->id,
+            if (! $technician || ! $workOrder) {
+                return response()->json([
+                    'status' => 'missing_data'
                 ]);
             }
+
+            $this->workOrderService->start(
+                $workOrder,
+                $technician
+            );
+
+            Log::info('Orden tomada desde WhatsApp correctamente', [
+                'work_order_id' => $workOrder->id,
+                'technician_id' => $technician->id,
+            ]);
         }
 
         return response()->json(['status' => 'ok']);
