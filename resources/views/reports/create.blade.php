@@ -101,40 +101,28 @@
 
             <div class="mt-2 space-y-3">
 
-                <div class="grid grid-cols-2 gap-3">
+                <label class="flex flex-col items-center justify-center h-28 rounded-3xl bg-blue-50 border border-blue-200 cursor-pointer">
 
-                    <label class="flex flex-col items-center justify-center h-28 rounded-3xl bg-blue-50 border border-blue-200 cursor-pointer">
-                        <div class="text-3xl">📷</div>
-                        <div class="text-sm font-bold text-blue-700 mt-1">
-                            Tomar foto
-                        </div>
+                    <div class="text-3xl">📷</div>
 
-                        <input
-                            id="cameraInput"
-                            type="file"
-                            name="photo"
-                            accept="image/*"
-                            capture="environment"
-                            class="hidden"
-                        >
-                    </label>
+                    <div class="text-sm font-bold text-blue-700 mt-1">
+                        Tomar foto o elegir de galería
+                    </div>
 
-                    <label class="flex flex-col items-center justify-center h-28 rounded-3xl bg-slate-50 border border-slate-200 cursor-pointer">
-                        <div class="text-3xl">🖼️</div>
-                        <div class="text-sm font-bold text-gray-700 mt-1">
-                            Galería
-                        </div>
+                    <div class="text-xs text-gray-500">
+                        JPG, PNG o WEBP
+                    </div>
 
-                        <input
-                            id="galleryInput"
-                            type="file"
-                            name="photo"
-                            accept="image/*"
-                            class="hidden"
-                        >
-                    </label>
+                    <input
+                        id="photoInput"
+                        type="file"
+                        name="photo"
+                        accept="image/*"
+                        capture="environment"
+                        class="hidden"
+                    >
 
-                </div>
+                </label>
 
                 <img
                     id="photoPreview"
@@ -232,8 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    const cameraInput = document.getElementById('cameraInput');
-    const galleryInput = document.getElementById('galleryInput');
+    const photoInput = document.getElementById('photoInput');
     const photoPreview = document.getElementById('photoPreview');
 
     function previewPhoto(input){
@@ -250,11 +237,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     }
 
-    cameraInput.addEventListener('change', function(){
-        previewPhoto(this);
-    });
-
-    galleryInput.addEventListener('change', function(){
+    photoInput.addEventListener('change', function(){
         previewPhoto(this);
     });
 });

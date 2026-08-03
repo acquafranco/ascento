@@ -92,7 +92,12 @@ class ReportController extends Controller
             'elevator_number'=>'required|string|max:255',
             'description'=>'required|string|min:5',
             'priority'=>'required|in:baja,media,alta,critica',
-            'photo'=>'required|file|mimetypes:image/jpeg,image/png,image/webp|max:2048',
+            'photo' => [
+                'required',
+                'file',
+                'mimetypes:image/jpeg,image/png,image/webp,image/heic,image/heif',
+                'max:5120'
+            ],
 
         ], [
             'building_id.required'=>'Tenés que seleccionar un edificio.',
