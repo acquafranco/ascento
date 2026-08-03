@@ -69,7 +69,7 @@
             :class="scrolled ? 'bg-paper/90 backdrop-blur border-b border-ink/10' : 'bg-transparent border-b border-transparent'">
         <nav class="mx-auto max-w-7xl px-5 sm:px-8 h-16 flex items-center justify-between">
             <a href="/" class="flex items-center gap-2.5 shrink-0">
-               <img src="{{ asset('images/logo.png') }}" alt="Ascento" class="h-8 w-8 object-contain">
+               <img src="{{ asset('images/logo.png') }}" alt="Ascento" class="rounded-md h-8 w-8 object-contain">
                 <span class="font-display font-semibold text-[17px] tracking-tight">Ascento</span>
             </a>
 
@@ -184,11 +184,11 @@
 
                             <div class="mt-4 grid grid-cols-2 gap-3">
                                 <div class="rounded-xl bg-graphite2 border border-white/5 p-4">
-                                    <div class="text-[11px] text-white/40">Órdenes activas</div>
+                                    <div class="text-[11px] text-white/40">En proceso</div>
                                     <div class="mt-1 font-display text-2xl font-semibold text-white">18</div>
                                 </div>
                                 <div class="rounded-xl bg-graphite2 border border-white/5 p-4">
-                                    <div class="text-[11px] text-white/40">Técnicos en ruta</div>
+                                    <div class="text-[11px] text-white/40">Completadas</div>
                                     <div class="mt-1 font-display text-2xl font-semibold text-white">6</div>
                                 </div>
                             </div>
@@ -214,7 +214,7 @@
             <div class="mx-auto max-w-7xl px-5 sm:px-8 py-6 flex flex-wrap items-center justify-center sm:justify-between gap-x-10 gap-y-3 text-ink/35 text-sm font-medium tracking-wide">
                 <span>Usado por empresas de mantenimiento en toda la región</span>
                 <div class="hidden sm:flex items-center gap-8 font-display">
-                    <span>Elevatek</span><span>SubeCorp</span><span>NivelPro</span><span>Ascensores del Sur</span><span>VertiMant</span>
+                    <!-- <span>Elevatek</span><span>SubeCorp</span><span>NivelPro</span><span>Ascensores del Sur</span><span>VertiMant</span> -->
                 </div>
             </div>
         </section>
@@ -477,7 +477,7 @@
             <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-10">
                 <div>
                     <div class="flex items-center gap-2.5">
-                        <img src="{{ asset('images/logo.png') }}" alt="Ascento" class="h-7 w-7 object-contain">
+                        <img src="{{ asset('images/logo.png') }}" alt="Ascento" class="rounded-md h-7 w-7 object-contain">
                     </div>
                     <p class="mt-4 text-sm leading-relaxed max-w-xs">El sistema de gestión para empresas de mantenimiento de ascensores.</p>
                 </div>

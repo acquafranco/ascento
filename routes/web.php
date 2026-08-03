@@ -12,7 +12,8 @@ use App\Http\Controllers\{
     BuildingCheckController,
     TemplateController,
     DeliveryNoteController,
-    WhatsAppController
+    WhatsAppController,
+    ReportController
 };
 
 use App\Models\User;
@@ -147,6 +148,34 @@ Route::prefix('{company:slug}')
         'day'
     ])->name('templates.day');
 
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | REPORTS
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/reports', [
+        ReportController::class,
+        'index'
+    ])->name('reports.index');
+
+
+    Route::get('/reports/create', [
+        ReportController::class,
+        'create'
+    ])->name('reports.create');
+
+    Route::get('/reports/{report}', [
+        ReportController::class,
+        'show'
+    ])->name('reports.show');
+
+    Route::post('/reports', [
+        ReportController::class,
+        'store'
+    ])->name('reports.store');
 
 
     /*

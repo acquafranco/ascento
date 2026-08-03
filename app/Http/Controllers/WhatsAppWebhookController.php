@@ -27,74 +27,112 @@ class WhatsAppWebhookController extends Controller
     }
 
     public function handle(Request $request)
-    {
-        $payload = $request->all();
+{
+    Log::info('================ WEBHOOK DISPARADO ================');
 
-        Log::info('WhatsApp webhook recibido', $payload);
+    Log::info('HEADERS', $request->headers->all());
 
-        $message = data_get(
-            $payload,
-            'entry.0.changes.0.value.messages.0'
+    Log::info('RAW BODY', [
+        'body' => $request->getContent(),
+    ]);
+
+    $payload = $request->all();
+
+    Log::info('PAYLOAD', $payload);
+
+    $message = data_get(
+        $payload,
+        'entry.0.changes.0.value.messages.0'
+    );
+
+    Log::info('MESSAGE', [
+        'message' => $message,
+    ]);
+
+    if (! $message) {
+
+        Log::warning('No llegó ningún mensaje');
+
+        return response()->json([
+            'status' => 'ignored_no_message'
+        ]);
+    }
+
+    $phone = data_get($message, 'from');
+    $type = data_get($message, 'type');
+
+    Log::info('TIPO MENSAJE', [
+        'type' => $type,
+        'phone' => $phone,
+    ]);
+
+    $buttonId = null;
+
+    if ($type === 'interactive') {
+        $buttonId = data_get(
+            $message,
+            'interactive.button_reply.id'
         );
+    }
 
-        if (! $message) {
-            return response()->json(['status' => 'ignored']);
-        }
+    Log::info('BOTON', [
+        'button_id' => $buttonId,
+    ]);
 
-        $phone = data_get($message, 'from');
-        $type = data_get($message, 'type');
+    if (! $buttonId || ! $phone) {
 
-        $buttonId = null;
-
-        if ($type === 'interactive') {
-            $buttonId = data_get(
-                $message,
-                'interactive.button_reply.id'
-            );
-        }
-
-        Log::info('WhatsApp mensaje procesado', [
+        Log::warning('No llegó button_reply', [
             'type' => $type,
             'phone' => $phone,
-            'button_id' => $buttonId,
         ]);
 
-        if (! $buttonId || ! $phone) {
-            return response()->json(['status' => 'ignored']);
-        }
-
-        if (str_starts_with($buttonId, 'take_work_order_')) {
-            $workOrderId = str_replace(
-                'take_work_order_',
-                '',
-                $buttonId
-            );
-
-            $technician = User::where('phone', $phone)->first();
-            $workOrder = WorkOrder::find($workOrderId);
-
-            Log::info('Datos para iniciar orden desde WhatsApp', [
-                'work_order_id' => $workOrderId,
-                'technician_id' => $technician?->id,
-            ]);
-
-            if (! $technician || ! $workOrder) {
-                return response()->json([
-                    'status' => 'missing_data'
-                ]);
-            }
-
-            $this->workOrderService->start(
-                $workOrder,
-                $technician
-            );
-
-            Log::info('Orden tomada desde WhatsApp correctamente', [
-                'work_order_id' => $workOrder->id,
-                'technician_id' => $technician->id,
-            ]);
-        }
-
-        return response()->json(['status' => 'ok']);
+        return response()->json([
+            'status' => 'ignored_no_button'
+        ]);
     }
+
+    if (str_starts_with($buttonId, 'take_work_order_')) {
+
+        $workOrderId = str_replace(
+            'take_work_order_',
+            '',
+            $buttonId
+        );
+
+        Log::info('Tomar orden detectado', [
+            'work_order_id' => $workOrderId,
+        ]);
+
+        $technician = User::where('phone', $phone)->first();
+        $workOrder = WorkOrder::find($workOrderId);
+
+        Log::info('Datos encontrados', [
+            'technician' => $technician?->id,
+            'work_order' => $workOrder?->id,
+        ]);
+
+        if (! $technician || ! $workOrder) {
+
+            Log::error('No se encontró técnico o trabajo');
+
+            return response()->json([
+                'status' => 'missing_data'
+            ]);
+        }
+
+        $this->workOrderService->start(
+            $workOrder,
+            $technician
+        );
+
+        Log::info('ORDEN PASADA A EN PROCESO', [
+            'work_order_id' => $workOrder->id,
+            'technician_id' => $technician->id,
+        ]);
+    }
+
+    return response()->json([
+        'status' => 'ok'
+    ]);
+}
 }

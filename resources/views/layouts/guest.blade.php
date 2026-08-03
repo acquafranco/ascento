@@ -50,7 +50,7 @@
 
         {{-- Brand mark --}}
        <a href="/" class="flex items-center gap-2.5 mb-8">
-            <img src="{{ asset('images/logo.png') }}" alt="Ascento" class="h-9 w-9 object-contain">
+            <img src="{{ asset('images/logo.png') }}" alt="Ascento" class="rounded-md h-9 w-9 object-contain">
             <span class="font-display font-semibold text-lg tracking-tight text-ink">Ascento</span>
         </a>
 

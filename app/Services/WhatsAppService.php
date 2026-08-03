@@ -93,6 +93,9 @@ class WhatsAppService
 
     public function sendInteractiveButton(Company $company, string $phone, string $message, string $buttonId, string $buttonText): bool
     {
+        Log::info('Phone Number ID utilizado', [
+    'phone_number_id' => $company->whatsapp_phone_number_id,
+]);
         if (empty($company->whatsapp_access_token) || empty($company->whatsapp_phone_number_id)) {
             return false;
         }
