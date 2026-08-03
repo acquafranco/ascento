@@ -124,7 +124,7 @@
         <a href="{{ route('reports.index', [
             'company' => auth()->user()->company->slug,
         ]) }}"
-        class="shadow-[0_4px_16px_-6px_rgba(20,23,28,0.35)] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 flex flex-col items-center justify-center py-4 rounded-bl-3xl"
+        class="shadow-[0_4px_16px_-6px_rgba(20,23,28,0.35)] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 flex flex-col items-center justify-center py-4 z-3xl"
         style="background-color:#12151C; border: 2px solid #FF6A1A;">
 
             <span class="flex h-8 w-8 items-center justify-center rounded-lg" style="color:#FF6A1A;">
