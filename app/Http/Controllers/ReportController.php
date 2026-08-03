@@ -10,6 +10,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Filament\Notifications\Notification;
 use App\Models\User;
+use Illuminate\Support\Str;
+use Intervention\Image\ImageManager;
+use Intervention\Image\Drivers\Imagick\Driver as ImagickDriver;
+use Intervention\Image\Encoders\WebpEncoder;
 
 
 class ReportController extends Controller
@@ -108,7 +112,7 @@ class ReportController extends Controller
             'priority.required'=>'Seleccioná una prioridad.',
             'photo.required'=>'Tenés que adjuntar una imagen.',
             'photo.mimetypes'=>'La imagen debe ser JPG, PNG o WEBP.',
-            'photo.max'=>'La imagen no puede superar los 2 MB.',
+            'photo.max'=>'La imagen no puede superar los 5 MB.',
         ]);
 
         if (!Building::where('id', $data['building_id'])
@@ -126,9 +130,25 @@ class ReportController extends Controller
 
         if($request->hasFile('photo')){
 
-            $data['photo'] =
-                $request->file('photo')
-                ->store('reports/'.$company->id, 'public');
+            $folder = 'reports/'.$company->id;
+
+            $filename = Str::random(40).'.webp';
+
+            $fullPath = storage_path('app/public/'.$folder.'/'.$filename);
+
+            if (!file_exists(dirname($fullPath))) {
+                mkdir(dirname($fullPath), 0755, true);
+            }
+
+            $manager = ImageManager::usingDriver(ImagickDriver::class);
+
+            $image = $manager->decode($request->file('photo'))
+                ->orient();
+
+            $image->encode(new WebpEncoder(quality: 80))
+                ->save($fullPath);
+
+            $data['photo'] = $folder.'/'.$filename;
 
         }
 

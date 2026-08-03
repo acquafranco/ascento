@@ -124,10 +124,25 @@
 
                 </label>
 
-                <img
-                    id="photoPreview"
-                    class="hidden w-16 h-16 rounded-xl object-cover border border-slate-200"
-                >
+                <div id="photoSelected" class="hidden mt-3 rounded-2xl border border-green-200 bg-green-50 px-4 py-3">
+                    <div class="flex items-center gap-3">
+                        <div class="text-2xl">✅</div>
+                        <div>
+                            <div class="font-bold text-green-800">
+                                Imagen seleccionada correctamente
+                            </div>
+                            <div id="photoName" class="text-xs text-green-700 break-all"></div>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 flex justify-center">
+                        <img
+                            id="photoPreview"
+                            class="hidden w-24 h-24 rounded-2xl object-cover border border-slate-200 shadow-sm"
+                            alt="Vista previa de la imagen"
+                        >
+                    </div>
+                </div>
 
             </div>
         </div>
@@ -222,19 +237,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const photoInput = document.getElementById('photoInput');
     const photoPreview = document.getElementById('photoPreview');
+    const photoSelected = document.getElementById('photoSelected');
+    const photoName = document.getElementById('photoName');
 
-    function previewPhoto(input){
-
+    function previewPhoto(input) {
         const file = input.files[0];
+        photoSelected.classList.add('hidden');
+        photoName.textContent = '';
+
+        photoPreview.classList.add('hidden');
+        photoPreview.removeAttribute('src');
 
         if (!file) {
-            photoPreview.classList.add('hidden');
+            return;
+        }
+        photoSelected.classList.remove('hidden');
+        photoName.textContent = file.name;
+
+        // En iPhone (HEIC) muchos navegadores no pueden generar una vista previa.
+        // Para JPG/PNG/WEBP mostramos la miniatura directamente.
+        if (file.type === 'image/heic' || file.type === 'image/heif') {
             return;
         }
 
-        photoPreview.src = URL.createObjectURL(file);
-        photoPreview.classList.remove('hidden');
+        const url = URL.createObjectURL(file);
 
+        photoPreview.onload = function () {
+            URL.revokeObjectURL(url);
+            photoPreview.classList.remove('hidden');
+        };
+
+        photoPreview.onerror = function () {
+            URL.revokeObjectURL(url);
+        };
+
+        photoPreview.src = url;
     }
 
     photoInput.addEventListener('change', function(){

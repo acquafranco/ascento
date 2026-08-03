@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Reports\Tables;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\ImageColumn;
@@ -31,6 +32,9 @@ class ReportsTable
 
                 ImageColumn::make('photo')
                     ->label('Foto')
+                    ->disk('public')
+                    ->visibility('public')
+                    ->size(60)
                     ->square(),
 
                 TextColumn::make('priority')
@@ -70,6 +74,7 @@ class ReportsTable
                     ]),
             ])
             ->recordActions([
+                ViewAction::make(),
                 EditAction::make(),
             ])
             ->toolbarActions([

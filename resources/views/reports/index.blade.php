@@ -90,13 +90,14 @@
                 </div>
 
 
-                <div class="mt-4 flex justify-between items-center">
+                <div class="mt-4 flex justify-between items-center gap-3">
 
                     <div class="text-xs text-gray-500">
                         Estado: {{ ucfirst($report->status) }}
                     </div>
 
-                    <div class="text-sm text-blue-600 font-bold">
+
+                    <div class="text-sm text-blue-600 font-bold whitespace-nowrap">
                         Ver detalle →
                     </div>
 

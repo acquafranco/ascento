@@ -90,10 +90,15 @@
                     Imagen adjunta
                 </div>
 
-                <img src="{{ url('storage/' . $report->photo) }}"
-                     loading="lazy"
-                     class="rounded-2xl border border-slate-200 w-40 h-40 object-cover cursor-pointer"
-                     onerror="this.style.display='none';">
+                <div class="flex justify-center">
+                    <div class="rounded-2xl border border-slate-200 bg-slate-50 overflow-hidden shadow-sm" style="width:128px;height:128px;flex:0 0 128px;">
+                        <img src="{{ asset('storage/' . $report->photo) }}"
+                             loading="lazy"
+                             width="128" height="128"
+                             class="block w-full h-full max-w-none max-h-none object-cover"
+                             alt="Imagen del reporte">
+                    </div>
+                </div>
             </div>
         @endif
 
