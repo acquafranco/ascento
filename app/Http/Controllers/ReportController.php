@@ -100,7 +100,7 @@ class ReportController extends Controller
                 'required',
                 'file',
                 'mimetypes:image/jpeg,image/png,image/webp,image/heic,image/heif',
-                'max:5120'
+                'max:10240'
             ],
 
         ], [
