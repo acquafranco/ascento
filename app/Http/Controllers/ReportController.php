@@ -130,32 +130,44 @@ class ReportController extends Controller
 
         if($request->hasFile('photo')){
 
-            $folder = 'reports/'.$company->id;
+            try {
+                $folder = 'reports/'.$company->id;
 
-            $filename = Str::random(40).'.webp';
+                $filename = Str::random(40).'.webp';
 
-            $fullPath = storage_path('app/public/'.$folder.'/'.$filename);
+                $fullPath = storage_path('app/public/'.$folder.'/'.$filename);
 
-            if (!file_exists(dirname($fullPath))) {
-                mkdir(dirname($fullPath), 0755, true);
+                if (!file_exists(dirname($fullPath))) {
+                    mkdir(dirname($fullPath), 0755, true);
+                }
+
+                $manager = ImageManager::usingDriver(ImagickDriver::class);
+
+                $image = $manager->decode(fopen($request->file('photo')->getRealPath(), 'rb'));
+
+                logger()->info('Imagen cargada', [
+                    'path' => $request->file('photo')->getRealPath(),
+                    'width' => $image->width(),
+                    'height' => $image->height(),
+                    'mime' => $request->file('photo')->getMimeType(),
+                ]);
+
+                $image->encode(new WebpEncoder(quality: 90))
+                    ->save($fullPath);
+
+                $data['photo'] = $folder.'/'.$filename;
+
+            } catch (\Throwable $e) {
+                logger()->error('Error procesando imagen de reporte', [
+                    'message' => $e->getMessage(),
+                ]);
+
+                return back()
+                    ->withErrors([
+                        'photo' => 'No se pudo procesar la imagen. Probá con otra foto o formato.'
+                    ])
+                    ->withInput();
             }
-
-            $manager = ImageManager::usingDriver(ImagickDriver::class);
-
-            $image = $manager->decode(fopen($request->file('photo')->getRealPath(), 'rb'));
-
-            logger()->info('Imagen cargada', [
-                'path' => $request->file('photo')->getRealPath(),
-                'width' => $image->width(),
-                'height' => $image->height(),
-                'mime' => $request->file('photo')->getMimeType(),
-            ]);
-
-            $image->encode(new WebpEncoder(quality: 90))
-                ->save($fullPath);
-
-            $data['photo'] = $folder.'/'.$filename;
-
         }
 
 
