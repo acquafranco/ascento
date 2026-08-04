@@ -155,6 +155,10 @@ class ReportController extends Controller
                 $image->encode(new WebpEncoder(quality: 90))
                     ->save($fullPath);
 
+                logger()->info('Imagen guardada correctamente', [
+                    'path' => $fullPath,
+                ]);
+
                 $data['photo'] = $folder.'/'.$filename;
 
             } catch (\Throwable $e) {
@@ -171,6 +175,7 @@ class ReportController extends Controller
         }
 
 
+        logger()->info('Antes de crear reporte');
 
         $report = Report::create([
 
@@ -182,6 +187,10 @@ class ReportController extends Controller
 
         ]);
 
+        logger()->info('Reporte creado correctamente', [
+            'report_id' => $report->id,
+        ]);
+
 
         $report->load('building');
 
@@ -191,15 +200,19 @@ class ReportController extends Controller
             ->get();
 
 
-        foreach ($admins as $admin) {
-
-            Notification::make()
-                ->title('Nuevo reporte recibido')
-                ->body(
-                    'Se creó un reporte en '.$report->building->name
-                )
-                ->sendToDatabase($admin);
-
+        try {
+            foreach ($admins as $admin) {
+                Notification::make()
+                    ->title('Nuevo reporte recibido')
+                    ->body(
+                        'Se creó un reporte en '.$report->building->name
+                    )
+                    ->sendToDatabase($admin);
+            }
+        } catch (\Throwable $e) {
+            logger()->error('Error enviando notificacion de reporte', [
+                'message' => $e->getMessage(),
+            ]);
         }
 
 
