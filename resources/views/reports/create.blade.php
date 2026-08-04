@@ -118,7 +118,6 @@
                         type="file"
                         name="photo"
                         accept="image/*"
-                        capture="environment"
                         class="hidden"
                     >
 

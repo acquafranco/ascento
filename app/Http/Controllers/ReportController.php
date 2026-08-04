@@ -142,10 +142,16 @@ class ReportController extends Controller
 
             $manager = ImageManager::usingDriver(ImagickDriver::class);
 
-            $image = $manager->decode($request->file('photo'))
-                ->orient();
+            $image = $manager->decode(fopen($request->file('photo')->getRealPath(), 'rb'));
 
-            $image->encode(new WebpEncoder(quality: 80))
+            logger()->info('Imagen cargada', [
+                'path' => $request->file('photo')->getRealPath(),
+                'width' => $image->width(),
+                'height' => $image->height(),
+                'mime' => $request->file('photo')->getMimeType(),
+            ]);
+
+            $image->encode(new WebpEncoder(quality: 90))
                 ->save($fullPath);
 
             $data['photo'] = $folder.'/'.$filename;

@@ -17,6 +17,8 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Grid;
 use Illuminate\Support\Facades\Storage;
 
 class ReportResource extends Resource
@@ -42,22 +44,52 @@ class ReportResource extends Resource
     public static function infolist(Schema $schema): Schema
     {
         return $schema->components([
-            ImageEntry::make('photo')
-                ->label('Foto')
-                ->disk('public')
-                ->size(150)
-                ->url(fn ($record) => $record->photo ? Storage::disk('public')->url($record->photo) : null)
-                ->openUrlInNewTab(),
+            Section::make('Información del reporte')
+                ->columns(2)
+                ->schema([
+                    TextEntry::make('created_at')
+                        ->label('Fecha')
+                        ->dateTime('d/m/Y H:i'),
 
-            TextEntry::make('status')
-                ->label('Estado'),
+                    TextEntry::make('status')
+                        ->label('Estado')
+                        ->badge(),
 
-            TextEntry::make('description')
-                ->label('Descripción'),
+                    TextEntry::make('building.client.name')
+                        ->label('Cliente'),
 
-            TextEntry::make('created_at')
-                ->label('Fecha')
-                ->dateTime('d/m/Y H:i'),
+                    TextEntry::make('building.name')
+                        ->label('Edificio'),
+
+                    TextEntry::make('elevator_number')
+                        ->label('Ascensor'),
+
+                    TextEntry::make('user.name')
+                        ->label('Técnico'),
+                ]),
+
+            Section::make('Evidencia fotográfica')
+                ->columns(2)
+                ->schema([
+                    ImageEntry::make('photo')
+                        ->label('Foto')
+                        ->disk('public')
+                        ->url(fn ($record) => $record->photo ? Storage::disk('public')->url($record->photo) : null)
+                        ->openUrlInNewTab(),
+
+                    Grid::make(1)
+                        ->schema([
+                            TextEntry::make('priority')
+                                ->label('Prioridad')
+                                ->badge(),
+                        ]),
+                ]),
+
+            Section::make('Descripción')
+                ->schema([
+                    TextEntry::make('description')
+                        ->hiddenLabel(),
+                ]),
         ]);
     }
 
