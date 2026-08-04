@@ -126,7 +126,7 @@
                         id="photoInput"
                         type="file"
                         name="photo"
-                        accept="image/*"
+                        accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
                         class="hidden"
                     >
 
@@ -287,8 +287,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     photoInput.addEventListener('change', function(){
+        console.log('Foto seleccionada:', this.files);
+        if (this.files.length > 0) {
+            console.log('Nombre:', this.files[0].name);
+            console.log('Tipo:', this.files[0].type);
+            console.log('Tamaño:', this.files[0].size);
+        }
         previewPhoto(this);
     });
+    const reportForm = document.querySelector('form');
+
+    if (reportForm) {
+        reportForm.addEventListener('submit', function(){
+            console.log('Enviando formulario');
+            console.log('Archivo al enviar:', photoInput?.files);
+        });
+    }
 });
 </script>
 
