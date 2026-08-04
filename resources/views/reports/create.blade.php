@@ -54,8 +54,6 @@
         </div>
 
 
-
-
         <div>
             <label class="text-sm font-bold text-gray-700">
                 Equipo
@@ -125,10 +123,13 @@
                     </div>
 
                     <input
+                        id="photoInput"
                         type="file"
                         name="photo"
                         accept="image/*"
+                        class="hidden"
                     >
+
 
                 </label>
 
