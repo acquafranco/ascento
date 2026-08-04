@@ -126,6 +126,11 @@ class ReportController extends Controller
                 ->withInput();
         }
 
+        logger()->info('Archivo recibido', [
+            'name' => $request->file('photo')->getClientOriginalName(),
+            'mime' => $request->file('photo')->getMimeType(),
+            'size' => $request->file('photo')->getSize(),
+        ]);
 
 
         if($request->hasFile('photo')){

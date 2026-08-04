@@ -123,11 +123,9 @@
                     </div>
 
                     <input
-                        id="photoInput"
                         type="file"
                         name="photo"
                         accept="image/*"
-                        class="hidden"
                     >
 
                 </label>
