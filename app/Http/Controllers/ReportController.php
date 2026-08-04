@@ -90,6 +90,20 @@ class ReportController extends Controller
             403
         );
 
+        logger()->info('ENTRO STORE REPORTE', [
+            'has_photo' => $request->hasFile('photo'),
+            'files' => array_keys($request->allFiles()),
+        ]);
+
+        if ($request->hasFile('photo')) {
+            logger()->info('FOTO ANTES VALIDACION', [
+                'name' => $request->file('photo')->getClientOriginalName(),
+                'mime' => $request->file('photo')->getMimeType(),
+                'client_mime' => $request->file('photo')->getClientMimeType(),
+                'size' => $request->file('photo')->getSize(),
+            ]);
+        }
+
         $data = $request->validate([
 
             'building_id'=>'required|exists:buildings,id',
@@ -99,7 +113,6 @@ class ReportController extends Controller
             'photo' => [
                 'required',
                 'file',
-                'mimetypes:image/jpeg,image/png,image/webp,image/heic,image/heif',
                 'max:10240'
             ],
 
@@ -111,7 +124,7 @@ class ReportController extends Controller
             'description.min'=>'La descripción debe tener al menos 5 caracteres.',
             'priority.required'=>'Seleccioná una prioridad.',
             'photo.required'=>'Tenés que adjuntar una imagen.',
-            'photo.mimetypes'=>'La imagen debe ser JPG, PNG o WEBP.',
+            'photo.mimetypes'=>'Formato de imagen no permitido.',
             'photo.max'=>'La imagen no puede superar los 10 MB.',
         ]);
 

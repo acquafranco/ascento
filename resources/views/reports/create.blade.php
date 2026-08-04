@@ -123,11 +123,9 @@
                     </div>
 
                     <input
-                        id="photoInput"
                         type="file"
                         name="photo"
                         accept="image/*"
-                        class="hidden"
                     >
 
                 </label>
@@ -280,10 +278,6 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         photoPreview.src = url;
-    }
-
-    if (!photoInput) {
-        return;
     }
 
     photoInput.addEventListener('change', function(){
