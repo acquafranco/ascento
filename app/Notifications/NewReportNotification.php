@@ -22,6 +22,7 @@ class NewReportNotification extends Notification
     public function toDatabase($notifiable)
     {
         return [
+            'format' => 'filament',
             'title' => 'Nuevo reporte creado',
             'body' => 'Se creó un reporte para ' . $this->report->building->name,
             'report_id' => $this->report->id,
