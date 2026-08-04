@@ -112,7 +112,7 @@ class ReportController extends Controller
             'priority.required'=>'Seleccioná una prioridad.',
             'photo.required'=>'Tenés que adjuntar una imagen.',
             'photo.mimetypes'=>'La imagen debe ser JPG, PNG o WEBP.',
-            'photo.max'=>'La imagen no puede superar los 5 MB.',
+            'photo.max'=>'La imagen no puede superar los 10 MB.',
         ]);
 
         if (!Building::where('id', $data['building_id'])
