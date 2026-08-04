@@ -133,7 +133,7 @@ class ReportController extends Controller
             try {
                 $folder = 'reports/'.$company->id;
 
-                $filename = Str::random(40).'.webp';
+                $filename = Str::random(40).'.jpg';
 
                 $fullPath = storage_path('app/public/'.$folder.'/'.$filename);
 
@@ -152,8 +152,7 @@ class ReportController extends Controller
                     'mime' => $request->file('photo')->getMimeType(),
                 ]);
 
-                $image->encode(new WebpEncoder(quality: 90))
-                    ->save($fullPath);
+                $image->toJpeg(90)->save($fullPath);
 
                 logger()->info('Imagen guardada correctamente', [
                     'path' => $fullPath,
@@ -164,6 +163,8 @@ class ReportController extends Controller
             } catch (\Throwable $e) {
                 logger()->error('Error procesando imagen de reporte', [
                     'message' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
                 ]);
 
                 return back()
