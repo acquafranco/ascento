@@ -14,7 +14,7 @@ use Illuminate\Support\Str;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Imagick\Driver as ImagickDriver;
 use Intervention\Image\Encoders\WebpEncoder;
-
+use Intervention\Image\Encoders\JpegEncoder;
 
 class ReportController extends Controller
 {
@@ -152,7 +152,8 @@ class ReportController extends Controller
                     'mime' => $request->file('photo')->getMimeType(),
                 ]);
 
-                $image->toJpeg(90)->save($fullPath);
+                $image->encode(new \Intervention\Image\Encoders\JpegEncoder(quality: 90))
+                ->save($fullPath);
 
                 logger()->info('Imagen guardada correctamente', [
                     'path' => $fullPath,
