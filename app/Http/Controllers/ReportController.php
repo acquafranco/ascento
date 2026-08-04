@@ -8,7 +8,7 @@ use App\Models\Company;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Filament\Notifications\Notification;
+use App\Notifications\NewReportNotification;
 use App\Models\User;
 use Illuminate\Support\Str;
 use Intervention\Image\ImageManager;
@@ -215,23 +215,37 @@ class ReportController extends Controller
         $report->load('building');
 
 
-        $admins = User::where('company_id', $company->id)
-            ->where('role', 'admin')
+        $admins = User::where('role', 'admin')
+            ->where('company_id', $company->id)
+            ->where('is_super_admin', false)
             ->get();
+
+        logger()->info('Admins encontrados para notificacion', [
+            'cantidad' => $admins->count(),
+            'admins' => $admins->pluck('email'),
+        ]);
 
 
         try {
             foreach ($admins as $admin) {
-                Notification::make()
-                    ->title('Nuevo reporte recibido')
-                    ->body(
-                        'Se creó un reporte en '.$report->building->name
-                    )
-                    ->sendToDatabase($admin);
+                logger()->info('Intentando enviar notificacion de reporte', [
+                    'admin_id' => $admin->id,
+                    'admin_email' => $admin->email,
+                    'report_id' => $report->id,
+                ]);
+
+                $admin->notify(new NewReportNotification($report));
+
+                logger()->info('Notificacion enviada correctamente', [
+                    'admin_id' => $admin->id,
+                    'report_id' => $report->id,
+                ]);
             }
         } catch (\Throwable $e) {
             logger()->error('Error enviando notificacion de reporte', [
                 'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
             ]);
         }
 

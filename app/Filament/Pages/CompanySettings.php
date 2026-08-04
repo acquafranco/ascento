@@ -33,6 +33,7 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
 
  public function mount(): void
 {
+
     $user = Auth::user();
 
     if ($user->isSuperAdmin()) {

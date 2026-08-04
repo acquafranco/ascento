@@ -68,9 +68,10 @@ class AscensoresAppPanelProvider extends PanelProvider
                 for: 'App\\Filament\\Widgets'
             )
 
-            ->widgets([])
 
             ->globalSearch(false)
+
+            ->databaseNotifications()
 
             ->middleware([
                 EncryptCookies::class,
