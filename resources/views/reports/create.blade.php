@@ -54,6 +54,8 @@
         </div>
 
 
+
+
         <div>
             <label class="text-sm font-bold text-gray-700">
                 Equipo
