@@ -164,7 +164,6 @@
     </form>
 
 </div>
-<script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
@@ -284,34 +283,11 @@ document.addEventListener('DOMContentLoaded', () => {
         photoPreview.src = url;
     }
 
-        photoInput.addEventListener('change', async function () {
-        const file = this.files[0];
-        if (!file) return;
-
-        const isHeic = file.type === 'image/heic'
-            || file.type === 'image/heif'
-            || /\.hei[cf]$/i.test(file.name);
-
-        if (isHeic) {
-            try {
-                const converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
-                const jpegFile = new File(
-                    [converted],
-                    file.name.replace(/\.hei[cf]$/i, '.jpg'),
-                    { type: 'image/jpeg' }
-                );
-
-                const dt = new DataTransfer();
-                dt.items.add(jpegFile);
-                photoInput.files = dt.files; // reemplaza el input antes de enviar el form
-            } catch (e) {
-                console.error('No se pudo convertir HEIC', e);
-            }
-        }
-
-        previewPhoto(photoInput);
+    photoInput.addEventListener('change', function(){
+        previewPhoto(this);
     });
-    });
+});
+
 </script>
 
 </x-app-layout>
