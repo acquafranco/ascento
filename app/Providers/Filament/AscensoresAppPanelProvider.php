@@ -73,6 +73,7 @@ class AscensoresAppPanelProvider extends PanelProvider
             ->globalSearch(false)
 
             ->databaseNotifications()
+            ->databaseNotificationsPolling('10s')
 
             ->middleware([
                 EncryptCookies::class,

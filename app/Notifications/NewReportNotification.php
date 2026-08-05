@@ -6,6 +6,8 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 use App\Models\Report;
 
+use Filament\Notifications\Notification as FilamentNotification;
+
 class NewReportNotification extends Notification
 {
     use Queueable;
@@ -26,6 +28,7 @@ class NewReportNotification extends Notification
             'title' => 'Nuevo reporte creado',
             'body' => 'Se creó un reporte para ' . $this->report->building->name,
             'report_id' => $this->report->id,
+            'priority' => $this->report->priority,
         ];
     }
 }
