@@ -189,9 +189,25 @@ class DashboardController extends Controller
         ->count();
 
 
+        /*
+        |--------------------------------------------------------------------------
+        | DASHBOARD COUNTERS
+        |--------------------------------------------------------------------------
+        */
+
+        $dashboardCounters = [
+            'pending' => $pending,
+            'in_progress' => $inProgress,
+            'completed_today' => $completed,
+            'tasks_today' => $tasksToday,
+        ];
+
 
         return view('dashboard', [
 
+            /*
+            | KPIs diarios
+            */
             'tasks_today' => $tasksToday,
 
             'pending' => $pending,
@@ -200,6 +216,9 @@ class DashboardController extends Controller
 
             'completed_today' => $completed,
 
+            /*
+            | Datos informativos
+            */
             'total_buildings' => $totalBuildings,
 
             'total_company_buildings' => $totalCompanyBuildings,
@@ -207,6 +226,8 @@ class DashboardController extends Controller
             'templates' => $templates,
 
             'deliveryNotes' => $deliveryNotes,
+
+            'dashboardCounters' => $dashboardCounters,
 
         ]);
     }
