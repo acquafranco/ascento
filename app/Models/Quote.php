@@ -23,6 +23,7 @@ class Quote extends Model
         'status',
         'priority',
         'public_token',
+        'unit',
     ];
 
     protected static function booted()

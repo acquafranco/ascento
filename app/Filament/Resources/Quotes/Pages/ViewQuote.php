@@ -19,6 +19,7 @@ class ViewQuote extends ViewRecord
                 ->label('Abrir presupuesto')
                 ->icon('heroicon-o-globe-alt')
                 ->url(fn () => route('quotes.public', [
+                    'company' => $this->record->company->slug,
                     'token' => $this->record->public_token,
                 ]))
                 ->openUrlInNewTab(),
@@ -30,6 +31,7 @@ class ViewQuote extends ViewRecord
                 ->url(function () {
 
                     $url = route('quotes.public', [
+                        'company' => $this->record->company->slug,
                         'token' => $this->record->public_token,
                     ]);
 
@@ -60,6 +62,8 @@ class ViewQuote extends ViewRecord
 
                         📋 {$this->record->title}
 
+                        🏢 Ascensor a reparar: {$this->record->unit}
+
                         💰 Importe: {$importe}
 
                         Podés ver el presupuesto completo en el siguiente enlace:
@@ -79,6 +83,7 @@ class ViewQuote extends ViewRecord
                 ->url(function () {
 
                     $url = route('quotes.public', [
+                        'company' => $this->record->company->slug,
                         'token' => $this->record->public_token,
                     ]);
 
@@ -97,6 +102,9 @@ class ViewQuote extends ViewRecord
 
                         Trabajo:
                         {$this->record->title}
+
+                        Ascensor a reparar:
+                        {$this->record->unit}
 
                         Importe:
                         {$importe}

@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Gate;
-
+use App\Models\Company;
 use App\Http\Controllers\{
     DashboardController,
     ProfileController,
@@ -337,24 +337,15 @@ Route::get('/whatsapp/callback', [
 |--------------------------------------------------------------------------
 */
 
-Route::get('/quote/{token}', function($token){
+Route::get('/{company:slug}/quote/{token}', function (Company $company, $token) {
 
-    $quote = \App\Models\Quote::where(
-        'public_token',
-        $token
-    )->firstOrFail();
+    $quote = \App\Models\Quote::where('company_id', $company->id)
+        ->where('public_token', $token)
+        ->firstOrFail();
 
-
-    return view(
-        'quotes.public',
-        compact('quote')
-    );
-
+    return view('quotes.public', compact('quote'));
 
 })->name('quotes.public');
-
-
-
 /*
 |--------------------------------------------------------------------------
 | AUTH

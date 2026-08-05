@@ -17,11 +17,41 @@
     <div class="w-full max-w-2xl bg-white shadow-2xl rounded-2xl overflow-hidden">
 
         {{-- HEADER --}}
-        <div class="bg-gradient-to-r from-slate-900 to-slate-700 text-white p-6">
-            <h1 class="text-2xl font-bold">Presupuesto</h1>
-            <p class="text-slate-300 text-sm mt-1">
-                Detalle del trabajo solicitado
-            </p>
+        <div
+            class="rounded-2xl p-6 text-white shadow-lg"
+            style="
+                background-color: {{ $quote->company?->primary_color ?? '#0f172a' }};
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            "
+        >
+            <div class="flex items-center gap-4">
+
+                @if($quote->company?->logo)
+                    <div class="flex items-center justify-center flex-shrink-0">
+                        <img
+                            src="{{ asset('storage/' . $quote->company->logo) }}"
+                            alt="{{ $quote->company->name }}"
+                            class="w-20 h-20 object-contain"
+                        >
+                    </div>
+                @endif
+
+                <div class="flex-1">
+                    <h1 class="text-2xl font-black leading-tight">
+                        Presupuesto
+                    </h1>
+
+                    <p class="text-white/80 text-sm mt-1">
+                        {{ $quote->company?->name ?? 'Detalle del trabajo solicitado' }}
+                    </p>
+                </div>
+
+                <span class="text-4xl leading-none">
+                    🛗
+                </span>
+
+            </div>
         </div>
 
         {{-- CONTENIDO --}}
@@ -32,6 +62,37 @@
                 <h2 class="text-xl font-semibold text-slate-900">
                     {{ $quote->title }}
                 </h2>
+            </div>
+
+            {{-- DATOS DEL SERVICIO --}}
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+
+                <div class="bg-slate-50 rounded-xl p-4">
+                    <p class="text-xs text-slate-500 uppercase tracking-wider">Cliente</p>
+                    <p class="font-bold text-slate-900 mt-1">
+                        {{ $quote->client?->name ?? 'Sin cliente' }}
+                    </p>
+                </div>
+
+                <div class="bg-slate-50 rounded-xl p-4">
+                    <p class="text-xs text-slate-500 uppercase tracking-wider">Edificio</p>
+                    <p class="font-bold text-slate-900 mt-1">
+                        {{ $quote->building?->name ?? 'Sin edificio' }}
+                    </p>
+                    @if($quote->building?->address)
+                        <p class="text-xs text-slate-500 mt-1">
+                            {{ $quote->building->address }}
+                        </p>
+                    @endif
+                </div>
+
+                <div class="bg-slate-50 rounded-xl p-4">
+                    <p class="text-xs text-slate-500 uppercase tracking-wider">Ascensor a reparar</p>
+                    <p class="font-bold text-slate-900 mt-1">
+                        {{ $quote->unit ?? 'Sin ascensor seleccionado' }}
+                    </p>
+                </div>
+
             </div>
 
             {{-- DESCRIPCIÓN --}}
@@ -126,7 +187,10 @@
                     "📋 Trabajo: {$quote->title}\n".
                     "💰 Total: $" . number_format($quote->amount, 0, ',', '.') . "\n\n".
                     "Podés verlo completo en el siguiente link:\n".
-                    route('quotes.public', ['token' => $quote->public_token]);
+                    route('quotes.public', [
+                        'company' => $quote->company->slug,
+                        'token' => $quote->public_token,
+                    ]);
             @endphp
 
             <a

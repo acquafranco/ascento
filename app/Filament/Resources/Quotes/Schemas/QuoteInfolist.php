@@ -96,6 +96,10 @@ class QuoteInfolist
                                     ->label('Edificio')
                                     ->placeholder('Sin edificio'),
 
+                                TextEntry::make('unit')
+                                    ->label('Ascensor a reparar')
+                                    ->placeholder('Sin ascensor seleccionado'),
+
                                 TextEntry::make('created_at')
                                     ->label('Fecha de creación')
                                     ->dateTime('d/m/Y H:i'),

@@ -24,9 +24,11 @@ return new class extends Migration
 
                 $table->text('description')->nullable();
 
-                $table->decimal('amount', 10, 2)->default(0);
+                $table->decimal('amount', 15, 2)->default(0);
 
                 $table->string('status')->default('pending');
+
+                $table->string('unit')->nullable();
 
                 $table->foreignId('company_id')
                 ->constrained()

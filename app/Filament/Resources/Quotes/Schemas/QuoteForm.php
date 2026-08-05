@@ -10,6 +10,12 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 
+
+use Filament\Forms;
+use App\Models\User;
+use Illuminate\Support\Facades\Auth;
+use App\Models\Building;
+
 class QuoteForm
 {
     public static function configure(Schema $schema): Schema
@@ -41,6 +47,91 @@ class QuoteForm
                             ->preload()
                             ->required()
                             ->label('Edificio'),
+
+                            Select::make('unit')
+                    ->options(function (callable $get) {
+
+                        $buildingId = $get('building_id');
+
+                        if (!$buildingId) {
+                            return [];
+                        }
+
+                        $user = Auth::user();
+
+                        $companyId = $user->isSuperAdmin()
+                            ? session('selected_company_id')
+                            : $user->company_id;
+
+                        $building = Building::query()
+                            ->whereKey($buildingId)
+                            ->where('company_id', $companyId)
+                            ->first();
+
+                        if (!$building) {
+                            return [];
+                        }
+
+                        $options = [];
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | ASCENSORES
+                        |--------------------------------------------------------------------------
+                        */
+
+                        if ($building->elevator_count > 0) {
+
+                            $elevators = [];
+
+                            for (
+                                $i = 1;
+                                $i <= $building->elevator_count;
+                                $i++
+                            ) {
+                                $elevators[
+                                    "Ascensor {$i}"
+                                ] = "Ascensor {$i}";
+                            }
+
+                            $options['🏢 Ascensores'] =
+                                $elevators;
+                        }
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | MONTACARGAS
+                        |--------------------------------------------------------------------------
+                        */
+
+                        if (
+                            $building->freight_elevator_count > 0
+                        ) {
+
+                            $freight = [];
+
+                            for (
+                                $i = 1;
+                                $i <= $building->freight_elevator_count;
+                                $i++
+                            ) {
+                                $freight[
+                                    "Montacargas {$i}"
+                                ] =
+                                    "Montacargas {$i}";
+                            }
+
+                            $options['📦 Montacargas'] =
+                                $freight;
+                        }
+
+                        return $options;
+                    })
+                    ->searchable()
+                    ->placeholder('Elegí edificio primero')
+                    ->required()
+                    ->label('Unidad'),
+
 
                         TextInput::make('title')
                             ->required()

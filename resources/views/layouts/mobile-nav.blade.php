@@ -51,16 +51,18 @@
          class="rounded-3xl border border-black/[0.06] shadow-[0_8px_30px_-8px_rgba(20,23,28,0.22)]">
     <div class="flex items-end justify-between px-2 py-2 w-full">
 
-        <!-- REPORTES -->
-        <a href="{{ route('reports.index', [
-            'company' => auth()->user()->company->slug
-        ]) }}" class="flex flex-1 min-w-0 flex-col items-center justify-center gap-1 text-center group">
+           <!-- EDIFICIOS -->
+        <a href="{{ route('buildings.all', [
+        'company' => auth()->user()->company->slug,
+
+        ]) }}"  class="flex flex-1 min-w-0 flex-col items-center justify-center gap-1 text-center group">
             <svg class="w-6 h-6 group-active:scale-90 transition-all duration-150" style="color:#FF6A1A" viewBox="0 0 24 24" fill="none">
-                <path d="M6 3H14L19 8V21H6V3Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
-                <path d="M14 3V8H19" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
-                <path d="M9 13H16M9 17H16" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+                <path d="M5 21V4A1 1 0 0 1 6 3H14A1 1 0 0 1 15 4V21" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+                <path d="M15 10H18A1 1 0 0 1 19 11V21" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+                <path d="M3 21H21" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+                <path d="M8 7H8.01M11 7H11.01M8 11H8.01M11 11H11.01M8 15H8.01M11 15H11.01" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
             </svg>
-            <div class="text-[11px] font-medium text-[#14171C]/70 whitespace-nowrap">Reportes</div>
+            <div class="text-[11px] font-medium text-[#14171C]/70 whitespace-nowrap">Edificios</div>
         </a>
 
         <!-- TRABAJOS -->
@@ -84,19 +86,19 @@
             </span>
         </a>
 
-        <!-- EDIFICIOS -->
-        <a href="{{ route('buildings.index', [
-        'company' => auth()->user()->company->slug,
-        'date' => now()->format('Y-m-d')
-        ]) }}"  class="flex flex-1 min-w-0 flex-col items-center justify-center gap-1 text-center group">
+
+        <!-- REPORTES -->
+        <a href="{{ route('reports.index', [
+            'company' => auth()->user()->company->slug
+        ]) }}" class="flex flex-1 min-w-0 flex-col items-center justify-center gap-1 text-center group">
             <svg class="w-6 h-6 group-active:scale-90 transition-all duration-150" style="color:#FF6A1A" viewBox="0 0 24 24" fill="none">
-                <path d="M5 21V4A1 1 0 0 1 6 3H14A1 1 0 0 1 15 4V21" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
-                <path d="M15 10H18A1 1 0 0 1 19 11V21" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
-                <path d="M3 21H21" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
-                <path d="M8 7H8.01M11 7H11.01M8 11H8.01M11 11H11.01M8 15H8.01M11 15H11.01" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
+                <path d="M6 3H14L19 8V21H6V3Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+                <path d="M14 3V8H19" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+                <path d="M9 13H16M9 17H16" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
             </svg>
-            <div class="text-[11px] font-medium text-[#14171C]/70 whitespace-nowrap">Edificios</div>
+            <div class="text-[11px] font-medium text-[#14171C]/70 whitespace-nowrap">Reportes</div>
         </a>
+
 
         <!-- BOTÓN MENU -->
         <button

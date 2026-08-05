@@ -137,6 +137,7 @@ class QuotesTable
                         ->label('Abrir presupuesto')
                         ->icon('heroicon-o-globe-alt')
                         ->url(fn ($record) => route('quotes.public', [
+                            'company' => $record->company->slug,
                             'token' => $record->public_token,
                         ]))
                         ->openUrlInNewTab(),
@@ -148,6 +149,7 @@ class QuotesTable
     ->url(function ($record) {
 
         $url = route('quotes.public', [
+            'company' => $record->company->slug,
             'token' => $record->public_token,
         ]);
 
@@ -199,6 +201,7 @@ Muchas gracias.";
             ->url(function ($record) {
 
                 $url = route('quotes.public', [
+                    'company' => $record->company->slug,
                     'token' => $record->public_token,
                 ]);
 
