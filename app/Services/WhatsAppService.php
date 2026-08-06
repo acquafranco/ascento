@@ -169,7 +169,50 @@ class WhatsAppService
             'Tomar trabajo'
         );
     }
+    public function sendFinishWorkOrderButton(WorkOrder $workOrder, string $phone): bool
+    {
+        $company = $workOrder->company;
 
+        if (! $company || ! $company->whatsapp_connected) {
+            return false;
+        }
+
+        $message =
+            "✅ Trabajo en proceso\n\n" .
+            "Edificio: {$workOrder->building->name}\n" .
+            "Dirección: {$workOrder->building->address}\n" .
+            "Unidad: {$workOrder->unit}\n\n" .
+            "Cuando termines el trabajo presioná el botón.";
+
+        return $this->sendInteractiveButton(
+            $company,
+            $phone,
+            $message,
+            'finish_work_order_' . $workOrder->id,
+            'Finalizar trabajo'
+        );
+    }
+    public function sendFinishWorkOrderLink(WorkOrder $workOrder, string $phone): bool
+    {
+        $company = $workOrder->company;
+
+        if (! $company || ! $company->whatsapp_connected) {
+            return false;
+        }
+
+        $url = route('delivery-notes.work-order', $workOrder);
+
+        $message =
+            "✅ Ya podés finalizar el trabajo.\n\n" .
+            "Abrí el siguiente enlace para completar el remito:\n\n" .
+            $url;
+
+        return $this->send(
+            $company,
+            $phone,
+            $message
+        );
+    }
     public function sendWorkOrder(WorkOrder $workOrder, string $phone): bool
     {
         $company = $workOrder->company;

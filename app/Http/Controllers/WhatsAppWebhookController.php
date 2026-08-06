@@ -5,13 +5,15 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Services\WorkOrderService;
+use App\Services\WhatsAppService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class WhatsAppWebhookController extends Controller
 {
     public function __construct(
-        private WorkOrderService $workOrderService
+        private WorkOrderService $workOrderService,
+        private WhatsAppService $whatsAppService
     ) {
     }
 
@@ -125,7 +127,41 @@ class WhatsAppWebhookController extends Controller
             $technician
         );
 
+        $this->whatsAppService->sendFinishWorkOrderButton(
+            $workOrder,
+            $technician->phone
+        );
+
+
         Log::info('ORDEN PASADA A EN PROCESO', [
+            'work_order_id' => $workOrder->id,
+            'technician_id' => $technician->id,
+        ]);
+    }
+
+    if (str_starts_with($buttonId, 'finish_work_order_')) {
+
+        $workOrderId = str_replace(
+            'finish_work_order_',
+            '',
+            $buttonId
+        );
+
+        $technician = User::where('phone', $phone)->first();
+        $workOrder = WorkOrder::find($workOrderId);
+
+        if (! $technician || ! $workOrder) {
+            return response()->json([
+                'status' => 'missing_data'
+            ]);
+        }
+
+        $this->whatsAppService->sendFinishWorkOrderLink(
+            $workOrder,
+            $technician->phone
+        );
+
+        Log::info('LINK DE REMITO ENVIADO', [
             'work_order_id' => $workOrder->id,
             'technician_id' => $technician->id,
         ]);
