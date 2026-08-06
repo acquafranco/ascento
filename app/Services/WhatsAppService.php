@@ -200,7 +200,11 @@ class WhatsAppService
             return false;
         }
 
-        $url = route('delivery-notes.work-order', $workOrder);
+        $url = url(sprintf(
+            '/%s/delivery-notes/create/work-order/%d',
+            $company->slug,
+            $workOrder->id,
+        ));
 
         $message =
             "✅ Ya podés finalizar el trabajo.\n\n" .
