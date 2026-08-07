@@ -180,12 +180,15 @@ class WhatsAppWebhookController extends Controller
             ]);
         }
 
-        $link = $this->workOrderService->requestCompletion(
+        $this->whatsAppService->sendFinishWorkOrderLink(
             $workOrder,
-            $technician
+            $technician->phone
         );
 
-        return redirect()->away($link['url']);
+        Log::info('LINK DE REMITO ENVIADO', [
+            'work_order_id' => $workOrder->id,
+            'technician_id' => $technician->id,
+        ]);
     }
 
     return response()->json([
