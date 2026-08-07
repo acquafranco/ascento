@@ -387,10 +387,8 @@ class DeliveryNoteController extends Controller
             'notes' => $workOrder->notes,
         ]);
 
-        $participants = $request->participants ?? [auth()->id()];
-
         $visit->participants()->syncWithPivotValues(
-            $participants,
+            [auth()->id()],
             ['role' => 'participant']
         );
 
