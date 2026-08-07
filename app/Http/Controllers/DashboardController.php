@@ -60,19 +60,8 @@ class DashboardController extends Controller
         */
 
 
-        $tasksToday =
-            BuildingVisit::where(function ($q) use ($user) {
-                $q->whereHas('participants', function ($query) use ($user) {
-                    $query->where('users.id', $user->id);
-                })
-                ->orWhere(function ($old) use ($user) {
-                    $old->whereDoesntHave('participants')
-                        ->where('user_id', $user->id);
-                });
-            })
-            ->whereDate('visited_at', today())
-            ->where('status', 'done')
-            ->count();
+        $tasksToday = 999;
+
 
 
 
