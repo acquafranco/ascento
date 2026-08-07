@@ -20,7 +20,7 @@
 
   <form
     method="GET"
-    class="mb-6 flex flex-wrap items-end gap-3"
+    class="mb-6 flex flex-nowrap items-end gap-2 overflow-x-auto"
     id="filters-form"
 >
 
@@ -32,7 +32,7 @@
 
     <select
         name="day"
-        class="h-11 rounded-xl border-gray-300 px-3 filter-select"
+        class="h-11 rounded-xl border-gray-300 px-8 filter-select"
     >
         <option value="">Día</option>
 
@@ -86,9 +86,12 @@
             'company' => auth()->user()->company->slug,
             'status' => request('status')
         ]) }}"
-        class="h-11 px-4 rounded-xl bg-gray-200 text-gray-700 font-medium flex items-center hover:bg-gray-300"
+        title="Limpiar filtros"
+        class="h-11 w-20 shrink-0 rounded-xl bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 transition shadow-sm"
     >
-        Limpiar
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
     </a>
 
 </form>
@@ -282,6 +285,7 @@
                             ]) }}"
                             x-data="{ loading:false }"
                             @click="loading=true"
+                            @pageshow.window="loading=false"
                             :class="{ 'pointer-events-none opacity-70': loading }"
                             class="bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-2xl font-bold text-center transition"
                         >

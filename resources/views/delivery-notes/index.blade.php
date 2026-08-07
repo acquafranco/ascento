@@ -24,14 +24,14 @@
 
 </div>
 
-<form method="GET" class="mb-6 flex flex-wrap gap-3">
+<form method="GET" class="mb-6 flex flex-wrap items-center gap-2">
 
     <select
         name="day"
         onchange="this.form.submit()"
-        class="rounded-xl border-gray-300"
+        class="w-20 rounded-xl border-gray-300 text-sm px-2"
     >
-        <option value="">Todos los días</option>
+        <option value="">Día</option>
 
         @for($d=1;$d<=31;$d++)
             <option
@@ -47,10 +47,10 @@
     <select
         name="month"
         onchange="this.form.submit()"
-        class="rounded-xl border-gray-300"
+        class="w-20 rounded-xl border-gray-300 text-sm px-2"
     >
 
-        <option value="">Todos los meses</option>
+        <option value="">Mes</option>
 
         @for($m=1;$m<=12;$m++)
             <option
@@ -66,10 +66,10 @@
     <select
         name="year"
         onchange="this.form.submit()"
-        class="rounded-xl border-gray-300"
+        class="w-20 rounded-xl border-gray-300 text-sm px-2"
     >
 
-        <option value="">Todos los años</option>
+        <option value="">Año</option>
 
         @for($y=now()->year-3;$y<=now()->year+1;$y++)
             <option
@@ -82,13 +82,17 @@
 
     </select>
 
-    <a
+      <a
         href="{{ route('delivery-notes.index', [
-            'company' => auth()->user()->company->slug
+            'company' => auth()->user()->company->slug,
+            'status' => request('status')
         ]) }}"
-        class="px-4 py-2 rounded-xl bg-gray-200 hover:bg-gray-300"
+        title="Limpiar filtros"
+        class="h-10 w-20 rounded-xl bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 transition shadow-sm shrink-0"
     >
-        Limpiar
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
     </a>
 
 </form>
