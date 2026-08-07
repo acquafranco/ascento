@@ -61,15 +61,26 @@ class WorkOrderService
     {
         $finishedAt = now();
 
-        DB::transaction(function () use ($workOrder, $finishedAt) {
+        DB::transaction(function () use ($workOrder, $user, $finishedAt) {
+            $workOrder->load('participants');
+
+            $participants = $workOrder->participants;
+
+            // Si hay más de un participante, no se completa hasta que todos confirmen.
+            if ($participants->count() > 1) {
+                return;
+            }
+
             $workOrder->update([
                 'status' => 'completed',
                 'finished_at' => $finishedAt,
             ]);
 
-            $workOrder->load('participants');
+            foreach ($participants as $technician) {
+                if ($technician->id !== $user->id) {
+                    continue;
+                }
 
-            foreach ($workOrder->participants as $technician) {
                 BuildingVisit::firstOrCreate([
                     'company_id' => $workOrder->company_id,
                     'work_order_id' => $workOrder->id,
