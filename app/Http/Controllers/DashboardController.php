@@ -60,43 +60,19 @@ class DashboardController extends Controller
         */
 
 
-        $tasksToday =
-            BuildingVisit::whereHas('participants', function ($query) use ($user) {
-
-                $query->where(
-                    'users.id',
-                    $user->id
-                );
-
+        $tasksToday = BuildingVisit::where(function ($q) use ($user) {
+            $q->whereHas('participants', function ($query) use ($user) {
+                $query->where('users.id', $user->id);
             })
-            ->whereDate('visited_at', today())
-            ->where('status', 'done')
-            ->count()
-            +
-            WorkOrder::where(function ($q) use ($user) {
-
-                $q->whereHas('participants', function ($query) use ($user) {
-
-                    $query->where(
-                        'users.id',
-                        $user->id
-                    );
-
-                })
-                ->orWhereHas('users', function ($query) use ($user) {
-
-                    $query->where(
-                        'users.id',
-                        $user->id
-                    );
-
-                });
-
-            })
-            ->whereDate('finished_at', today())
-            ->where('status', 'completed')
-            ->count();
-
+            ->orWhere(function ($old) use ($user) {
+                $old->whereDoesntHave('participants')
+                    ->where('user_id', $user->id);
+            });
+        })
+        ->whereDate('visited_at', today())
+        ->where('status', 'done')
+        ->whereIn('visit_type', ['maintenance', 'inspection'])
+        ->count();
 
 
         $pending = (clone $workOrdersBase)
