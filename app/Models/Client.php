@@ -20,7 +20,7 @@ class Client extends Model
         'is_active'
     ];
 
-//sefwfwf
+
     public function buildings(): HasMany
     {
         return $this->hasMany(Building::class);
