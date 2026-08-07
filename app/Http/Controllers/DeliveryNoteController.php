@@ -146,8 +146,8 @@ class DeliveryNoteController extends Controller
             abort(403, 'Este remito pertenece a otro técnico.');
         }
 
-        // El técnico debe seguir siendo participante de la orden.
-        if (!$workOrder->participants()->whereKey($user->id)->exists()) {
+        // El técnico debe seguir estando asignado a la orden.
+        if (!$workOrder->users()->whereKey($user->id)->exists()) {
             abort(403, 'Ya no estás autorizado para finalizar esta orden.');
         }
 
@@ -224,8 +224,8 @@ class DeliveryNoteController extends Controller
                 }
             }
 
-            // Solo un participante actual puede crear el remito.
-            if (!$workOrder->participants()->whereKey(auth()->id())->exists()) {
+            // Solo el técnico asignado al trabajo y vinculado al enlace puede crear el remito.
+            if (!$workOrder->users()->whereKey(auth()->id())->exists()) {
                 abort(403, 'No estás autorizado para finalizar esta orden.');
             }
 
