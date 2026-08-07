@@ -72,7 +72,7 @@
                 </span>
 
                 <div class="text-sm text-white font-medium">
-                    En curso
+                    En progreso
                 </div>
 
                 <div class="text-4xl font-semibold tracking-tight text-white">

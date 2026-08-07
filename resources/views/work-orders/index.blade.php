@@ -115,7 +115,7 @@
         class="py-3 rounded-xl bg-yellow-100 hover:bg-yellow-200 text-yellow-800 text-center text-xs sm:text-sm font-semibold"
     >
         🟡<br>
-        En progreso
+        En curso
     </a>
 
     <a
