@@ -29,7 +29,7 @@ class SuperAdminSeeder extends Seeder
 
             'is_super_admin' => true,
 
-            'company_id' => 1,
+            'company_id' => null,
 
         ]
 
