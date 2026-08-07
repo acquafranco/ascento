@@ -48,6 +48,10 @@ class WorkOrderService
             abort(403);
         }
 
+        if ($workOrder->status !== 'in_progress') {
+            abort(409, 'Esta orden ya no puede finalizarse.');
+        }
+
         return [
             'url' => route('delivery-notes.work-order', $workOrder),
         ];
@@ -62,6 +66,15 @@ class WorkOrderService
         $finishedAt = now();
 
         DB::transaction(function () use ($workOrder, $user, $finishedAt) {
+            $workOrder = WorkOrder::lockForUpdate()
+                ->where('id', $workOrder->id)
+                ->where('company_id', $user->company_id)
+                ->firstOrFail();
+
+            if ($workOrder->status !== 'in_progress') {
+                return;
+            }
+
             $workOrder->load('participants');
 
             $participants = $workOrder->participants;

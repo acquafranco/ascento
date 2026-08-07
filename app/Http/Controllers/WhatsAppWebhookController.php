@@ -122,6 +122,18 @@ class WhatsAppWebhookController extends Controller
             ]);
         }
 
+        if ($workOrder->status !== 'pending') {
+            Log::warning('Botón de tomar ignorado: orden ya procesada', [
+                'work_order_id' => $workOrder->id,
+                'status' => $workOrder->status,
+            ]);
+
+            return response()->json([
+                'status' => 'ignored',
+                'reason' => 'work_order_not_pending',
+            ]);
+        }
+
         $this->workOrderService->start(
             $workOrder,
             $technician
@@ -156,15 +168,24 @@ class WhatsAppWebhookController extends Controller
             ]);
         }
 
-        $this->whatsAppService->sendFinishWorkOrderLink(
+        if ($workOrder->status !== 'in_progress') {
+            Log::warning('Botón de finalizar ignorado: orden fuera de estado', [
+                'work_order_id' => $workOrder->id,
+                'status' => $workOrder->status,
+            ]);
+
+            return response()->json([
+                'status' => 'ignored',
+                'reason' => 'work_order_not_in_progress',
+            ]);
+        }
+
+        $link = $this->workOrderService->requestCompletion(
             $workOrder,
-            $technician->phone
+            $technician
         );
 
-        Log::info('LINK DE REMITO ENVIADO', [
-            'work_order_id' => $workOrder->id,
-            'technician_id' => $technician->id,
-        ]);
+        return redirect()->away($link['url']);
     }
 
     return response()->json([
