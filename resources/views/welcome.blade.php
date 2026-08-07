@@ -474,8 +474,8 @@
     {{-- ============ FOOTER ============ --}}
     <footer class="bg-graphite text-white/60 border-t border-white/10">
         <div class="mx-auto max-w-7xl px-5 sm:px-8 py-14">
-            <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-10">
-                <div>
+            <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-10">
+                <div class="lg:col-span-2">
                     <div class="flex items-center gap-2.5">
                         <img src="{{ asset('images/logo.png') }}" alt="Ascento" class="rounded-md h-7 w-7 object-contain">
                     </div>
@@ -491,16 +491,21 @@
                     </ul>
                 </div>
                 <div>
+                    <div class="text-xs font-semibold text-white/40 uppercase tracking-wide">Legal</div>
+                    <ul class="mt-4 space-y-2.5 text-sm">
+                        <li><a href="{{ Route::has('legal.terms') ? route('legal.terms') : '/legal/terminos' }}" class="hover:text-white transition-colors">Términos y Condiciones</a></li>
+                        <li><a href="{{ Route::has('legal.privacy') ? route('legal.privacy') : '/legal/privacidad' }}" class="hover:text-white transition-colors">Política de Privacidad</a></li>
+                        <li><a href="{{ Route::has('legal.data-deletion') ? route('legal.data-deletion') : '/legal/eliminacion-de-datos' }}" class="hover:text-white transition-colors">Eliminación de Datos</a></li>
+                    </ul>
+                </div>
+                <div>
                     <div class="text-xs font-semibold text-white/40 uppercase tracking-wide">Contacto</div>
                     <ul class="mt-4 space-y-2.5 text-sm">
                         <li><a href="mailto:hola@ascento.com" class="hover:text-white transition-colors">contacto@ascento.com</a></li>
                         <li><a href="tel:+541100000000" class="hover:text-white transition-colors">+54 11 0000-0000</a></li>
                         <li>Buenos Aires, Argentina</li>
                     </ul>
-                </div>
-                <div>
-                    <div class="text-xs font-semibold text-white/40 uppercase tracking-wide">Seguinos</div>
-                    <div class="mt-4 flex gap-3">
+                    <div class="mt-5 flex gap-3">
                         <a href="#" aria-label="LinkedIn" class="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 hover:bg-white/10 transition-colors">
                             <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 5H4.2V14H2V5ZM3.1 1.5C3.85 1.5 4.4 2.05 4.4 2.75C4.4 3.45 3.85 4 3.1 4C2.4 4 1.85 3.45 1.85 2.75C1.85 2.05 2.4 1.5 3.1 1.5ZM6.2 5H8.3V6.1C8.6 5.5 9.4 4.85 10.6 4.85C13 4.85 13.5 6.4 13.5 8.45V14H11.3V8.9C11.3 7.8 11 7.05 10 7.05C9.05 7.05 8.5 7.7 8.5 8.9V14H6.2V5Z" fill="currentColor"/></svg>
                         </a>

@@ -30,54 +30,60 @@
         value="{{ request('status') }}"
     >
 
-    <select
+   <select
         name="day"
-        class="h-11 rounded-xl border-gray-300 px-8 filter-select"
+        onchange="this.form.submit()"
+        class="w-20 rounded-xl border-gray-300 text-sm px-2"
     >
         <option value="">Día</option>
 
-        @foreach(range(1,31) as $day)
+        @for($d=1;$d<=31;$d++)
             <option
-                value="{{ $day }}"
-                @selected(request('day') == $day)
+                value="{{ $d }}"
+                @selected(request('day')==$d)
             >
-                {{ $day }}
+                {{ $d }}
             </option>
-        @endforeach
-    </select>
+        @endfor
 
+    </select>
 
     <select
         name="month"
-        class="h-11 rounded-xl border-gray-300 px-3 filter-select"
+        onchange="this.form.submit()"
+        class="w-20 rounded-xl border-gray-300 text-sm px-2"
     >
+
         <option value="">Mes</option>
 
-        @foreach(range(1,12) as $month)
+        @for($m=1;$m<=12;$m++)
             <option
-                value="{{ $month }}"
-                @selected(request('month') == $month)
+                value="{{ $m }}"
+                @selected(request('month')==$m)
             >
-                {{ \Carbon\Carbon::create()->month($month)->translatedFormat('F') }}
+                {{ \Carbon\Carbon::create()->month($m)->translatedFormat('F') }}
             </option>
-        @endforeach
-    </select>
+        @endfor
 
+    </select>
 
     <select
         name="year"
-        class="h-11 rounded-xl border-gray-300 px-5 filter-select"
+        onchange="this.form.submit()"
+        class="w-20 rounded-xl border-gray-300 text-sm px-2"
     >
+
         <option value="">Año</option>
 
-        @foreach(range(now()->year - 3, now()->year + 1) as $year)
+        @for($y=now()->year-3;$y<=now()->year+1;$y++)
             <option
-                value="{{ $year }}"
-                @selected(request('year') == $year)
+                value="{{ $y }}"
+                @selected(request('year')==$y)
             >
-                {{ $year }}
+                {{ $y }}
             </option>
-        @endforeach
+        @endfor
+
     </select>
 
 
