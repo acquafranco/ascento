@@ -46,7 +46,7 @@
             style="background-color:#12151C; border: 2px solid #FF6A1A;">
 
                 <span class="flex h-8 w-8 items-center justify-center rounded-lg mb-2" style="color:#FF6A1A;">
-                    <svg class="w-[16px] h-[16px]" viewBox="0 0 24 24" fill="none"><path d="M12 6V12L16 14M20 12A8 8 0 1 1 4 12A8 8 0 0 1 20 12Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <svg class="w-[22px] h-[22px]" viewBox="0 0 24 24" fill="none"><path d="M12 6V12L16 14M20 12A8 8 0 1 1 4 12A8 8 0 0 1 20 12Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </span>
 
                 <div class="text-sm text-white font-medium">
@@ -68,7 +68,7 @@
             class="card-dashboard top-right shadow-[0_4px_16px_-6px_rgba(20,23,28,0.35)] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 flex flex-col items-center justify-center py-5" style="background-color:#12151C; border: 2px solid #FF6A1A;">
 
                 <span class="flex h-8 w-8 items-center justify-center rounded-lg mb-2" style="color:#FF6A1A;">
-                    <svg class="w-[16px] h-[16px]" viewBox="0 0 24 24" fill="none"><path d="M12 4V6M12 18V20M4 12H6M18 12H20M6.3 6.3L7.8 7.8M16.2 16.2L17.7 17.7M6.3 17.7L7.8 16.2M16.2 7.8L17.7 6.3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+                    <svg class="w-[22px] h-[22px]" viewBox="0 0 24 24" fill="none"><path d="M12 4V6M12 18V20M4 12H6M18 12H20M6.3 6.3L7.8 7.8M16.2 16.2L17.7 17.7M6.3 17.7L7.8 16.2M16.2 7.8L17.7 6.3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
                 </span>
 
                 <div class="text-sm text-white font-medium">
@@ -90,7 +90,7 @@
             class="shadow-[0_4px_16px_-6px_rgba(20,23,28,0.35)] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 flex flex-col items-center justify-center py-5" style="background-color:#12151C; border: 2px solid #FF6A1A;">
 
                 <span class="flex h-8 w-8 items-center justify-center rounded-lg mb-2" style="color:#FF6A1A;">
-                    <svg class="w-[16px] h-[16px]" viewBox="0 0 24 24" fill="none"><path d="M4 12L9.5 17.5L20 6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <svg class="w-[22px] h-[22px]" viewBox="0 0 24 24" fill="none"><path d="M4 12L9.5 17.5L20 6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </span>
 
                 <div class="text-sm text-white font-medium">
@@ -111,7 +111,7 @@
             class="shadow-[0_4px_16px_-6px_rgba(20,23,28,0.35)] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 flex flex-col items-center justify-center py-5" style="background-color:#12151C; border: 2px solid #FF6A1A;">
 
                 <span class="flex h-8 w-8 items-center justify-center rounded-lg mb-2" style="color:#FF6A1A;">
-                    <svg class="w-[16px] h-[16px]" viewBox="0 0 24 24" fill="none"><path d="M12 21C12 21 5 14.5 5 9.5A7 7 0 0 1 19 9.5C19 14.5 12 21 12 21ZM9.5 9.5A2.5 2.5 0 1 0 14.5 9.5A2.5 2.5 0 0 0 9.5 9.5Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <svg class="w-[22px] h-[22px]" viewBox="0 0 24 24" fill="none"><path d="M12 21C12 21 5 14.5 5 9.5A7 7 0 0 1 19 9.5C19 14.5 12 21 12 21ZM9.5 9.5A2.5 2.5 0 1 0 14.5 9.5A2.5 2.5 0 0 0 9.5 9.5Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </span>
 
                 <div class="text-sm text-white font-medium">
@@ -134,7 +134,7 @@
             class="bottom-left card-dashboard shadow-[0_4px_16px_-6px_rgba(20,23,28,0.35)] hover:-translate-y-0.5 active:scale-[0.98] hover:brightness-110 transition-all duration-200 flex flex-col items-center justify-center py-5" style="background:linear-gradient(180deg,#FF7A1A 0%,#FF6A1A 100%); border:2px solid #FF8F3A;">
 
                 <span class="flex h-8 w-8 items-center justify-center rounded-lg mb-2 drop-shadow-sm" style="color:#FFFFFF;">
-                    <svg class="w-[16px] h-[16px]" viewBox="0 0 24 24" fill="none"><path d="M6 3H14L18 7V21H6V3ZM14 3V7H18M9 12H15M9 16H15" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <svg class="w-[22px] h-[22px]" viewBox="0 0 24 24" fill="none"><path d="M6 3H14L18 7V21H6V3ZM14 3V7H18M9 12H15M9 16H15" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </span>
 
                 <div class="text-sm text-white font-semibold">
@@ -153,7 +153,7 @@
             style="background:linear-gradient(180deg,#FF7A1A 0%,#FF6A1A 100%); border:2px solid #FF8F3A;">
 
                 <span class="flex h-8 w-8 items-center justify-center rounded-lg drop-shadow-sm" style="color:#FFFFFF;">
-                    <svg class="w-[16px] w-[16px]" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M3 9H21" stroke="currentColor" stroke-width="1.7"/></svg>
+                    <svg class="w-[22px] h-[22px]" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M3 9H21" stroke="currentColor" stroke-width="1.7"/></svg>
                 </span>
 
                 <div class="mt-2 text-sm font-semibold text-white">
