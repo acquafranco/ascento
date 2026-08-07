@@ -344,11 +344,6 @@ class DeliveryNoteController extends Controller
 
         $finishedAt = now();
 
-        $workOrder->update([
-            'status' => 'completed',
-            'finished_at' => $finishedAt,
-        ]);
-
         $participants = $request->participants ?? [auth()->id()];
 
         $workOrder->participants()->syncWithPivotValues(
@@ -360,6 +355,15 @@ class DeliveryNoteController extends Controller
             auth()->id(),
             ['role' => 'creator']
         );
+
+        // No completar la orden automáticamente si hay participantes pendientes.
+        // La orden debe quedar en progreso hasta que todos confirmen.
+        if ($workOrder->participants()->count() <= 1) {
+            $workOrder->update([
+                'status' => 'completed',
+                'finished_at' => $finishedAt,
+            ]);
+        }
 
         $visit = BuildingVisit::create([
             'company_id' => $workOrder->company_id,
