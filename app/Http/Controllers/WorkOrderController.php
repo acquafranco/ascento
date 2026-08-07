@@ -50,8 +50,16 @@ class WorkOrderController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $query->whereHas('participants', function ($query) use ($user) {
-            $query->where('users.id', $user->id);
+        $query->where(function ($q) use ($user, $request) {
+            if ($request->status === 'completed') {
+                $q->whereHas('participants', function ($query) use ($user) {
+                    $query->where('users.id', $user->id);
+                });
+            } else {
+                $q->whereHas('users', function ($query) use ($user) {
+                    $query->where('users.id', $user->id);
+                });
+            }
         });
 
         /*
