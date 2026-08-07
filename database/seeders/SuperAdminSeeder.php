@@ -14,6 +14,7 @@ class SuperAdminSeeder extends Seeder
      */
     public function run(): void
     {
+        dd('SuperAdminSeeder');
         User::updateOrCreate(
 
         ['email' => 'franco@ascento.online'],
