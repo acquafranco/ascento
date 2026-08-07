@@ -131,8 +131,20 @@ class DeliveryNoteController extends Controller
 
     public function createFromWorkOrder(Request $request, $company, WorkOrder $workOrder)
     {
-        if ($workOrder->company_id !== auth()->user()->company_id) {
+        $user = auth()->user();
+
+        if ($workOrder->company_id !== $user->company_id) {
             abort(404);
+        }
+
+        // Solo un técnico que actualmente participa puede abrir el remito.
+        if (!$user->isAdmin() && !$workOrder->participants()->whereKey($user->id)->exists()) {
+            abort(403, 'No estás autorizado para finalizar esta orden.');
+        }
+
+        // Una orden de trabajo solo puede tener un remito.
+        if ($workOrder->deliveryNote()->exists()) {
+            abort(409, 'Esta orden de trabajo ya tiene un remito.');
         }
 
         return view(
@@ -178,6 +190,30 @@ class DeliveryNoteController extends Controller
     );
 
     return DB::transaction(function () use ($request) {
+
+        $workOrder = null;
+
+        if ($request->filled('work_order_id')) {
+            $workOrder = WorkOrder::where('company_id', auth()->user()->company_id)
+                ->where('id', $request->work_order_id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            // Solo un participante actual puede crear el remito.
+            if (!auth()->user()->isAdmin() && !$workOrder->participants()->whereKey(auth()->id())->exists()) {
+                abort(403, 'No estás autorizado para finalizar esta orden.');
+            }
+
+            // Una orden no puede tener más de un remito.
+            if ($workOrder->deliveryNote()->exists()) {
+                abort(409, 'Esta orden de trabajo ya tiene un remito.');
+            }
+
+            // El remito solo puede crearse mientras la orden está en progreso.
+            if ($workOrder->status !== 'in_progress') {
+                abort(409, 'Esta orden de trabajo ya no está en progreso.');
+            }
+        }
 
         $building = Building::where('company_id', auth()->user()->company_id)
             ->where('id', $request->building_id)
@@ -338,10 +374,6 @@ class DeliveryNoteController extends Controller
 
 
     if ($request->filled('work_order_id')) {
-        $workOrder = WorkOrder::where('company_id', auth()->user()->company_id)
-            ->where('id', $request->work_order_id)
-            ->firstOrFail();
-
         $finishedAt = now();
 
         // Guardamos los participantes originales antes de modificar la relación.
