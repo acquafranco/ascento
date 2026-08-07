@@ -137,14 +137,28 @@ class DeliveryNoteController extends Controller
             abort(404);
         }
 
-        // Solo un técnico que actualmente participa puede abrir el remito.
-        if (!$user->isAdmin() && !$workOrder->participants()->whereKey($user->id)->exists()) {
-            abort(403, 'No estás autorizado para finalizar esta orden.');
+        // El enlace de WhatsApp está firmado y vinculado al técnico que lo recibió.
+        if (!$request->hasValidSignature()) {
+            abort(403, 'Este enlace de remito no es válido.');
+        }
+
+        if ((int) $request->query('technician') !== (int) $user->id) {
+            abort(403, 'Este remito pertenece a otro técnico.');
+        }
+
+        // El técnico debe seguir siendo participante de la orden.
+        if (!$workOrder->participants()->whereKey($user->id)->exists()) {
+            abort(403, 'Ya no estás autorizado para finalizar esta orden.');
         }
 
         // Una orden de trabajo solo puede tener un remito.
         if ($workOrder->deliveryNote()->exists()) {
             abort(409, 'Esta orden de trabajo ya tiene un remito.');
+        }
+
+        // El remito solo puede abrirse mientras la orden está en progreso.
+        if ($workOrder->status !== 'in_progress') {
+            abort(409, 'Esta orden de trabajo ya no está en progreso.');
         }
 
         return view(
@@ -199,8 +213,19 @@ class DeliveryNoteController extends Controller
                 ->lockForUpdate()
                 ->firstOrFail();
 
+            // Si el formulario viene de un enlace firmado, debe pertenecer al usuario actual.
+            if ($request->has('technician')) {
+                if (!$request->hasValidSignature()) {
+                    abort(403, 'Este enlace de remito no es válido.');
+                }
+
+                if ((int) $request->input('technician') !== (int) auth()->id()) {
+                    abort(403, 'Este remito pertenece a otro técnico.');
+                }
+            }
+
             // Solo un participante actual puede crear el remito.
-            if (!auth()->user()->isAdmin() && !$workOrder->participants()->whereKey(auth()->id())->exists()) {
+            if (!$workOrder->participants()->whereKey(auth()->id())->exists()) {
                 abort(403, 'No estás autorizado para finalizar esta orden.');
             }
 
