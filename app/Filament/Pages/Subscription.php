@@ -46,13 +46,13 @@ class Subscription extends Page
             (string) $plan->getKey()
         );
 
-        if ($response instanceof \Symfony\Component\HttpFoundation\RedirectResponse) {
-            $this->redirect($response->getTargetUrl(), navigate: false);
+        if (is_string($response)) {
+            $this->redirect($response, navigate: false);
             return;
         }
 
-        if (is_string($response)) {
-            $this->redirect($response, navigate: false);
+        if ($response instanceof \Symfony\Component\HttpFoundation\RedirectResponse) {
+            $this->redirect($response->getTargetUrl(), navigate: false);
             return;
         }
 
