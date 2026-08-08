@@ -347,44 +347,85 @@
                     <h2 class="mt-3 font-display font-semibold text-3xl sm:text-4xl tracking-tight">Un plan para cada tamaño de empresa.</h2>
                 </div>
 
+                @php
+                    $plans = \App\Models\SubscriptionPlan::query()
+                        ->where('is_active', true)
+                        ->orderBy('price', 'asc')
+                        ->get();
+
+                    $planFeatures = [
+                        [
+                            'Hasta 15 edificios',
+                            '3 técnicos incluidos',
+                            'Órdenes y remitos digitales',
+                        ],
+                        [
+                            'Edificios ilimitados',
+                            '10 técnicos incluidos',
+                            'Inspecciones y reclamos',
+                            'Soporte prioritario',
+                        ],
+                        [
+                            'Técnicos ilimitados',
+                            'Integraciones a medida',
+                            'Onboarding acompañado',
+                        ],
+                    ];
+                @endphp
+
                 <div class="mt-14 grid lg:grid-cols-3 gap-6 items-stretch">
-                    <div data-reveal class="rounded-2xl border border-ink/10 bg-paper p-8 flex flex-col">
-                        <h3 class="font-display font-semibold text-lg">Plan Inicial</h3>
-                        <p class="mt-1.5 text-sm text-ink/55">Ideal para empresas pequeñas que están dando sus primeros pasos.</p>
-                        <div class="mt-6 font-display text-3xl font-semibold">Desde $100.000<span class="text-base font-medium text-ink/40">/mes</span></div>
-                        <ul class="mt-6 space-y-2.5 text-sm text-ink/65 flex-1">
-                            <li class="flex gap-2"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="shrink-0 mt-0.5"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="#2E4FBE" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Hasta 15 edificios</li>
-                            <li class="flex gap-2"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="shrink-0 mt-0.5"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="#2E4FBE" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>3 técnicos incluidos</li>
-                            <li class="flex gap-2"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="shrink-0 mt-0.5"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="#2E4FBE" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Órdenes y remitos digitales</li>
-                        </ul>
-                        <a href="#contacto" class="mt-8 text-center rounded-full border border-ink/15 font-semibold py-3 hover:border-ink/30 transition-colors">Contactar</a>
-                    </div>
+                    @foreach ($plans->take(3) as $index => $plan)
+                        @php
+                            $isFeatured = $index === 1;
+                            $features = $planFeatures[$index] ?? [];
+                            $price = number_format((float) $plan->price, 0, ',', '.');
+                        @endphp
 
-                    <div data-reveal style="transition-delay:.08s" class="relative rounded-2xl border-2 border-amber-500 bg-graphite text-white p-8 flex flex-col lg:-my-3 lg:py-11 shadow-cardHover">
-                        <span class="absolute -top-3 left-8 rounded-full bg-amber-500 text-graphite text-xs font-bold px-3 py-1">Recomendado</span>
-                        <h3 class="font-display font-semibold text-lg">Plan Profesional</h3>
-                        <p class="mt-1.5 text-sm text-white/55">Para empresas en crecimiento que necesitan control total.</p>
-                        <div class="mt-6 font-display text-3xl font-semibold">Desde $220.000<span class="text-base font-medium text-white/40">/mes</span></div>
-                        <ul class="mt-6 space-y-2.5 text-sm text-white/70 flex-1">
-                            <li class="flex gap-2"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="shrink-0 mt-0.5"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="#FF6A1A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Edificios ilimitados</li>
-                            <li class="flex gap-2"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="shrink-0 mt-0.5"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="#FF6A1A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>10 técnicos incluidos</li>
-                            <li class="flex gap-2"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="shrink-0 mt-0.5"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="#FF6A1A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Inspecciones y reclamos</li>
-                            <li class="flex gap-2"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="shrink-0 mt-0.5"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="#FF6A1A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Soporte prioritario</li>
-                        </ul>
-                        <a href="#contacto" class="mt-8 text-center rounded-full bg-amber-500 text-graphite font-semibold py-3 hover:bg-amber-400 transition-colors">Contactar</a>
-                    </div>
+                        <div data-reveal
+                             style="transition-delay: {{ $index * 80 }}ms"
+                             class="relative rounded-2xl border {{ $isFeatured ? 'border-2 border-amber-500 bg-graphite text-white lg:-my-3 lg:py-11 shadow-cardHover' : 'border-ink/10 bg-paper' }} p-8 flex flex-col">
 
-                    <div data-reveal style="transition-delay:.16s" class="rounded-2xl border border-ink/10 bg-paper p-8 flex flex-col">
-                        <h3 class="font-display font-semibold text-lg">Plan Empresarial</h3>
-                        <p class="mt-1.5 text-sm text-ink/55">Para empresas con muchos técnicos y operación a gran escala.</p>
-                        <div class="mt-6 font-display text-3xl font-semibold">Consultar</div>
-                        <ul class="mt-6 space-y-2.5 text-sm text-ink/65 flex-1">
-                            <li class="flex gap-2"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="shrink-0 mt-0.5"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="#2E4FBE" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Técnicos ilimitados</li>
-                            <li class="flex gap-2"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="shrink-0 mt-0.5"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="#2E4FBE" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Integraciones a medida</li>
-                            <li class="flex gap-2"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="shrink-0 mt-0.5"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="#2E4FBE" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Onboarding acompañado</li>
-                        </ul>
-                        <a href="#contacto" class="mt-8 text-center rounded-full border border-ink/15 font-semibold py-3 hover:border-ink/30 transition-colors">Contactar</a>
-                    </div>
+                            @if ($isFeatured)
+                                <span class="absolute -top-3 left-8 rounded-full bg-amber-500 text-graphite text-xs font-bold px-3 py-1">Recomendado</span>
+                            @endif
+
+                            <h3 class="font-display font-semibold text-lg">{{ $plan->name }}</h3>
+                            <p class="mt-1.5 text-sm {{ $isFeatured ? 'text-white/55' : 'text-ink/55' }}">
+                                {{ $plan->description ?? 'El plan ideal para tu empresa de mantenimiento de ascensores.' }}
+                            </p>
+
+                            <div class="mt-6 font-display text-3xl font-semibold">
+                                ${{ $price }}<span class="text-base font-medium {{ $isFeatured ? 'text-white/40' : 'text-ink/40' }}">/mes</span>
+                            </div>
+
+                            <ul class="mt-6 space-y-2.5 {{ $isFeatured ? 'text-white/70' : 'text-ink/65' }} text-sm flex-1">
+                                @foreach ($features as $feature)
+                                    <li class="flex gap-2">
+                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="shrink-0 mt-0.5">
+                                            <path d="M3 8.5L6.2 11.5L13 4.5" stroke="{{ $isFeatured ? '#FF6A1A' : '#2E4FBE' }}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                        {{ $feature }}
+                                    </li>
+                                @endforeach
+                            </ul>
+
+                            @if (!auth()->check())
+                                <a href="{{ route('login') }}"
+                                   class="mt-8 text-center rounded-full {{ $isFeatured ? 'bg-amber-500 text-graphite hover:bg-amber-400' : 'border border-ink/15 hover:border-ink/30' }} font-semibold py-3 transition-colors">
+                                    Elegir plan
+                                </a>
+                            @elseif (auth()->user()->isAdmin() || auth()->user()->isSuperAdmin())
+                                <a href="{{ route('subscription.checkout', $plan) }}"
+                                   class="mt-8 text-center rounded-full {{ $isFeatured ? 'bg-amber-500 text-graphite hover:bg-amber-400' : 'border border-ink/15 hover:border-ink/30' }} font-semibold py-3 transition-colors">
+                                    Elegir plan
+                                </a>
+                            @else
+                                <span class="mt-8 text-center rounded-full border border-ink/10 bg-ink/[0.03] text-ink/35 font-semibold py-3 cursor-not-allowed">
+                                    Solo administradores
+                                </span>
+                            @endif
+                        </div>
+                    @endforeach
                 </div>
             </div>
         </section>
