@@ -13,7 +13,8 @@ use App\Http\Controllers\{
     TemplateController,
     DeliveryNoteController,
     WhatsAppController,
-    ReportController
+    ReportController,
+    SubscriptionController
 };
 
 use App\Models\User;
@@ -86,10 +87,11 @@ Route::prefix('{company:slug}')
     |--------------------------------------------------------------------------
     */
 
- Route::get('/dashboard', [
-    DashboardController::class,
+    Route::get('/dashboard', [
+        DashboardController::class,
         'index'
     ])->name('dashboard');
+
 
     /*
     |--------------------------------------------------------------------------

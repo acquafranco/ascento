@@ -30,6 +30,14 @@ class MercadoPagoService
     }
 
     /**
+     * Crea un plan de suscripción en Mercado Pago.
+     */
+    public function createSubscriptionPlan(array $data): array
+    {
+        return $this->request('post', '/preapproval_plan', $data);
+    }
+
+    /**
      * Obtiene una suscripción por su ID.
      */
     public function getSubscription(string $subscriptionId): array

@@ -19,45 +19,54 @@ class SubscriptionController extends Controller
     /**
      * Inicia el proceso de suscripción de la empresa.
      */
-    public function checkout(Request $request, SubscriptionPlan $plan)
+    public function checkout(Request $request, string $plan)
     {
         $user = $request->user();
-        $company = $user?->company;
+
+        abort_unless($user, 403);
+
+        abort_unless(
+            $user->isAdmin() || $user->isSuperAdmin(),
+            403
+        );
+
+        $company = $user->company;
 
         abort_unless($company, 403);
 
-        if (!$plan->is_active) {
-            abort(404);
-        }
+        $planId = (int) $plan;
+
+        $plan = SubscriptionPlan::query()
+            ->whereKey($planId)
+            ->where('is_active', true)
+            ->firstOrFail();
 
         if (!$plan->mercadopago_plan_id) {
-            return back()->withErrors([
-                'subscription' => 'Este plan todavía no está configurado en Mercado Pago.',
-            ]);
+            throw new RuntimeException(
+                'El plan seleccionado todavía no tiene configurado el ID del plan de Mercado Pago.'
+            );
         }
 
         $existingSubscription = $company->subscription;
 
-        if ($existingSubscription) {
-            if (in_array($existingSubscription->status, [
-                'trialing',
-                'pending',
-                'authorized',
-                'active',
-                'past_due',
-            ], true)) {
-                return redirect()
-                    ->route('subscription.show')
-                    ->with('info', 'Tu empresa ya tiene una suscripción en proceso o activa.');
-            }
+        if ($existingSubscription && in_array($existingSubscription->status, [
+            'trialing',
+            'pending',
+            'authorized',
+            'active',
+            'past_due',
+        ], true)) {
+            throw new RuntimeException(
+                'Tu empresa ya tiene una suscripción en proceso o activa.'
+            );
         }
 
         $payerEmail = $company->email ?: $user->email;
 
         if (!$payerEmail) {
-            return back()->withErrors([
-                'subscription' => 'La empresa necesita un correo electrónico para iniciar la suscripción.',
-            ]);
+            throw new RuntimeException(
+                'La empresa necesita un correo electrónico para iniciar la suscripción.'
+            );
         }
 
         $externalReference = 'company_' . $company->id . '_plan_' . $plan->id;
@@ -67,8 +76,22 @@ class SubscriptionController extends Controller
             'reason' => 'Suscripción Ascento - ' . $plan->name,
             'external_reference' => $externalReference,
             'payer_email' => $payerEmail,
-            'back_url' => route('subscription.show'),
+            'back_url' => route('subscription.show', [
+                'company' => $company->slug,
+            ]),
         ]);
+
+        if (empty($response['id'])) {
+            throw new RuntimeException(
+                'Mercado Pago no devolvió el ID de la suscripción.'
+            );
+        }
+
+        if (empty($response['init_point'])) {
+            throw new RuntimeException(
+                'Mercado Pago no devolvió el enlace de checkout.'
+            );
+        }
 
         DB::transaction(function () use ($company, $plan, $response, $externalReference) {
             Subscription::updateOrCreate(
@@ -77,7 +100,7 @@ class SubscriptionController extends Controller
                 ],
                 [
                     'provider' => 'mercadopago',
-                    'provider_subscription_id' => $response['id'] ?? null,
+                    'provider_subscription_id' => $response['id'],
                     'provider_plan_id' => $plan->mercadopago_plan_id,
                     'external_reference' => $externalReference,
                     'plan' => $plan->slug,
@@ -103,13 +126,7 @@ class SubscriptionController extends Controller
             );
         });
 
-        if (empty($response['init_point'])) {
-            throw new RuntimeException(
-                'Mercado Pago no devolvió el enlace de checkout.'
-            );
-        }
-
-        return redirect()->away($response['init_point']);
+        return $response['init_point'];
     }
 
     /**
