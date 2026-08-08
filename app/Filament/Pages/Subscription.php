@@ -1,127 +1,61 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Filament\Pages;
 
-use App\Models\Subscription;
+use App\Http\Controllers\SubscriptionController;
 use App\Models\SubscriptionPlan;
-use App\Services\MercadoPagoService;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use RuntimeException;
+use Filament\Pages\Page;
 
-class SubscriptionController extends Controller
+class Subscription extends Page
 {
-    public function __construct(
-        private MercadoPagoService $mercadoPago
-    ) {
-    }
+    protected string $view = 'filament.pages.subscription';
 
-    /**
-     * Inicia el proceso de suscripción de la empresa.
-     */
-    public function checkout(Request $request, string $plan)
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-credit-card';
+
+    protected static ?string $navigationLabel = 'Mi suscripción';
+
+    protected static ?string $title = 'Mi suscripción';
+
+    protected static ?string $slug = 'subscription';
+
+    public function mount(): void
     {
-        $user = $request->user();
-
-        abort_unless($user, 403);
-
         abort_unless(
-            $user->isAdmin() || $user->isSuperAdmin(),
+            auth()->user()?->isAdmin() || auth()->user()?->isSuperAdmin(),
             403
         );
+    }
 
-        $company = $user->company;
+    public function getPlans()
+    {
+        return SubscriptionPlan::query()
+            ->where('is_active', true)
+            ->orderBy('price')
+            ->get();
+    }
 
-        abort_unless($company, 403);
-
-        $planId = (int) $plan;
-
+    public function checkout(int|string $planId): void
+    {
         $plan = SubscriptionPlan::query()
-            ->whereKey($planId)
+            ->whereKey((int) $planId)
             ->where('is_active', true)
             ->firstOrFail();
 
-        if (!$plan->mercadopago_plan_id) {
-            throw new RuntimeException(
-                'El plan seleccionado todavía no tiene configurado el ID del plan de Mercado Pago.'
-            );
-        }
-
-        $existingSubscription = $company->subscription;
-
-        if ($existingSubscription && in_array($existingSubscription->status, [
-            'trialing',
-            'pending',
-            'authorized',
-            'active',
-            'past_due',
-        ], true)) {
-            throw new RuntimeException(
-                'Tu empresa ya tiene una suscripción en proceso o activa.'
-            );
-        }
-
-        $response = $this->mercadoPago->getSubscriptionPlan(
-            $plan->mercadopago_plan_id
+        $response = app(SubscriptionController::class)->checkout(
+            request(),
+            (string) $plan->getKey()
         );
 
-        if (empty($response['init_point'])) {
-            throw new RuntimeException(
-                'Mercado Pago no devolvió el enlace de checkout del plan.'
-            );
+        if ($response instanceof \Symfony\Component\HttpFoundation\RedirectResponse) {
+            $this->redirect($response->getTargetUrl(), navigate: false);
+            return;
         }
 
-        return redirect()->away($response['init_point']);
+        if (is_string($response)) {
+            $this->redirect($response, navigate: false);
+            return;
+        }
+
+        throw new \RuntimeException('Mercado Pago no devolvió una URL de checkout válida.');
     }
-
-    /**
-     * Muestra el estado actual de la suscripción.
-     */
-    public function show(Request $request)
-    {
-        $company = $request->user()->company;
-
-        abort_unless($company, 403);
-
-        $subscription = $company->subscription;
-
-        return view('subscriptions.show', compact(
-            'company',
-            'subscription'
-        ));
-    }
-
-    /**
-     * Cancela la suscripción actual.
-     */
-    public function cancel(Request $request)
-    {
-        $company = $request->user()->company;
-
-        abort_unless($company, 403);
-
-        $subscription = $company->subscription;
-
-        if (!$subscription?->provider_subscription_id) {
-            return back()->withErrors([
-                'subscription' => 'No hay una suscripción activa para cancelar.',
-            ]);
-        }
-
-        $response = $this->mercadoPago->cancelSubscription(
-            $subscription->provider_subscription_id
-        );
-
-        $subscription->update([
-            'status' => $response['status'] ?? 'canceled',
-            'canceled_at' => now(),
-        ]);
-
-        return back()->with(
-            'success',
-            'La suscripción fue cancelada correctamente.'
-        );
-
-        }
 }
-
