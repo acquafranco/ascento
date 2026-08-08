@@ -48,7 +48,6 @@
                             <div class="text-3xl font-bold tracking-tight text-gray-950 dark:text-white">
                                 ${{ number_format((float) $plan->price, 0, ',', '.') }}
                             </div>
-
                             <div class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                                 por mes
                             </div>
@@ -83,16 +82,15 @@
                             @else
                                 <x-filament::button
                                     type="button"
-                                    wire:click="checkout('{{ $plan->getKey() }}')"
+                                    wire:click="checkout({{ $plan->getKey() }})"
                                     wire:loading.attr="disabled"
-                                    wire:target="checkout('{{ $plan->getKey() }}')"
+                                    wire:target="checkout({{ $plan->getKey() }})"
                                     class="w-full"
                                 >
-                                    <span wire:loading.remove wire:target="checkout('{{ $plan->getKey() }}')">
+                                    <span wire:loading.remove wire:target="checkout({{ $plan->getKey() }})">
                                         Elegir plan
                                     </span>
-
-                                    <span wire:loading wire:target="checkout('{{ $plan->getKey() }}')">
+                                    <span wire:loading wire:target="checkout({{ $plan->getKey() }})">
                                         Procesando...
                                     </span>
                                 </x-filament::button>
