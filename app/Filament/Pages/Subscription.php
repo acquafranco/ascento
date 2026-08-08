@@ -41,11 +41,21 @@ class Subscription extends Page
             ->where('is_active', true)
             ->firstOrFail();
 
-        $url = app(SubscriptionController::class)->checkout(
+        $response = app(SubscriptionController::class)->checkout(
             request(),
             (string) $plan->getKey()
         );
 
-        $this->redirect($url, navigate: false);
+        if ($response instanceof \Symfony\Component\HttpFoundation\RedirectResponse) {
+            $this->redirect($response->getTargetUrl(), navigate: false);
+            return;
+        }
+
+        if (is_string($response)) {
+            $this->redirect($response, navigate: false);
+            return;
+        }
+
+        throw new \RuntimeException('Mercado Pago no devolvió una URL de checkout válida.');
     }
 }
