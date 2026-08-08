@@ -137,23 +137,14 @@ class DeliveryNoteController extends Controller
             abort(404);
         }
 
-        // El técnico asignado a la orden puede generar su remito.
-        // Un técnico no asignado no puede hacerlo.
+        // La única autorización necesaria para abrir el remito es estar asignado a la orden.
+        // Los técnicos que no están asignados reciben 403.
         if (!$workOrder->users()->whereKey($user->id)->exists()) {
             abort(403, 'No estás autorizado para finalizar esta orden.');
         }
 
-        // Si el enlace trae un técnico, solo se valida cuando apunta a un usuario distinto
-        // del autenticado. Para el técnico que realmente está asignado, el acceso debe continuar.
-        if ($request->filled('technician') && (int) $request->query('technician') !== (int) $user->id) {
-            abort(403, 'Este remito pertenece a otro técnico.');
-        }
-
-        // Si el enlace viene firmado, verificar la firma. Los enlaces antiguos sin firma
-        // siguen funcionando mientras el usuario esté asignado a la orden.
-        if ($request->has('signature') && !$request->hasValidSignature()) {
-            abort(403, 'Este enlace de remito no es válido.');
-        }
+        // No validar aquí ningún parámetro `technician`: el usuario autenticado ya fue
+        // autorizado por su asignación real en la relación de la WorkOrder.
 
         // Una orden de trabajo solo puede tener un remito.
         if ($workOrder->deliveryNote()->exists()) {
@@ -217,21 +208,16 @@ class DeliveryNoteController extends Controller
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            // Solo el técnico asignado al trabajo puede crear el remito.
+            // La única autorización necesaria para crear el remito es estar asignado a la orden.
+            // Un usuario que no esté asignado recibe 403.
             if (!$workOrder->users()->whereKey(auth()->id())->exists()) {
                 abort(403, 'No estás autorizado para finalizar esta orden.');
             }
 
-            // Si el formulario trae un técnico específico, debe coincidir con el usuario autenticado.
-            // Esto evita que otro técnico use un enlace generado para un compañero.
-            if ($request->filled('technician') && (int) $request->input('technician') !== (int) auth()->id()) {
-                abort(403, 'Este remito pertenece a otro técnico.');
-            }
-
-            // Verificar firma únicamente cuando el enlace realmente trae una firma.
-            if ($request->has('signature') && !$request->hasValidSignature()) {
-                abort(403, 'Este enlace de remito no es válido.');
-            }
+            // IMPORTANTE: no validar `technician` ni `hasValidSignature()` en este POST.
+            // `signature` es el campo de firma dibujada del formulario y NO es la firma
+            // criptográfica de una URL firmada. Comprobar hasValidSignature() aquí provoca
+            // un 403 al enviar el formulario aunque el técnico sí esté asignado.
 
             // Una orden no puede tener más de un remito.
             if ($workOrder->deliveryNote()->exists()) {
