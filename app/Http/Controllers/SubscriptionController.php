@@ -76,9 +76,7 @@ class SubscriptionController extends Controller
             'reason' => 'Suscripción Ascento - ' . $plan->name,
             'external_reference' => $externalReference,
             'payer_email' => $payerEmail,
-            'back_url' => route('subscription.show', [
-                'company' => $company->slug,
-            ]),
+            'back_url' => url('/admin/subscription'),
         ]);
 
         if (empty($response['id'])) {
