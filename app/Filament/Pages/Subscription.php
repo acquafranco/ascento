@@ -121,5 +121,7 @@ class SubscriptionController extends Controller
             'success',
             'La suscripción fue cancelada correctamente.'
         );
-    }
+
+        }
 }
+
