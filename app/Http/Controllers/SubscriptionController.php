@@ -17,7 +17,11 @@ class SubscriptionController extends Controller
     }
 
     /**
-     * Inicia el proceso de suscripción de la empresa.
+     * Inicia el checkout de una suscripción.
+     *
+     * El usuario debe cargar/seleccionar su medio de pago dentro de
+     * Mercado Pago. Por eso NO se crea un /preapproval desde nuestro
+     * backend en este punto y no se envía card_token_id.
      */
     public function checkout(Request $request, string $plan)
     {
@@ -36,12 +40,12 @@ class SubscriptionController extends Controller
 
         $planId = (int) $plan;
 
-        $plan = SubscriptionPlan::query()
+        $subscriptionPlan = SubscriptionPlan::query()
             ->whereKey($planId)
             ->where('is_active', true)
             ->firstOrFail();
 
-        if (!$plan->mercadopago_plan_id) {
+        if (!$subscriptionPlan->mercadopago_plan_id) {
             throw new RuntimeException(
                 'El plan seleccionado todavía no tiene configurado el ID del plan de Mercado Pago.'
             );
@@ -69,62 +73,39 @@ class SubscriptionController extends Controller
             );
         }
 
-        $externalReference = 'company_' . $company->id . '_plan_' . $plan->id;
+        $externalReference = 'company_' . $company->id . '_plan_' . $subscriptionPlan->id;
 
-        $response = $this->mercadoPago->createSubscription([
-            'preapproval_plan_id' => $plan->mercadopago_plan_id,
-            'reason' => 'Suscripción Ascento - ' . $plan->name,
-            'external_reference' => $externalReference,
-            'payer_email' => $payerEmail,
-            'back_url' => url('/admin/subscription'),
-        ]);
+        // El checkout se realiza en Mercado Pago. Allí el usuario ingresa
+        // o selecciona su tarjeta y Mercado Pago crea la preapproval.
+        $checkoutUrl = 'https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id='
+            . urlencode($subscriptionPlan->mercadopago_plan_id);
 
-        if (empty($response['id'])) {
-            throw new RuntimeException(
-                'Mercado Pago no devolvió el ID de la suscripción.'
-            );
-        }
-
-        if (empty($response['init_point'])) {
-            throw new RuntimeException(
-                'Mercado Pago no devolvió el enlace de checkout.'
-            );
-        }
-
-        DB::transaction(function () use ($company, $plan, $response, $externalReference) {
+        // Guardamos solamente la intención de checkout. Todavía NO existe
+        // una suscripción de Mercado Pago autorizada, por lo que no debemos
+        // inventar provider_subscription_id ni marcarla como activa.
+        DB::transaction(function () use ($company, $subscriptionPlan, $externalReference) {
             Subscription::updateOrCreate(
                 [
                     'company_id' => $company->id,
                 ],
                 [
                     'provider' => 'mercadopago',
-                    'provider_subscription_id' => $response['id'],
-                    'provider_plan_id' => $plan->mercadopago_plan_id,
+                    'provider_subscription_id' => null,
+                    'provider_plan_id' => $subscriptionPlan->mercadopago_plan_id,
                     'external_reference' => $externalReference,
-                    'plan' => $plan->slug,
-                    'status' => $response['status'] ?? 'pending',
-                    'amount' => data_get(
-                        $response,
-                        'auto_recurring.transaction_amount',
-                        $plan->price
-                    ),
-                    'currency' => data_get(
-                        $response,
-                        'auto_recurring.currency_id',
-                        $plan->currency
-                    ),
+                    'plan' => $subscriptionPlan->slug,
+                    'status' => 'pending',
+                    'amount' => $subscriptionPlan->price,
+                    'currency' => $subscriptionPlan->currency,
                     'trial_ends_at' => null,
-                    'current_period_start' => data_get(
-                        $response,
-                        'auto_recurring.start_date'
-                    ),
+                    'current_period_start' => null,
                     'current_period_end' => null,
                     'canceled_at' => null,
                 ]
             );
         });
 
-        return $response['init_point'];
+        return $checkoutUrl;
     }
 
     /**
@@ -132,7 +113,11 @@ class SubscriptionController extends Controller
      */
     public function show(Request $request)
     {
-        $company = $request->user()->company;
+        $user = $request->user();
+
+        abort_unless($user, 403);
+
+        $company = $user->company;
 
         abort_unless($company, 403);
 
@@ -149,7 +134,16 @@ class SubscriptionController extends Controller
      */
     public function cancel(Request $request)
     {
-        $company = $request->user()->company;
+        $user = $request->user();
+
+        abort_unless($user, 403);
+
+        abort_unless(
+            $user->isAdmin() || $user->isSuperAdmin(),
+            403
+        );
+
+        $company = $user->company;
 
         abort_unless($company, 403);
 
@@ -157,7 +151,7 @@ class SubscriptionController extends Controller
 
         if (!$subscription?->provider_subscription_id) {
             return back()->withErrors([
-                'subscription' => 'No hay una suscripción activa para cancelar.',
+                'subscription' => 'No hay una suscripción de Mercado Pago activa para cancelar.',
             ]);
         }
 
