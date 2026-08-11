@@ -36,6 +36,10 @@ class MercadoPagoService
     {
         return $this->request('post', '/preapproval_plan', $data);
     }
+    public function getUser(): array
+    {
+        return $this->request('get', '/users/me');
+    }
 
     /**
      * Obtiene una suscripción por su ID.
@@ -56,10 +60,6 @@ class MercadoPagoService
     );
 }
 
-    public function getUser(): array
-    {
-        return $this->request('get', '/users/me');
-    }
 
 
     /**
