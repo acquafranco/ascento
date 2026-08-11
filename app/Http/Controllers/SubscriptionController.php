@@ -19,29 +19,21 @@ class SubscriptionController extends Controller
     /**
      * Inicia el checkout de una suscripción.
      *
-     * El usuario debe cargar/seleccionar su medio de pago dentro de
-     * Mercado Pago. Por eso NO se crea un /preapproval desde nuestro
-     * backend en este punto y no se envía card_token_id.
+     * La tarjeta se carga dentro de Mercado Pago. No intentamos crear
+     * la preapproval por API porque todavía no tenemos card_token_id.
      */
     public function checkout(Request $request, string $plan)
     {
         $user = $request->user();
 
         abort_unless($user, 403);
-
-        abort_unless(
-            $user->isAdmin() || $user->isSuperAdmin(),
-            403
-        );
+        abort_unless($user->isAdmin() || $user->isSuperAdmin(), 403);
 
         $company = $user->company;
-
         abort_unless($company, 403);
 
-        $planId = (int) $plan;
-
         $subscriptionPlan = SubscriptionPlan::query()
-            ->whereKey($planId)
+            ->whereKey((int) $plan)
             ->where('is_active', true)
             ->firstOrFail();
 
@@ -65,29 +57,11 @@ class SubscriptionController extends Controller
             );
         }
 
-        $payerEmail = $company->email ?: $user->email;
-
-        if (!$payerEmail) {
-            throw new RuntimeException(
-                'La empresa necesita un correo electrónico para iniciar la suscripción.'
-            );
-        }
-
         $externalReference = 'company_' . $company->id . '_plan_' . $subscriptionPlan->id;
 
-        // El checkout se realiza en Mercado Pago. Allí el usuario ingresa
-        // o selecciona su tarjeta y Mercado Pago crea la preapproval.
-        $checkoutUrl = 'https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id='
-            . urlencode($subscriptionPlan->mercadopago_plan_id);
-
-        // Guardamos solamente la intención de checkout. Todavía NO existe
-        // una suscripción de Mercado Pago autorizada, por lo que no debemos
-        // inventar provider_subscription_id ni marcarla como activa.
         DB::transaction(function () use ($company, $subscriptionPlan, $externalReference) {
             Subscription::updateOrCreate(
-                [
-                    'company_id' => $company->id,
-                ],
+                ['company_id' => $company->id],
                 [
                     'provider' => 'mercadopago',
                     'provider_subscription_id' => null,
@@ -105,12 +79,70 @@ class SubscriptionController extends Controller
             );
         });
 
-        return $checkoutUrl;
+        return 'https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id='
+            . urlencode($subscriptionPlan->mercadopago_plan_id);
     }
 
     /**
-     * Muestra el estado actual de la suscripción.
+     * Recibe notificaciones de Mercado Pago y sincroniza la suscripción.
      */
+    public function webhook(Request $request)
+    {
+        $type = $request->input('type');
+        $dataId = $request->input('data.id');
+
+        if ($type !== 'subscription_preapproval' || !$dataId) {
+            return response()->json(['status' => 'ignored'], 200);
+        }
+
+        try {
+            $response = $this->mercadoPago->syncSubscription((string) $dataId);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'status' => 'error',
+            ], 500);
+        }
+
+        $externalReference = $response['external_reference'] ?? null;
+
+        if (!$externalReference || !preg_match('/^company_(\d+)_plan_(\d+)$/', $externalReference, $matches)) {
+            return response()->json(['status' => 'ignored_invalid_reference'], 200);
+        }
+
+        $companyId = (int) $matches[1];
+        $planId = (int) $matches[2];
+
+        $subscription = Subscription::query()
+            ->where('company_id', $companyId)
+            ->first();
+
+        if (!$subscription) {
+            return response()->json(['status' => 'subscription_not_found'], 200);
+        }
+
+        $plan = SubscriptionPlan::query()->find($planId);
+
+        $status = $response['status'] ?? $subscription->status;
+
+        $subscription->update([
+            'provider' => 'mercadopago',
+            'provider_subscription_id' => (string) $dataId,
+            'provider_plan_id' => $plan?->mercadopago_plan_id ?? $subscription->provider_plan_id,
+            'external_reference' => $externalReference,
+            'plan' => $plan?->slug ?? $subscription->plan,
+            'status' => $status,
+            'amount' => data_get($response, 'auto_recurring.transaction_amount', $subscription->amount),
+            'currency' => data_get($response, 'auto_recurring.currency_id', $subscription->currency),
+            'current_period_start' => data_get($response, 'auto_recurring.start_date', $subscription->current_period_start),
+            'current_period_end' => data_get($response, 'next_payment_date', $subscription->current_period_end),
+            'canceled_at' => $status === 'canceled' ? now() : null,
+        ]);
+
+        return response()->json(['status' => 'ok'], 200);
+    }
+
     public function show(Request $request)
     {
         $user = $request->user();
@@ -118,33 +150,21 @@ class SubscriptionController extends Controller
         abort_unless($user, 403);
 
         $company = $user->company;
-
         abort_unless($company, 403);
 
         $subscription = $company->subscription;
 
-        return view('subscriptions.show', compact(
-            'company',
-            'subscription'
-        ));
+        return view('subscriptions.show', compact('company', 'subscription'));
     }
 
-    /**
-     * Cancela la suscripción actual.
-     */
     public function cancel(Request $request)
     {
         $user = $request->user();
 
         abort_unless($user, 403);
-
-        abort_unless(
-            $user->isAdmin() || $user->isSuperAdmin(),
-            403
-        );
+        abort_unless($user->isAdmin() || $user->isSuperAdmin(), 403);
 
         $company = $user->company;
-
         abort_unless($company, 403);
 
         $subscription = $company->subscription;
