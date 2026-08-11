@@ -48,6 +48,14 @@ class MercadoPagoService
         );
     }
 
+    public function getSubscriptionPlan(string $planId): array
+{
+    return $this->request(
+        'get',
+        '/preapproval_plan/' . $planId
+    );
+}
+
     /**
      * Obtiene una suscripción desde Mercado Pago para sincronizar su estado.
      */
