@@ -56,6 +56,12 @@ class MercadoPagoService
     );
 }
 
+    public function getUser(): array
+    {
+        return $this->request('get', '/users/me');
+    }
+
+
     /**
      * Obtiene una suscripción desde Mercado Pago para sincronizar su estado.
      */
