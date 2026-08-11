@@ -49,6 +49,14 @@ class MercadoPagoService
     }
 
     /**
+     * Obtiene una suscripción desde Mercado Pago para sincronizar su estado.
+     */
+    public function syncSubscription(string $subscriptionId): array
+    {
+        return $this->getSubscription($subscriptionId);
+    }
+
+    /**
      * Cancela una suscripción.
      */
     public function cancelSubscription(string $subscriptionId): array
