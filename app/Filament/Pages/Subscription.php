@@ -71,4 +71,14 @@ class Subscription extends Page
 
         $this->redirect($initPoint, navigate: false);
     }
+
+    public function changePlan(int|string $planId): void
+{
+    $plan = SubscriptionPlan::query()
+        ->whereKey((int) $planId)
+        ->where('is_active', true)
+        ->firstOrFail();
+
+    $this->checkout($plan->getKey());
+}
 }
