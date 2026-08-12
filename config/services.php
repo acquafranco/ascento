@@ -49,11 +49,11 @@ return [
         'verify_token' => env('WHATSAPP_VERIFY_TOKEN'),
     ],
 
-    'mercadopago' => [
+        'mercadopago' => [
         'access_token' => env('MERCADOPAGO_ACCESS_TOKEN'),
         'public_key' => env('MERCADOPAGO_PUBLIC_KEY'),
-        'mercadopago_plan_basic' => env('MERCADOPAGO_PLAN_BASIC'),
-        'mercadopago_plan_pro' => env('MERCADOPAGO_PLAN_PRO'),
-        'mercadopago_plan_premium' => env('MERCADOPAGO_PLAN_PREMIUM'),
+        'basic_plan_id' => env('MERCADOPAGO_BASIC_PLAN_ID'),
+        'pro_plan_id' => env('MERCADOPAGO_PRO_PLAN_ID'),
     ],
+
 ];
