@@ -120,41 +120,56 @@
                         <div class="mt-8">
 
                             @if ($isCurrent)
-                                <x-filament::button
-                                    color="success"
-                                    disabled
-                                    class="w-full"
-                                >
-                                    Plan actual
-                                </x-filament::button>
 
-                                <x-filament::button
-                                    type="button"
-                                    color="danger"
-                                    wire:click="cancelSubscription"
-                                    wire:loading.attr="disabled"
-                                    wire:target="cancelSubscription"
-                                    class="mt-2 w-full"
-                                >
-                                    <span wire:loading.remove wire:target="cancelSubscription">
-                                        Cancelar suscripción
-                                    </span>
+                                @if ($currentSubscription->cancel_at_period_end)
 
-                                    <span wire:loading wire:target="cancelSubscription">
-                                        Cancelando...
-                                    </span>
-                                </x-filament::button>
-                            @else
-                                <x-filament::button
-                                    type="button"
-                                    wire:click="changePlan({{ $plan->getKey() }})"
-                                    wire:loading.attr="disabled"
-                                    wire:target="changePlan({{ $plan->getKey() }})"
-                                    class="w-full"
-                                >
-                                    Cambiar a {{ $plan->name }}
-                                </x-filament::button>
-                            @endif
+                                    <x-filament::button
+                                        color="gray"
+                                        disabled
+                                        class="w-full"
+                                    >
+                                        Cancelación programada
+                                    </x-filament::button>
+
+                                    @if ($currentSubscription->current_period_end)
+                                        <p class="mt-2 text-center text-xs text-gray-500 dark:text-gray-400">
+                                            Acceso hasta
+                                            {{ $currentSubscription->current_period_end->format('d/m/Y') }}
+                                        </p>
+                                    @elseif ($currentSubscription->trial_ends_at)
+                                        <p class="mt-2 text-center text-xs text-gray-500 dark:text-gray-400">
+                                            Acceso hasta
+                                            {{ $currentSubscription->trial_ends_at->format('d/m/Y') }}
+                                        </p>
+                                    @endif
+
+                                @else
+
+                                    <x-filament::button
+                                        type="button"
+                                        color="danger"
+                                        wire:click="cancelSubscription"
+                                        wire:loading.attr="disabled"
+                                        wire:target="cancelSubscription"
+                                        class="w-full"
+                                    >
+                                        <span
+                                            wire:loading.remove
+                                            wire:target="cancelSubscription"
+                                        >
+                                            Cancelar suscripción
+                                        </span>
+
+                                        <span
+                                            wire:loading
+                                            wire:target="cancelSubscription"
+                                        >
+                                            Cancelando...
+                                        </span>
+                                    </x-filament::button>
+
+                                @endif
+
                             @else
 
                                 <x-filament::button
