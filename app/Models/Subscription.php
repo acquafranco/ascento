@@ -24,6 +24,7 @@ class Subscription extends Model
         'current_period_start',
         'current_period_end',
         'canceled_at',
+        'cancel_at_period_end',
     ];
 
     protected $casts = [
@@ -32,6 +33,7 @@ class Subscription extends Model
         'current_period_start' => 'datetime',
         'current_period_end' => 'datetime',
         'canceled_at' => 'datetime',
+        'cancel_at_period_end' => 'boolean',
     ];
 
     public function company(): BelongsTo

@@ -33,6 +33,8 @@ return new class extends Migration
             $table->timestamp('current_period_start')->nullable();
             $table->timestamp('current_period_end')->nullable();
             $table->timestamp('canceled_at')->nullable();
+            $table->boolean('cancel_at_period_end')->default(false);
+
 
             $table->timestamps();
         });

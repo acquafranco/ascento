@@ -158,35 +158,69 @@ class SubscriptionController extends Controller
     }
 
     public function cancel(Request $request)
-    {
-        $user = $request->user();
+{
+    $user = $request->user();
 
-        abort_unless($user, 403);
-        abort_unless($user->isAdmin() || $user->isSuperAdmin(), 403);
+    abort_unless($user, 403);
+    abort_unless($user->isAdmin() || $user->isSuperAdmin(), 403);
 
-        $company = $user->company;
-        abort_unless($company, 403);
+    $company = $user->company;
+    abort_unless($company, 403);
 
-        $subscription = $company->subscription;
+    $subscription = $company->subscription;
 
-        if (!$subscription?->provider_subscription_id) {
-            return back()->withErrors([
-                'subscription' => 'No hay una suscripción de Mercado Pago activa para cancelar.',
-            ]);
-        }
-
-        $response = $this->mercadoPago->cancelSubscription(
-            $subscription->provider_subscription_id
-        );
-
-        $subscription->update([
-            'status' => $response['status'] ?? 'canceled',
-            'canceled_at' => now(),
+    if (!$subscription) {
+        return back()->withErrors([
+            'subscription' => 'No hay una suscripción activa.',
         ]);
-
-        return back()->with(
-            'success',
-            'La suscripción fue cancelada correctamente.'
-        );
     }
+
+    if ($subscription->cancel_at_period_end) {
+        return back()->withErrors([
+            'subscription' => 'La cancelación ya está programada.',
+        ]);
+    }
+
+    if (!$subscription->provider_subscription_id) {
+        return back()->withErrors([
+            'subscription' => 'La suscripción todavía no tiene un ID de Mercado Pago.',
+        ]);
+    }
+
+    /*
+     * Le pedimos a Mercado Pago que no continúe renovando
+     * la suscripción.
+     */
+    $response = $this->mercadoPago->cancelSubscription(
+        $subscription->provider_subscription_id
+    );
+
+    /*
+     * IMPORTANTE:
+     *
+     * NO ponemos status = canceled acá.
+     *
+     * El usuario mantiene acceso hasta current_period_end.
+     */
+    $subscription->update([
+        'cancel_at_period_end' => true,
+        'canceled_at' => now(),
+    ]);
+
+    return back()->with(
+        'success',
+        'La cancelación fue programada. Vas a poder seguir usando Ascento hasta '
+        . optional($subscription->current_period_end)->format('d/m/Y') . '.'
+    );
+}
+
+public function changePlan(int|string $planId): void
+{
+    $plan = SubscriptionPlan::query()
+        ->whereKey((int) $planId)
+        ->where('is_active', true)
+        ->firstOrFail();
+
+    $this->checkout($plan->getKey());
+}
 }

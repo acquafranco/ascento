@@ -116,36 +116,75 @@
 
                             @if ($isCurrent)
 
-                                {{-- PLAN CONTRATADO --}}
-                                <x-filament::button
-                                    color="success"
-                                    disabled
-                                    class="w-full"
-                                >
-                                    Suscrito
-                                </x-filament::button>
+                                @if ($currentSubscription->cancel_at_period_end)
+
+                                    <x-filament::button
+                                        color="gray"
+                                        disabled
+                                        class="w-full"
+                                    >
+                                        Cancelación programada
+                                    </x-filament::button>
+
+                                    @if ($currentSubscription->current_period_end)
+                                        <p class="mt-2 text-center text-xs text-gray-500 dark:text-gray-400">
+                                            Acceso hasta
+                                            {{ $currentSubscription->current_period_end->format('d/m/Y') }}
+                                        </p>
+                                    @elseif ($currentSubscription->trial_ends_at)
+                                        <p class="mt-2 text-center text-xs text-gray-500 dark:text-gray-400">
+                                            Acceso hasta
+                                            {{ $currentSubscription->trial_ends_at->format('d/m/Y') }}
+                                        </p>
+                                    @endif
+
+                                @else
+
+                                    <x-filament::button
+                                        type="button"
+                                        color="danger"
+                                        wire:click="cancelSubscription"
+                                        wire:loading.attr="disabled"
+                                        wire:target="cancelSubscription"
+                                        class="w-full"
+                                    >
+                                        <span
+                                            wire:loading.remove
+                                            wire:target="cancelSubscription"
+                                        >
+                                            Cancelar suscripción
+                                        </span>
+
+                                        <span
+                                            wire:loading
+                                            wire:target="cancelSubscription"
+                                        >
+                                            Cancelando...
+                                        </span>
+                                    </x-filament::button>
+
+                                @endif
 
                             @else
 
-                                {{-- ELEGIR PLAN --}}
                                 <x-filament::button
                                     type="button"
-                                    wire:click="checkout({{ $plan->getKey() }})"
+                                    wire:click="changePlan({{ $plan->getKey() }})"
                                     wire:loading.attr="disabled"
-                                    wire:target="checkout({{ $plan->getKey() }})"
+                                    wire:target="changePlan({{ $plan->getKey() }})"
                                     class="w-full"
                                 >
 
                                     <span
                                         wire:loading.remove
-                                        wire:target="checkout({{ $plan->getKey() }})"
+                                        wire:target="changePlan({{ $plan->getKey() }})"
                                     >
-                                        Elegir plan
+                                        Cambiar a {{ $plan->name }}
                                     </span>
 
                                     <span
                                         wire:loading
-                                        wire:target="checkout({{ $plan->getKey() }})"
+                                        wire:target="changePlan({{ $plan->getKey() }})"
                                     >
                                         Procesando...
                                     </span>
