@@ -18,9 +18,9 @@ class SubscriptionPlanSeeder extends Seeder
                 'name' => 'Básico',
                 'price' => 120000,
                 'currency' => 'ARS',
-                'mercadopago_plan_id' => null,
+                'mercadopago_plan_id' => 'daab3c56fb194b7699e8d12d864fc995',
                 'features' => [
-                    // Agregaremos las funciones reales cuando definamos las limitaciones del plan.
+                    'Prueba gratis de 15 días',
                 ],
                 'is_active' => true,
             ]
@@ -30,25 +30,11 @@ class SubscriptionPlanSeeder extends Seeder
             ['slug' => 'professional'],
             [
                 'name' => 'Profesional',
-                'price' => 250000,
+                'price' => 260000,
                 'currency' => 'ARS',
-                'mercadopago_plan_id' => null,
+                'mercadopago_plan_id' => '294432a6b72d41a7979aacc4ab89a79b',
                 'features' => [
-                    // Agregaremos las funciones reales cuando definamos las limitaciones del plan.
-                ],
-                'is_active' => true,
-            ]
-        );
-
-        SubscriptionPlan::updateOrCreate(
-            ['slug' => 'premium'],
-            [
-                'name' => 'Premium',
-                'price' => 350000,
-                'currency' => 'ARS',
-                'mercadopago_plan_id' => null,
-                'features' => [
-                    // Agregaremos las funciones reales cuando definamos las limitaciones del plan.
+                    'Prueba gratis de 15 días',
                 ],
                 'is_active' => true,
             ]

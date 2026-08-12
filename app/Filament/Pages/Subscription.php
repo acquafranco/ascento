@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Http\Controllers\SubscriptionController;
 use App\Models\SubscriptionPlan;
+use App\Services\MercadoPagoService;
 use Filament\Pages\Page;
 
 class Subscription extends Page
@@ -41,21 +42,33 @@ class Subscription extends Page
             ->where('is_active', true)
             ->firstOrFail();
 
-        $response = app(SubscriptionController::class)->checkout(
-            request(),
-            (string) $plan->getKey()
-        );
+        $configKey = match ($plan->slug) {
+            'basico', 'basic' => 'basic_plan_id',
+            'profesional', 'pro' => 'pro_plan_id',
+            default => throw new \RuntimeException(
+                "El plan {$plan->name} no tiene un plan de Mercado Pago configurado."
+            ),
+        };
 
-        if (is_string($response)) {
-            $this->redirect($response, navigate: false);
-            return;
+        $mercadoPagoPlanId = config("services.mercadopago.{$configKey}");
+
+        if (empty($mercadoPagoPlanId)) {
+            throw new \RuntimeException(
+                "No está configurado el ID de Mercado Pago para el plan {$plan->name}."
+            );
         }
 
-        if ($response instanceof \Symfony\Component\HttpFoundation\RedirectResponse) {
-            $this->redirect($response->getTargetUrl(), navigate: false);
-            return;
+        $mercadoPagoPlan = app(MercadoPagoService::class)
+            ->getSubscriptionPlan((string) $mercadoPagoPlanId);
+
+        $initPoint = $mercadoPagoPlan['init_point'] ?? null;
+
+        if (empty($initPoint)) {
+            throw new \RuntimeException(
+                "Mercado Pago no devolvió init_point para el plan {$plan->name}."
+            );
         }
 
-        throw new \RuntimeException('Mercado Pago no devolvió una URL de checkout válida.');
+        $this->redirect($initPoint, navigate: false);
     }
 }
