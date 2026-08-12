@@ -81,4 +81,42 @@ class Subscription extends Page
 
     $this->checkout($plan->getKey());
 }
+
+public function cancelSubscription(): void
+{
+    $user = auth()->user();
+
+    abort_unless(
+        $user?->isAdmin() || $user?->isSuperAdmin(),
+        403
+    );
+
+    $subscription = $user->company?->subscription;
+
+    if (!$subscription) {
+        return;
+    }
+
+    if ($subscription->cancel_at_period_end) {
+        return;
+    }
+
+    if (!$subscription->provider_subscription_id) {
+        throw new \RuntimeException(
+            'La suscripción todavía no tiene ID de Mercado Pago.'
+        );
+    }
+
+    app(\App\Services\MercadoPagoService::class)
+        ->cancelSubscription(
+            $subscription->provider_subscription_id
+        );
+
+    $subscription->update([
+        'cancel_at_period_end' => true,
+        'canceled_at' => now(),
+    ]);
+
+    $this->redirect(request()->header('Referer'));
+}
 }
