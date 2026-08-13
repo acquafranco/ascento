@@ -86,7 +86,7 @@ class SubscriptionController extends Controller
     /**
      * Recibe notificaciones de Mercado Pago y sincroniza la suscripción.
      */
-    public function webhook(Request $request)
+  public function webhook(Request $request)
 {
     \Log::info('MP WEBHOOK RECIBIDO', [
         'payload' => $request->all(),
@@ -102,7 +102,9 @@ class SubscriptionController extends Controller
             'data_id' => $dataId,
         ]);
 
-        return response()->json(['status' => 'ignored'], 200);
+        return response()->json([
+            'status' => 'ignored',
+        ], 200);
     }
 
     try {
@@ -118,50 +120,79 @@ class SubscriptionController extends Controller
             'error' => $e->getMessage(),
         ]);
 
-        return response()->json(['status' => 'error'], 500);
+        return response()->json([
+            'status' => 'error',
+        ], 500);
     }
 
-    $externalReference = $response['external_reference'] ?? null;
+    /*
+     * Mercado Pago NO devuelve external_reference cuando
+     * la suscripción se crea desde un preapproval_plan.
+     *
+     * La relacionamos usando el ID del plan de Mercado Pago
+     * con la suscripción local que está pendiente.
+     */
+    $mercadoPagoPlanId = $response['preapproval_plan_id'] ?? null;
 
-    \Log::info('MP EXTERNAL REFERENCE', [
-        'external_reference' => $externalReference,
+    \Log::info('MP PLAN RECIBIDO', [
+        'subscription_id' => $dataId,
+        'mercadopago_plan_id' => $mercadoPagoPlanId,
     ]);
 
-    if (
-        !$externalReference ||
-        !preg_match(
-            '/^company_(\d+)_plan_(\d+)$/',
-            $externalReference,
-            $matches
-        )
-    ) {
+    if (!$mercadoPagoPlanId) {
+        \Log::warning('MP SIN PREAPPROVAL PLAN ID', [
+            'subscription_id' => $dataId,
+        ]);
+
         return response()->json([
-            'status' => 'ignored_invalid_reference',
+            'status' => 'missing_plan_id',
         ], 200);
     }
 
-    $companyId = (int) $matches[1];
-    $planId = (int) $matches[2];
-
+    /*
+     * Buscamos la suscripción que nuestro checkout creó
+     * como pending para ese plan.
+     */
     $subscription = Subscription::query()
-        ->where('company_id', $companyId)
+        ->where('provider', 'mercadopago')
+        ->where('provider_plan_id', $mercadoPagoPlanId)
+        ->where('status', 'pending')
+        ->latest()
         ->first();
 
     if (!$subscription) {
+        \Log::warning('MP SUSCRIPCION LOCAL NO ENCONTRADA', [
+            'subscription_id' => $dataId,
+            'mercadopago_plan_id' => $mercadoPagoPlanId,
+        ]);
+
         return response()->json([
             'status' => 'subscription_not_found',
         ], 200);
     }
 
-    $plan = SubscriptionPlan::query()->find($planId);
+    $companyId = $subscription->company_id;
+
+    $externalReference = $subscription->external_reference;
+
+    $plan = SubscriptionPlan::query()
+        ->where('mercadopago_plan_id', $mercadoPagoPlanId)
+        ->first();
+
+    \Log::info('MP SUSCRIPCION LOCAL ENCONTRADA', [
+        'subscription_id' => $dataId,
+        'company_id' => $companyId,
+        'mercadopago_plan_id' => $mercadoPagoPlanId,
+        'external_reference' => $externalReference,
+        'plan_id' => $plan?->id,
+    ]);
 
     $status = $response['status'] ?? $subscription->status;
 
     $subscription->update([
         'provider' => 'mercadopago',
         'provider_subscription_id' => (string) $dataId,
-        'provider_plan_id' => $plan?->mercadopago_plan_id
-            ?? $subscription->provider_plan_id,
+        'provider_plan_id' => $mercadoPagoPlanId,
         'external_reference' => $externalReference,
         'plan' => $plan?->slug ?? $subscription->plan,
         'status' => $status,
@@ -185,7 +216,9 @@ class SubscriptionController extends Controller
             'next_payment_date',
             $subscription->current_period_end
         ),
-        'canceled_at' => $status === 'canceled' ? now() : null,
+        'canceled_at' => $status === 'canceled'
+            ? now()
+            : null,
     ]);
 
     \Log::info('MP SUSCRIPCION SINCRONIZADA', [
@@ -194,7 +227,9 @@ class SubscriptionController extends Controller
         'status' => $status,
     ]);
 
-    return response()->json(['status' => 'ok'], 200);
+    return response()->json([
+        'status' => 'ok',
+    ], 200);
 }
 
     public function show(Request $request)
