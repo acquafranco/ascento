@@ -58,9 +58,32 @@ public function checkout(int|string $planId): void
         );
     }
 
+    $subscription = \App\Models\Subscription::query()
+        ->where('company_id', $company->id)
+        ->latest('id')
+        ->first();
+
     /*
-     * Creamos/actualizamos la suscripción local como pending
-     * antes de enviar al usuario a Mercado Pago.
+     * Si ya existe una suscripción activa,
+     * NO la pisamos.
+     */
+    if (
+        $subscription &&
+        in_array($subscription->status, [
+            'authorized',
+            'active',
+            'trialing',
+        ], true) &&
+        $subscription->provider_subscription_id
+    ) {
+        throw new \RuntimeException(
+            'La empresa ya tiene una suscripción activa. '
+            . 'Para cambiar de plan se debe iniciar el proceso de cambio.'
+        );
+    }
+
+    /*
+     * Creamos la suscripción local pendiente.
      */
     \App\Models\Subscription::updateOrCreate(
         [
@@ -99,14 +122,110 @@ public function checkout(int|string $planId): void
     $this->redirect($initPoint, navigate: false);
 }
 
-    public function changePlan(int|string $planId): void
+public function changePlan(int|string $planId): void
 {
-    $plan = SubscriptionPlan::query()
+    $user = auth()->user();
+
+    abort_unless(
+        $user?->isAdmin() || $user?->isSuperAdmin(),
+        403
+    );
+
+    $company = $user->company;
+
+    abort_unless($company, 403);
+
+    $newPlan = SubscriptionPlan::query()
         ->whereKey((int) $planId)
         ->where('is_active', true)
         ->firstOrFail();
 
-    $this->checkout($plan->getKey());
+    $currentSubscription = \App\Models\Subscription::query()
+        ->where('company_id', $company->id)
+        ->latest('id')
+        ->first();
+
+    if (!$currentSubscription) {
+        // No hay suscripción: simplemente iniciamos checkout.
+        $this->checkout($newPlan->getKey());
+        return;
+    }
+
+    if ($currentSubscription->plan === $newPlan->slug) {
+        return;
+    }
+
+    if (!$currentSubscription->provider_subscription_id) {
+        throw new \RuntimeException(
+            'La suscripción actual no tiene ID de Mercado Pago.'
+        );
+    }
+
+    if (!in_array($currentSubscription->status, [
+        'authorized',
+        'active',
+        'trialing',
+    ], true)) {
+        throw new \RuntimeException(
+            'La suscripción actual no puede cambiarse porque está en estado: '
+            . $currentSubscription->status
+        );
+    }
+
+    /*
+     * Cancelamos la suscripción anterior en Mercado Pago.
+     */
+    app(MercadoPagoService::class)->cancelSubscription(
+        $currentSubscription->provider_subscription_id
+    );
+
+    /*
+     * La marcamos como cancelada/programada localmente.
+     */
+    $currentSubscription->update([
+        'cancel_at_period_end' => true,
+        'canceled_at' => now(),
+    ]);
+
+    /*
+     * Creamos el checkout del nuevo plan.
+     *
+     * IMPORTANTE:
+     * no usamos checkout() porque checkout() detectaría
+     * la suscripción anterior.
+     */
+
+    $newSubscription = \App\Models\Subscription::create([
+        'company_id' => $company->id,
+        'provider' => 'mercadopago',
+        'provider_subscription_id' => null,
+        'provider_plan_id' => $newPlan->mercadopago_plan_id,
+        'external_reference' => 'company_' . $company->id . '_plan_' . $newPlan->id,
+        'plan' => $newPlan->slug,
+        'status' => 'pending',
+        'amount' => $newPlan->price,
+        'currency' => $newPlan->currency,
+        'trial_ends_at' => null,
+        'current_period_start' => null,
+        'current_period_end' => null,
+        'canceled_at' => null,
+        'cancel_at_period_end' => false,
+    ]);
+
+    $mercadoPagoPlan = app(MercadoPagoService::class)
+        ->getSubscriptionPlan(
+            (string) $newPlan->mercadopago_plan_id
+        );
+
+    $initPoint = $mercadoPagoPlan['init_point'] ?? null;
+
+    if (!$initPoint) {
+        throw new \RuntimeException(
+            "Mercado Pago no devolvió init_point para el plan {$newPlan->name}."
+        );
+    }
+
+    $this->redirect($initPoint, navigate: false);
 }
 
 public function cancelSubscription(): void
@@ -118,10 +237,20 @@ public function cancelSubscription(): void
         403
     );
 
-    $subscription = $user->company?->subscription;
+    $company = $user->company;
+
+    abort_unless($company, 403);
+
+    // Forzamos a obtener la suscripción actual directamente desde DB.
+    $subscription = \App\Models\Subscription::query()
+        ->where('company_id', $company->id)
+        ->latest('id')
+        ->first();
 
     if (!$subscription) {
-        return;
+        throw new \RuntimeException(
+            'No se encontró una suscripción para esta empresa.'
+        );
     }
 
     if ($subscription->cancel_at_period_end) {
@@ -130,20 +259,48 @@ public function cancelSubscription(): void
 
     if (!$subscription->provider_subscription_id) {
         throw new \RuntimeException(
-            'La suscripción todavía no tiene ID de Mercado Pago.'
+            'La suscripción existe pero no tiene ID de Mercado Pago. '
+            . 'Estado actual: ' . $subscription->status
         );
     }
 
-    app(\App\Services\MercadoPagoService::class)
-        ->cancelSubscription(
-            $subscription->provider_subscription_id
+    if (!in_array($subscription->status, [
+        'authorized',
+        'active',
+        'trialing',
+    ], true)) {
+        throw new \RuntimeException(
+            'La suscripción no puede cancelarse porque su estado actual es: '
+            . $subscription->status
         );
+    }
 
+    // Cancelamos la suscripción REAL en Mercado Pago.
+    app(MercadoPagoService::class)->cancelSubscription(
+        $subscription->provider_subscription_id
+    );
+
+    // No quitamos el acceso inmediatamente.
+    // La empresa sigue teniendo acceso hasta current_period_end.
     $subscription->update([
         'cancel_at_period_end' => true,
         'canceled_at' => now(),
     ]);
 
-    $this->redirect(request()->header('Referer'));
+    // Recargamos el modelo para que Livewire muestre el estado actualizado.
+    $subscription->refresh();
+
+    $this->dispatch('subscription-updated');
+
+    \Filament\Notifications\Notification::make()
+        ->title('Cancelación programada')
+        ->body(
+            $subscription->current_period_end
+                ? 'Vas a seguir teniendo acceso hasta '
+                    . $subscription->current_period_end->format('d/m/Y') . '.'
+                : 'La suscripción no se renovará nuevamente.'
+        )
+        ->success()
+        ->send();
 }
 }
