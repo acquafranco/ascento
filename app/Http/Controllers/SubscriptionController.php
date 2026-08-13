@@ -88,17 +88,54 @@ class SubscriptionController extends Controller
      */
     public function webhook(Request $request)
 {
-    \Log::info('MP WEBHOOK RECIBIDO', [
-        'method' => $request->method(),
-        'url' => $request->fullUrl(),
-        'headers' => $request->headers->all(),
+    Log::info('MERCADO PAGO WEBHOOK RECIBIDO', [
         'payload' => $request->all(),
+        'raw' => $request->getContent(),
     ]);
 
-    return response()->json([
-        'status' => 'received',
-    ], 200);
+    try {
+        $data = $request->all();
+
+        $type = $data['type'] ?? $data['topic'] ?? null;
+        $subscriptionId = $data['data']['id'] ?? $data['id'] ?? null;
+
+        Log::info('MERCADO PAGO WEBHOOK PARSEADO', [
+            'type' => $type,
+            'subscription_id' => $subscriptionId,
+        ]);
+
+        if ($type !== 'subscription_preapproval') {
+            return response()->json(['status' => 'ignored']);
+        }
+
+        if (!$subscriptionId) {
+            Log::warning('Mercado Pago webhook sin subscription ID');
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Missing subscription ID',
+            ], 400);
+        }
+
+        $this->mercadoPagoService->syncSubscription($subscriptionId);
+
+        return response()->json([
+            'status' => 'ok',
+        ]);
+
+    } catch (\Throwable $e) {
+
+        Log::error('ERROR PROCESANDO WEBHOOK MERCADO PAGO', [
+            'message' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+        ]);
+
+        return response()->json([
+            'status' => 'error',
+        ], 500);
+    }
 }
+
     public function show(Request $request)
     {
         $user = $request->user();
