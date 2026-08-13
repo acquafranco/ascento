@@ -87,76 +87,18 @@ class SubscriptionController extends Controller
      * Recibe notificaciones de Mercado Pago y sincroniza la suscripción.
      */
     public function webhook(Request $request)
-    {
-
-    \Log::info('MERCADO PAGO WEBHOOK RECIBIDO', [
-
+{
+    \Log::info('MP WEBHOOK RECIBIDO', [
         'method' => $request->method(),
-
         'url' => $request->fullUrl(),
-
         'headers' => $request->headers->all(),
-
         'payload' => $request->all(),
-
-        'raw' => $request->getContent(),
-
     ]);
-        $type = $request->input('type');
-        $dataId = $request->input('data.id');
 
-        if ($type !== 'subscription_preapproval' || !$dataId) {
-            return response()->json(['status' => 'ignored'], 200);
-        }
-
-        try {
-            $response = $this->mercadoPago->syncSubscription((string) $dataId);
-        } catch (\Throwable $e) {
-            report($e);
-
-            return response()->json([
-                'status' => 'error',
-            ], 500);
-        }
-
-        $externalReference = $response['external_reference'] ?? null;
-
-        if (!$externalReference || !preg_match('/^company_(\d+)_plan_(\d+)$/', $externalReference, $matches)) {
-            return response()->json(['status' => 'ignored_invalid_reference'], 200);
-        }
-
-        $companyId = (int) $matches[1];
-        $planId = (int) $matches[2];
-
-        $subscription = Subscription::query()
-            ->where('company_id', $companyId)
-            ->first();
-
-        if (!$subscription) {
-            return response()->json(['status' => 'subscription_not_found'], 200);
-        }
-
-        $plan = SubscriptionPlan::query()->find($planId);
-
-        $status = $response['status'] ?? $subscription->status;
-
-        $subscription->update([
-            'provider' => 'mercadopago',
-            'provider_subscription_id' => (string) $dataId,
-            'provider_plan_id' => $plan?->mercadopago_plan_id ?? $subscription->provider_plan_id,
-            'external_reference' => $externalReference,
-            'plan' => $plan?->slug ?? $subscription->plan,
-            'status' => $status,
-            'amount' => data_get($response, 'auto_recurring.transaction_amount', $subscription->amount),
-            'currency' => data_get($response, 'auto_recurring.currency_id', $subscription->currency),
-            'current_period_start' => data_get($response, 'auto_recurring.start_date', $subscription->current_period_start),
-            'current_period_end' => data_get($response, 'next_payment_date', $subscription->current_period_end),
-            'canceled_at' => $status === 'canceled' ? now() : null,
-        ]);
-
-        return response()->json(['status' => 'ok'], 200);
-    }
-
+    return response()->json([
+        'status' => 'received',
+    ], 200);
+}
     public function show(Request $request)
     {
         $user = $request->user();
