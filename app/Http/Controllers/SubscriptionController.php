@@ -88,6 +88,20 @@ class SubscriptionController extends Controller
      */
     public function webhook(Request $request)
     {
+
+    \Log::info('MERCADO PAGO WEBHOOK RECIBIDO', [
+
+        'method' => $request->method(),
+
+        'url' => $request->fullUrl(),
+
+        'headers' => $request->headers->all(),
+
+        'payload' => $request->all(),
+
+        'raw' => $request->getContent(),
+
+    ]);
         $type = $request->input('type');
         $dataId = $request->input('data.id');
 
