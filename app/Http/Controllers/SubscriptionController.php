@@ -88,52 +88,113 @@ class SubscriptionController extends Controller
      */
     public function webhook(Request $request)
 {
-    Log::info('MERCADO PAGO WEBHOOK RECIBIDO', [
+    \Log::info('MP WEBHOOK RECIBIDO', [
         'payload' => $request->all(),
         'raw' => $request->getContent(),
     ]);
 
-    try {
-        $data = $request->all();
+    $type = $request->input('type');
+    $dataId = $request->input('data.id');
 
-        $type = $data['type'] ?? $data['topic'] ?? null;
-        $subscriptionId = $data['data']['id'] ?? $data['id'] ?? null;
-
-        Log::info('MERCADO PAGO WEBHOOK PARSEADO', [
+    if ($type !== 'subscription_preapproval' || !$dataId) {
+        \Log::info('MP WEBHOOK IGNORADO', [
             'type' => $type,
-            'subscription_id' => $subscriptionId,
+            'data_id' => $dataId,
         ]);
 
-        if ($type !== 'subscription_preapproval') {
-            return response()->json(['status' => 'ignored']);
-        }
-
-        if (!$subscriptionId) {
-            Log::warning('Mercado Pago webhook sin subscription ID');
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Missing subscription ID',
-            ], 400);
-        }
-
-        $this->mercadoPagoService->syncSubscription($subscriptionId);
-
-        return response()->json([
-            'status' => 'ok',
-        ]);
-
-    } catch (\Throwable $e) {
-
-        Log::error('ERROR PROCESANDO WEBHOOK MERCADO PAGO', [
-            'message' => $e->getMessage(),
-            'trace' => $e->getTraceAsString(),
-        ]);
-
-        return response()->json([
-            'status' => 'error',
-        ], 500);
+        return response()->json(['status' => 'ignored'], 200);
     }
+
+    try {
+        $response = $this->mercadoPago->getSubscription((string) $dataId);
+
+        \Log::info('MP SUSCRIPCION OBTENIDA', [
+            'subscription_id' => $dataId,
+            'response' => $response,
+        ]);
+    } catch (\Throwable $e) {
+        \Log::error('MP ERROR OBTENIENDO SUSCRIPCION', [
+            'subscription_id' => $dataId,
+            'error' => $e->getMessage(),
+        ]);
+
+        return response()->json(['status' => 'error'], 500);
+    }
+
+    $externalReference = $response['external_reference'] ?? null;
+
+    \Log::info('MP EXTERNAL REFERENCE', [
+        'external_reference' => $externalReference,
+    ]);
+
+    if (
+        !$externalReference ||
+        !preg_match(
+            '/^company_(\d+)_plan_(\d+)$/',
+            $externalReference,
+            $matches
+        )
+    ) {
+        return response()->json([
+            'status' => 'ignored_invalid_reference',
+        ], 200);
+    }
+
+    $companyId = (int) $matches[1];
+    $planId = (int) $matches[2];
+
+    $subscription = Subscription::query()
+        ->where('company_id', $companyId)
+        ->first();
+
+    if (!$subscription) {
+        return response()->json([
+            'status' => 'subscription_not_found',
+        ], 200);
+    }
+
+    $plan = SubscriptionPlan::query()->find($planId);
+
+    $status = $response['status'] ?? $subscription->status;
+
+    $subscription->update([
+        'provider' => 'mercadopago',
+        'provider_subscription_id' => (string) $dataId,
+        'provider_plan_id' => $plan?->mercadopago_plan_id
+            ?? $subscription->provider_plan_id,
+        'external_reference' => $externalReference,
+        'plan' => $plan?->slug ?? $subscription->plan,
+        'status' => $status,
+        'amount' => data_get(
+            $response,
+            'auto_recurring.transaction_amount',
+            $subscription->amount
+        ),
+        'currency' => data_get(
+            $response,
+            'auto_recurring.currency_id',
+            $subscription->currency
+        ),
+        'current_period_start' => data_get(
+            $response,
+            'auto_recurring.start_date',
+            $subscription->current_period_start
+        ),
+        'current_period_end' => data_get(
+            $response,
+            'next_payment_date',
+            $subscription->current_period_end
+        ),
+        'canceled_at' => $status === 'canceled' ? now() : null,
+    ]);
+
+    \Log::info('MP SUSCRIPCION SINCRONIZADA', [
+        'subscription_id' => $dataId,
+        'company_id' => $companyId,
+        'status' => $status,
+    ]);
+
+    return response()->json(['status' => 'ok'], 200);
 }
 
     public function show(Request $request)
