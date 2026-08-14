@@ -145,87 +145,53 @@ public function changePlan(int|string $planId): void
         ->latest('id')
         ->first();
 
-    if (!$currentSubscription) {
-        // No hay suscripción: simplemente iniciamos checkout.
+    /*
+     * Si no existe suscripción o la anterior está cancelada,
+     * podemos iniciar directamente el checkout del nuevo plan.
+     */
+    if (
+        !$currentSubscription ||
+        $currentSubscription->status === 'cancelled'
+    ) {
         $this->checkout($newPlan->getKey());
         return;
     }
 
-    if ($currentSubscription->plan === $newPlan->slug) {
+    /*
+     * Si ya tiene ese mismo plan activo, no hacemos nada.
+     */
+    if (
+        $currentSubscription->plan === $newPlan->slug &&
+        in_array($currentSubscription->status, [
+            'authorized',
+            'active',
+            'trialing',
+        ], true)
+    ) {
         return;
     }
 
-    if (!$currentSubscription->provider_subscription_id) {
+    /*
+     * Si existe una suscripción activa diferente,
+     * por ahora NO hacemos el cambio automáticamente.
+     */
+    if (
+        in_array($currentSubscription->status, [
+            'authorized',
+            'active',
+            'trialing',
+        ], true)
+    ) {
         throw new \RuntimeException(
-            'La suscripción actual no tiene ID de Mercado Pago.'
-        );
-    }
-
-    if (!in_array($currentSubscription->status, [
-        'authorized',
-        'active',
-        'trialing',
-    ], true)) {
-        throw new \RuntimeException(
-            'La suscripción actual no puede cambiarse porque está en estado: '
-            . $currentSubscription->status
+            'La empresa tiene una suscripción activa. '
+            . 'Primero debemos procesar correctamente el cambio de plan.'
         );
     }
 
     /*
-     * Cancelamos la suscripción anterior en Mercado Pago.
+     * Para cualquier otro estado, iniciamos checkout.
      */
-    app(MercadoPagoService::class)->cancelSubscription(
-        $currentSubscription->provider_subscription_id
-    );
-
-    /*
-     * La marcamos como cancelada/programada localmente.
-     */
-    $currentSubscription->update([
-        'cancel_at_period_end' => true,
-        'canceled_at' => now(),
-    ]);
-
-    /*
-     * Creamos el checkout del nuevo plan.
-     *
-     * IMPORTANTE:
-     * no usamos checkout() porque checkout() detectaría
-     * la suscripción anterior.
-     */
-
-    $newSubscription = \App\Models\Subscription::create([
-        'company_id' => $company->id,
-        'provider' => 'mercadopago',
-        'provider_subscription_id' => null,
-        'provider_plan_id' => $newPlan->mercadopago_plan_id,
-        'external_reference' => 'company_' . $company->id . '_plan_' . $newPlan->id,
-        'plan' => $newPlan->slug,
-        'status' => 'pending',
-        'amount' => $newPlan->price,
-        'currency' => $newPlan->currency,
-        'trial_ends_at' => null,
-        'current_period_start' => null,
-        'current_period_end' => null,
-        'canceled_at' => null,
-        'cancel_at_period_end' => false,
-    ]);
-
-    $mercadoPagoPlan = app(MercadoPagoService::class)
-        ->getSubscriptionPlan(
-            (string) $newPlan->mercadopago_plan_id
-        );
-
-    $initPoint = $mercadoPagoPlan['init_point'] ?? null;
-
-    if (!$initPoint) {
-        throw new \RuntimeException(
-            "Mercado Pago no devolvió init_point para el plan {$newPlan->name}."
-        );
-    }
-
-    $this->redirect($initPoint, navigate: false);
+    $this->checkout($newPlan->getKey());
 }
 
 public function cancelSubscription(): void

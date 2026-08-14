@@ -79,7 +79,7 @@ class MercadoPagoService
             'put',
             '/preapproval/' . $subscriptionId,
             [
-                'status' => 'canceled',
+                'status' => 'cancelled',
             ]
         );
     }
