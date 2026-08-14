@@ -28,18 +28,21 @@ class Subscription extends Page
         );
     }
 
-    public function getPlans()
+    /**
+     * Obtiene el único plan activo de Ascento.
+     */
+    protected function getPlan(): ?SubscriptionPlan
     {
         return SubscriptionPlan::query()
             ->where('is_active', true)
-            ->orderBy('price')
-            ->get();
+            ->orderBy('id')
+            ->first();
     }
 
     /**
-     * Obtiene únicamente la suscripción activa de la empresa.
+     * Obtiene la suscripción activa real de la empresa.
      *
-     * Nunca devuelve una pending.
+     * Nunca considera una pending.
      */
     protected function getActiveSubscription(): ?SubscriptionModel
     {
@@ -62,27 +65,9 @@ class Subscription extends Page
     }
 
     /**
-     * Obtiene la suscripción pendiente más reciente.
+     * Inicia la contratación del único plan de Ascento.
      */
-    protected function getPendingSubscription(): ?SubscriptionModel
-    {
-        $company = auth()->user()?->company;
-
-        if (!$company) {
-            return null;
-        }
-
-        return SubscriptionModel::query()
-            ->where('company_id', $company->id)
-            ->where('status', 'pending')
-            ->latest('id')
-            ->first();
-    }
-
-    /**
-     * Contratación inicial.
-     */
-    public function checkout(int|string $planId): void
+    public function checkout(): void
     {
         $user = auth()->user();
 
@@ -95,10 +80,16 @@ class Subscription extends Page
 
         abort_unless($company, 403);
 
-        $plan = SubscriptionPlan::query()
-            ->whereKey((int) $planId)
-            ->where('is_active', true)
-            ->firstOrFail();
+        /*
+         * Obtenemos el único plan activo.
+         */
+        $plan = $this->getPlan();
+
+        if (!$plan) {
+            throw new \RuntimeException(
+                'No hay ningún plan activo configurado para Ascento.'
+            );
+        }
 
         if (!$plan->mercadopago_plan_id) {
             throw new \RuntimeException(
@@ -107,19 +98,19 @@ class Subscription extends Page
         }
 
         /*
-         * Checkout solamente sirve para contratación inicial.
+         * Una empresa no puede tener dos suscripciones activas.
          */
-        $activeSubscription = $this->getActiveSubscription();
+        if ($this->getActiveSubscription()) {
+            Notification::make()
+                ->title('Ya tenés una suscripción activa')
+                ->warning()
+                ->send();
 
-        if ($activeSubscription) {
-            throw new \RuntimeException(
-                'La empresa ya tiene una suscripción activa. '
-                . 'Para cambiar de plan se debe utilizar el cambio de plan.'
-            );
+            return;
         }
 
         /*
-         * Eliminamos pendientes anteriores.
+         * Eliminamos cualquier checkout pendiente anterior.
          */
         SubscriptionModel::query()
             ->where('company_id', $company->id)
@@ -127,7 +118,10 @@ class Subscription extends Page
             ->delete();
 
         /*
-         * Creamos la nueva suscripción pendiente.
+         * Creamos la suscripción local pendiente.
+         *
+         * El webhook de Mercado Pago la convertirá
+         * posteriormente en authorized/active.
          */
         SubscriptionModel::create([
             'company_id' => $company->id,
@@ -157,128 +151,31 @@ class Subscription extends Page
         $initPoint = $mercadoPagoPlan['init_point'] ?? null;
 
         if (!$initPoint) {
+            /*
+             * Si Mercado Pago no devuelve checkout,
+             * eliminamos el pending que acabamos de crear.
+             */
+            SubscriptionModel::query()
+                ->where('company_id', $company->id)
+                ->where('status', 'pending')
+                ->delete();
+
             throw new \RuntimeException(
                 "Mercado Pago no devolvió init_point para el plan {$plan->name}."
             );
         }
 
-        $this->redirect($initPoint, navigate: false);
-    }
-
-    /**
-     * Cambiar de plan.
-     */
-    public function changePlan(int|string $planId): void
-    {
-        $user = auth()->user();
-
-        abort_unless(
-            $user?->isAdmin() || $user?->isSuperAdmin(),
-            403
-        );
-
-        $company = $user->company;
-
-        abort_unless($company, 403);
-
-        $newPlan = SubscriptionPlan::query()
-            ->whereKey((int) $planId)
-            ->where('is_active', true)
-            ->firstOrFail();
-
         /*
-         * Buscamos la suscripción ACTIVA REAL.
-         *
-         * En tu caso actualmente:
-         *
-         * ID 4
-         * professional
-         * authorized
-         */
-        $currentSubscription = $this->getActiveSubscription();
-
-        /*
-         * Si no hay suscripción activa,
-         * hacemos una contratación inicial.
-         */
-        if (!$currentSubscription) {
-            $this->checkout($newPlan->getKey());
-            return;
-        }
-
-        /*
-         * Si ya está en ese plan, no hacemos nada.
-         */
-        if ($currentSubscription->plan === $newPlan->slug) {
-            Notification::make()
-                ->title('Ya tenés este plan')
-                ->warning()
-                ->send();
-
-            return;
-        }
-
-        /*
-         * Eliminamos cualquier cambio pendiente anterior.
-         */
-        SubscriptionModel::query()
-            ->where('company_id', $company->id)
-            ->where('status', 'pending')
-            ->delete();
-
-        /*
-         * Creamos la nueva suscripción pendiente.
-         *
-         * IMPORTANTE:
-         * NO modificamos la suscripción actual.
-         */
-        $pendingSubscription = SubscriptionModel::create([
-            'company_id' => $company->id,
-            'provider' => 'mercadopago',
-            'provider_subscription_id' => null,
-            'provider_plan_id' => $newPlan->mercadopago_plan_id,
-            'external_reference' => 'company_' . $company->id . '_plan_' . $newPlan->id,
-            'plan' => $newPlan->slug,
-            'status' => 'pending',
-            'amount' => $newPlan->price,
-            'currency' => $newPlan->currency,
-            'trial_ends_at' => null,
-            'current_period_start' => null,
-            'current_period_end' => null,
-            'canceled_at' => null,
-            'cancel_at_period_end' => false,
-        ]);
-
-        /*
-         * Obtenemos el checkout del nuevo plan.
-         */
-        $mercadoPagoPlan = app(MercadoPagoService::class)
-            ->getSubscriptionPlan(
-                (string) $newPlan->mercadopago_plan_id
-            );
-
-        $initPoint = $mercadoPagoPlan['init_point'] ?? null;
-
-        if (!$initPoint) {
-            /*
-             * Si Mercado Pago falla, eliminamos
-             * la pending que acabamos de crear.
-             */
-            $pendingSubscription->delete();
-
-            throw new \RuntimeException(
-                "Mercado Pago no devolvió init_point para el plan {$newPlan->name}."
-            );
-        }
-
-        /*
-         * Mandamos al usuario a Mercado Pago.
+         * Enviamos al usuario a Mercado Pago.
          */
         $this->redirect($initPoint, navigate: false);
     }
 
     /**
-     * Cancelar la suscripción activa.
+     * Cancela la suscripción activa.
+     *
+     * La empresa mantiene el acceso hasta
+     * current_period_end.
      */
     public function cancelSubscription(): void
     {
@@ -294,36 +191,34 @@ class Subscription extends Page
         abort_unless($company, 403);
 
         /*
-         * IMPORTANTE:
-         * Buscamos la última suscripción ACTIVA,
-         * nunca simplemente la última fila.
+         * Buscamos únicamente la suscripción activa.
          */
         $subscription = $this->getActiveSubscription();
 
         if (!$subscription) {
-            throw new \RuntimeException(
-                'No se encontró una suscripción activa para esta empresa.'
-            );
+            Notification::make()
+                ->title('No hay una suscripción activa')
+                ->warning()
+                ->send();
+
+            return;
         }
 
+        /*
+         * Si ya está marcada para cancelar, no hacemos nada.
+         */
         if ($subscription->cancel_at_period_end) {
+            Notification::make()
+                ->title('Cancelación ya programada')
+                ->warning()
+                ->send();
+
             return;
         }
 
         if (!$subscription->provider_subscription_id) {
             throw new \RuntimeException(
                 'La suscripción activa no tiene ID de Mercado Pago.'
-            );
-        }
-
-        if (!in_array($subscription->status, [
-            'authorized',
-            'active',
-            'trialing',
-        ], true)) {
-            throw new \RuntimeException(
-                'La suscripción no puede cancelarse porque su estado actual es: '
-                . $subscription->status
             );
         }
 

@@ -1,20 +1,15 @@
 <x-filament-panels::page>
+
     @php
         $plans = $this->getPlans();
 
-    $subscription = auth()->user()?->company?->subscriptions()
-        ->whereIn('status', ['authorized', 'active', 'trialing'])
-        ->latest('id')
-        ->first();
+        $subscription = auth()->user()?->company?->subscriptions()
+            ->whereIn('status', ['authorized', 'active', 'trialing'])
+            ->whereNotNull('provider_subscription_id')
+            ->latest('id')
+            ->first();
 
-        $isActive = $subscription &&
-            in_array($subscription->status, [
-                'authorized',
-                'active',
-                'trialing',
-            ], true);
-
-        $currentPlan = $isActive ? $subscription->plan : null;
+        $isActive = $subscription !== null;
 
         $statusLabel = match ($subscription?->status) {
             'authorized', 'active' => 'Activo',
@@ -22,16 +17,18 @@
             'pending' => 'Pendiente',
             'paused' => 'Pausado',
             'cancelled', 'canceled' => 'Cancelado',
-            default => ucfirst($subscription?->status ?? 'Sin suscripción'),
+            default => 'Sin suscripción',
         };
+
+        $plan = $plans->first();
     @endphp
 
 
-    {{-- ======================================== --}}
-    {{-- PLAN ACTUAL --}}
-    {{-- ======================================== --}}
+    {{-- ===================================================== --}}
+    {{-- SUSCRIPCIÓN ACTUAL --}}
+    {{-- ===================================================== --}}
 
-    @if ($subscription && $currentPlan)
+    @if ($isActive)
 
         <x-filament::section>
 
@@ -42,24 +39,20 @@
                     <div class="flex items-center gap-3">
 
                         <div>
+
                             <p class="text-sm text-gray-500 dark:text-gray-400">
-                                Tu plan actual
+                                Tu plan
                             </p>
 
                             <h2 class="text-3xl font-bold text-gray-950 dark:text-white">
-                                {{ ucfirst($currentPlan) }}
+                                {{ $plan?->name ?? ucfirst($subscription->plan) }}
                             </h2>
+
                         </div>
 
-                        @if ($isActive)
-                            <x-filament::badge color="success">
-                                {{ $statusLabel }}
-                            </x-filament::badge>
-                        @else
-                            <x-filament::badge color="warning">
-                                {{ $statusLabel }}
-                            </x-filament::badge>
-                        @endif
+                        <x-filament::badge color="success">
+                            {{ $statusLabel }}
+                        </x-filament::badge>
 
                     </div>
 
@@ -69,10 +62,13 @@
                         @if ($subscription->amount)
 
                             <span class="text-gray-600 dark:text-gray-300">
+
                                 <strong>
                                     ${{ number_format((float) $subscription->amount, 0, ',', '.') }}
                                 </strong>
+
                                 {{ $subscription->currency }}/mes
+
                             </span>
 
                         @endif
@@ -81,10 +77,15 @@
                         @if ($subscription->current_period_end)
 
                             <span class="text-gray-500 dark:text-gray-400">
+
                                 Próximo cobro:
+
                                 <strong class="text-gray-700 dark:text-gray-200">
+
                                     {{ $subscription->current_period_end->format('d/m/Y') }}
+
                                 </strong>
+
                             </span>
 
                         @endif
@@ -94,9 +95,11 @@
                 </div>
 
 
-                {{-- ACCIONES DEL PLAN ACTUAL --}}
+                {{-- ================================================= --}}
+                {{-- CANCELAR --}}
+                {{-- ================================================= --}}
 
-                <div class="flex flex-col gap-2 sm:flex-row">
+                <div>
 
                     @if ($subscription->cancel_at_period_end)
 
@@ -115,13 +118,21 @@
                             wire:loading.attr="disabled"
                             wire:target="cancelSubscription"
                         >
-                            <span wire:loading.remove wire:target="cancelSubscription">
+
+                            <span
+                                wire:loading.remove
+                                wire:target="cancelSubscription"
+                            >
                                 Cancelar suscripción
                             </span>
 
-                            <span wire:loading wire:target="cancelSubscription">
+                            <span
+                                wire:loading
+                                wire:target="cancelSubscription"
+                            >
                                 Cancelando...
                             </span>
+
                         </x-filament::button>
 
                     @endif
@@ -131,15 +142,25 @@
             </div>
 
 
+            {{-- ================================================= --}}
+            {{-- AVISO DE CANCELACIÓN --}}
+            {{-- ================================================= --}}
+
             @if ($subscription->cancel_at_period_end)
 
                 <div class="mt-5 rounded-lg border border-warning-300 bg-warning-50 p-4 text-sm text-warning-800 dark:border-warning-700 dark:bg-warning-950 dark:text-warning-200">
 
-                    Tu suscripción está cancelada y seguirá activa hasta
+                    Tu suscripción fue cancelada y no se renovará.
 
-                    <strong>
-                        {{ $subscription->current_period_end?->format('d/m/Y') }}
-                    </strong>.
+                    @if ($subscription->current_period_end)
+
+                        Vas a seguir teniendo acceso hasta
+
+                        <strong>
+                            {{ $subscription->current_period_end->format('d/m/Y') }}
+                        </strong>.
+
+                    @endif
 
                 </div>
 
@@ -147,93 +168,53 @@
 
         </x-filament::section>
 
+
     @else
+
+        {{-- ===================================================== --}}
+        {{-- SIN SUSCRIPCIÓN --}}
+        {{-- ================================================= --}}
 
         <x-filament::section>
 
             <div class="text-center">
 
-                <h2 class="text-xl font-bold text-gray-950 dark:text-white">
-                    No tenés una suscripción activa
+                <h2 class="text-2xl font-bold text-gray-950 dark:text-white">
+                    Ascento
                 </h2>
 
                 <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                    Elegí uno de los planes disponibles para comenzar.
+                    Sistema de gestión y mantenimiento para empresas de ascensores.
                 </p>
 
-            </div>
 
-        </x-filament::section>
+                @if ($plan)
 
-    @endif
+                    <div class="mx-auto mt-8 max-w-md">
 
-
-
-    {{-- ======================================== --}}
-    {{-- PLANES --}}
-    {{-- ======================================== --}}
-
-    <div>
-
-        <h2 class="mb-4 text-xl font-bold text-gray-950 dark:text-white">
-            Planes
-        </h2>
-
-
-        <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-
-            @foreach ($plans as $plan)
-
-                @php
-                    $isCurrent = $currentPlan === $plan->slug;
-                @endphp
-
-
-                <x-filament::section>
-
-                    <div class="flex h-full flex-col">
-
-                        {{-- NOMBRE --}}
-
-                        <div class="flex items-center justify-between">
+                        <div class="rounded-xl border border-gray-200 p-6 dark:border-gray-700">
 
                             <h3 class="text-xl font-bold text-gray-950 dark:text-white">
                                 {{ $plan->name }}
                             </h3>
 
-                            @if ($isCurrent)
 
-                                <x-filament::badge color="success">
-                                    Actual
-                                </x-filament::badge>
+                            <div class="mt-4">
 
-                            @endif
+                                <span class="text-4xl font-bold text-gray-950 dark:text-white">
+                                    ${{ number_format((float) $plan->price, 0, ',', '.') }}
+                                </span>
 
-                        </div>
+                                <span class="text-sm text-gray-500 dark:text-gray-400">
+                                    / mes
+                                </span>
 
+                            </div>
 
-                        {{-- PRECIO --}}
-
-                        <div class="mt-5">
-
-                            <span class="text-3xl font-bold text-gray-950 dark:text-white">
-                                ${{ number_format((float) $plan->price, 0, ',', '.') }}
-                            </span>
-
-                            <span class="text-sm text-gray-500 dark:text-gray-400">
-                                / mes
-                            </span>
-
-                        </div>
-
-
-                        {{-- FEATURES --}}
-
-                        <div class="mt-6 flex-1">
 
                             @if (!empty($plan->features))
 
-                                <ul class="space-y-3">
+                                <ul class="mt-6 space-y-3 text-left">
 
                                     @foreach ($plan->features as $feature)
 
@@ -255,54 +236,51 @@
 
                             @endif
 
-                        </div>
 
-
-                        {{-- BOTÓN --}}
-
-                        <div class="mt-8">
-
-                            @if ($isCurrent)
+                            <div class="mt-8">
 
                                 <x-filament::button
-                                    color="gray"
-                                    disabled
-                                    class="w-full"
-                                >
-                                    Plan actual
-                                </x-filament::button>
-
-                            @else
-
-                                <x-filament::button
-                                    wire:click="changePlan({{ $plan->id }})"
-                                    wire:loading.attr="disabled"
-                                    wire:target="changePlan"
-                                    class="w-full"
+                                    wire:click="checkout"
                                 >
 
-                                    <span wire:loading.remove wire:target="changePlan">
-                                        Cambiar a {{ $plan->name }}
+                                    <span
+                                        wire:loading.remove
+                                        wire:target="checkout"
+                                    >
+                                        Suscribirme
                                     </span>
 
-                                    <span wire:loading wire:target="changePlan">
+                                    <span
+                                        wire:loading
+                                        wire:target="checkout"
+                                    >
                                         Procesando...
                                     </span>
 
                                 </x-filament::button>
 
-                            @endif
+                            </div>
 
                         </div>
 
                     </div>
 
-                </x-filament::section>
+                @else
 
-            @endforeach
+                    <div class="mt-6">
 
-        </div>
+                        <x-filament::badge color="danger">
+                            No hay un plan activo configurado.
+                        </x-filament::badge>
 
-    </div>
+                    </div>
+
+                @endif
+
+            </div>
+
+        </x-filament::section>
+
+    @endif
 
 </x-filament-panels::page>

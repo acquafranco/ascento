@@ -2,57 +2,35 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
+use App\Models\Report;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-
-use App\Models\Report;
 
 class Company extends Model
 {
     use HasFactory;
 
-
-
     protected $fillable = [
-
         'name',
-
         'business_name',
-
         'cuit',
-
         'tax_condition',
-
         'slug',
-
         'email',
-
         'phone',
-
         'address',
-
         'city',
-
         'province',
-
         'logo',
-
         'primary_color',
-
         'is_active',
-
         'whatsapp_access_token',
-
         'whatsapp_phone_number_id',
-
         'whatsapp_waba_id',
-
         'whatsapp_business_id',
-
         'whatsapp_connected',
-
     ];
 
     protected $casts = [
@@ -66,7 +44,6 @@ class Company extends Model
     }
 
     public function clients()
-
     {
         return $this->hasMany(Client::class);
     }
@@ -91,21 +68,20 @@ class Company extends Model
         return $this->hasMany(Report::class);
     }
 
-  public function subscriptions(): HasMany
-{
-    return $this->hasMany(Subscription::class);
-}
+   public function subscriptions(): HasMany
+    {
+        return $this->hasMany(Subscription::class);
+    }
 
-public function subscription(): HasOne
-{
-    return $this->hasOne(Subscription::class)
-        ->whereIn('status', [
-            'authorized',
-            'active',
-            'trialing',
-        ])
-        ->whereNotNull('provider_subscription_id')
-        ->orderByDesc('id');
+    public function subscription(): HasOne
+    {
+        return $this->hasOne(Subscription::class)
+            ->whereIn('status', [
+                'authorized',
+                'active',
+                'trialing',
+            ])
+            ->whereNotNull('provider_subscription_id')
+            ->orderByDesc('id');
+    }
 }
-}
-
