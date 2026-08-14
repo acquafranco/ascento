@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
+
 use App\Models\Report;
 
 class Company extends Model
@@ -88,11 +88,6 @@ class Company extends Model
     public function reports(): HasMany
     {
         return $this->hasMany(Report::class);
-    }
-
-    public function subscription(): HasOne
-    {
-        return $this->hasOne(Subscription::class);
     }
 
     public function subscriptions()
