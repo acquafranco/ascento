@@ -90,15 +90,9 @@ class Company extends Model
         return $this->hasMany(Report::class);
     }
 
-   public function subscription(): HasOne
-{
-    return $this->hasOne(Subscription::class)
-        ->ofMany('id', 'max', function ($query) {
-            $query->whereIn('status', [
-                'authorized',
-                'active',
-                'trialing',
-            ]);
-        });
+    public function subscription(): HasOne
+    {
+        return $this->hasOne(Subscription::class);
+    }
 }
-}
+
