@@ -2,9 +2,7 @@
     @php
         $plans = $this->getPlans();
 
-        $subscription = auth()->user()?->company?->subscription;
-
-        $currentPlan = $subscription?->plan;
+       $subscription = auth()->user()?->company?->subscription;
 
         $isActive = $subscription &&
             in_array($subscription->status, [
@@ -12,6 +10,8 @@
                 'active',
                 'trialing',
             ], true);
+
+        $currentPlan = $isActive ? $subscription->plan : null;
 
         $statusLabel = match ($subscription?->status) {
             'authorized', 'active' => 'Activo',
