@@ -142,56 +142,82 @@ public function changePlan(int|string $planId): void
 
     $currentSubscription = \App\Models\Subscription::query()
         ->where('company_id', $company->id)
+        ->whereIn('status', [
+            'authorized',
+            'active',
+            'trialing',
+        ])
+        ->whereNotNull('provider_subscription_id')
         ->latest('id')
         ->first();
 
     /*
-     * Si no existe suscripción o la anterior está cancelada,
-     * podemos iniciar directamente el checkout del nuevo plan.
+     * Si no hay suscripción activa, es una contratación inicial.
      */
-    if (
-        !$currentSubscription ||
-        $currentSubscription->status === 'cancelled'
-    ) {
+    if (!$currentSubscription) {
         $this->checkout($newPlan->getKey());
         return;
     }
 
     /*
-     * Si ya tiene ese mismo plan activo, no hacemos nada.
+     * Si eligió el mismo plan, no hacemos nada.
      */
-    if (
-        $currentSubscription->plan === $newPlan->slug &&
-        in_array($currentSubscription->status, [
-            'authorized',
-            'active',
-            'trialing',
-        ], true)
-    ) {
+    if ($currentSubscription->plan === $newPlan->slug) {
         return;
     }
 
     /*
-     * Si existe una suscripción activa diferente,
-     * por ahora NO hacemos el cambio automáticamente.
+     * IMPORTANTE:
+     * NO modificamos la suscripción actual.
+     *
+     * La actual sigue siendo el plan que el cliente pagó.
      */
-    if (
-        in_array($currentSubscription->status, [
-            'authorized',
-            'active',
-            'trialing',
-        ], true)
-    ) {
-        throw new \RuntimeException(
-            'La empresa tiene una suscripción activa. '
-            . 'Primero debemos procesar correctamente el cambio de plan.'
-        );
+
+    $pending = \App\Models\Subscription::query()
+        ->where('company_id', $company->id)
+        ->where('status', 'pending')
+        ->first();
+
+    if ($pending) {
+        $pending->delete();
     }
 
     /*
-     * Para cualquier otro estado, iniciamos checkout.
+     * Creamos una nueva suscripción PENDIENTE.
+     * Esta representa solamente el cambio que el usuario
+     * está intentando contratar.
      */
-    $this->checkout($newPlan->getKey());
+    \App\Models\Subscription::create([
+        'company_id' => $company->id,
+        'provider' => 'mercadopago',
+        'provider_subscription_id' => null,
+        'provider_plan_id' => $newPlan->mercadopago_plan_id,
+        'external_reference' => 'company_' . $company->id . '_plan_' . $newPlan->id,
+        'plan' => $newPlan->slug,
+        'status' => 'pending',
+        'amount' => $newPlan->price,
+        'currency' => $newPlan->currency,
+        'trial_ends_at' => null,
+        'current_period_start' => null,
+        'current_period_end' => null,
+        'canceled_at' => null,
+        'cancel_at_period_end' => false,
+    ]);
+
+    $mercadoPagoPlan = app(MercadoPagoService::class)
+        ->getSubscriptionPlan(
+            (string) $newPlan->mercadopago_plan_id
+        );
+
+    $initPoint = $mercadoPagoPlan['init_point'] ?? null;
+
+    if (!$initPoint) {
+        throw new \RuntimeException(
+            "Mercado Pago no devolvió init_point para el plan {$newPlan->name}."
+        );
+    }
+
+    $this->redirect($initPoint, navigate: false);
 }
 
 public function cancelSubscription(): void
