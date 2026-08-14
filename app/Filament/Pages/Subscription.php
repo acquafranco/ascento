@@ -9,7 +9,6 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 
 class Subscription extends Page
-
 {
     protected string $view = 'filament.pages.subscription';
 
@@ -38,11 +37,11 @@ class Subscription extends Page
     }
 
     /**
-     * Obtiene la suscripción ACTIVA real de la empresa.
+     * Obtiene únicamente la suscripción activa de la empresa.
      *
      * Nunca devuelve una pending.
      */
-    protected function getActiveSubscription(): ?Subscription
+    protected function getActiveSubscription(): ?SubscriptionModel
     {
         $company = auth()->user()?->company;
 
@@ -50,7 +49,7 @@ class Subscription extends Page
             return null;
         }
 
-        return Subscription::query()
+        return SubscriptionModel::query()
             ->where('company_id', $company->id)
             ->whereIn('status', [
                 'authorized',
@@ -63,9 +62,9 @@ class Subscription extends Page
     }
 
     /**
-     * Obtiene la suscripción pendiente de la empresa.
+     * Obtiene la suscripción pendiente más reciente.
      */
-    protected function getPendingSubscription(): ?Subscription
+    protected function getPendingSubscription(): ?SubscriptionModel
     {
         $company = auth()->user()?->company;
 
@@ -73,7 +72,7 @@ class Subscription extends Page
             return null;
         }
 
-        return Subscription::query()
+        return SubscriptionModel::query()
             ->where('company_id', $company->id)
             ->where('status', 'pending')
             ->latest('id')
@@ -108,8 +107,7 @@ class Subscription extends Page
         }
 
         /*
-         * Si ya existe una suscripción activa,
-         * checkout NO corresponde.
+         * Checkout solamente sirve para contratación inicial.
          */
         $activeSubscription = $this->getActiveSubscription();
 
@@ -121,17 +119,17 @@ class Subscription extends Page
         }
 
         /*
-         * Si había una pending anterior, la eliminamos.
+         * Eliminamos pendientes anteriores.
          */
-        Subscription::query()
+        SubscriptionModel::query()
             ->where('company_id', $company->id)
             ->where('status', 'pending')
             ->delete();
 
         /*
-         * Creamos la suscripción local pendiente.
+         * Creamos la nueva suscripción pendiente.
          */
-        Subscription::create([
+        SubscriptionModel::create([
             'company_id' => $company->id,
             'provider' => 'mercadopago',
             'provider_subscription_id' => null,
@@ -149,7 +147,7 @@ class Subscription extends Page
         ]);
 
         /*
-         * Obtenemos el checkout del plan de Mercado Pago.
+         * Obtenemos el checkout de Mercado Pago.
          */
         $mercadoPagoPlan = app(MercadoPagoService::class)
             ->getSubscriptionPlan(
@@ -189,9 +187,9 @@ class Subscription extends Page
             ->firstOrFail();
 
         /*
-         * Buscamos ÚNICAMENTE la suscripción activa.
+         * Buscamos la suscripción ACTIVA REAL.
          *
-         * En tu caso actual esto devuelve:
+         * En tu caso actualmente:
          *
          * ID 4
          * professional
@@ -200,7 +198,8 @@ class Subscription extends Page
         $currentSubscription = $this->getActiveSubscription();
 
         /*
-         * Si no existe una activa, esto es contratación inicial.
+         * Si no hay suscripción activa,
+         * hacemos una contratación inicial.
          */
         if (!$currentSubscription) {
             $this->checkout($newPlan->getKey());
@@ -222,17 +221,18 @@ class Subscription extends Page
         /*
          * Eliminamos cualquier cambio pendiente anterior.
          */
-        Subscription::query()
+        SubscriptionModel::query()
             ->where('company_id', $company->id)
             ->where('status', 'pending')
             ->delete();
 
         /*
-         * Creamos una NUEVA suscripción pendiente.
+         * Creamos la nueva suscripción pendiente.
          *
-         * La suscripción actual NO se toca.
+         * IMPORTANTE:
+         * NO modificamos la suscripción actual.
          */
-        $pendingSubscription = Subscription::create([
+        $pendingSubscription = SubscriptionModel::create([
             'company_id' => $company->id,
             'provider' => 'mercadopago',
             'provider_subscription_id' => null,
@@ -261,8 +261,8 @@ class Subscription extends Page
 
         if (!$initPoint) {
             /*
-             * Si Mercado Pago no devuelve checkout,
-             * eliminamos la pending que acabamos de crear.
+             * Si Mercado Pago falla, eliminamos
+             * la pending que acabamos de crear.
              */
             $pendingSubscription->delete();
 
@@ -295,11 +295,8 @@ class Subscription extends Page
 
         /*
          * IMPORTANTE:
-         *
-         * NO usamos latest() solamente.
-         * Buscamos la última suscripción ACTIVA.
-         *
-         * Así jamás intentamos cancelar una pending.
+         * Buscamos la última suscripción ACTIVA,
+         * nunca simplemente la última fila.
          */
         $subscription = $this->getActiveSubscription();
 
@@ -319,6 +316,17 @@ class Subscription extends Page
             );
         }
 
+        if (!in_array($subscription->status, [
+            'authorized',
+            'active',
+            'trialing',
+        ], true)) {
+            throw new \RuntimeException(
+                'La suscripción no puede cancelarse porque su estado actual es: '
+                . $subscription->status
+            );
+        }
+
         /*
          * Cancelamos la suscripción REAL en Mercado Pago.
          */
@@ -328,9 +336,6 @@ class Subscription extends Page
 
         /*
          * No quitamos el acceso inmediatamente.
-         *
-         * La suscripción sigue válida hasta
-         * current_period_end.
          */
         $subscription->update([
             'cancel_at_period_end' => true,
