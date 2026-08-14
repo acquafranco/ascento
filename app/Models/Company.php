@@ -96,12 +96,18 @@ class Company extends Model
         return $this->hasMany(Subscription::class);
     }
 
-    public function subscription(): HasOne
+        public function subscription(): HasOne
     {
         return $this->hasOne(Subscription::class)
-            ->whereIn('status', ['authorized', 'active', 'trialing'])
-            ->whereNotNull('provider_subscription_id')
-            ->latestOfMany('id');
+            ->ofMany('id', 'max', function ($query) {
+                $query
+                    ->whereIn('status', [
+                        'authorized',
+                        'active',
+                        'trialing',
+                    ])
+                    ->whereNotNull('provider_subscription_id');
+            });
     }
 }
 
