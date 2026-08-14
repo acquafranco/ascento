@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 use App\Models\Report;
 
@@ -90,9 +91,17 @@ class Company extends Model
         return $this->hasMany(Report::class);
     }
 
-    public function subscriptions()
+   public function subscriptions(): HasMany
     {
         return $this->hasMany(Subscription::class);
+    }
+
+    public function subscription(): HasOne
+    {
+        return $this->hasOne(Subscription::class)
+            ->whereIn('status', ['authorized', 'active', 'trialing'])
+            ->whereNotNull('provider_subscription_id')
+            ->latestOfMany('id');
     }
 }
 
