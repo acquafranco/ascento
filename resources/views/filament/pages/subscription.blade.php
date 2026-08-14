@@ -2,7 +2,10 @@
     @php
         $plans = $this->getPlans();
 
-       $subscription = auth()->user()?->company?->subscription;
+    $subscription = auth()->user()?->company?->subscriptions()
+        ->whereIn('status', ['authorized', 'active', 'trialing'])
+        ->latest('id')
+        ->first();
 
         $isActive = $subscription &&
             in_array($subscription->status, [
