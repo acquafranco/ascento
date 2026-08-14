@@ -1,53 +1,41 @@
 <x-filament-panels::page>
-
     @php
-        $plans = $this->getPlans();
+        $plan = $this->getPlan();
 
-        $subscription = auth()->user()?->company?->subscriptions()
-            ->whereIn('status', ['authorized', 'active', 'trialing'])
-            ->whereNotNull('provider_subscription_id')
-            ->latest('id')
-            ->first();
+        $subscription = $this->getActiveSubscription();
 
-        $isActive = $subscription !== null;
+        $isActive = $subscription &&
+            in_array($subscription->status, [
+                'authorized',
+                'active',
+                'trialing',
+            ], true);
 
         $statusLabel = match ($subscription?->status) {
             'authorized', 'active' => 'Activo',
             'trialing' => 'Período de prueba',
-            'pending' => 'Pendiente',
-            'paused' => 'Pausado',
             'cancelled', 'canceled' => 'Cancelado',
             default => 'Sin suscripción',
         };
-
-        $plan = $plans->first();
     @endphp
 
-
-    {{-- ===================================================== --}}
-    {{-- SUSCRIPCIÓN ACTUAL --}}
-    {{-- ===================================================== --}}
-
-    @if ($isActive)
+    {{-- PLAN ACTUAL --}}
+    @if ($subscription && $isActive)
 
         <x-filament::section>
-
             <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
 
                 <div>
-
                     <div class="flex items-center gap-3">
 
                         <div>
-
                             <p class="text-sm text-gray-500 dark:text-gray-400">
-                                Tu plan
+                                Tu plan actual
                             </p>
 
                             <h2 class="text-3xl font-bold text-gray-950 dark:text-white">
                                 {{ $plan?->name ?? ucfirst($subscription->plan) }}
                             </h2>
-
                         </div>
 
                         <x-filament::badge color="success">
@@ -56,48 +44,28 @@
 
                     </div>
 
-
                     <div class="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
 
-                        @if ($subscription->amount)
-
-                            <span class="text-gray-600 dark:text-gray-300">
-
-                                <strong>
-                                    ${{ number_format((float) $subscription->amount, 0, ',', '.') }}
-                                </strong>
-
-                                {{ $subscription->currency }}/mes
-
-                            </span>
-
-                        @endif
-
+                        <span class="text-gray-600 dark:text-gray-300">
+                            <strong>
+                                ${{ number_format((float) $subscription->amount, 0, ',', '.') }}
+                            </strong>
+                            {{ $subscription->currency }}/mes
+                        </span>
 
                         @if ($subscription->current_period_end)
 
                             <span class="text-gray-500 dark:text-gray-400">
-
                                 Próximo cobro:
-
                                 <strong class="text-gray-700 dark:text-gray-200">
-
                                     {{ $subscription->current_period_end->format('d/m/Y') }}
-
                                 </strong>
-
                             </span>
 
                         @endif
 
                     </div>
-
                 </div>
-
-
-                {{-- ================================================= --}}
-                {{-- CANCELAR --}}
-                {{-- ================================================= --}}
 
                 <div>
 
@@ -118,21 +86,13 @@
                             wire:loading.attr="disabled"
                             wire:target="cancelSubscription"
                         >
-
-                            <span
-                                wire:loading.remove
-                                wire:target="cancelSubscription"
-                            >
+                            <span wire:loading.remove wire:target="cancelSubscription">
                                 Cancelar suscripción
                             </span>
 
-                            <span
-                                wire:loading
-                                wire:target="cancelSubscription"
-                            >
+                            <span wire:loading wire:target="cancelSubscription">
                                 Cancelando...
                             </span>
-
                         </x-filament::button>
 
                     @endif
@@ -141,26 +101,17 @@
 
             </div>
 
-
-            {{-- ================================================= --}}
-            {{-- AVISO DE CANCELACIÓN --}}
-            {{-- ================================================= --}}
-
             @if ($subscription->cancel_at_period_end)
 
                 <div class="mt-5 rounded-lg border border-warning-300 bg-warning-50 p-4 text-sm text-warning-800 dark:border-warning-700 dark:bg-warning-950 dark:text-warning-200">
 
-                    Tu suscripción fue cancelada y no se renovará.
+                    Tu suscripción seguirá activa hasta
 
-                    @if ($subscription->current_period_end)
+                    <strong>
+                        {{ $subscription->current_period_end?->format('d/m/Y') }}
+                    </strong>.
 
-                        Vas a seguir teniendo acceso hasta
-
-                        <strong>
-                            {{ $subscription->current_period_end->format('d/m/Y') }}
-                        </strong>.
-
-                    @endif
+                    Después de esa fecha no se renovará.
 
                 </div>
 
@@ -168,100 +119,82 @@
 
         </x-filament::section>
 
-
     @else
 
-        {{-- ===================================================== --}}
         {{-- SIN SUSCRIPCIÓN --}}
-        {{-- ================================================= --}}
 
         <x-filament::section>
 
-            <div class="text-center">
+            <div class="mx-auto max-w-2xl text-center">
 
                 <h2 class="text-2xl font-bold text-gray-950 dark:text-white">
                     Ascento
                 </h2>
 
-                <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                    Sistema de gestión y mantenimiento para empresas de ascensores.
+                <p class="mt-2 text-gray-500 dark:text-gray-400">
+                    Todo lo que necesitás para gestionar tu empresa de ascensores.
                 </p>
-
 
                 @if ($plan)
 
-                    <div class="mx-auto mt-8 max-w-md">
+                    <div class="mt-8">
 
-                        <div class="rounded-xl border border-gray-200 p-6 dark:border-gray-700">
+                        <div class="text-4xl font-bold text-gray-950 dark:text-white">
+                            ${{ number_format((float) $plan->price, 0, ',', '.') }}
+                        </div>
 
-                            <h3 class="text-xl font-bold text-gray-950 dark:text-white">
-                                {{ $plan->name }}
-                            </h3>
+                        <div class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                            {{ $plan->currency }} / mes
+                        </div>
 
+                    </div>
 
-                            <div class="mt-4">
+                    @if (!empty($plan->features))
 
-                                <span class="text-4xl font-bold text-gray-950 dark:text-white">
-                                    ${{ number_format((float) $plan->price, 0, ',', '.') }}
-                                </span>
+                        <div class="mt-8 text-left">
 
-                                <span class="text-sm text-gray-500 dark:text-gray-400">
-                                    / mes
-                                </span>
+                            <ul class="mx-auto max-w-md space-y-3">
 
-                            </div>
+                                @foreach ($plan->features as $feature)
 
+                                    <li class="flex gap-2 text-sm text-gray-600 dark:text-gray-300">
 
-                            @if (!empty($plan->features))
+                                        <span class="text-success-500">
+                                            ✓
+                                        </span>
 
-                                <ul class="mt-6 space-y-3 text-left">
+                                        <span>
+                                            {{ $feature }}
+                                        </span>
 
-                                    @foreach ($plan->features as $feature)
+                                    </li>
 
-                                        <li class="flex gap-2 text-sm text-gray-600 dark:text-gray-300">
+                                @endforeach
 
-                                            <span class="text-success-500">
-                                                ✓
-                                            </span>
-
-                                            <span>
-                                                {{ $feature }}
-                                            </span>
-
-                                        </li>
-
-                                    @endforeach
-
-                                </ul>
-
-                            @endif
-
-
-                            <div class="mt-8">
-
-                                <x-filament::button
-                                    wire:click="checkout"
-                                >
-
-                                    <span
-                                        wire:loading.remove
-                                        wire:target="checkout"
-                                    >
-                                        Suscribirme
-                                    </span>
-
-                                    <span
-                                        wire:loading
-                                        wire:target="checkout"
-                                    >
-                                        Procesando...
-                                    </span>
-
-                                </x-filament::button>
-
-                            </div>
+                            </ul>
 
                         </div>
+
+                    @endif
+
+                    <div class="mt-8">
+
+                        <x-filament::button
+                            wire:click="checkout"
+                            wire:loading.attr="disabled"
+                            wire:target="checkout"
+                            size="lg"
+                        >
+
+                            <span wire:loading.remove wire:target="checkout">
+                                Contratar Ascento
+                            </span>
+
+                            <span wire:loading wire:target="checkout">
+                                Procesando...
+                            </span>
+
+                        </x-filament::button>
 
                     </div>
 
@@ -270,7 +203,7 @@
                     <div class="mt-6">
 
                         <x-filament::badge color="danger">
-                            No hay un plan activo configurado.
+                            No hay un plan configurado
                         </x-filament::badge>
 
                     </div>
