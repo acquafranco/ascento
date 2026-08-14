@@ -91,23 +91,21 @@ class Company extends Model
         return $this->hasMany(Report::class);
     }
 
-   public function subscriptions(): HasMany
-    {
-        return $this->hasMany(Subscription::class);
-    }
+  public function subscriptions(): HasMany
+{
+    return $this->hasMany(Subscription::class);
+}
 
-        public function subscription(): HasOne
-    {
-        return $this->hasOne(Subscription::class)
-            ->ofMany('id', 'max', function ($query) {
-                $query
-                    ->whereIn('status', [
-                        'authorized',
-                        'active',
-                        'trialing',
-                    ])
-                    ->whereNotNull('provider_subscription_id');
-            });
-    }
+public function subscription(): HasOne
+{
+    return $this->hasOne(Subscription::class)
+        ->whereIn('status', [
+            'authorized',
+            'active',
+            'trialing',
+        ])
+        ->whereNotNull('provider_subscription_id')
+        ->orderByDesc('id');
+}
 }
 
