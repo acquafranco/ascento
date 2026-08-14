@@ -187,16 +187,16 @@ public function changePlan(int|string $planId): void
      * Esta representa solamente el cambio que el usuario
      * está intentando contratar.
      */
-    \App\Models\Subscription::create([
+        \App\Models\Subscription::create([
         'company_id' => $company->id,
         'provider' => 'mercadopago',
         'provider_subscription_id' => null,
-        'provider_plan_id' => $newPlan->mercadopago_plan_id,
-        'external_reference' => 'company_' . $company->id . '_plan_' . $newPlan->id,
-        'plan' => $newPlan->slug,
+        'provider_plan_id' => $plan->mercadopago_plan_id,
+        'external_reference' => 'company_' . $company->id . '_plan_' . $plan->id,
+        'plan' => $plan->slug,
         'status' => 'pending',
-        'amount' => $newPlan->price,
-        'currency' => $newPlan->currency,
+        'amount' => $plan->price,
+        'currency' => $plan->currency,
         'trial_ends_at' => null,
         'current_period_start' => null,
         'current_period_end' => null,
