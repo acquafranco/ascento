@@ -90,8 +90,8 @@ class Company extends Model
         return $this->hasMany(Report::class);
     }
 
-    public function subscription(): HasOne
+   public function subscription(): HasOne
     {
-        return $this->hasOne(Subscription::class);
+        return $this->hasOne(Subscription::class)->latestOfMany();
     }
 }
