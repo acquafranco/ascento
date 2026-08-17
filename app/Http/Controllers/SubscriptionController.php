@@ -34,17 +34,24 @@ class SubscriptionController extends Controller
             );
         }
 
+        if (!$plan->mercadopago_plan_id) {
+            throw new RuntimeException(
+                'El plan de Ascento no tiene configurado el ID de Mercado Pago.'
+            );
+        }
+
         return $plan;
     }
 
     /**
-     * Inicia el checkout del único plan.
+     * Inicia el checkout del plan de Mercado Pago.
      */
     public function checkout(Request $request)
     {
         $user = $request->user();
 
         abort_unless($user, 403);
+
         abort_unless(
             $user->isAdmin() || $user->isSuperAdmin(),
             403
@@ -56,14 +63,13 @@ class SubscriptionController extends Controller
 
         $subscriptionPlan = $this->getPlan();
 
-        if (!$subscriptionPlan->mercadopago_plan_id) {
-            throw new RuntimeException(
-                'El plan de Ascento no tiene configurado el ID de Mercado Pago.'
-            );
-        }
-
         /*
-         * Buscamos cualquier suscripción vigente o en proceso.
+         * Buscamos una suscripción que todavía pueda dar acceso.
+         *
+         * IMPORTANTE:
+         *
+         * authorized NO significa que hubo un cobro.
+         * Significa que Mercado Pago autorizó la suscripción.
          */
         $existingSubscription = Subscription::query()
             ->where('company_id', $company->id)
@@ -84,7 +90,10 @@ class SubscriptionController extends Controller
         }
 
         /*
-         * Eliminamos pendientes anteriores.
+         * Eliminamos solamente pendientes anteriores
+         * de ESTA empresa.
+         *
+         * No tocamos suscripciones históricas.
          */
         Subscription::query()
             ->where('company_id', $company->id)
@@ -93,6 +102,11 @@ class SubscriptionController extends Controller
 
         $externalReference = 'company_' . $company->id;
 
+        /*
+         * Creamos el registro local ANTES del checkout.
+         *
+         * Esto no genera ningún cobro.
+         */
         DB::transaction(function () use (
             $company,
             $subscriptionPlan,
@@ -100,24 +114,80 @@ class SubscriptionController extends Controller
         ) {
             Subscription::create([
                 'company_id' => $company->id,
+
                 'provider' => 'mercadopago',
+
                 'provider_subscription_id' => null,
-                'provider_plan_id' => $subscriptionPlan->mercadopago_plan_id,
-                'external_reference' => $externalReference,
-                'plan' => $subscriptionPlan->slug,
+
+                'provider_plan_id' =>
+                    $subscriptionPlan->mercadopago_plan_id,
+
+                'external_reference' =>
+                    $externalReference,
+
+                'plan' =>
+                    $subscriptionPlan->slug,
+
                 'status' => 'pending',
-                'amount' => $subscriptionPlan->price,
-                'currency' => $subscriptionPlan->currency,
+
+                'amount' =>
+                    $subscriptionPlan->price,
+
+                'currency' =>
+                    $subscriptionPlan->currency,
+
                 'trial_ends_at' => null,
+
                 'current_period_start' => null,
+
                 'current_period_end' => null,
+
                 'canceled_at' => null,
+
                 'cancel_at_period_end' => false,
             ]);
         });
 
-        return 'https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id='
-            . urlencode($subscriptionPlan->mercadopago_plan_id);
+        /*
+         * IMPORTANTE:
+         *
+         * Usamos el init_point real del plan cuando es posible.
+         *
+         * De esta forma no reconstruimos manualmente
+         * la URL de Mercado Pago.
+         */
+        try {
+            $mercadoPagoPlan = $this->mercadoPago
+                ->getSubscriptionPlan(
+                    $subscriptionPlan->mercadopago_plan_id
+                );
+
+            $initPoint = $mercadoPagoPlan['init_point'] ?? null;
+
+            if (!$initPoint) {
+                throw new RuntimeException(
+                    'Mercado Pago no devolvió el init_point del plan.'
+                );
+            }
+
+            return redirect()->away($initPoint);
+
+        } catch (\Throwable $e) {
+
+            Log::error('MP ERROR OBTENIENDO INIT POINT', [
+                'company_id' => $company->id,
+                'plan_id' =>
+                    $subscriptionPlan->mercadopago_plan_id,
+                'error' => $e->getMessage(),
+            ]);
+
+            /*
+             * Si ni siquiera pudimos obtener el checkout,
+             * dejamos la suscripción pendiente para poder
+             * inspeccionarla, pero informamos el error.
+             */
+            throw $e;
+        }
     }
 
     /**
@@ -133,6 +203,9 @@ class SubscriptionController extends Controller
         $type = $request->input('type');
         $dataId = $request->input('data.id');
 
+        /*
+         * Solo procesamos cambios de suscripciones.
+         */
         if (
             $type !== 'subscription_preapproval'
             || !$dataId
@@ -148,18 +221,15 @@ class SubscriptionController extends Controller
         }
 
         /*
-         * Consultamos directamente Mercado Pago.
+         * Consultamos la suscripción directamente en Mercado Pago.
          */
         try {
             $response = $this->mercadoPago->getSubscription(
                 (string) $dataId
             );
 
-            Log::info('MP SUSCRIPCION OBTENIDA', [
-                'subscription_id' => $dataId,
-                'response' => $response,
-            ]);
         } catch (\Throwable $e) {
+
             Log::error('MP ERROR OBTENIENDO SUSCRIPCION', [
                 'subscription_id' => $dataId,
                 'error' => $e->getMessage(),
@@ -171,9 +241,72 @@ class SubscriptionController extends Controller
         }
 
         /*
-         * Obtenemos el ID del plan de Mercado Pago.
+         * Log especialmente importante para diagnosticar
+         * el problema del trial.
          */
-        $mercadoPagoPlanId = $response['preapproval_plan_id'] ?? null;
+        Log::info('MP SUSCRIPCION OBTENIDA', [
+            'subscription_id' => $dataId,
+
+            'status' =>
+                $response['status'] ?? null,
+
+            'payer_id' =>
+                $response['payer_id'] ?? null,
+
+            'plan_id' =>
+                $response['preapproval_plan_id'] ?? null,
+
+            'start_date' =>
+                data_get(
+                    $response,
+                    'auto_recurring.start_date'
+                ),
+
+            'free_trial' =>
+                data_get(
+                    $response,
+                    'auto_recurring.free_trial'
+                ),
+
+            'first_invoice_offset' =>
+                $response['first_invoice_offset'] ?? null,
+
+            'next_payment_date' =>
+                $response['next_payment_date'] ?? null,
+
+            'charged_quantity' =>
+                data_get(
+                    $response,
+                    'summarized.charged_quantity'
+                ),
+
+            'charged_amount' =>
+                data_get(
+                    $response,
+                    'summarized.charged_amount'
+                ),
+
+            'last_charged_date' =>
+                data_get(
+                    $response,
+                    'summarized.last_charged_date'
+                ),
+
+            'last_charged_amount' =>
+                data_get(
+                    $response,
+                    'summarized.last_charged_amount'
+                ),
+
+            'payment_method_id' =>
+                $response['payment_method_id'] ?? null,
+        ]);
+
+        /*
+         * ID del plan.
+         */
+        $mercadoPagoPlanId =
+            $response['preapproval_plan_id'] ?? null;
 
         if (!$mercadoPagoPlanId) {
             Log::warning('MP SIN PREAPPROVAL PLAN ID', [
@@ -186,36 +319,49 @@ class SubscriptionController extends Controller
         }
 
         /*
-         * Buscamos la suscripción local pendiente.
+         * Primero intentamos encontrar la suscripción
+         * por su ID real de Mercado Pago.
          */
         $subscription = Subscription::query()
-            ->where('provider', 'mercadopago')
-            ->where('provider_plan_id', $mercadoPagoPlanId)
-            ->where('status', 'pending')
-            ->latest('id')
+            ->where(
+                'provider_subscription_id',
+                (string) $dataId
+            )
             ->first();
 
         /*
-         * Si no encontramos una pending, comprobamos si ya existe
-         * una suscripción con este ID de Mercado Pago.
+         * Si todavía no existe, buscamos una pending
+         * del mismo plan.
          *
-         * Esto hace que el webhook sea más seguro frente
-         * a notificaciones repetidas.
+         * Como estamos usando el checkout asociado al plan,
+         * Mercado Pago no nos devuelve aquí el company_id.
+         *
+         * Por eso tomamos la pending más reciente.
          */
         if (!$subscription) {
             $subscription = Subscription::query()
+                ->where('provider', 'mercadopago')
                 ->where(
-                    'provider_subscription_id',
-                    (string) $dataId
+                    'provider_plan_id',
+                    $mercadoPagoPlanId
                 )
+                ->where('status', 'pending')
+                ->latest('id')
                 ->first();
         }
 
         if (!$subscription) {
-            Log::warning('MP SUSCRIPCION LOCAL NO ENCONTRADA', [
-                'subscription_id' => $dataId,
-                'mercadopago_plan_id' => $mercadoPagoPlanId,
-            ]);
+
+            Log::warning(
+                'MP SUSCRIPCION LOCAL NO ENCONTRADA',
+                [
+                    'subscription_id' => $dataId,
+                    'mercadopago_plan_id' =>
+                        $mercadoPagoPlanId,
+                    'payer_id' =>
+                        $response['payer_id'] ?? null,
+                ]
+            );
 
             return response()->json([
                 'status' => 'subscription_not_found',
@@ -223,7 +369,7 @@ class SubscriptionController extends Controller
         }
 
         /*
-         * Buscamos el plan local.
+         * Plan local.
          */
         $plan = SubscriptionPlan::query()
             ->where(
@@ -233,39 +379,38 @@ class SubscriptionController extends Controller
             ->first();
 
         /*
-         * Estado de Mercado Pago.
+         * Estado real informado por Mercado Pago.
          */
-        $status = $response['status']
+        $status =
+            $response['status']
             ?? $subscription->status;
 
         /*
          * ==========================================================
          * TRIAL
          * ==========================================================
-         *
-         * Mercado Pago devuelve:
-         *
-         * auto_recurring.free_trial.frequency = 15
-         * auto_recurring.free_trial.frequency_type = days
-         *
-         * Calculamos la fecha real de finalización del trial.
          */
-        $trialEndsAt = null;
 
-        $trialDays = data_get(
-            $response,
-            'auto_recurring.free_trial.frequency'
-        );
+        $trialEndsAt =
+            $subscription->trial_ends_at;
 
-        $trialType = data_get(
-            $response,
-            'auto_recurring.free_trial.frequency_type'
-        );
+        $trialDays =
+            data_get(
+                $response,
+                'auto_recurring.free_trial.frequency'
+            );
 
-        $startDate = data_get(
-            $response,
-            'auto_recurring.start_date'
-        );
+        $trialType =
+            data_get(
+                $response,
+                'auto_recurring.free_trial.frequency_type'
+            );
+
+        $startDate =
+            data_get(
+                $response,
+                'auto_recurring.start_date'
+            );
 
         if (
             $trialDays
@@ -278,85 +423,154 @@ class SubscriptionController extends Controller
 
         /*
          * ==========================================================
-         * PERÍODO ACTUAL
+         * PERÍODO
          * ==========================================================
          */
-        $currentPeriodStart = data_get(
-            $response,
-            'auto_recurring.start_date'
-        );
 
-        $currentPeriodEnd = data_get(
-            $response,
-            'next_payment_date'
-        );
+        $currentPeriodStart =
+            $startDate
+            ? Carbon::parse($startDate)
+            : $subscription->current_period_start;
+
+        $currentPeriodEnd =
+            data_get(
+                $response,
+                'next_payment_date'
+            );
+
+        if ($currentPeriodEnd) {
+            $currentPeriodEnd =
+                Carbon::parse($currentPeriodEnd);
+        } else {
+            $currentPeriodEnd =
+                $subscription->current_period_end;
+        }
 
         /*
          * ==========================================================
          * CANCELACIÓN
          * ==========================================================
-         *
-         * Si Mercado Pago informa cancelado,
-         * guardamos la fecha.
          */
-        $canceledAt = in_array($status, [
-            'cancelled',
-            'canceled',
-        ], true)
-            ? now()
-            : $subscription->canceled_at;
+
+        $isCancelled = in_array(
+            $status,
+            [
+                'cancelled',
+                'canceled',
+            ],
+            true
+        );
+
+        $canceledAt =
+            $isCancelled
+                ? (
+                    $subscription->canceled_at
+                    ?? now()
+                )
+                : $subscription->canceled_at;
 
         /*
-         * Actualizamos la suscripción.
+         * Si Mercado Pago canceló realmente la suscripción,
+         * la cancelación deja de ser solamente programada.
          */
+        $cancelAtPeriodEnd =
+            $isCancelled
+                ? true
+                : $subscription->cancel_at_period_end;
+
+        /*
+         * ==========================================================
+         * ACTUALIZACIÓN
+         * ==========================================================
+         */
+
         $subscription->update([
-            'provider' => 'mercadopago',
+            'provider' =>
+                'mercadopago',
 
-            'provider_subscription_id' => (string) $dataId,
+            'provider_subscription_id' =>
+                (string) $dataId,
 
-            'provider_plan_id' => $mercadoPagoPlanId,
-
-            'external_reference' =>
-                $subscription->external_reference,
+            'provider_plan_id' =>
+                $mercadoPagoPlanId,
 
             'plan' =>
                 $plan?->slug
                 ?? $subscription->plan,
 
-            'status' => $status,
+            'status' =>
+                $status,
 
-            'amount' => data_get(
-                $response,
-                'auto_recurring.transaction_amount',
-                $subscription->amount
-            ),
+            'amount' =>
+                data_get(
+                    $response,
+                    'auto_recurring.transaction_amount',
+                    $subscription->amount
+                ),
 
-            'currency' => data_get(
-                $response,
-                'auto_recurring.currency_id',
-                $subscription->currency
-            ),
+            'currency' =>
+                data_get(
+                    $response,
+                    'auto_recurring.currency_id',
+                    $subscription->currency
+                ),
 
-            'trial_ends_at' => $trialEndsAt,
+            'trial_ends_at' =>
+                $trialEndsAt,
 
             'current_period_start' =>
-                $currentPeriodStart
-                ?? $subscription->current_period_start,
+                $currentPeriodStart,
 
             'current_period_end' =>
-                $currentPeriodEnd
-                ?? $subscription->current_period_end,
+                $currentPeriodEnd,
 
-            'canceled_at' => $canceledAt,
+            'canceled_at' =>
+                $canceledAt,
+
+            'cancel_at_period_end' =>
+                $cancelAtPeriodEnd,
         ]);
 
+        /*
+         * Log final de sincronización.
+         */
         Log::info('MP SUSCRIPCION SINCRONIZADA', [
-            'subscription_id' => $dataId,
-            'company_id' => $subscription->company_id,
-            'status' => $status,
-            'trial_ends_at' => $trialEndsAt,
-            'current_period_start' => $currentPeriodStart,
-            'current_period_end' => $currentPeriodEnd,
+            'subscription_id' =>
+                $dataId,
+
+            'local_subscription_id' =>
+                $subscription->id,
+
+            'company_id' =>
+                $subscription->company_id,
+
+            'status' =>
+                $status,
+
+            'trial_ends_at' =>
+                $trialEndsAt,
+
+            'current_period_start' =>
+                $currentPeriodStart,
+
+            'current_period_end' =>
+                $currentPeriodEnd,
+
+            'charged_quantity' =>
+                data_get(
+                    $response,
+                    'summarized.charged_quantity'
+                ),
+
+            'charged_amount' =>
+                data_get(
+                    $response,
+                    'summarized.charged_amount'
+                ),
+
+            'next_payment_date' =>
+                $response['next_payment_date']
+                ?? null,
         ]);
 
         return response()->json([
@@ -391,7 +605,10 @@ class SubscriptionController extends Controller
 
         return view(
             'subscriptions.show',
-            compact('company', 'subscription')
+            compact(
+                'company',
+                'subscription'
+            )
         );
     }
 
@@ -419,6 +636,7 @@ class SubscriptionController extends Controller
                 'trialing',
                 'authorized',
                 'active',
+                'past_due',
             ])
             ->whereNotNull('provider_subscription_id')
             ->latest('id')
@@ -438,32 +656,39 @@ class SubscriptionController extends Controller
             ]);
         }
 
-        if (!$subscription->provider_subscription_id) {
+        /*
+         * Cancelamos la renovación en Mercado Pago.
+         */
+        try {
+            $this->mercadoPago->cancelSubscription(
+                $subscription->provider_subscription_id
+            );
+        } catch (\Throwable $e) {
+
+            Log::error(
+                'MP ERROR CANCELANDO SUSCRIPCION',
+                [
+                    'subscription_id' =>
+                        $subscription->provider_subscription_id,
+
+                    'company_id' =>
+                        $company->id,
+
+                    'error' =>
+                        $e->getMessage(),
+                ]
+            );
+
             return back()->withErrors([
                 'subscription' =>
-                    'La suscripción todavía no tiene un ID de Mercado Pago.',
+                    'No se pudo cancelar la suscripción en Mercado Pago.',
             ]);
         }
 
         /*
-         * Cancelamos la renovación en Mercado Pago.
-         */
-        $this->mercadoPago->cancelSubscription(
-            $subscription->provider_subscription_id
-        );
-
-        /*
-         * IMPORTANTE:
+         * NO cambiamos status a cancelled manualmente.
          *
-         * No ponemos status = cancelled inmediatamente.
-         *
-         * El acceso se determinará por las fechas:
-         *
-         * - durante el trial:
-         *   trial_ends_at
-         *
-         * - después del trial:
-         *   current_period_end
+         * Esperamos el webhook de Mercado Pago.
          */
         $subscription->update([
             'cancel_at_period_end' => true,
