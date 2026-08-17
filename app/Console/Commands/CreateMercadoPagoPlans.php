@@ -21,7 +21,6 @@ class CreateMercadoPagoPlans extends Command
 
         if ($plans->isEmpty()) {
             $this->error('No hay planes activos en subscription_plans.');
-
             return self::FAILURE;
         }
 
@@ -30,7 +29,6 @@ class CreateMercadoPagoPlans extends Command
                 $this->line(
                     "{$plan->name}: ya tiene Mercado Pago ID {$plan->mercadopago_plan_id}. Se omite."
                 );
-
                 continue;
             }
 
@@ -46,6 +44,10 @@ class CreateMercadoPagoPlans extends Command
                         'frequency_type' => 'months',
                         'transaction_amount' => (float) $plan->price,
                         'currency_id' => $plan->currency,
+                        'free_trial' => [
+                            'frequency' => 30,
+                            'frequency_type' => 'days',
+                        ],
                     ],
                     'back_url' => config('app.url'),
                 ]);
@@ -53,7 +55,6 @@ class CreateMercadoPagoPlans extends Command
                 $this->error(
                     "Error creando {$plan->name}: {$e->getMessage()}"
                 );
-
                 continue;
             }
 
@@ -63,7 +64,6 @@ class CreateMercadoPagoPlans extends Command
                 $this->error(
                     "Mercado Pago no devolvió un ID para {$plan->name}."
                 );
-
                 continue;
             }
 

@@ -15,7 +15,7 @@ class SubscriptionPlanSeeder extends Seeder
                 'name' => 'Ascento',
                 'price' => 270000,
                 'currency' => 'ARS',
-                'mercadopago_plan_id' => '9e7616e976e84b4c9f29ae9c98e69d24',
+                'mercadopago_plan_id' => '685efb697677431c92fdd7f43f07c2aa',
                 'features' => [
                     'Prueba gratis de 30 días',
                 ],
