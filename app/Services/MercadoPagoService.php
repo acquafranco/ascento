@@ -21,12 +21,28 @@ class MercadoPagoService
         }
     }
 
+
+        public function updateSubscriptionPlan(
+        string $planId,
+        array $data
+    ): array {
+        return $this->request(
+            'put',
+            '/preapproval_plan/' . $planId,
+            $data
+        );
+    }
     /**
-     * Crea una suscripción en Mercado Pago.
-     */
+         * Crea una suscripción en Mercado Pago.
+         */
+
     public function createSubscription(array $data): array
     {
-        return $this->request('post', '/preapproval', $data);
+        return $this->request(
+            'post',
+            '/preapproval',
+            $data
+        );
     }
 
     /**
@@ -79,7 +95,7 @@ class MercadoPagoService
             'put',
             '/preapproval/' . $subscriptionId,
             [
-                'status' => 'cancelled',
+                'status' => 'canceled',
             ]
         );
     }
