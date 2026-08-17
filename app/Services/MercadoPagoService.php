@@ -69,13 +69,21 @@ class MercadoPagoService
         );
     }
 
-    public function getSubscriptionPlan(string $planId): array
-{
-    return $this->request(
-        'get',
-        '/preapproval_plan/' . $planId
-    );
-}
+    public function getAuthorizedPayment(string $paymentId): array
+    {
+        return $this->request(
+            'get',
+            '/authorized_payments/' . $paymentId
+        );
+    }
+
+        public function getSubscriptionPlan(string $planId): array
+    {
+        return $this->request(
+            'get',
+            '/preapproval_plan/' . $planId
+        );
+    }
 
 
 
