@@ -83,6 +83,15 @@ class MercadoPagoService
         );
     }
 
+    public function searchSubscriptions(array $params = []): array
+{
+    return $this->request(
+        'get',
+        '/preapproval/search',
+        $params
+    );
+}
+
     public function cancelSubscription(string $subscriptionId): array
     {
         return $this->request(
