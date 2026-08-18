@@ -16,25 +16,26 @@ class EnsureActiveSubscription
             abort(403);
         }
 
-        // Administradores pueden acceder aunque todavía no tengan suscripción.
         if ($user->isSuperAdmin()) {
+            return $next($request);
+        }
+
+        // La página de suscripción SIEMPRE debe quedar accesible.
+        if ($request->routeIs('filament.ascensores_app.pages.subscription')) {
             return $next($request);
         }
 
         $subscription = $user->company->subscription;
 
-        if (!$subscription) {
-            return redirect()->route('filament.ascensores_app.pages.subscription');
-        }
-
         if (
+            !$subscription ||
             !in_array($subscription->status, [
                 'authorized',
                 'active',
                 'trialing',
             ], true)
         ) {
-            return redirect()->route('filament.ascensores_app.pages.subscription');
+            return redirect()->to('/admin/subscription');
         }
 
         return $next($request);

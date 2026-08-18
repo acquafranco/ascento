@@ -85,6 +85,7 @@ class AscensoresAppPanelProvider extends PanelProvider
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
+                \App\Http\Middleware\EnsureActiveSubscription::class,
             ])
 
             ->authMiddleware([
