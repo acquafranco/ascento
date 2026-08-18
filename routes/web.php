@@ -72,6 +72,7 @@ Route::prefix('{company:slug}')
         'auth',
         'company',
         'company.defaults',
+        'subscription',
     ])
     ->scopeBindings()
     ->group(function () {

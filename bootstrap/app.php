@@ -18,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
             'company' => \App\Http\Middleware\SetCompany::class,
             'company.defaults' => SetCompanyRouteDefaults::class,
+            'subscription' => \App\Http\Middleware\EnsureActiveSubscription::class,
         ]);
 
         $middleware->redirectUsersTo(function () {
