@@ -21,27 +21,15 @@ class MercadoPagoService
         }
     }
 
-    /**
-         * Crea una suscripción en Mercado Pago.
-         */
-
     public function createSubscription(array $data): array
     {
-        return $this->request(
-            'post',
-            '/preapproval',
-            $data
-        );
+        return $this->request('post', '/preapproval', $data);
     }
 
-    /**
-     * Crea un plan de suscripción en Mercado Pago.
-     */
     public function createSubscriptionPlan(array $data): array
     {
         return $this->request('post', '/preapproval_plan', $data);
     }
-
 
     public function updateSubscriptionPlan(string $planId, array $data): array
     {
@@ -52,15 +40,11 @@ class MercadoPagoService
         );
     }
 
-
     public function getUser(): array
     {
         return $this->request('get', '/users/me');
     }
 
-    /**
-     * Obtiene una suscripción por su ID.
-     */
     public function getSubscription(string $subscriptionId): array
     {
         return $this->request(
@@ -69,6 +53,10 @@ class MercadoPagoService
         );
     }
 
+    public function syncSubscription(string $subscriptionId): array
+    {
+        return $this->getSubscription($subscriptionId);
+    }
 
     public function getAuthorizedPayment(string $paymentId): array
     {
@@ -78,7 +66,7 @@ class MercadoPagoService
         );
     }
 
-        public function getSubscriptionPlan(string $planId): array
+    public function getSubscriptionPlan(string $planId): array
     {
         return $this->request(
             'get',
@@ -86,7 +74,7 @@ class MercadoPagoService
         );
     }
 
-       public function searchSubscriptionPlans(array $params = []): array
+    public function searchSubscriptionPlans(array $params = []): array
     {
         return $this->request(
             'get',
@@ -95,19 +83,6 @@ class MercadoPagoService
         );
     }
 
-
-
-    /**
-     * Obtiene una suscripción desde Mercado Pago para sincronizar su estado.
-     */
-    public function syncSubscription(string $subscriptionId): array
-    {
-        return $this->getSubscription($subscriptionId);
-    }
-
-    /**
-     * Cancela una suscripción.
-     */
     public function cancelSubscription(string $subscriptionId): array
     {
         return $this->request(
@@ -119,9 +94,6 @@ class MercadoPagoService
         );
     }
 
-    /**
-     * Pausa una suscripción.
-     */
     public function pauseSubscription(string $subscriptionId): array
     {
         return $this->request(
@@ -133,9 +105,6 @@ class MercadoPagoService
         );
     }
 
-    /**
-     * Reactiva una suscripción.
-     */
     public function resumeSubscription(string $subscriptionId): array
     {
         return $this->request(
@@ -147,9 +116,6 @@ class MercadoPagoService
         );
     }
 
-    /**
-     * Realiza una petición autenticada contra Mercado Pago.
-     */
     private function request(
         string $method,
         string $endpoint,
