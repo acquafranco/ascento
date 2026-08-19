@@ -118,9 +118,9 @@ class Subscription extends Page
         'status' => 'pending',
         'amount' => $plan->price,
         'currency' => $plan->currency,
-        'trial_ends_at' => now()->addDays(30),
-        'current_period_start' => now(),
-        'current_period_end' => now()->addDays(30),
+        'trial_ends_at' => null,
+        'current_period_start' => null,
+        'current_period_end' => null,
         'canceled_at' => null,
         'cancel_at_period_end' => false,
     ]);
@@ -156,34 +156,98 @@ class Subscription extends Page
      * current_period_end.
      */
     public function cancelSubscription(): void
-    {
-        $user = auth()->user();
+{
+    $user = auth()->user();
 
-        abort_unless(
-            $user?->isAdmin() || $user?->isSuperAdmin(),
-            403
-        );
+    abort_unless(
+        $user?->isAdmin() || $user?->isSuperAdmin(),
+        403
+    );
 
-        $company = $user->company;
+    $company = $user->company;
 
-        abort_unless($company, 403);
+    abort_unless($company, 403);
+
+    /*
+     * Buscamos la última suscripción de la empresa
+     * que tenga un ID real de Mercado Pago.
+     *
+     * NO filtramos solamente por status local porque
+     * justamente puede estar desincronizada.
+     */
+    $subscription = SubscriptionModel::query()
+        ->where('company_id', $company->id)
+        ->where('provider', 'mercadopago')
+        ->whereNotNull('provider_subscription_id')
+        ->latest('id')
+        ->first();
+
+    if (!$subscription) {
+        Notification::make()
+            ->title('No hay una suscripción')
+            ->warning()
+            ->send();
+
+        return;
+    }
+
+    $mercadoPago = app(MercadoPagoService::class);
+
+    try {
+        /*
+         * PRIMERO consultamos Mercado Pago.
+         *
+         * Esto es fundamental porque la DB local puede
+         * decir authorized mientras Mercado Pago ya dice
+         * cancelled.
+         */
+        $remoteSubscription = $mercadoPago
+            ->getSubscription(
+                $subscription->provider_subscription_id
+            );
+
+        $remoteStatus =
+            $remoteSubscription['status'] ?? null;
 
         /*
-         * Buscamos únicamente la suscripción activa.
+         * ======================================================
+         * YA ESTÁ CANCELADA EN MERCADO PAGO
+         * ======================================================
          */
-        $subscription = $this->getActiveSubscription();
+        if (in_array($remoteStatus, [
+            'cancelled',
+            'canceled',
+        ], true)) {
 
-        if (!$subscription) {
+            $subscription->update([
+                'status' => 'cancelled',
+                'cancel_at_period_end' => true,
+                'canceled_at' =>
+                    $subscription->canceled_at
+                    ?? now(),
+            ]);
+
+            $subscription->refresh();
+
+            $this->dispatch(
+                'subscription-updated'
+            );
+
             Notification::make()
-                ->title('No hay una suscripción activa')
-                ->warning()
+                ->title('Suscripción sincronizada')
+                ->body(
+                    'La suscripción ya estaba cancelada en Mercado Pago y se actualizó Ascento.'
+                )
+                ->success()
                 ->send();
 
             return;
         }
 
         /*
-         * Si ya está marcada para cancelar, no hacemos nada.
+         * ======================================================
+         * YA ESTÁ PROGRAMADA LOCALMENTE
+         * ======================================================
          */
         if ($subscription->cancel_at_period_end) {
             Notification::make()
@@ -194,40 +258,88 @@ class Subscription extends Page
             return;
         }
 
-        if (!$subscription->provider_subscription_id) {
-            throw new \RuntimeException(
-                'La suscripción activa no tiene ID de Mercado Pago.'
-            );
-        }
-
         /*
-         * Cancelamos la suscripción REAL en Mercado Pago.
+         * ======================================================
+         * CANCELAR EN MERCADO PAGO
+         * ======================================================
          */
-        app(MercadoPagoService::class)->cancelSubscription(
-            $subscription->provider_subscription_id
-        );
+        $remoteSubscription =
+            $mercadoPago->cancelSubscription(
+                $subscription->provider_subscription_id
+            );
+
+        $remoteStatus =
+            $remoteSubscription['status']
+            ?? 'canceled';
 
         /*
-         * No quitamos el acceso inmediatamente.
+         * ======================================================
+         * ACTUALIZAR DB LOCAL
+         * ======================================================
          */
         $subscription->update([
+            'status' => in_array($remoteStatus, [
+                'cancelled',
+                'canceled',
+            ], true)
+                ? 'cancelled'
+                : $subscription->status,
+
             'cancel_at_period_end' => true,
-            'canceled_at' => now(),
+
+            'canceled_at' =>
+                $subscription->canceled_at
+                ?? now(),
         ]);
 
         $subscription->refresh();
 
-        $this->dispatch('subscription-updated');
+        $this->dispatch(
+            'subscription-updated'
+        );
 
         Notification::make()
-            ->title('Cancelación programada')
+            ->title('Suscripción cancelada')
             ->body(
                 $subscription->current_period_end
                     ? 'Vas a seguir teniendo acceso hasta '
-                        . $subscription->current_period_end->format('d/m/Y') . '.'
+                        . $subscription->current_period_end->format('d/m/Y')
+                        . '.'
                     : 'La suscripción no se renovará nuevamente.'
             )
             ->success()
             ->send();
+
+    } catch (\Throwable $e) {
+
+        \Log::error(
+            'ERROR CANCELANDO SUSCRIPCION DESDE FILAMENT',
+            [
+                'company_id' =>
+                    $company->id,
+
+                'subscription_id' =>
+                    $subscription->id,
+
+                'provider_subscription_id' =>
+                    $subscription->provider_subscription_id,
+
+                'error' =>
+                    $e->getMessage(),
+
+                'trace' =>
+                    $e->getTraceAsString(),
+            ]
+        );
+
+        Notification::make()
+            ->title('No se pudo cancelar la suscripción')
+            ->body(
+                'Mercado Pago respondió: '
+                . $e->getMessage()
+            )
+            ->danger()
+            ->send();
     }
+}
 }
