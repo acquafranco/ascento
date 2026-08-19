@@ -11,6 +11,12 @@
                 'trialing',
             ], true);
 
+        $isCancelled = $subscription &&
+            in_array($subscription->status, [
+                'cancelled',
+                'canceled',
+            ], true);
+
         $statusLabel = match ($subscription?->status) {
             'authorized', 'active' => 'Activo',
             'trialing' => 'Período de prueba',
@@ -19,8 +25,8 @@
         };
     @endphp
 
-    {{-- PLAN ACTUAL --}}
-    @if ($subscription && $isActive)
+    {{-- SUSCRIPCIÓN ACTIVA O CANCELADA --}}
+    @if ($subscription && ($isActive || $isCancelled))
 
         <x-filament::section>
             <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
@@ -38,7 +44,9 @@
                             </h2>
                         </div>
 
-                        <x-filament::badge color="success">
+                        <x-filament::badge
+                            :color="$isCancelled ? 'danger' : ($subscription->status === 'trialing' ? 'warning' : 'success')"
+                        >
                             {{ $statusLabel }}
                         </x-filament::badge>
 
@@ -46,12 +54,16 @@
 
                     <div class="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
 
-                        <span class="text-gray-600 dark:text-gray-300">
-                            <strong>
-                                ${{ number_format((float) $subscription->amount, 0, ',', '.') }}
-                            </strong>
-                            {{ $subscription->currency }}/mes
-                        </span>
+                        @if ($subscription->amount)
+
+                            <span class="text-gray-600 dark:text-gray-300">
+                                <strong>
+                                    ${{ number_format((float) $subscription->amount, 0, ',', '.') }}
+                                </strong>
+                                {{ $subscription->currency }}/mes
+                            </span>
+
+                        @endif
 
                         @if ($subscription->current_period_end)
 
@@ -69,13 +81,13 @@
 
                 <div>
 
-                    @if ($subscription->cancel_at_period_end)
+                    @if ($isCancelled || $subscription->cancel_at_period_end)
 
                         <x-filament::button
                             color="gray"
                             disabled
                         >
-                            Cancelación programada
+                            Suscripción cancelada
                         </x-filament::button>
 
                     @else
@@ -101,7 +113,27 @@
 
             </div>
 
-            @if ($subscription->cancel_at_period_end)
+            @if ($isCancelled)
+
+                <div class="mt-5 rounded-lg border border-danger-300 bg-danger-50 p-4 text-sm text-danger-800 dark:border-danger-700 dark:bg-danger-950 dark:text-danger-200">
+
+                    Esta suscripción está
+                    <strong>cancelada</strong> en Mercado Pago.
+
+                    @if ($subscription->canceled_at)
+
+                        <div class="mt-1">
+                            Cancelada el
+                            <strong>
+                                {{ $subscription->canceled_at->format('d/m/Y H:i') }}
+                            </strong>.
+                        </div>
+
+                    @endif
+
+                </div>
+
+            @elseif ($subscription->cancel_at_period_end)
 
                 <div class="mt-5 rounded-lg border border-warning-300 bg-warning-50 p-4 text-sm text-warning-800 dark:border-warning-700 dark:bg-warning-950 dark:text-warning-200">
 
