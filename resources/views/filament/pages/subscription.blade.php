@@ -10,6 +10,7 @@
                 'authorized',
                 'active',
                 'trialing',
+                'past_due',
             ], true);
 
         $isCancelled = $subscription &&
@@ -19,13 +20,24 @@
             ], true);
 
         $statusLabel = match ($subscription?->status) {
-            'authorized', 'active' => 'Activo',
+            'authorized',
+            'active' => 'Activo',
+
             'trialing' => 'Período de prueba',
-            'cancelled', 'canceled' => 'Cancelado',
+
+            'past_due' => 'Pago pendiente',
+
+            'cancelled',
+            'canceled' => 'Cancelado',
+
             default => 'Sin suscripción',
         };
     @endphp
 
+
+    {{-- ========================================================= --}}
+    {{-- SUSCRIPCIÓN EXISTENTE --}}
+    {{-- ========================================================= --}}
 
     @if ($subscription && ($isActive || $isCancelled))
 
@@ -33,6 +45,7 @@
 
             <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
 
+                {{-- INFORMACIÓN --}}
                 <div>
 
                     <div class="flex items-center gap-3">
@@ -48,6 +61,7 @@
                             </h2>
 
                         </div>
+
 
                         <x-filament::badge
                             :color="
@@ -66,6 +80,7 @@
                     </div>
 
 
+                    {{-- PRECIO / PERÍODO --}}
                     <div class="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
 
                         @if ($subscription->amount)
@@ -102,9 +117,15 @@
                 </div>
 
 
+                {{-- ================================================= --}}
+                {{-- BOTÓN --}}
+                {{-- ================================================= --}}
+
                 <div>
 
                     @if ($isCancelled)
+
+                        {{-- CANCELADA: NO HAY BOTÓN DE CANCELAR --}}
 
                         <x-filament::button
                             color="gray"
@@ -113,7 +134,10 @@
                             Suscripción cancelada
                         </x-filament::button>
 
+
                     @elseif ($subscription->cancel_at_period_end)
+
+                        {{-- CANCELACIÓN PROGRAMADA --}}
 
                         <x-filament::button
                             color="gray"
@@ -122,7 +146,10 @@
                             Cancelación programada
                         </x-filament::button>
 
-                    @else
+
+                    @elseif ($isActive)
+
+                        {{-- SOLO UNA SUSCRIPCIÓN ACTIVA PUEDE MOSTRAR CANCELAR --}}
 
                         <x-filament::button
                             color="danger"
@@ -154,12 +181,16 @@
             </div>
 
 
+            {{-- ================================================= --}}
+            {{-- MENSAJE CANCELADA --}}
+            {{-- ================================================= --}}
+
             @if ($isCancelled)
 
                 <div class="mt-5 rounded-lg border border-danger-300 bg-danger-50 p-4 text-sm text-danger-800 dark:border-danger-700 dark:bg-danger-950 dark:text-danger-200">
 
                     Esta suscripción está
-                    <strong>cancelada</strong> en Mercado Pago.
+                    <strong>cancelada</strong>.
 
                     @if ($subscription->canceled_at)
 
@@ -177,6 +208,10 @@
 
                 </div>
 
+
+            {{-- ================================================= --}}
+            {{-- MENSAJE CANCELACIÓN PROGRAMADA --}}
+            {{-- ================================================= --}}
 
             @elseif ($subscription->cancel_at_period_end)
 
@@ -197,6 +232,10 @@
         </x-filament::section>
 
 
+    {{-- ========================================================= --}}
+    {{-- SIN SUSCRIPCIÓN ACTIVA --}}
+    {{-- ========================================================= --}}
+
     @else
 
         <x-filament::section>
@@ -214,18 +253,26 @@
 
                 @if ($plan)
 
+                    {{-- PRECIO --}}
+
                     <div class="mt-8">
 
                         <div class="text-4xl font-bold text-gray-950 dark:text-white">
+
                             ${{ number_format((float) $plan->price, 0, ',', '.') }}
+
                         </div>
 
                         <div class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+
                             {{ $plan->currency }} / mes
+
                         </div>
 
                     </div>
 
+
+                    {{-- CARACTERÍSTICAS --}}
 
                     @if (!empty($plan->features))
 
@@ -256,6 +303,8 @@
                     @endif
 
 
+                    {{-- CONTRATAR --}}
+
                     <div class="mt-8">
 
                         <x-filament::button
@@ -282,6 +331,7 @@
                         </x-filament::button>
 
                     </div>
+
 
                 @else
 
