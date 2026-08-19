@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+
     @php
         $plan = $this->getPlan();
 
@@ -25,16 +26,19 @@
         };
     @endphp
 
-    {{-- SUSCRIPCIÓN ACTIVA O CANCELADA --}}
+
     @if ($subscription && ($isActive || $isCancelled))
 
         <x-filament::section>
+
             <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
 
                 <div>
+
                     <div class="flex items-center gap-3">
 
                         <div>
+
                             <p class="text-sm text-gray-500 dark:text-gray-400">
                                 Tu plan actual
                             </p>
@@ -42,52 +46,80 @@
                             <h2 class="text-3xl font-bold text-gray-950 dark:text-white">
                                 {{ $plan?->name ?? ucfirst($subscription->plan) }}
                             </h2>
+
                         </div>
 
                         <x-filament::badge
-                            :color="$isCancelled ? 'danger' : ($subscription->status === 'trialing' ? 'warning' : 'success')"
+                            :color="
+                                $isCancelled
+                                    ? 'danger'
+                                    : (
+                                        $subscription->status === 'trialing'
+                                            ? 'warning'
+                                            : 'success'
+                                    )
+                            "
                         >
                             {{ $statusLabel }}
                         </x-filament::badge>
 
                     </div>
 
+
                     <div class="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
 
                         @if ($subscription->amount)
 
                             <span class="text-gray-600 dark:text-gray-300">
+
                                 <strong>
                                     ${{ number_format((float) $subscription->amount, 0, ',', '.') }}
                                 </strong>
+
                                 {{ $subscription->currency }}/mes
+
                             </span>
 
                         @endif
 
+
                         @if ($subscription->current_period_end)
 
                             <span class="text-gray-500 dark:text-gray-400">
+
                                 Próximo cobro:
+
                                 <strong class="text-gray-700 dark:text-gray-200">
                                     {{ $subscription->current_period_end->format('d/m/Y') }}
                                 </strong>
+
                             </span>
 
                         @endif
 
                     </div>
+
                 </div>
+
 
                 <div>
 
-                    @if ($isCancelled || $subscription->cancel_at_period_end)
+                    @if ($isCancelled)
 
                         <x-filament::button
                             color="gray"
                             disabled
                         >
                             Suscripción cancelada
+                        </x-filament::button>
+
+                    @elseif ($subscription->cancel_at_period_end)
+
+                        <x-filament::button
+                            color="gray"
+                            disabled
+                        >
+                            Cancelación programada
                         </x-filament::button>
 
                     @else
@@ -98,13 +130,21 @@
                             wire:loading.attr="disabled"
                             wire:target="cancelSubscription"
                         >
-                            <span wire:loading.remove wire:target="cancelSubscription">
+
+                            <span
+                                wire:loading.remove
+                                wire:target="cancelSubscription"
+                            >
                                 Cancelar suscripción
                             </span>
 
-                            <span wire:loading wire:target="cancelSubscription">
+                            <span
+                                wire:loading
+                                wire:target="cancelSubscription"
+                            >
                                 Cancelando...
                             </span>
+
                         </x-filament::button>
 
                     @endif
@@ -112,6 +152,7 @@
                 </div>
 
             </div>
+
 
             @if ($isCancelled)
 
@@ -123,15 +164,19 @@
                     @if ($subscription->canceled_at)
 
                         <div class="mt-1">
+
                             Cancelada el
+
                             <strong>
                                 {{ $subscription->canceled_at->format('d/m/Y H:i') }}
                             </strong>.
+
                         </div>
 
                     @endif
 
                 </div>
+
 
             @elseif ($subscription->cancel_at_period_end)
 
@@ -151,9 +196,8 @@
 
         </x-filament::section>
 
-    @else
 
-        {{-- SIN SUSCRIPCIÓN --}}
+    @else
 
         <x-filament::section>
 
@@ -166,6 +210,7 @@
                 <p class="mt-2 text-gray-500 dark:text-gray-400">
                     Todo lo que necesitás para gestionar tu empresa de ascensores.
                 </p>
+
 
                 @if ($plan)
 
@@ -180,6 +225,7 @@
                         </div>
 
                     </div>
+
 
                     @if (!empty($plan->features))
 
@@ -209,6 +255,7 @@
 
                     @endif
 
+
                     <div class="mt-8">
 
                         <x-filament::button
@@ -218,11 +265,17 @@
                             size="lg"
                         >
 
-                            <span wire:loading.remove wire:target="checkout">
+                            <span
+                                wire:loading.remove
+                                wire:target="checkout"
+                            >
                                 Contratar Ascento
                             </span>
 
-                            <span wire:loading wire:target="checkout">
+                            <span
+                                wire:loading
+                                wire:target="checkout"
+                            >
                                 Procesando...
                             </span>
 
