@@ -6,35 +6,10 @@
 
         $status = $subscription?->status;
 
-        /*
-         * =========================================================
-         * ESTADOS
-         * =========================================================
-         */
-
-        $isPending = in_array($status, [
-            'pending',
-        ], true);
-
-        $isActive = in_array($status, [
-            'authorized',
-            'active',
-            'trialing',
-            'past_due',
-        ], true);
-
-        $isPaused = $status === 'paused';
-
-        $isCancelled = in_array($status, [
-            'cancelled',
-            'canceled',
-        ], true);
-
-        /*
-         * =========================================================
-         * LABEL
-         * =========================================================
-         */
+        $isPending = $this->isPending();
+        $isActive = $this->isActive();
+        $isPaused = $this->isPaused();
+        $isCanceled = $this->isCanceled();
 
         $statusLabel = match ($status) {
             'authorized',
@@ -53,11 +28,19 @@
 
             default => 'Sin suscripción',
         };
+
+        $statusColor = match (true) {
+            $isCanceled => 'danger',
+            $isPaused => 'warning',
+            $isPending => 'warning',
+            $isActive => 'success',
+            default => 'gray',
+        };
     @endphp
 
 
     {{-- ========================================================= --}}
-    {{-- NO EXISTE REGISTRO --}}
+    {{-- SIN SUSCRIPCIÓN --}}
     {{-- ========================================================= --}}
 
     @if (!$subscription)
@@ -76,6 +59,7 @@
 
                 @if ($plan)
 
+                    {{-- PRECIO --}}
                     <div class="mt-8">
 
                         <div class="text-4xl font-bold text-gray-950 dark:text-white">
@@ -88,6 +72,8 @@
 
                     </div>
 
+
+                    {{-- FEATURES --}}
                     @if (!empty($plan->features))
 
                         <div class="mt-8 text-left">
@@ -96,9 +82,9 @@
 
                                 @foreach ($plan->features as $feature)
 
-                                    <li class="flex gap-2 text-sm text-gray-600 dark:text-gray-300">
+                                    <li class="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300">
 
-                                        <span class="text-success-500">
+                                        <span class="font-bold text-success-500">
                                             ✓
                                         </span>
 
@@ -116,6 +102,8 @@
 
                     @endif
 
+
+                    {{-- CONTRATAR --}}
                     <div class="mt-8">
 
                         <x-filament::button
@@ -124,6 +112,7 @@
                             wire:target="checkout"
                             size="lg"
                         >
+
                             <span
                                 wire:loading.remove
                                 wire:target="checkout"
@@ -137,6 +126,7 @@
                             >
                                 Procesando...
                             </span>
+
                         </x-filament::button>
 
                     </div>
@@ -159,7 +149,7 @@
 
 
     {{-- ========================================================= --}}
-    {{-- EXISTE SUSCRIPCIÓN --}}
+    {{-- CON SUSCRIPCIÓN --}}
     {{-- ========================================================= --}}
 
     @else
@@ -168,13 +158,14 @@
 
             <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
 
+
                 {{-- ================================================= --}}
-                {{-- INFORMACIÓN --}}
+                {{-- INFORMACIÓN DEL PLAN --}}
                 {{-- ================================================= --}}
 
                 <div>
 
-                    <div class="flex items-center gap-3">
+                    <div class="flex flex-wrap items-center gap-3">
 
                         <div>
 
@@ -188,25 +179,10 @@
 
                         </div>
 
-                        <x-filament::badge
-                            :color="
-                                $isCancelled
-                                    ? 'danger'
-                                    : (
-                                        $isPaused
-                                            ? 'warning'
-                                            : (
-                                                $isPending
-                                                    ? 'warning'
-                                                    : (
-                                                        $isActive
-                                                            ? 'success'
-                                                            : 'gray'
-                                                    )
-                                            )
-                                    )
-                            "
-                        >
+
+                        {{-- ESTADO --}}
+
+                        <x-filament::badge :color="$statusColor">
                             {{ $statusLabel }}
                         </x-filament::badge>
 
@@ -214,7 +190,7 @@
 
 
                     {{-- ================================================= --}}
-                    {{-- PRECIO / PERÍODO --}}
+                    {{-- PRECIO / FECHAS --}}
                     {{-- ================================================= --}}
 
                     <div class="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
@@ -223,11 +199,26 @@
 
                             <span class="text-gray-600 dark:text-gray-300">
 
-                                <strong>
+                                <strong class="text-gray-950 dark:text-white">
                                     ${{ number_format((float) $subscription->amount, 0, ',', '.') }}
                                 </strong>
 
                                 {{ $subscription->currency }}/mes
+
+                            </span>
+
+                        @endif
+
+
+                        @if ($subscription->current_period_start)
+
+                            <span class="text-gray-500 dark:text-gray-400">
+
+                                Inicio:
+
+                                <strong class="text-gray-700 dark:text-gray-200">
+                                    {{ $subscription->current_period_start->format('d/m/Y') }}
+                                </strong>
 
                             </span>
 
@@ -248,6 +239,21 @@
 
                         @endif
 
+
+                        @if ($subscription->trial_ends_at && $status === 'trialing')
+
+                            <span class="text-gray-500 dark:text-gray-400">
+
+                                Prueba hasta:
+
+                                <strong class="text-gray-700 dark:text-gray-200">
+                                    {{ $subscription->trial_ends_at->format('d/m/Y') }}
+                                </strong>
+
+                            </span>
+
+                        @endif
+
                     </div>
 
                 </div>
@@ -257,10 +263,11 @@
                 {{-- BOTONES --}}
                 {{-- ================================================= --}}
 
-                <div>
+                <div class="flex flex-wrap items-center gap-2">
+
 
                     {{-- ================================================= --}}
-                    {{-- PENDING --}}
+                    {{-- PENDIENTE --}}
                     {{-- ================================================= --}}
 
                     @if ($isPending)
@@ -293,7 +300,7 @@
                     {{-- CANCELADA --}}
                     {{-- ================================================= --}}
 
-                    @elseif ($isCancelled)
+                    @elseif ($isCanceled)
 
                         <x-filament::button
                             wire:click="checkout"
@@ -349,44 +356,7 @@
                         </x-filament::button>
 
 
-                    {{-- ================================================= --}}
-                    {{-- ACTIVA --}}
-                    {{-- ================================================= --}}
-                    {{-- PENDIENTE = CONTINUAR CONTRATACIÓN --}}
-@elseif($this->isPending())
-
-    <x-filament::button
-        color="primary"
-        wire:click="checkout"
-        wire:loading.attr="disabled"
-        wire:target="checkout"
-    >
-        <span
-            wire:loading.remove
-            wire:target="checkout"
-        >
-            Continuar contratación
-        </span>
-
-        <span
-            wire:loading
-            wire:target="checkout"
-        >
-            Procesando...
-        </span>
-    </x-filament::button>
-
-
-{{-- ACTIVA = SE PUEDE PAUSAR --}}
-@elseif($this->isActive())
-
-    <x-filament::button
-        color="danger"
-        wire:click="cancelSubscription"
-        wire:loading.attr="disabled"
-        wire:target="cancelSubscription"
-    >
-                    @elseif ($isActive)
+                        {{-- CANCELAR DESDE PAUSADA --}}
 
                         <x-filament::button
                             color="danger"
@@ -413,30 +383,58 @@
 
 
                     {{-- ================================================= --}}
-                    {{-- ESTADO DESCONOCIDO --}}
+                    {{-- ACTIVA --}}
                     {{-- ================================================= --}}
 
-                    @else
+                    @elseif ($isActive)
+
+                        {{-- PAUSAR --}}
 
                         <x-filament::button
-                            wire:click="checkout"
+                            color="warning"
+                            wire:click="pauseSubscription"
                             wire:loading.attr="disabled"
-                            wire:target="checkout"
-                            color="primary"
+                            wire:target="pauseSubscription"
                         >
 
                             <span
                                 wire:loading.remove
-                                wire:target="checkout"
+                                wire:target="pauseSubscription"
                             >
-                                Contratar Ascento
+                                Pausar suscripción
                             </span>
 
                             <span
                                 wire:loading
-                                wire:target="checkout"
+                                wire:target="pauseSubscription"
                             >
-                                Procesando...
+                                Pausando...
+                            </span>
+
+                        </x-filament::button>
+
+
+                        {{-- CANCELAR --}}
+
+                        <x-filament::button
+                            color="danger"
+                            wire:click="cancelSubscription"
+                            wire:loading.attr="disabled"
+                            wire:target="cancelSubscription"
+                        >
+
+                            <span
+                                wire:loading.remove
+                                wire:target="cancelSubscription"
+                            >
+                                Cancelar suscripción
+                            </span>
+
+                            <span
+                                wire:loading
+                                wire:target="cancelSubscription"
+                            >
+                                Cancelando...
                             </span>
 
                         </x-filament::button>
@@ -449,15 +447,14 @@
 
 
             {{-- ========================================================= --}}
-            {{-- PENDING --}}
+            {{-- MENSAJE: PAGO PENDIENTE --}}
             {{-- ========================================================= --}}
 
             @if ($isPending)
 
                 <div class="mt-5 rounded-lg border border-warning-300 bg-warning-50 p-4 text-sm text-warning-800 dark:border-warning-700 dark:bg-warning-950 dark:text-warning-200">
 
-                    Tu contratación todavía está
-                    <strong>pendiente</strong>.
+                    <strong>Tu contratación está pendiente.</strong>
 
                     <div class="mt-1">
                         Continuá con el pago para activar tu suscripción.
@@ -469,16 +466,18 @@
 
 
             {{-- ========================================================= --}}
-            {{-- CANCELADA --}}
+            {{-- MENSAJE: CANCELADA --}}
             {{-- ========================================================= --}}
 
-            @if ($isCancelled)
+            @if ($isCanceled)
 
                 <div class="mt-5 rounded-lg border border-danger-300 bg-danger-50 p-4 text-sm text-danger-800 dark:border-danger-700 dark:bg-danger-950 dark:text-danger-200">
 
-                    Esta suscripción fue
-                    <strong>cancelada definitivamente</strong>
-                    en Mercado Pago.
+                    <strong>Esta suscripción fue cancelada definitivamente.</strong>
+
+                    <div class="mt-1">
+                        La cancelación fue realizada en Mercado Pago.
+                    </div>
 
                     @if ($subscription->canceled_at)
 
@@ -504,18 +503,23 @@
 
 
             {{-- ========================================================= --}}
-            {{-- PAUSADA --}}
+            {{-- MENSAJE: PAUSADA --}}
             {{-- ========================================================= --}}
 
             @if ($isPaused)
 
                 <div class="mt-5 rounded-lg border border-warning-300 bg-warning-50 p-4 text-sm text-warning-800 dark:border-warning-700 dark:bg-warning-950 dark:text-warning-200">
 
-                    Tu suscripción está
-                    <strong>pausada</strong>.
+                    <strong>Tu suscripción está pausada.</strong>
 
-                    Podés reactivarla cuando quieras usando el botón
-                    <strong>Reactivar suscripción</strong>.
+                    <div class="mt-1">
+                        No se realizarán nuevos cobros mientras permanezca pausada.
+                    </div>
+
+                    <div class="mt-1">
+                        Podés reactivarla cuando quieras utilizando
+                        <strong>Reactivar suscripción</strong>.
+                    </div>
 
                 </div>
 
@@ -527,8 +531,7 @@
             {{-- ========================================================= --}}
 
             @if (
-                !$isCancelled &&
-                !$isPaused &&
+                !$isCanceled &&
                 $subscription->cancel_at_period_end
             )
 
