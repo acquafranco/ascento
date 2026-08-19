@@ -6,6 +6,36 @@
 
         $status = $subscription?->status;
 
+        /*
+         * =========================================================
+         * ESTADOS
+         * =========================================================
+         */
+
+        $isPending = in_array($status, [
+            'pending',
+        ], true);
+
+        $isActive = in_array($status, [
+            'authorized',
+            'active',
+            'trialing',
+            'past_due',
+        ], true);
+
+        $isPaused = $status === 'paused';
+
+        $isCancelled = in_array($status, [
+            'cancelled',
+            'canceled',
+        ], true);
+
+        /*
+         * =========================================================
+         * LABEL
+         * =========================================================
+         */
+
         $statusLabel = match ($status) {
             'authorized',
             'active' => 'Activo',
@@ -16,26 +46,7 @@
 
             'paused' => 'Pausado',
 
-            'cancelled',
-            'canceled' => 'Cancelado',
-
-            default => 'Sin suscripción',
-        };
-
-        $isPaused = $status === 'paused';
-
-        $isCancelled = in_array($status, [
-            'cancelled',
-            'canceled',
-        ], true);
-
-        $statusLabel = match ($status) {
-            'authorized',
-            'active' => 'Activo',
-
-            'trialing' => 'Período de prueba',
-
-            'paused' => 'Pausado',
+            'pending' => 'Pago pendiente',
 
             'cancelled',
             'canceled' => 'Cancelado',
@@ -46,16 +57,121 @@
 
 
     {{-- ========================================================= --}}
+    {{-- NO EXISTE REGISTRO --}}
+    {{-- ========================================================= --}}
+
+    @if (!$subscription)
+
+        <x-filament::section>
+
+            <div class="mx-auto max-w-2xl text-center">
+
+                <h2 class="text-2xl font-bold text-gray-950 dark:text-white">
+                    Ascento
+                </h2>
+
+                <p class="mt-2 text-gray-500 dark:text-gray-400">
+                    Todo lo que necesitás para gestionar tu empresa de ascensores.
+                </p>
+
+                @if ($plan)
+
+                    <div class="mt-8">
+
+                        <div class="text-4xl font-bold text-gray-950 dark:text-white">
+                            ${{ number_format((float) $plan->price, 0, ',', '.') }}
+                        </div>
+
+                        <div class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                            {{ $plan->currency }} / mes
+                        </div>
+
+                    </div>
+
+                    @if (!empty($plan->features))
+
+                        <div class="mt-8 text-left">
+
+                            <ul class="mx-auto max-w-md space-y-3">
+
+                                @foreach ($plan->features as $feature)
+
+                                    <li class="flex gap-2 text-sm text-gray-600 dark:text-gray-300">
+
+                                        <span class="text-success-500">
+                                            ✓
+                                        </span>
+
+                                        <span>
+                                            {{ $feature }}
+                                        </span>
+
+                                    </li>
+
+                                @endforeach
+
+                            </ul>
+
+                        </div>
+
+                    @endif
+
+                    <div class="mt-8">
+
+                        <x-filament::button
+                            wire:click="checkout"
+                            wire:loading.attr="disabled"
+                            wire:target="checkout"
+                            size="lg"
+                        >
+                            <span
+                                wire:loading.remove
+                                wire:target="checkout"
+                            >
+                                Contratar Ascento
+                            </span>
+
+                            <span
+                                wire:loading
+                                wire:target="checkout"
+                            >
+                                Procesando...
+                            </span>
+                        </x-filament::button>
+
+                    </div>
+
+                @else
+
+                    <div class="mt-6">
+
+                        <x-filament::badge color="danger">
+                            No hay un plan configurado
+                        </x-filament::badge>
+
+                    </div>
+
+                @endif
+
+            </div>
+
+        </x-filament::section>
+
+
+    {{-- ========================================================= --}}
     {{-- EXISTE SUSCRIPCIÓN --}}
     {{-- ========================================================= --}}
 
-    @if ($subscription)
+    @else
 
         <x-filament::section>
 
             <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
 
+                {{-- ================================================= --}}
                 {{-- INFORMACIÓN --}}
+                {{-- ================================================= --}}
+
                 <div>
 
                     <div class="flex items-center gap-3">
@@ -67,7 +183,7 @@
                             </p>
 
                             <h2 class="text-3xl font-bold text-gray-950 dark:text-white">
-                                {{ $plan?->name ?? ucfirst($subscription->plan) }}
+                                {{ $plan?->name ?? ucfirst($subscription->plan ?? 'Ascento') }}
                             </h2>
 
                         </div>
@@ -80,9 +196,13 @@
                                         $isPaused
                                             ? 'warning'
                                             : (
-                                                $status === 'trialing'
+                                                $isPending
                                                     ? 'warning'
-                                                    : 'success'
+                                                    : (
+                                                        $isActive
+                                                            ? 'success'
+                                                            : 'gray'
+                                                    )
                                             )
                                     )
                             "
@@ -93,7 +213,10 @@
                     </div>
 
 
+                    {{-- ================================================= --}}
                     {{-- PRECIO / PERÍODO --}}
+                    {{-- ================================================= --}}
+
                     <div class="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
 
                         @if ($subscription->amount)
@@ -136,18 +259,70 @@
 
                 <div>
 
-                    {{-- CANCELADA DEFINITIVAMENTE --}}
-                    @if ($isCancelled)
+                    {{-- ================================================= --}}
+                    {{-- PENDING --}}
+                    {{-- ================================================= --}}
+
+                    @if ($isPending)
 
                         <x-filament::button
-                            color="gray"
-                            disabled
+                            wire:click="checkout"
+                            wire:loading.attr="disabled"
+                            wire:target="checkout"
+                            color="warning"
                         >
-                            Suscripción cancelada
+
+                            <span
+                                wire:loading.remove
+                                wire:target="checkout"
+                            >
+                                Continuar contratación
+                            </span>
+
+                            <span
+                                wire:loading
+                                wire:target="checkout"
+                            >
+                                Procesando...
+                            </span>
+
                         </x-filament::button>
 
 
-                    {{-- PAUSADA = SE PUEDE REACTIVAR --}}
+                    {{-- ================================================= --}}
+                    {{-- CANCELADA --}}
+                    {{-- ================================================= --}}
+
+                    @elseif ($isCancelled)
+
+                        <x-filament::button
+                            wire:click="checkout"
+                            wire:loading.attr="disabled"
+                            wire:target="checkout"
+                            color="primary"
+                        >
+
+                            <span
+                                wire:loading.remove
+                                wire:target="checkout"
+                            >
+                                Contratar nuevamente
+                            </span>
+
+                            <span
+                                wire:loading
+                                wire:target="checkout"
+                            >
+                                Procesando...
+                            </span>
+
+                        </x-filament::button>
+
+
+                    {{-- ================================================= --}}
+                    {{-- PAUSADA --}}
+                    {{-- ================================================= --}}
+
                     @elseif ($isPaused)
 
                         <x-filament::button
@@ -174,8 +349,11 @@
                         </x-filament::button>
 
 
-                    {{-- ACTIVA = SE PUEDE PAUSAR --}}
-                    @elseif($this->isActive())
+                    {{-- ================================================= --}}
+                    {{-- ACTIVA --}}
+                    {{-- ================================================= --}}
+
+                    @elseif ($isActive)
 
                         <x-filament::button
                             color="danger"
@@ -200,6 +378,36 @@
 
                         </x-filament::button>
 
+
+                    {{-- ================================================= --}}
+                    {{-- ESTADO DESCONOCIDO --}}
+                    {{-- ================================================= --}}
+
+                    @else
+
+                        <x-filament::button
+                            wire:click="checkout"
+                            wire:loading.attr="disabled"
+                            wire:target="checkout"
+                            color="primary"
+                        >
+
+                            <span
+                                wire:loading.remove
+                                wire:target="checkout"
+                            >
+                                Contratar Ascento
+                            </span>
+
+                            <span
+                                wire:loading
+                                wire:target="checkout"
+                            >
+                                Procesando...
+                            </span>
+
+                        </x-filament::button>
+
                     @endif
 
                 </div>
@@ -207,9 +415,29 @@
             </div>
 
 
-            {{-- ================================================= --}}
-            {{-- MENSAJE CANCELADA --}}
-            {{-- ================================================= --}}
+            {{-- ========================================================= --}}
+            {{-- PENDING --}}
+            {{-- ========================================================= --}}
+
+            @if ($isPending)
+
+                <div class="mt-5 rounded-lg border border-warning-300 bg-warning-50 p-4 text-sm text-warning-800 dark:border-warning-700 dark:bg-warning-950 dark:text-warning-200">
+
+                    Tu contratación todavía está
+                    <strong>pendiente</strong>.
+
+                    <div class="mt-1">
+                        Continuá con el pago para activar tu suscripción.
+                    </div>
+
+                </div>
+
+            @endif
+
+
+            {{-- ========================================================= --}}
+            {{-- CANCELADA --}}
+            {{-- ========================================================= --}}
 
             @if ($isCancelled)
 
@@ -234,7 +462,7 @@
                     @endif
 
                     <div class="mt-2">
-                        Esta suscripción no puede reactivarse.
+                        Podés contratar nuevamente utilizando el botón de arriba.
                     </div>
 
                 </div>
@@ -242,9 +470,9 @@
             @endif
 
 
-            {{-- ================================================= --}}
-            {{-- MENSAJE PAUSADA --}}
-            {{-- ================================================= --}}
+            {{-- ========================================================= --}}
+            {{-- PAUSADA --}}
+            {{-- ========================================================= --}}
 
             @if ($isPaused)
 
@@ -261,9 +489,9 @@
             @endif
 
 
-            {{-- ================================================= --}}
+            {{-- ========================================================= --}}
             {{-- CANCELACIÓN PROGRAMADA --}}
-            {{-- ================================================= --}}
+            {{-- ========================================================= --}}
 
             @if (
                 !$isCancelled &&
@@ -284,113 +512,6 @@
                 </div>
 
             @endif
-
-        </x-filament::section>
-
-
-    {{-- ========================================================= --}}
-    {{-- NO EXISTE SUSCRIPCIÓN --}}
-    {{-- ========================================================= --}}
-
-    @else
-
-        <x-filament::section>
-
-            <div class="mx-auto max-w-2xl text-center">
-
-                <h2 class="text-2xl font-bold text-gray-950 dark:text-white">
-                    Ascento
-                </h2>
-
-                <p class="mt-2 text-gray-500 dark:text-gray-400">
-                    Todo lo que necesitás para gestionar tu empresa de ascensores.
-                </p>
-
-
-                @if ($plan)
-
-                    <div class="mt-8">
-
-                        <div class="text-4xl font-bold text-gray-950 dark:text-white">
-                            ${{ number_format((float) $plan->price, 0, ',', '.') }}
-                        </div>
-
-                        <div class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                            {{ $plan->currency }} / mes
-                        </div>
-
-                    </div>
-
-
-                    @if (!empty($plan->features))
-
-                        <div class="mt-8 text-left">
-
-                            <ul class="mx-auto max-w-md space-y-3">
-
-                                @foreach ($plan->features as $feature)
-
-                                    <li class="flex gap-2 text-sm text-gray-600 dark:text-gray-300">
-
-                                        <span class="text-success-500">
-                                            ✓
-                                        </span>
-
-                                        <span>
-                                            {{ $feature }}
-                                        </span>
-
-                                    </li>
-
-                                @endforeach
-
-                            </ul>
-
-                        </div>
-
-                    @endif
-
-
-                    <div class="mt-8">
-
-                        <x-filament::button
-                            wire:click="checkout"
-                            wire:loading.attr="disabled"
-                            wire:target="checkout"
-                            size="lg"
-                        >
-
-                            <span
-                                wire:loading.remove
-                                wire:target="checkout"
-                            >
-                                Contratar Ascento
-                            </span>
-
-                            <span
-                                wire:loading
-                                wire:target="checkout"
-                            >
-                                Procesando...
-                            </span>
-
-                        </x-filament::button>
-
-                    </div>
-
-                @else
-
-                    <div class="mt-6">
-
-                        <x-filament::badge color="danger">
-                            No hay un plan configurado
-                        </x-filament::badge>
-
-                    </div>
-
-                @endif
-
-            </div>
 
         </x-filament::section>
 
