@@ -825,7 +825,7 @@ class Subscription extends Page
         ->where('is_active', true)
         ->firstOrFail();
 
-    $mp = app(\App\Services\MercadoPagoService::class);
+   $mp = app(\App\Services\MercadoPagoService::class);
 
     $mpPlan = $mp->getSubscriptionPlan(
         $plan->mercadopago_plan_id
@@ -838,7 +838,7 @@ class Subscription extends Page
     }
 
     return redirect()->away($mpPlan['init_point']);
-}
+    }
 
     /**
      * ==============================================================
