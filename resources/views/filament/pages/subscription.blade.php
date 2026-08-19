@@ -36,6 +36,12 @@
 
         <x-filament::section>
 
+        <div style="padding:20px;background:red;color:white;font-size:20px;">
+    USER: {{ auth()->id() }}
+    |
+    COMPANY: {{ auth()->user()?->company_id }}
+</div>
+
             <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
 
                 <div>
