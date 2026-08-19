@@ -813,202 +813,32 @@ class Subscription extends Page
      * CREA PREAPPROVAL REAL EN MERCADO PAGO
      * ==============================================================
      */
-    protected function startCheckout(
-        SubscriptionModel $subscription,
-        SubscriptionPlan $plan
-    ): void {
-        try {
-            $mp =
-                app(MercadoPagoService::class);
+    public function startCheckout(): RedirectResponse
+{
+    $company = auth()->user()->company;
 
-            $externalReference =
-                'company_' .
-                $subscription->company_id;
-
-            /*
-             * IMPORTANTE:
-             *
-             * NO usamos getSubscriptionPlan()
-             * para obtener el init_point.
-             *
-             * Creamos una suscripción real /preapproval.
-             */
-
-            $mpSubscription =
-                $mp->createSubscription([
-                    'preapproval_plan_id' =>
-                        $plan->mercadopago_plan_id,
-
-                    'reason' =>
-                        'Suscripción Ascento',
-
-                    'external_reference' =>
-                        $externalReference,
-
-                    'back_url' => url('/admin/subscription'),
-
-                    'status' =>
-                        'pending',
-                ]);
-
-            $providerSubscriptionId =
-                $mpSubscription['id']
-                ?? null;
-
-            if (!$providerSubscriptionId) {
-                throw new RuntimeException(
-                    'Mercado Pago no devolvió el ID de la suscripción.'
-                );
-            }
-
-            $initPoint =
-                $mpSubscription['init_point']
-                ?? null;
-
-            if (!$initPoint) {
-                throw new RuntimeException(
-                    'Mercado Pago no devolvió init_point.'
-                );
-            }
-
-            /*
-             * Guardamos el ID inmediatamente.
-             */
-
-            $subscription->update([
-                'provider_subscription_id' =>
-                    (string) $providerSubscriptionId,
-
-                'provider_plan_id' =>
-                    $plan->mercadopago_plan_id,
-
-                'external_reference' =>
-                    $externalReference,
-
-                'plan' =>
-                    $plan->slug,
-
-                'status' =>
-                    'pending',
-
-                'amount' =>
-                    $plan->price,
-
-                'currency' =>
-                    $plan->currency,
-
-                'cancel_at_period_end' =>
-                    false,
-            ]);
-
-            /*
-             * Sincronización inmediata.
-             */
-
-            try {
-                $fresh =
-                    $mp->getSubscription(
-                        (string) $providerSubscriptionId
-                    );
-
-                $this->syncLocalSubscription(
-                    $subscription,
-                    $fresh
-                );
-            } catch (\Throwable $e) {
-                Log::warning(
-                    'ERROR SINCRONIZANDO NUEVA SUSCRIPCION FILAMENT',
-                    [
-                        'company_id' =>
-                            $subscription->company_id,
-
-                        'subscription_id' =>
-                            $subscription->id,
-
-                        'provider_subscription_id' =>
-                            $providerSubscriptionId,
-
-                        'error' =>
-                            $e->getMessage(),
-                    ]
-                );
-            }
-
-            Log::info(
-                'MP SUSCRIPCION CREADA DESDE FILAMENT',
-                [
-                    'company_id' =>
-                        $subscription->company_id,
-
-                    'subscription_id' =>
-                        $subscription->id,
-
-                    'provider_subscription_id' =>
-                        $providerSubscriptionId,
-
-                    'provider_plan_id' =>
-                        $plan->mercadopago_plan_id,
-
-                    'external_reference' =>
-                        $externalReference,
-                ]
-            );
-
-            /*
-             * REDIRECT AL CHECKOUT REAL.
-             */
-
-            $this->redirect(
-                $initPoint,
-                navigate: false
-            );
-
-        } catch (\Throwable $e) {
-            Log::error(
-                'ERROR INICIANDO CHECKOUT DE MERCADO PAGO',
-                [
-                    'company_id' =>
-                        $subscription->company_id,
-
-                    'subscription_id' =>
-                        $subscription->id,
-
-                    'provider_subscription_id' =>
-                        $subscription
-                            ->provider_subscription_id,
-
-                    'provider_plan_id' =>
-                        $subscription
-                            ->provider_plan_id,
-
-                    'error' =>
-                        $e->getMessage(),
-                ]
-            );
-
-            /*
-             * Solo eliminamos el registro si MP
-             * nunca creó la suscripción.
-             */
-
-            if (
-                !$subscription
-                    ->provider_subscription_id
-            ) {
-                $subscription->delete();
-            }
-
-            Notification::make()
-                ->title(
-                    'No se pudo iniciar el checkout'
-                )
-                ->body(
-                    $e->getMessage()
-                )
-                ->danger()
-                ->send();
-        }
+    if (!$company) {
+        abort(403, 'El usuario no tiene una empresa asociada.');
     }
+
+    $plan = SubscriptionPlan::where('slug', 'professional')
+        ->where('is_active', true)
+        ->firstOrFail();
+
+    $mp = app(\App\Services\MercadoPagoService::class);
+
+    $mpPlan = $mp->getSubscriptionPlan(
+        $plan->mercadopago_plan_id
+    );
+
+    if (empty($mpPlan['init_point'])) {
+        throw new \RuntimeException(
+            'Mercado Pago no devolvió el checkout del plan.'
+        );
+    }
+
+    return redirect()->away($mpPlan['init_point']);
+}
 
     /**
      * ==============================================================
