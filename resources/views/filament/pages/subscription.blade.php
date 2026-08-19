@@ -175,7 +175,7 @@
 
 
                     {{-- ACTIVA = SE PUEDE PAUSAR --}}
-                    @elseif ($isActive)
+                    @elseif($this->isActive())
 
                         <x-filament::button
                             color="danger"

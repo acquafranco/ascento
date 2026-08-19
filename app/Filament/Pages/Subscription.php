@@ -53,6 +53,22 @@ class Subscription extends Page
         $this->syncCurrentSubscription();
     }
 
+        public function isActive(): bool
+    {
+        $subscription = $this->getActiveSubscription();
+
+        return $subscription !== null
+            && in_array(
+                $subscription->status,
+                [
+                    'authorized',
+                    'active',
+                    'trialing',
+                    'past_due',
+                ],
+                true
+            );
+    }
     /**
      * Obtiene el plan activo.
      */
