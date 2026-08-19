@@ -6,11 +6,21 @@
 
         $status = $subscription?->status;
 
-        $isActive = in_array($status, [
+        $statusLabel = match ($status) {
             'authorized',
-            'active',
-            'trialing',
-        ], true);
+            'active' => 'Activo',
+
+            'trialing' => 'Período de prueba',
+
+            'past_due' => 'Pago pendiente',
+
+            'paused' => 'Pausado',
+
+            'cancelled',
+            'canceled' => 'Cancelado',
+
+            default => 'Sin suscripción',
+        };
 
         $isPaused = $status === 'paused';
 

@@ -5,132 +5,122 @@ namespace App\Filament\Pages;
 use App\Models\Subscription as SubscriptionModel;
 use App\Models\SubscriptionPlan;
 use App\Services\MercadoPagoService;
+use Carbon\Carbon;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 
 class Subscription extends Page
 {
-    protected string $view = 'filament.pages.subscription';
+    protected string $view =
+        'filament.pages.subscription';
 
     protected static string|\BackedEnum|null $navigationIcon =
         'heroicon-o-credit-card';
 
-    protected static ?string $navigationLabel = 'Mi suscripción';
+    protected static ?string $navigationLabel =
+        'Mi suscripción';
 
-    protected static ?string $title = 'Mi suscripción';
+    protected static ?string $title =
+        'Mi suscripción';
 
-    protected static ?string $slug = 'subscription';
+    protected static ?string $slug =
+        'subscription';
+
+    /**
+     * Estados que indican que no debe crearse
+     * otra suscripción.
+     */
+    protected array $blockingStatuses = [
+        'pending',
+        'trialing',
+        'authorized',
+        'active',
+        'past_due',
+        'paused',
+    ];
 
     public function mount(): void
     {
         abort_unless(
-            auth()->user()?->isAdmin() ||
-            auth()->user()?->isSuperAdmin(),
+            auth()->user()?->isAdmin()
+            || auth()->user()?->isSuperAdmin(),
             403
         );
 
         $this->syncCurrentSubscription();
     }
 
+    /**
+     * Obtiene el plan activo.
+     */
     protected function getPlan(): ?SubscriptionPlan
     {
         return SubscriptionPlan::query()
-            ->where('is_active', true)
+            ->where(
+                'is_active',
+                true
+            )
+            ->whereNotNull(
+                'mercadopago_plan_id'
+            )
             ->orderBy('id')
             ->first();
     }
 
     /**
-     * UNA EMPRESA = UNA SUSCRIPCIÓN LOCAL.
+     * Obtiene la última suscripción de la empresa.
      */
-    protected function getActiveSubscription(): ?SubscriptionModel
-    {
-        $company = auth()->user()?->company;
+    protected function getActiveSubscription(
+    ): ?SubscriptionModel {
+        $company =
+            auth()->user()?->company;
 
         if (!$company) {
             return null;
         }
 
         return SubscriptionModel::query()
-            ->where('company_id', $company->id)
+            ->where(
+                'company_id',
+                $company->id
+            )
+            ->latest('id')
             ->first();
     }
 
     /**
-     * Sincroniza el estado local con Mercado Pago.
+     * Sincroniza la suscripción local
+     * con Mercado Pago.
      */
     protected function syncCurrentSubscription(): void
     {
-        $subscription = $this->getActiveSubscription();
+        $subscription =
+            $this->getActiveSubscription();
 
-        if (!$subscription) {
-            return;
-        }
-
-        if (!$subscription->provider_subscription_id) {
-            return;
-        }
-
-        /*
-         * Si ya está cancelada localmente, no insistimos.
-         */
-        if (in_array(
-            $subscription->status,
-            ['cancelled', 'canceled'],
-            true
-        )) {
+        if (
+            !$subscription
+            || !$subscription->provider_subscription_id
+        ) {
             return;
         }
 
         try {
-            $mp = app(MercadoPagoService::class);
+            $mp =
+                app(MercadoPagoService::class);
 
-            $mpSubscription = $mp->getSubscription(
-                $subscription->provider_subscription_id
+            $mpSubscription =
+                $mp->getSubscription(
+                    $subscription
+                        ->provider_subscription_id
+                );
+
+            $this->syncLocalSubscription(
+                $subscription,
+                $mpSubscription
             );
-
-            $mpStatus = $mpSubscription['status'] ?? null;
-
-            if (!$mpStatus) {
-                return;
-            }
-
-            /*
-             * CANCELACIÓN DEFINITIVA.
-             */
-            if (in_array(
-                $mpStatus,
-                ['cancelled', 'canceled'],
-                true
-            )) {
-                $subscription->update([
-                    'status' => 'cancelled',
-                    'cancel_at_period_end' => true,
-                    'canceled_at' =>
-                        $subscription->canceled_at ?? now(),
-                ]);
-
-                return;
-            }
-
-            /*
-             * PAUSADA.
-             */
-            if ($mpStatus === 'paused') {
-                $subscription->update([
-                    'status' => 'paused',
-                ]);
-
-                return;
-            }
-
-            /*
-             * ACTIVA / OTRO ESTADO.
-             */
-            $subscription->update([
-                'status' => $mpStatus,
-            ]);
 
         } catch (\Throwable $e) {
             Log::warning(
@@ -143,7 +133,8 @@ class Subscription extends Page
                         $subscription->id,
 
                     'provider_subscription_id' =>
-                        $subscription->provider_subscription_id,
+                        $subscription
+                            ->provider_subscription_id,
 
                     'error' =>
                         $e->getMessage(),
@@ -153,66 +144,409 @@ class Subscription extends Page
     }
 
     /**
-     * Contratar / reactivar.
+     * Sincronización local idéntica a la del Controller.
+     */
+    protected function syncLocalSubscription(
+        SubscriptionModel $subscription,
+        array $response
+    ): SubscriptionModel {
+        $providerSubscriptionId =
+            (string) (
+                $response['id']
+                ?? $subscription
+                    ->provider_subscription_id
+                ?? ''
+            );
+
+        $providerPlanId =
+            $response['preapproval_plan_id']
+            ?? $subscription->provider_plan_id;
+
+        $externalReference =
+            $response['external_reference']
+            ?? $subscription->external_reference;
+
+        $status =
+            $response['status']
+            ?? $subscription->status;
+
+        if (in_array(
+            $status,
+            ['cancelled', 'canceled'],
+            true
+        )) {
+            $status = 'canceled';
+        }
+
+        $plan = null;
+
+        if ($providerPlanId) {
+            $plan =
+                SubscriptionPlan::query()
+                    ->where(
+                        'mercadopago_plan_id',
+                        $providerPlanId
+                    )
+                    ->first();
+        }
+
+        /*
+         * ==========================================================
+         * TRIAL
+         * ==========================================================
+         */
+
+        $trialEndsAt =
+            $subscription->trial_ends_at;
+
+        $trialDays =
+            data_get(
+                $response,
+                'auto_recurring.free_trial.frequency'
+            );
+
+        $trialType =
+            data_get(
+                $response,
+                'auto_recurring.free_trial.frequency_type'
+            );
+
+        $startDate =
+            data_get(
+                $response,
+                'auto_recurring.start_date'
+            );
+
+        if (
+            $trialDays
+            && $trialType === 'days'
+            && $startDate
+        ) {
+            $trialEndsAt =
+                Carbon::parse(
+                    $startDate
+                )->addDays(
+                    (int) $trialDays
+                );
+        }
+
+        /*
+         * ==========================================================
+         * PERÍODOS
+         * ==========================================================
+         */
+
+        $currentPeriodStart =
+            $startDate
+                ? Carbon::parse(
+                    $startDate
+                )
+                : $subscription
+                    ->current_period_start;
+
+        $nextPaymentDate =
+            $response['next_payment_date']
+            ?? null;
+
+        $currentPeriodEnd =
+            $nextPaymentDate
+                ? Carbon::parse(
+                    $nextPaymentDate
+                )
+                : $subscription
+                    ->current_period_end;
+
+        /*
+         * ==========================================================
+         * CANCELACIÓN
+         * ==========================================================
+         */
+
+        $isCanceled =
+            $status === 'canceled';
+
+        $canceledAt =
+            $isCanceled
+                ? (
+                    $subscription->canceled_at
+                    ?? now()
+                )
+                : null;
+
+        /*
+         * ==========================================================
+         * ACTUALIZACIÓN
+         * ==========================================================
+         */
+
+        $subscription->update([
+            'provider' =>
+                'mercadopago',
+
+            'provider_subscription_id' =>
+                $providerSubscriptionId
+                    ?: $subscription
+                        ->provider_subscription_id,
+
+            'provider_plan_id' =>
+                $providerPlanId,
+
+            'external_reference' =>
+                $externalReference,
+
+            'plan' =>
+                $plan?->slug
+                ?? $subscription->plan,
+
+            'status' =>
+                $status,
+
+            'amount' =>
+                data_get(
+                    $response,
+                    'auto_recurring.transaction_amount',
+                    $subscription->amount
+                ),
+
+            'currency' =>
+                data_get(
+                    $response,
+                    'auto_recurring.currency_id',
+                    $subscription->currency
+                ),
+
+            'trial_ends_at' =>
+                $trialEndsAt,
+
+            'current_period_start' =>
+                $currentPeriodStart,
+
+            'current_period_end' =>
+                $currentPeriodEnd,
+
+            'canceled_at' =>
+                $canceledAt,
+
+            'cancel_at_period_end' =>
+                $status === 'paused'
+                    ? true
+                    : false,
+        ]);
+
+        return $subscription->fresh();
+    }
+
+    /**
+     * ==============================================================
+     * CHECKOUT
+     * ==============================================================
      *
      * Flujo:
      *
      * SIN SUSCRIPCIÓN
-     *     -> crea checkout
+     *     -> crea preapproval
      *
-     * PAUSADA
-     *     -> reactiva la misma suscripción
+     * PENDING SIN ID
+     *     -> crea preapproval
      *
-     * ACTIVA
+     * PENDING CON ID
+     *     -> recupera checkout
+     *
+     * ACTIVE
      *     -> no hace nada
      *
-     * CANCELADA
-     *     -> no puede reutilizarse
+     * PAUSED
+     *     -> reactiva la misma
+     *
+     * CANCELED
+     *     -> crea una nueva suscripción
      */
     public function checkout(): void
     {
-        $user = auth()->user();
+        $user =
+            auth()->user();
 
         abort_unless(
-            $user?->isAdmin() ||
-            $user?->isSuperAdmin(),
+            $user?->isAdmin()
+            || $user?->isSuperAdmin(),
             403
         );
 
-        $company = $user->company;
+        $company =
+            $user->company;
 
-        abort_unless($company, 403);
+        abort_unless(
+            $company,
+            403
+        );
 
-        $plan = $this->getPlan();
+        $plan =
+            $this->getPlan();
 
         if (!$plan) {
-            throw new \RuntimeException(
+            throw new RuntimeException(
                 'No hay ningún plan activo configurado para Ascento.'
             );
         }
 
         if (!$plan->mercadopago_plan_id) {
-            throw new \RuntimeException(
+            throw new RuntimeException(
                 "El plan {$plan->name} no tiene un plan de Mercado Pago configurado."
             );
         }
 
-        $subscription = $this->getActiveSubscription();
+        /*
+         * ==========================================================
+         * BUSCAR SUSCRIPCIÓN EXISTENTE
+         * ==========================================================
+         */
+
+        $subscription =
+            DB::transaction(
+                function () use ($company) {
+                    return SubscriptionModel::query()
+                        ->where(
+                            'company_id',
+                            $company->id
+                        )
+                        ->latest('id')
+                        ->lockForUpdate()
+                        ->first();
+                }
+            );
 
         /*
          * ==========================================================
-         * NO EXISTE SUSCRIPCIÓN
+         * NO EXISTE
          * ==========================================================
          */
 
         if (!$subscription) {
-            $subscription = SubscriptionModel::create([
-                'company_id' =>
-                    $company->id,
+            $subscription =
+                $this->createLocalSubscription(
+                    $company,
+                    $plan
+                );
 
-                'provider' =>
-                    'mercadopago',
+            $this->startCheckout(
+                $subscription,
+                $plan
+            );
 
+            return;
+        }
+
+        /*
+         * ==========================================================
+         * SINCRONIZAR SI TENEMOS ID
+         * ==========================================================
+         */
+
+        if (
+            $subscription->provider_subscription_id
+            && in_array(
+                $subscription->status,
+                $this->blockingStatuses,
+                true
+            )
+        ) {
+            try {
+                $mp =
+                    app(MercadoPagoService::class);
+
+                $mpSubscription =
+                    $mp->getSubscription(
+                        $subscription
+                            ->provider_subscription_id
+                    );
+
+                $subscription =
+                    $this->syncLocalSubscription(
+                        $subscription,
+                        $mpSubscription
+                    );
+            } catch (\Throwable $e) {
+                Log::warning(
+                    'ERROR SINCRONIZANDO ANTES DEL CHECKOUT',
+                    [
+                        'company_id' =>
+                            $company->id,
+
+                        'subscription_id' =>
+                            $subscription->id,
+
+                        'provider_subscription_id' =>
+                            $subscription
+                                ->provider_subscription_id,
+
+                        'error' =>
+                            $e->getMessage(),
+                    ]
+                );
+            }
+        }
+
+        /*
+         * ==========================================================
+         * ACTIVA
+         * ==========================================================
+         */
+
+        if (in_array(
+            $subscription->status,
+            [
+                'authorized',
+                'active',
+                'trialing',
+                'past_due',
+            ],
+            true
+        )) {
+            Notification::make()
+                ->title(
+                    'Ya tenés una suscripción activa'
+                )
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        /*
+         * ==========================================================
+         * PAUSADA
+         * ==========================================================
+         */
+
+        if (
+            $subscription->status === 'paused'
+            && $subscription->provider_subscription_id
+        ) {
+            $this->resumeSubscription();
+
+            return;
+        }
+
+        /*
+         * ==========================================================
+         * CANCELADA
+         * ==========================================================
+         *
+         * Una cancelada NO se reutiliza.
+         *
+         * Se limpia el registro local y se genera
+         * un nuevo checkout de Mercado Pago.
+         */
+
+        if (in_array(
+            $subscription->status,
+            [
+                'canceled',
+                'cancelled',
+            ],
+            true
+        )) {
+            $subscription->update([
                 'provider_subscription_id' =>
                     null,
 
@@ -221,9 +555,7 @@ class Subscription extends Page
 
                 'external_reference' =>
                     'company_' .
-                    $company->id .
-                    '_plan_' .
-                    $plan->id,
+                    $company->id,
 
                 'plan' =>
                     $plan->slug,
@@ -263,77 +595,13 @@ class Subscription extends Page
 
         /*
          * ==========================================================
-         * YA ESTÁ ACTIVA
-         * ==========================================================
-         */
-
-        if (in_array(
-            $subscription->status,
-            [
-                'authorized',
-                'active',
-                'trialing',
-                'past_due',
-            ],
-            true
-        )) {
-            Notification::make()
-                ->title('Ya tenés una suscripción activa')
-                ->warning()
-                ->send();
-
-            return;
-        }
-
-        /*
-         * ==========================================================
-         * ESTÁ PAUSADA
-         *
-         * REACTIVAMOS LA MISMA.
-         * NO CREAMOS OTRA.
+         * PENDING SIN ID
          * ==========================================================
          */
 
         if (
-            $subscription->status === 'paused' &&
-            $subscription->provider_subscription_id
-        ) {
-            $this->resumeSubscription();
-
-            return;
-        }
-
-        /*
-         * ==========================================================
-         * CANCELADA DEFINITIVAMENTE
-         * ==========================================================
-         */
-
-        if (in_array(
-            $subscription->status,
-            ['cancelled', 'canceled'],
-            true
-        )) {
-            Notification::make()
-                ->title('La suscripción fue cancelada')
-                ->body(
-                    'Mercado Pago no permite reactivar una suscripción cancelada. Debés contratar nuevamente.'
-                )
-                ->warning()
-                ->send();
-
-            return;
-        }
-
-        /*
-         * ==========================================================
-         * PENDING
-         * ==========================================================
-         */
-
-        if (
-            $subscription->status === 'pending' &&
-            !$subscription->provider_subscription_id
+            $subscription->status === 'pending'
+            && !$subscription->provider_subscription_id
         ) {
             $this->startCheckout(
                 $subscription,
@@ -343,52 +611,325 @@ class Subscription extends Page
             return;
         }
 
+        /*
+         * ==========================================================
+         * PENDING CON ID
+         * ==========================================================
+         */
+
+        if (
+            $subscription->status === 'pending'
+            && $subscription->provider_subscription_id
+        ) {
+            try {
+                $mp =
+                    app(MercadoPagoService::class);
+
+                $mpSubscription =
+                    $mp->getSubscription(
+                        $subscription
+                            ->provider_subscription_id
+                    );
+
+                $subscription =
+                    $this->syncLocalSubscription(
+                        $subscription,
+                        $mpSubscription
+                    );
+
+                if (in_array(
+                    $subscription->status,
+                    [
+                        'authorized',
+                        'active',
+                        'trialing',
+                        'past_due',
+                    ],
+                    true
+                )) {
+                    Notification::make()
+                        ->title(
+                            'Ya tenés una suscripción activa'
+                        )
+                        ->warning()
+                        ->send();
+
+                    return;
+                }
+
+                $initPoint =
+                    $mpSubscription['init_point']
+                    ?? null;
+
+                if ($initPoint) {
+                    $this->redirect(
+                        $initPoint,
+                        navigate: false
+                    );
+
+                    return;
+                }
+
+            } catch (\Throwable $e) {
+                Log::warning(
+                    'ERROR RECUPERANDO CHECKOUT PENDIENTE',
+                    [
+                        'company_id' =>
+                            $company->id,
+
+                        'subscription_id' =>
+                            $subscription->id,
+
+                        'provider_subscription_id' =>
+                            $subscription
+                                ->provider_subscription_id,
+
+                        'error' =>
+                            $e->getMessage(),
+                    ]
+                );
+            }
+
+            Notification::make()
+                ->title(
+                    'No se pudo recuperar el checkout'
+                )
+                ->body(
+                    'Intentá nuevamente en unos segundos.'
+                )
+                ->danger()
+                ->send();
+
+            return;
+        }
+
         Notification::make()
-            ->title('Estado de suscripción no reconocido')
+            ->title(
+                'Estado de suscripción no reconocido'
+            )
             ->body(
-                'Estado actual: ' .
-                ($subscription->status ?? 'desconocido')
+                'Estado actual: '
+                . (
+                    $subscription->status
+                    ?? 'desconocido'
+                )
             )
             ->danger()
             ->send();
     }
 
     /**
-     * Inicia checkout de Mercado Pago.
+     * Crea el registro local.
+     */
+    protected function createLocalSubscription(
+        $company,
+        SubscriptionPlan $plan
+    ): SubscriptionModel {
+        return DB::transaction(
+            function () use (
+                $company,
+                $plan
+            ) {
+                return SubscriptionModel::create([
+                    'company_id' =>
+                        $company->id,
+
+                    'provider' =>
+                        'mercadopago',
+
+                    'provider_subscription_id' =>
+                        null,
+
+                    'provider_plan_id' =>
+                        $plan->mercadopago_plan_id,
+
+                    'external_reference' =>
+                        'company_' .
+                        $company->id,
+
+                    'plan' =>
+                        $plan->slug,
+
+                    'status' =>
+                        'pending',
+
+                    'amount' =>
+                        $plan->price,
+
+                    'currency' =>
+                        $plan->currency,
+
+                    'trial_ends_at' =>
+                        null,
+
+                    'current_period_start' =>
+                        null,
+
+                    'current_period_end' =>
+                        null,
+
+                    'canceled_at' =>
+                        null,
+
+                    'cancel_at_period_end' =>
+                        false,
+                ]);
+            }
+        );
+    }
+
+    /**
+     * ==============================================================
+     * CREA PREAPPROVAL REAL EN MERCADO PAGO
+     * ==============================================================
      */
     protected function startCheckout(
         SubscriptionModel $subscription,
         SubscriptionPlan $plan
     ): void {
         try {
-            $mp = app(MercadoPagoService::class);
+            $mp =
+                app(MercadoPagoService::class);
 
-            $mercadoPagoPlan = $mp->getSubscriptionPlan(
-                (string) $plan->mercadopago_plan_id
-            );
+            $externalReference =
+                'company_' .
+                $subscription->company_id;
 
-            $initPoint =
-                $mercadoPagoPlan['init_point'] ?? null;
+            /*
+             * IMPORTANTE:
+             *
+             * NO usamos getSubscriptionPlan()
+             * para obtener el init_point.
+             *
+             * Creamos una suscripción real /preapproval.
+             */
 
-            if (!$initPoint) {
-                throw new \RuntimeException(
-                    "Mercado Pago no devolvió init_point para el plan {$plan->name}."
+            $mpSubscription =
+                $mp->createSubscription([
+                    'preapproval_plan_id' =>
+                        $plan->mercadopago_plan_id,
+
+                    'reason' =>
+                        'Suscripción Ascento',
+
+                    'external_reference' =>
+                        $externalReference,
+
+                    'back_url' =>
+                        route(
+                            'subscriptions.show'
+                        ),
+
+                    'status' =>
+                        'pending',
+                ]);
+
+            $providerSubscriptionId =
+                $mpSubscription['id']
+                ?? null;
+
+            if (!$providerSubscriptionId) {
+                throw new RuntimeException(
+                    'Mercado Pago no devolvió el ID de la suscripción.'
                 );
             }
 
+            $initPoint =
+                $mpSubscription['init_point']
+                ?? null;
+
+            if (!$initPoint) {
+                throw new RuntimeException(
+                    'Mercado Pago no devolvió init_point.'
+                );
+            }
+
+            /*
+             * Guardamos el ID inmediatamente.
+             */
+
             $subscription->update([
-                'status' => 'pending',
+                'provider_subscription_id' =>
+                    (string) $providerSubscriptionId,
+
                 'provider_plan_id' =>
                     $plan->mercadopago_plan_id,
+
+                'external_reference' =>
+                    $externalReference,
+
                 'plan' =>
                     $plan->slug,
+
+                'status' =>
+                    'pending',
+
                 'amount' =>
                     $plan->price,
+
                 'currency' =>
                     $plan->currency,
+
                 'cancel_at_period_end' =>
                     false,
             ]);
+
+            /*
+             * Sincronización inmediata.
+             */
+
+            try {
+                $fresh =
+                    $mp->getSubscription(
+                        (string) $providerSubscriptionId
+                    );
+
+                $this->syncLocalSubscription(
+                    $subscription,
+                    $fresh
+                );
+            } catch (\Throwable $e) {
+                Log::warning(
+                    'ERROR SINCRONIZANDO NUEVA SUSCRIPCION FILAMENT',
+                    [
+                        'company_id' =>
+                            $subscription->company_id,
+
+                        'subscription_id' =>
+                            $subscription->id,
+
+                        'provider_subscription_id' =>
+                            $providerSubscriptionId,
+
+                        'error' =>
+                            $e->getMessage(),
+                    ]
+                );
+            }
+
+            Log::info(
+                'MP SUSCRIPCION CREADA DESDE FILAMENT',
+                [
+                    'company_id' =>
+                        $subscription->company_id,
+
+                    'subscription_id' =>
+                        $subscription->id,
+
+                    'provider_subscription_id' =>
+                        $providerSubscriptionId,
+
+                    'provider_plan_id' =>
+                        $plan->mercadopago_plan_id,
+
+                    'external_reference' =>
+                        $externalReference,
+                ]
+            );
+
+            /*
+             * REDIRECT AL CHECKOUT REAL.
+             */
 
             $this->redirect(
                 $initPoint,
@@ -405,69 +946,104 @@ class Subscription extends Page
                     'subscription_id' =>
                         $subscription->id,
 
+                    'provider_subscription_id' =>
+                        $subscription
+                            ->provider_subscription_id,
+
                     'provider_plan_id' =>
-                        $subscription->provider_plan_id,
+                        $subscription
+                            ->provider_plan_id,
 
                     'error' =>
                         $e->getMessage(),
                 ]
             );
 
+            /*
+             * Solo eliminamos el registro si MP
+             * nunca creó la suscripción.
+             */
+
+            if (
+                !$subscription
+                    ->provider_subscription_id
+            ) {
+                $subscription->delete();
+            }
+
             Notification::make()
-                ->title('No se pudo iniciar el checkout')
-                ->body($e->getMessage())
+                ->title(
+                    'No se pudo iniciar el checkout'
+                )
+                ->body(
+                    $e->getMessage()
+                )
                 ->danger()
                 ->send();
         }
     }
 
     /**
-     * PAUSA la suscripción.
+     * ==============================================================
+     * PAUSAR SUSCRIPCIÓN
+     * ==============================================================
      *
-     * IMPORTANTE:
-     *
-     * NO usamos "canceled".
-     *
-     * De esta manera podemos reactivarla
-     * utilizando el MISMO provider_subscription_id.
+     * Esta acción NO cancela definitivamente.
      */
     public function cancelSubscription(): void
     {
-        $user = auth()->user();
+        $user =
+            auth()->user();
 
         abort_unless(
-            $user?->isAdmin() ||
-            $user?->isSuperAdmin(),
+            $user?->isAdmin()
+            || $user?->isSuperAdmin(),
             403
         );
 
-        $company = $user->company;
+        $company =
+            $user->company;
 
-        abort_unless($company, 403);
+        abort_unless(
+            $company,
+            403
+        );
 
-        $subscription = $this->getActiveSubscription();
+        $subscription =
+            $this->getActiveSubscription();
 
         if (!$subscription) {
             Notification::make()
-                ->title('No hay una suscripción')
+                ->title(
+                    'No hay una suscripción'
+                )
                 ->warning()
                 ->send();
 
             return;
         }
 
-        if (!$subscription->provider_subscription_id) {
+        if (
+            !$subscription
+                ->provider_subscription_id
+        ) {
             Notification::make()
-                ->title('No hay una suscripción de Mercado Pago')
+                ->title(
+                    'No hay una suscripción de Mercado Pago'
+                )
                 ->warning()
                 ->send();
 
             return;
         }
 
-        if ($subscription->status === 'paused') {
+        if (
+            $subscription->status === 'paused'
+        ) {
             Notification::make()
-                ->title('La suscripción ya está pausada')
+                ->title(
+                    'La suscripción ya está pausada'
+                )
                 ->warning()
                 ->send();
 
@@ -476,11 +1052,16 @@ class Subscription extends Page
 
         if (in_array(
             $subscription->status,
-            ['cancelled', 'canceled'],
+            [
+                'canceled',
+                'cancelled',
+            ],
             true
         )) {
             Notification::make()
-                ->title('La suscripción ya está cancelada')
+                ->title(
+                    'La suscripción ya está cancelada'
+                )
                 ->warning()
                 ->send();
 
@@ -488,120 +1069,43 @@ class Subscription extends Page
         }
 
         try {
-            $mp = app(MercadoPagoService::class);
+            $mp =
+                app(MercadoPagoService::class);
 
             /*
-             * Consultamos primero.
+             * Consultamos estado real.
              */
-            $mpSubscription = $mp->getSubscription(
-                $subscription->provider_subscription_id
-            );
 
-            $mpStatus =
-                $mpSubscription['status'] ?? null;
-
-            /*
-             * Si MP ya la canceló, reflejamos eso.
-             */
-            if (in_array(
-                $mpStatus,
-                ['cancelled', 'canceled'],
-                true
-            )) {
-                $subscription->update([
-                    'status' => 'cancelled',
-                    'cancel_at_period_end' => true,
-                    'canceled_at' =>
-                        $subscription->canceled_at ?? now(),
-                ]);
-
-                $this->dispatch(
-                    'subscription-updated'
+            $mpSubscription =
+                $mp->getSubscription(
+                    $subscription
+                        ->provider_subscription_id
                 );
 
-                Notification::make()
-                    ->title('Suscripción cancelada')
-                    ->warning()
-                    ->send();
-
-                return;
-            }
+            $mpStatus =
+                $mpSubscription['status']
+                ?? null;
 
             /*
-             * Si ya está pausada.
+             * Si MP ya canceló.
              */
-            if ($mpStatus === 'paused') {
-                $subscription->update([
-                    'status' => 'paused',
-                ]);
 
-                Notification::make()
-                    ->title('Suscripción pausada')
-                    ->warning()
-                    ->send();
-
-                return;
-            }
-
-            /*
-             * Solamente pausamos si está activa.
-             */
             if (in_array(
                 $mpStatus,
                 [
-                    'authorized',
-                    'active',
-                    'trialing',
+                    'cancelled',
+                    'canceled',
                 ],
                 true
             )) {
-                $mp->pauseSubscription(
-                    $subscription->provider_subscription_id
+                $this->syncLocalSubscription(
+                    $subscription,
+                    $mpSubscription
                 );
 
-                /*
-                 * Volvemos a consultar.
-                 */
-                $mpSubscription =
-                    $mp->getSubscription(
-                        $subscription->provider_subscription_id
-                    );
-
-                $finalStatus =
-                    $mpSubscription['status'] ?? null;
-
-                if ($finalStatus === 'paused') {
-                    $subscription->update([
-                        'status' => 'paused',
-                        'cancel_at_period_end' => true,
-                    ]);
-
-                    $this->dispatch(
-                        'subscription-updated'
-                    );
-
-                    Notification::make()
-                        ->title('Suscripción pausada')
-                        ->body(
-                            'Podés reactivarla cuando quieras.'
-                        )
-                        ->success()
-                        ->send();
-
-                    return;
-                }
-
-                $subscription->update([
-                    'status' =>
-                        $finalStatus ??
-                        $subscription->status,
-                ]);
-
                 Notification::make()
-                    ->title('Estado actualizado')
-                    ->body(
-                        'Mercado Pago informa: ' .
-                        ($finalStatus ?? 'desconocido')
+                    ->title(
+                        'Suscripción cancelada'
                     )
                     ->warning()
                     ->send();
@@ -610,19 +1114,111 @@ class Subscription extends Page
             }
 
             /*
-             * Estado desconocido.
+             * Ya pausada.
              */
-            $subscription->update([
-                'status' =>
-                    $mpStatus ??
-                    $subscription->status,
-            ]);
+
+            if ($mpStatus === 'paused') {
+                $this->syncLocalSubscription(
+                    $subscription,
+                    $mpSubscription
+                );
+
+                Notification::make()
+                    ->title(
+                        'Suscripción pausada'
+                    )
+                    ->warning()
+                    ->send();
+
+                return;
+            }
+
+            /*
+             * Solamente pausamos estados válidos.
+             */
+
+            if (!in_array(
+                $mpStatus,
+                [
+                    'authorized',
+                    'active',
+                    'trialing',
+                    'past_due',
+                ],
+                true
+            )) {
+                Notification::make()
+                    ->title(
+                        'No se puede pausar'
+                    )
+                    ->body(
+                        'Mercado Pago informa: '
+                        . (
+                            $mpStatus
+                            ?? 'desconocido'
+                        )
+                    )
+                    ->warning()
+                    ->send();
+
+                return;
+            }
+
+            /*
+             * PAUSA REAL.
+             */
+
+            $mp->pauseSubscription(
+                $subscription
+                    ->provider_subscription_id
+            );
+
+            /*
+             * Confirmamos estado.
+             */
+
+            $mpSubscription =
+                $mp->getSubscription(
+                    $subscription
+                        ->provider_subscription_id
+                );
+
+            $subscription =
+                $this->syncLocalSubscription(
+                    $subscription,
+                    $mpSubscription
+                );
+
+            if (
+                $subscription->status === 'paused'
+            ) {
+                $this->dispatch(
+                    'subscription-updated'
+                );
+
+                Notification::make()
+                    ->title(
+                        'Suscripción pausada'
+                    )
+                    ->body(
+                        'Podés reactivarla cuando quieras.'
+                    )
+                    ->success()
+                    ->send();
+
+                return;
+            }
 
             Notification::make()
-                ->title('Estado actualizado')
+                ->title(
+                    'Estado actualizado'
+                )
                 ->body(
-                    'Mercado Pago informa: ' .
-                    ($mpStatus ?? 'desconocido')
+                    'Mercado Pago informa: '
+                    . (
+                        $subscription->status
+                        ?? 'desconocido'
+                    )
                 )
                 ->warning()
                 ->send();
@@ -638,7 +1234,8 @@ class Subscription extends Page
                         $subscription->id,
 
                     'provider_subscription_id' =>
-                        $subscription->provider_subscription_id,
+                        $subscription
+                            ->provider_subscription_id,
 
                     'error' =>
                         $e->getMessage(),
@@ -646,44 +1243,63 @@ class Subscription extends Page
             );
 
             Notification::make()
-                ->title('No se pudo pausar la suscripción')
-                ->body($e->getMessage())
+                ->title(
+                    'No se pudo pausar la suscripción'
+                )
+                ->body(
+                    $e->getMessage()
+                )
                 ->danger()
                 ->send();
         }
     }
 
     /**
-     * REACTIVA la misma suscripción de Mercado Pago.
+     * ==============================================================
+     * REACTIVAR
+     * ==============================================================
      */
     public function resumeSubscription(): void
     {
-        $user = auth()->user();
+        $user =
+            auth()->user();
 
         abort_unless(
-            $user?->isAdmin() ||
-            $user?->isSuperAdmin(),
+            $user?->isAdmin()
+            || $user?->isSuperAdmin(),
             403
         );
 
-        $company = $user->company;
+        $company =
+            $user->company;
 
-        abort_unless($company, 403);
+        abort_unless(
+            $company,
+            403
+        );
 
-        $subscription = $this->getActiveSubscription();
+        $subscription =
+            $this->getActiveSubscription();
 
         if (!$subscription) {
             Notification::make()
-                ->title('No hay una suscripción')
+                ->title(
+                    'No hay una suscripción'
+                )
                 ->warning()
                 ->send();
 
             return;
         }
 
-        if (!$subscription->provider_subscription_id) {
+        if (
+            !$subscription
+                ->provider_subscription_id
+        ) {
             Notification::make()
-                ->title('No hay una suscripción de Mercado Pago')
+                ->title(
+                    'No hay una suscripción de Mercado Pago'
+                )
                 ->warning()
                 ->send();
 
@@ -692,13 +1308,18 @@ class Subscription extends Page
 
         if (in_array(
             $subscription->status,
-            ['cancelled', 'canceled'],
+            [
+                'canceled',
+                'cancelled',
+            ],
             true
         )) {
             Notification::make()
-                ->title('No se puede reactivar')
+                ->title(
+                    'No se puede reactivar'
+                )
                 ->body(
-                    'Esta suscripción fue cancelada definitivamente en Mercado Pago.'
+                    'Esta suscripción fue cancelada definitivamente. Debés crear una nueva.'
                 )
                 ->danger()
                 ->send();
@@ -706,45 +1327,48 @@ class Subscription extends Page
             return;
         }
 
-        if ($subscription->status !== 'paused') {
-            Notification::make()
-                ->title('La suscripción no está pausada')
-                ->warning()
-                ->send();
-
-            return;
-        }
-
         try {
-            $mp = app(MercadoPagoService::class);
+            $mp =
+                app(MercadoPagoService::class);
 
             /*
              * Consultamos estado real.
              */
+
             $mpSubscription =
                 $mp->getSubscription(
-                    $subscription->provider_subscription_id
+                    $subscription
+                        ->provider_subscription_id
                 );
 
             $mpStatus =
-                $mpSubscription['status'] ?? null;
+                $mpSubscription['status']
+                ?? null;
+
+            /*
+             * Cancelada definitivamente.
+             */
 
             if (in_array(
                 $mpStatus,
-                ['cancelled', 'canceled'],
+                [
+                    'cancelled',
+                    'canceled',
+                ],
                 true
             )) {
-                $subscription->update([
-                    'status' => 'cancelled',
-                    'cancel_at_period_end' => true,
-                    'canceled_at' =>
-                        $subscription->canceled_at ?? now(),
-                ]);
+                $subscription =
+                    $this->syncLocalSubscription(
+                        $subscription,
+                        $mpSubscription
+                    );
 
                 Notification::make()
-                    ->title('No se puede reactivar')
+                    ->title(
+                        'No se puede reactivar'
+                    )
                     ->body(
-                        'Mercado Pago ya canceló definitivamente esta suscripción.'
+                        'Mercado Pago canceló definitivamente esta suscripción.'
                     )
                     ->danger()
                     ->send();
@@ -752,15 +1376,56 @@ class Subscription extends Page
                 return;
             }
 
-            if ($mpStatus !== 'paused') {
-                $subscription->update([
-                    'status' =>
-                        $mpStatus ??
-                        $subscription->status,
-                ]);
+            /*
+             * Ya activa.
+             */
+
+            if (in_array(
+                $mpStatus,
+                [
+                    'authorized',
+                    'active',
+                ],
+                true
+            )) {
+                $subscription =
+                    $this->syncLocalSubscription(
+                        $subscription,
+                        $mpSubscription
+                    );
 
                 Notification::make()
-                    ->title('Estado actualizado')
+                    ->title(
+                        'La suscripción ya está activa'
+                    )
+                    ->success()
+                    ->send();
+
+                return;
+            }
+
+            /*
+             * Solamente podemos reactivar una pausada.
+             */
+
+            if ($mpStatus !== 'paused') {
+                $subscription =
+                    $this->syncLocalSubscription(
+                        $subscription,
+                        $mpSubscription
+                    );
+
+                Notification::make()
+                    ->title(
+                        'No se puede reactivar'
+                    )
+                    ->body(
+                        'Mercado Pago informa: '
+                        . (
+                            $mpStatus
+                            ?? 'desconocido'
+                        )
+                    )
                     ->warning()
                     ->send();
 
@@ -770,38 +1435,44 @@ class Subscription extends Page
             /*
              * REACTIVAMOS EL MISMO PREAPPROVAL.
              */
+
             $mp->resumeSubscription(
-                $subscription->provider_subscription_id
+                $subscription
+                    ->provider_subscription_id
             );
 
             /*
              * Confirmamos.
              */
+
             $mpSubscription =
                 $mp->getSubscription(
-                    $subscription->provider_subscription_id
+                    $subscription
+                        ->provider_subscription_id
                 );
 
-            $finalStatus =
-                $mpSubscription['status'] ?? null;
+            $subscription =
+                $this->syncLocalSubscription(
+                    $subscription,
+                    $mpSubscription
+                );
 
             if (in_array(
-                $finalStatus,
-                ['authorized', 'active'],
+                $subscription->status,
+                [
+                    'authorized',
+                    'active',
+                ],
                 true
             )) {
-                $subscription->update([
-                    'status' => 'authorized',
-                    'cancel_at_period_end' => false,
-                    'canceled_at' => null,
-                ]);
-
                 $this->dispatch(
                     'subscription-updated'
                 );
 
                 Notification::make()
-                    ->title('Suscripción reactivada')
+                    ->title(
+                        'Suscripción reactivada'
+                    )
                     ->body(
                         'La misma suscripción de Mercado Pago volvió a estar activa.'
                     )
@@ -811,17 +1482,16 @@ class Subscription extends Page
                 return;
             }
 
-            $subscription->update([
-                'status' =>
-                    $finalStatus ??
-                    $subscription->status,
-            ]);
-
             Notification::make()
-                ->title('Estado actualizado')
+                ->title(
+                    'Estado actualizado'
+                )
                 ->body(
-                    'Mercado Pago informa: ' .
-                    ($finalStatus ?? 'desconocido')
+                    'Mercado Pago informa: '
+                    . (
+                        $subscription->status
+                        ?? 'desconocido'
+                    )
                 )
                 ->warning()
                 ->send();
@@ -837,7 +1507,8 @@ class Subscription extends Page
                         $subscription->id,
 
                     'provider_subscription_id' =>
-                        $subscription->provider_subscription_id,
+                        $subscription
+                            ->provider_subscription_id,
 
                     'error' =>
                         $e->getMessage(),
@@ -845,8 +1516,12 @@ class Subscription extends Page
             );
 
             Notification::make()
-                ->title('No se pudo reactivar la suscripción')
-                ->body($e->getMessage())
+                ->title(
+                    'No se pudo reactivar la suscripción'
+                )
+                ->body(
+                    $e->getMessage()
+                )
                 ->danger()
                 ->send();
         }
