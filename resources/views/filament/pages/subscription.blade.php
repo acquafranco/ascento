@@ -352,7 +352,40 @@
                     {{-- ================================================= --}}
                     {{-- ACTIVA --}}
                     {{-- ================================================= --}}
+                    {{-- PENDIENTE = CONTINUAR CONTRATACIÓN --}}
+@elseif($this->isPending())
 
+    <x-filament::button
+        color="primary"
+        wire:click="checkout"
+        wire:loading.attr="disabled"
+        wire:target="checkout"
+    >
+        <span
+            wire:loading.remove
+            wire:target="checkout"
+        >
+            Continuar contratación
+        </span>
+
+        <span
+            wire:loading
+            wire:target="checkout"
+        >
+            Procesando...
+        </span>
+    </x-filament::button>
+
+
+{{-- ACTIVA = SE PUEDE PAUSAR --}}
+@elseif($this->isActive())
+
+    <x-filament::button
+        color="danger"
+        wire:click="cancelSubscription"
+        wire:loading.attr="disabled"
+        wire:target="cancelSubscription"
+    >
                     @elseif ($isActive)
 
                         <x-filament::button

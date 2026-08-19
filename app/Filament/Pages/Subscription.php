@@ -69,6 +69,14 @@ class Subscription extends Page
                 true
             );
     }
+
+    public function isPending(): bool
+{
+    $subscription = $this->getActiveSubscription();
+
+    return $subscription !== null
+        && $subscription->status === 'pending';
+}
     /**
      * Obtiene el plan activo.
      */
@@ -89,23 +97,29 @@ class Subscription extends Page
     /**
      * Obtiene la última suscripción de la empresa.
      */
-    protected function getActiveSubscription(
-    ): ?SubscriptionModel {
-        $company =
-            auth()->user()?->company;
+    protected function getActiveSubscription(): ?SubscriptionModel
+{
+    $company = auth()->user()?->company;
 
-        if (!$company) {
-            return null;
-        }
-
-        return SubscriptionModel::query()
-            ->where(
-                'company_id',
-                $company->id
-            )
-            ->latest('id')
-            ->first();
+    if (!$company) {
+        return null;
     }
+
+    return SubscriptionModel::query()
+        ->where('company_id', $company->id)
+        ->whereIn('status', [
+            'pending',
+            'trialing',
+            'authorized',
+            'active',
+            'past_due',
+            'paused',
+            'canceled',
+            'cancelled',
+        ])
+        ->latest('id')
+        ->first();
+}
 
     /**
      * Sincroniza la suscripción local
@@ -831,10 +845,7 @@ class Subscription extends Page
                     'external_reference' =>
                         $externalReference,
 
-                    'back_url' =>
-                        route(
-                            'subscriptions.show'
-                        ),
+                    'back_url' => url('/admin/subscription'),
 
                     'status' =>
                         'pending',
