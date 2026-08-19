@@ -41,11 +41,12 @@ class Subscription extends Page
     }
 
     /**
-     * Devuelve la última suscripción de la empresa.
-     *
      * IMPORTANTE:
-     * Este método NO consulta Mercado Pago.
-     * El estado se sincroniza únicamente en mount().
+     * Este método SOLO lee nuestra BD.
+     * NO consulta Mercado Pago.
+     *
+     * Esto evita que un error de Mercado Pago
+     * cambie cómo se muestra la página.
      */
     protected function getActiveSubscription(): ?SubscriptionModel
     {
@@ -63,8 +64,12 @@ class Subscription extends Page
     }
 
     /**
-     * Sincroniza el estado local con Mercado Pago al entrar
-     * a la página.
+     * Sincroniza Mercado Pago UNA VEZ al cargar la página.
+     *
+     * Si Mercado Pago dice cancelled/canceled,
+     * nuestra BD queda cancelled.
+     *
+     * Si Mercado Pago falla, NO tocamos nuestra BD.
      */
     protected function syncCurrentSubscription(): void
     {
@@ -86,22 +91,27 @@ class Subscription extends Page
 
         /*
          * Si nuestra BD ya sabe que está cancelada,
-         * no necesitamos volver a tocarla.
+         * NO necesitamos preguntarle nada a Mercado Pago.
          */
         if (in_array(
             $subscription->status,
             ['cancelled', 'canceled'],
             true
         )) {
+            if ($subscription->status !== 'cancelled') {
+                $subscription->update([
+                    'status' => 'cancelled',
+                ]);
+            }
+
             return;
         }
 
         try {
-            $mp = app(MercadoPagoService::class);
-
-            $mpSubscription = $mp->getSubscription(
-                $subscription->provider_subscription_id
-            );
+            $mpSubscription = app(MercadoPagoService::class)
+                ->getSubscription(
+                    $subscription->provider_subscription_id
+                );
 
             $mpStatus = $mpSubscription['status'] ?? null;
 
@@ -109,13 +119,11 @@ class Subscription extends Page
                 return;
             }
 
-            $isCancelled = in_array(
+            if (in_array(
                 $mpStatus,
                 ['cancelled', 'canceled'],
                 true
-            );
-
-            if ($isCancelled) {
+            )) {
                 $subscription->update([
                     'status' => 'cancelled',
                     'cancel_at_period_end' => true,
@@ -131,17 +139,6 @@ class Subscription extends Page
             ]);
 
         } catch (\Throwable $e) {
-
-            /*
-             * Si Mercado Pago devuelve, por ejemplo:
-             *
-             * "the preapprovalId is not valid for callerId"
-             *
-             * NO tocamos nuestra BD.
-             *
-             * Esto es importante porque si nuestra BD ya dice
-             * cancelled, debe seguir diciendo cancelled.
-             */
             \Log::warning(
                 'NO SE PUDO SINCRONIZAR SUSCRIPCION CON MERCADO PAGO',
                 [
@@ -149,16 +146,18 @@ class Subscription extends Page
                     'subscription_id' => $subscription->id,
                     'provider_subscription_id' =>
                         $subscription->provider_subscription_id,
-                    'local_status' => $subscription->status,
                     'error' => $e->getMessage(),
                 ]
             );
+
+            /*
+             * MUY IMPORTANTE:
+             * Si Mercado Pago falla, dejamos intacto
+             * el estado que tenemos en nuestra BD.
+             */
         }
     }
 
-    /**
-     * Inicia el checkout.
-     */
     public function checkout(): void
     {
         $user = auth()->user();
@@ -189,19 +188,11 @@ class Subscription extends Page
 
         $subscription = $this->getActiveSubscription();
 
-        /*
-         * Solamente bloqueamos checkout si realmente está activa.
-         */
         if (
             $subscription &&
             in_array(
                 $subscription->status,
-                [
-                    'authorized',
-                    'active',
-                    'trialing',
-                    'past_due',
-                ],
+                ['authorized', 'active', 'trialing'],
                 true
             )
         ) {
@@ -213,9 +204,6 @@ class Subscription extends Page
             return;
         }
 
-        /*
-         * Eliminamos pendientes anteriores.
-         */
         SubscriptionModel::query()
             ->where('company_id', $company->id)
             ->where('status', 'pending')
@@ -261,16 +249,12 @@ class Subscription extends Page
             );
 
         } catch (\Throwable $e) {
-
             $localSubscription->delete();
 
             throw $e;
         }
     }
 
-    /**
-     * Cancela la suscripción.
-     */
     public function cancelSubscription(): void
     {
         $user = auth()->user();
@@ -285,71 +269,45 @@ class Subscription extends Page
 
         abort_unless($company, 403);
 
-        $subscription = $this->getActiveSubscription();
+        /*
+         * SOLO buscamos una suscripción realmente activa.
+         */
+        $subscription = SubscriptionModel::query()
+            ->where('company_id', $company->id)
+            ->whereNotNull('provider_subscription_id')
+            ->whereIn('status', [
+                'authorized',
+                'active',
+                'trialing',
+                'past_due',
+            ])
+            ->latest('id')
+            ->first();
 
+        /*
+         * Si está cancelled, ni siquiera entra acá.
+         */
         if (!$subscription) {
             Notification::make()
-                ->title('No hay una suscripción')
+                ->title('La suscripción no está activa')
                 ->warning()
                 ->send();
 
             return;
         }
 
-        /*
-         * MUY IMPORTANTE:
-         *
-         * Si nuestra BD ya dice cancelled,
-         * NO hacemos ninguna llamada PUT a Mercado Pago.
-         */
-        if (in_array(
-            $subscription->status,
-            ['cancelled', 'canceled'],
-            true
-        )) {
-            Notification::make()
-                ->title('Suscripción cancelada')
-                ->body(
-                    'La suscripción ya figura como cancelada.'
-                )
-                ->success()
-                ->send();
-
-            return;
-        }
-
-        /*
-         * Si ya está marcada para no renovar.
-         */
         if ($subscription->cancel_at_period_end) {
             Notification::make()
-                ->title('Cancelación ya programada')
-                ->body('La suscripción no se volverá a renovar.')
+                ->title('La suscripción ya está cancelada')
                 ->warning()
-                ->send();
-
-            return;
-        }
-
-        if (!$subscription->provider_subscription_id) {
-            Notification::make()
-                ->title('Suscripción inválida')
-                ->body(
-                    'La suscripción no tiene ID de Mercado Pago.'
-                )
-                ->danger()
                 ->send();
 
             return;
         }
 
         try {
-
             $mp = app(MercadoPagoService::class);
 
-            /*
-             * Consultamos primero el estado real.
-             */
             $mpSubscription = $mp->getSubscription(
                 $subscription->provider_subscription_id
             );
@@ -357,9 +315,8 @@ class Subscription extends Page
             $mpStatus = $mpSubscription['status'] ?? null;
 
             /*
-             * Mercado Pago ya la canceló.
-             *
-             * SOLO sincronizamos nuestra BD.
+             * Mercado Pago YA la canceló.
+             * NO hacemos PUT.
              */
             if (in_array(
                 $mpStatus,
@@ -387,52 +344,23 @@ class Subscription extends Page
             }
 
             /*
-             * Solamente intentamos cancelar si está activa.
+             * Solamente intentamos cancelar si sigue activa.
              */
             if (in_array(
                 $mpStatus,
-                [
-                    'authorized',
-                    'active',
-                    'trialing',
-                    'past_due',
-                ],
+                ['authorized', 'active', 'trialing'],
                 true
             )) {
-
                 $mp->cancelSubscription(
                     $subscription->provider_subscription_id
                 );
 
-                /*
-                 * Consultamos nuevamente el resultado.
-                 */
-                $mpSubscription = $mp->getSubscription(
-                    $subscription->provider_subscription_id
-                );
-
-                $finalStatus =
-                    $mpSubscription['status'] ?? null;
-
-                if (in_array(
-                    $finalStatus,
-                    ['cancelled', 'canceled'],
-                    true
-                )) {
-                    $subscription->update([
-                        'status' => 'cancelled',
-                        'cancel_at_period_end' => true,
-                        'canceled_at' =>
-                            $subscription->canceled_at ?? now(),
-                    ]);
-                } else {
-                    $subscription->update([
-                        'status' => $finalStatus ?? 'cancelled',
-                        'cancel_at_period_end' => true,
-                        'canceled_at' =>
-                            $subscription->canceled_at ?? now(),
-                    ]);
-                }
+                $subscription->update([
+                    'status' => 'cancelled',
+                    'cancel_at_period_end' => true,
+                    'canceled_at' =>
+                        $subscription->canceled_at ?? now(),
+                ]);
 
                 $this->dispatch('subscription-updated');
 
@@ -465,39 +393,18 @@ class Subscription extends Page
         } catch (\Throwable $e) {
 
             \Log::error(
-                'ERROR CANCELANDO/SINCRONIZANDO SUSCRIPCIÓN',
+                'ERROR CANCELANDO SUSCRIPCIÓN',
                 [
                     'company_id' => $company->id,
                     'subscription_id' => $subscription->id,
                     'provider_subscription_id' =>
                         $subscription->provider_subscription_id,
-                    'local_status' => $subscription->status,
                     'error' => $e->getMessage(),
                 ]
             );
 
-            /*
-             * Si nuestra BD ya quedó cancelada, jamás mostramos
-             * un error que implique que hay que cancelar otra vez.
-             */
-            if (in_array(
-                $subscription->status,
-                ['cancelled', 'canceled'],
-                true
-            )) {
-                Notification::make()
-                    ->title('Suscripción cancelada')
-                    ->body(
-                        'La suscripción ya figura como cancelada.'
-                    )
-                    ->success()
-                    ->send();
-
-                return;
-            }
-
             Notification::make()
-                ->title('No se pudo actualizar la suscripción')
+                ->title('No se pudo cancelar la suscripción')
                 ->body($e->getMessage())
                 ->danger()
                 ->send();
