@@ -8,11 +8,14 @@ use RuntimeException;
 class MercadoPagoService
 {
     private string $accessToken;
+
     private string $baseUrl = 'https://api.mercadopago.com';
 
     public function __construct()
     {
-        $this->accessToken = config('services.mercadopago.access_token');
+        $this->accessToken = config(
+            'services.mercadopago.access_token'
+        );
 
         if (empty($this->accessToken)) {
             throw new RuntimeException(
@@ -23,16 +26,26 @@ class MercadoPagoService
 
     public function createSubscription(array $data): array
     {
-        return $this->request('post', '/preapproval', $data);
+        return $this->request(
+            'post',
+            '/preapproval',
+            $data
+        );
     }
 
     public function createSubscriptionPlan(array $data): array
     {
-        return $this->request('post', '/preapproval_plan', $data);
+        return $this->request(
+            'post',
+            '/preapproval_plan',
+            $data
+        );
     }
 
-    public function updateSubscriptionPlan(string $planId, array $data): array
-    {
+    public function updateSubscriptionPlan(
+        string $planId,
+        array $data
+    ): array {
         return $this->request(
             'put',
             '/preapproval_plan/' . $planId,
@@ -42,40 +55,50 @@ class MercadoPagoService
 
     public function getUser(): array
     {
-        return $this->request('get', '/users/me');
+        return $this->request(
+            'get',
+            '/users/me'
+        );
     }
 
-    public function getSubscription(string $subscriptionId): array
-    {
+    public function getSubscription(
+        string $subscriptionId
+    ): array {
         return $this->request(
             'get',
             '/preapproval/' . $subscriptionId
         );
     }
 
-    public function syncSubscription(string $subscriptionId): array
-    {
-        return $this->getSubscription($subscriptionId);
+    public function syncSubscription(
+        string $subscriptionId
+    ): array {
+        return $this->getSubscription(
+            $subscriptionId
+        );
     }
 
-    public function getAuthorizedPayment(string $paymentId): array
-    {
+    public function getAuthorizedPayment(
+        string $paymentId
+    ): array {
         return $this->request(
             'get',
             '/authorized_payments/' . $paymentId
         );
     }
 
-    public function getSubscriptionPlan(string $planId): array
-    {
+    public function getSubscriptionPlan(
+        string $planId
+    ): array {
         return $this->request(
             'get',
             '/preapproval_plan/' . $planId
         );
     }
 
-    public function searchSubscriptionPlans(array $params = []): array
-    {
+    public function searchSubscriptionPlans(
+        array $params = []
+    ): array {
         return $this->request(
             'get',
             '/preapproval_plan/search',
@@ -83,17 +106,19 @@ class MercadoPagoService
         );
     }
 
-    public function searchSubscriptions(array $params = []): array
-{
-    return $this->request(
-        'get',
-        '/preapproval/search',
-        $params
-    );
-}
+    public function searchSubscriptions(
+        array $params = []
+    ): array {
+        return $this->request(
+            'get',
+            '/preapproval/search',
+            $params
+        );
+    }
 
-    public function cancelSubscription(string $subscriptionId): array
-    {
+    public function cancelSubscription(
+        string $subscriptionId
+    ): array {
         return $this->request(
             'put',
             '/preapproval/' . $subscriptionId,
@@ -103,8 +128,9 @@ class MercadoPagoService
         );
     }
 
-    public function pauseSubscription(string $subscriptionId): array
-    {
+    public function pauseSubscription(
+        string $subscriptionId
+    ): array {
         return $this->request(
             'put',
             '/preapproval/' . $subscriptionId,
@@ -114,8 +140,9 @@ class MercadoPagoService
         );
     }
 
-    public function resumeSubscription(string $subscriptionId): array
-    {
+    public function resumeSubscription(
+        string $subscriptionId
+    ): array {
         return $this->request(
             'put',
             '/preapproval/' . $subscriptionId,
@@ -130,7 +157,9 @@ class MercadoPagoService
         string $endpoint,
         array $data = []
     ): array {
-        $request = Http::withToken($this->accessToken)
+        $request = Http::withToken(
+            $this->accessToken
+        )
             ->acceptJson()
             ->asJson()
             ->timeout(15);
@@ -165,6 +194,14 @@ class MercadoPagoService
             );
         }
 
-        return $response->json();
+        $json = $response->json();
+
+        if (!is_array($json)) {
+            throw new RuntimeException(
+                'Mercado Pago devolvió una respuesta inválida.'
+            );
+        }
+
+        return $json;
     }
 }
