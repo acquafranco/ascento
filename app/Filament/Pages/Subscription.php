@@ -813,32 +813,27 @@ class Subscription extends Page
      * CREA PREAPPROVAL REAL EN MERCADO PAGO
      * ==============================================================
      */
-    public function startCheckout(): RedirectResponse
+   protected function startCheckout(SubscriptionModel $subscription, SubscriptionPlan $plan): void
 {
-    $company = auth()->user()->company;
-
-    if (!$company) {
-        abort(403, 'El usuario no tiene una empresa asociada.');
-    }
-
-    $plan = SubscriptionPlan::where('slug', 'professional')
-        ->where('is_active', true)
-        ->firstOrFail();
-
-   $mp = app(\App\Services\MercadoPagoService::class);
+    $mp = app(MercadoPagoService::class);
 
     $mpPlan = $mp->getSubscriptionPlan(
         $plan->mercadopago_plan_id
     );
 
-    if (empty($mpPlan['init_point'])) {
-        throw new \RuntimeException(
+    $initPoint = $mpPlan['init_point'] ?? null;
+
+    if (!$initPoint) {
+        throw new RuntimeException(
             'Mercado Pago no devolvió el checkout del plan.'
         );
     }
 
-    return redirect()->away($mpPlan['init_point']);
-    }
+    $this->redirect(
+        $initPoint,
+        navigate: false
+    );
+}
 
     /**
      * ==============================================================
