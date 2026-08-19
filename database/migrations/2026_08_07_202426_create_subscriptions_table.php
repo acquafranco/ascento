@@ -16,7 +16,8 @@ return new class extends Migration
 
             $table->foreignId('company_id')
                 ->constrained()
-                ->cascadeOnDelete();
+                ->cascadeOnDelete()
+                ->unique();
 
             $table->string('provider')->default('mercadopago');
             $table->string('provider_subscription_id')->nullable()->unique();

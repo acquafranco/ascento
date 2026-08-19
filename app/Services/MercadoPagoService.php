@@ -117,13 +117,12 @@ class MercadoPagoService
     }
 
     /**
-     * Cancela una suscripción de Mercado Pago.
+     * Cancela una suscripción existente.
      *
      * IMPORTANTE:
-     * Primero consulta el estado real.
+     * Este método consulta primero Mercado Pago.
      *
-     * Si ya está cancelada, devuelve la suscripción
-     * sin intentar hacer otro PUT.
+     * Si ya está cancelada, NO intenta hacer PUT.
      */
     public function cancelSubscription(
         string $subscriptionId
@@ -134,9 +133,6 @@ class MercadoPagoService
 
         $status = $subscription['status'] ?? null;
 
-        /*
-         * Mercado Pago ya la canceló.
-         */
         if (in_array($status, [
             'cancelled',
             'canceled',
@@ -144,19 +140,24 @@ class MercadoPagoService
             return $subscription;
         }
 
-        /*
-         * Ya está pausada.
-         * No la tratamos como cancelada.
-         */
         if ($status === 'paused') {
             throw new RuntimeException(
                 'La suscripción de Mercado Pago está pausada.'
             );
         }
 
-        /*
-         * Solicitamos la cancelación.
-         */
+        if (!in_array($status, [
+            'authorized',
+            'active',
+            'trialing',
+        ], true)) {
+            throw new RuntimeException(
+                'No se puede cancelar la suscripción. '
+                . 'Estado actual de Mercado Pago: '
+                . ($status ?? 'desconocido')
+            );
+        }
+
         return $this->request(
             'put',
             '/preapproval/' . $subscriptionId,
@@ -166,9 +167,36 @@ class MercadoPagoService
         );
     }
 
+    /**
+     * Pausa una suscripción.
+     *
+     * IMPORTANTE:
+     * Pausar NO es lo mismo que cancelar.
+     *
+     * Una suscripción pausada puede volver a authorized.
+     */
     public function pauseSubscription(
         string $subscriptionId
     ): array {
+        $subscription = $this->getSubscription(
+            $subscriptionId
+        );
+
+        $status = $subscription['status'] ?? null;
+
+        if ($status === 'paused') {
+            return $subscription;
+        }
+
+        if (in_array($status, [
+            'cancelled',
+            'canceled',
+        ], true)) {
+            throw new RuntimeException(
+                'Una suscripción cancelada no puede pausarse.'
+            );
+        }
+
         return $this->request(
             'put',
             '/preapproval/' . $subscriptionId,
@@ -178,9 +206,41 @@ class MercadoPagoService
         );
     }
 
+    /**
+     * Reanuda una suscripción PAUSADA.
+     *
+     * NO utilizar para una suscripción cancelada.
+     */
     public function resumeSubscription(
         string $subscriptionId
     ): array {
+        $subscription = $this->getSubscription(
+            $subscriptionId
+        );
+
+        $status = $subscription['status'] ?? null;
+
+        if ($status === 'authorized') {
+            return $subscription;
+        }
+
+        if (in_array($status, [
+            'cancelled',
+            'canceled',
+        ], true)) {
+            throw new RuntimeException(
+                'La suscripción está cancelada en Mercado Pago y no puede reanudarse. Debe autorizarse una nueva suscripción.'
+            );
+        }
+
+        if ($status !== 'paused') {
+            throw new RuntimeException(
+                'No se puede reanudar la suscripción. '
+                . 'Estado actual de Mercado Pago: '
+                . ($status ?? 'desconocido')
+            );
+        }
+
         return $this->request(
             'put',
             '/preapproval/' . $subscriptionId,
@@ -190,6 +250,21 @@ class MercadoPagoService
         );
     }
 
+    /**
+     * Busca suscripciones de Mercado Pago.
+     *
+     * Útil para detectar una suscripción existente
+     * antes de crear otra.
+     */
+    public function findSubscriptions(
+        array $params = []
+    ): array {
+        return $this->searchSubscriptions($params);
+    }
+
+    /**
+     * Realiza una petición a Mercado Pago.
+     */
     private function request(
         string $method,
         string $endpoint,
@@ -232,6 +307,14 @@ class MercadoPagoService
             );
         }
 
-        return $response->json();
+        $json = $response->json();
+
+        if (!is_array($json)) {
+            throw new RuntimeException(
+                'Mercado Pago devolvió una respuesta inválida.'
+            );
+        }
+
+        return $json;
     }
 }

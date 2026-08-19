@@ -6,23 +6,26 @@
 
         $status = $subscription?->status;
 
-        $isCancelled = in_array(
-            $status,
-            ['cancelled', 'canceled'],
-            true
-        );
+        $isActive = in_array($status, [
+            'authorized',
+            'active',
+            'trialing',
+        ], true);
 
-        $isActive = in_array(
-            $status,
-            ['authorized', 'active', 'trialing'],
-            true
-        );
+        $isPaused = $status === 'paused';
+
+        $isCancelled = in_array($status, [
+            'cancelled',
+            'canceled',
+        ], true);
 
         $statusLabel = match ($status) {
             'authorized',
             'active' => 'Activo',
 
             'trialing' => 'Período de prueba',
+
+            'paused' => 'Pausado',
 
             'cancelled',
             'canceled' => 'Cancelado',
@@ -31,13 +34,18 @@
         };
     @endphp
 
-    {{-- SUSCRIPCIÓN ACTIVA O CANCELADA --}}
-    @if ($subscription && ($isActive || $isCancelled))
+
+    {{-- ========================================================= --}}
+    {{-- EXISTE SUSCRIPCIÓN --}}
+    {{-- ========================================================= --}}
+
+    @if ($subscription)
 
         <x-filament::section>
 
             <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
 
+                {{-- INFORMACIÓN --}}
                 <div>
 
                     <div class="flex items-center gap-3">
@@ -55,13 +63,27 @@
                         </div>
 
                         <x-filament::badge
-                            :color="$isCancelled ? 'danger' : ($status === 'trialing' ? 'warning' : 'success')"
+                            :color="
+                                $isCancelled
+                                    ? 'danger'
+                                    : (
+                                        $isPaused
+                                            ? 'warning'
+                                            : (
+                                                $status === 'trialing'
+                                                    ? 'warning'
+                                                    : 'success'
+                                            )
+                                    )
+                            "
                         >
                             {{ $statusLabel }}
                         </x-filament::badge>
 
                     </div>
 
+
+                    {{-- PRECIO / PERÍODO --}}
                     <div class="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
 
                         @if ($subscription->amount)
@@ -77,6 +99,7 @@
                             </span>
 
                         @endif
+
 
                         @if ($subscription->current_period_end)
 
@@ -96,13 +119,14 @@
 
                 </div>
 
+
                 {{-- ================================================= --}}
-                {{-- BOTÓN --}}
+                {{-- BOTONES --}}
                 {{-- ================================================= --}}
 
                 <div>
 
-                    {{-- CANCELADA = NO HAY BOTÓN DE CANCELAR --}}
+                    {{-- CANCELADA DEFINITIVAMENTE --}}
                     @if ($isCancelled)
 
                         <x-filament::button
@@ -112,17 +136,35 @@
                             Suscripción cancelada
                         </x-filament::button>
 
-                    {{-- CANCELACIÓN PROGRAMADA --}}
-                    @elseif ($subscription->cancel_at_period_end)
+
+                    {{-- PAUSADA = SE PUEDE REACTIVAR --}}
+                    @elseif ($isPaused)
 
                         <x-filament::button
-                            color="gray"
-                            disabled
+                            color="success"
+                            wire:click="resumeSubscription"
+                            wire:loading.attr="disabled"
+                            wire:target="resumeSubscription"
                         >
-                            Cancelación programada
+
+                            <span
+                                wire:loading.remove
+                                wire:target="resumeSubscription"
+                            >
+                                Reactivar suscripción
+                            </span>
+
+                            <span
+                                wire:loading
+                                wire:target="resumeSubscription"
+                            >
+                                Reactivando...
+                            </span>
+
                         </x-filament::button>
 
-                    {{-- SOLAMENTE ACTIVA PUEDE CANCELARSE --}}
+
+                    {{-- ACTIVA = SE PUEDE PAUSAR --}}
                     @elseif ($isActive)
 
                         <x-filament::button
@@ -154,13 +196,18 @@
 
             </div>
 
-            {{-- CANCELADA --}}
+
+            {{-- ================================================= --}}
+            {{-- MENSAJE CANCELADA --}}
+            {{-- ================================================= --}}
+
             @if ($isCancelled)
 
                 <div class="mt-5 rounded-lg border border-danger-300 bg-danger-50 p-4 text-sm text-danger-800 dark:border-danger-700 dark:bg-danger-950 dark:text-danger-200">
 
-                    Esta suscripción está
-                    <strong>cancelada</strong>.
+                    Esta suscripción fue
+                    <strong>cancelada definitivamente</strong>
+                    en Mercado Pago.
 
                     @if ($subscription->canceled_at)
 
@@ -176,10 +223,43 @@
 
                     @endif
 
+                    <div class="mt-2">
+                        Esta suscripción no puede reactivarse.
+                    </div>
+
                 </div>
 
+            @endif
+
+
+            {{-- ================================================= --}}
+            {{-- MENSAJE PAUSADA --}}
+            {{-- ================================================= --}}
+
+            @if ($isPaused)
+
+                <div class="mt-5 rounded-lg border border-warning-300 bg-warning-50 p-4 text-sm text-warning-800 dark:border-warning-700 dark:bg-warning-950 dark:text-warning-200">
+
+                    Tu suscripción está
+                    <strong>pausada</strong>.
+
+                    Podés reactivarla cuando quieras usando el botón
+                    <strong>Reactivar suscripción</strong>.
+
+                </div>
+
+            @endif
+
+
+            {{-- ================================================= --}}
             {{-- CANCELACIÓN PROGRAMADA --}}
-            @elseif ($subscription->cancel_at_period_end)
+            {{-- ================================================= --}}
+
+            @if (
+                !$isCancelled &&
+                !$isPaused &&
+                $subscription->cancel_at_period_end
+            )
 
                 <div class="mt-5 rounded-lg border border-warning-300 bg-warning-50 p-4 text-sm text-warning-800 dark:border-warning-700 dark:bg-warning-950 dark:text-warning-200">
 
@@ -197,9 +277,12 @@
 
         </x-filament::section>
 
-    @else
 
-        {{-- SIN SUSCRIPCIÓN --}}
+    {{-- ========================================================= --}}
+    {{-- NO EXISTE SUSCRIPCIÓN --}}
+    {{-- ========================================================= --}}
+
+    @else
 
         <x-filament::section>
 
@@ -212,6 +295,7 @@
                 <p class="mt-2 text-gray-500 dark:text-gray-400">
                     Todo lo que necesitás para gestionar tu empresa de ascensores.
                 </p>
+
 
                 @if ($plan)
 
@@ -226,6 +310,7 @@
                         </div>
 
                     </div>
+
 
                     @if (!empty($plan->features))
 
@@ -254,6 +339,7 @@
                         </div>
 
                     @endif
+
 
                     <div class="mt-8">
 
