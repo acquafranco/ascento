@@ -363,6 +363,7 @@
                             wire:click="cancelSubscription"
                             wire:loading.attr="disabled"
                             wire:target="cancelSubscription"
+                            wire:confirm="¿Cancelar tu suscripción? Esta acción es DEFINITIVA: para volver a usar Ascento vas a tener que contratar de nuevo."
                         >
 
                             <span
@@ -395,6 +396,7 @@
                             wire:click="pauseSubscription"
                             wire:loading.attr="disabled"
                             wire:target="pauseSubscription"
+                            wire:confirm="¿Pausar tu suscripción? Vas a poder reactivarla cuando quieras."
                         >
 
                             <span
@@ -421,6 +423,7 @@
                             wire:click="cancelSubscription"
                             wire:loading.attr="disabled"
                             wire:target="cancelSubscription"
+                            wire:confirm="¿Cancelar tu suscripción? Esta acción es DEFINITIVA: para volver a usar Ascento vas a tener que contratar de nuevo."
                         >
 
                             <span
@@ -435,6 +438,36 @@
                                 wire:target="cancelSubscription"
                             >
                                 Cancelando...
+                            </span>
+
+                        </x-filament::button>
+
+
+                    {{-- ================================================= --}}
+                    {{-- ESTADO NO CONTEMPLADO (red de seguridad) --}}
+                    {{-- ================================================= --}}
+
+                    @else
+
+                        <x-filament::button
+                            wire:click="checkout"
+                            wire:loading.attr="disabled"
+                            wire:target="checkout"
+                            color="primary"
+                        >
+
+                            <span
+                                wire:loading.remove
+                                wire:target="checkout"
+                            >
+                                Contratar Ascento
+                            </span>
+
+                            <span
+                                wire:loading
+                                wire:target="checkout"
+                            >
+                                Procesando...
                             </span>
 
                         </x-filament::button>
@@ -518,7 +551,9 @@
 
                     <div class="mt-1">
                         Podés reactivarla cuando quieras utilizando
-                        <strong>Reactivar suscripción</strong>.
+                        <strong>Reactivar suscripción</strong>,
+                        o cancelarla definitivamente con
+                        <strong>Cancelar suscripción</strong>.
                     </div>
 
                 </div>
@@ -529,9 +564,14 @@
             {{-- ========================================================= --}}
             {{-- CANCELACIÓN PROGRAMADA --}}
             {{-- ========================================================= --}}
+            {{--
+                Solo tiene sentido mostrarla cuando la suscripción está
+                activa (no pausada, no cancelada): "paused" ya tiene su
+                propio mensaje arriba, y mostrar ambos era redundante.
+            --}}
 
             @if (
-                !$isCanceled &&
+                $isActive &&
                 $subscription->cancel_at_period_end
             )
 
