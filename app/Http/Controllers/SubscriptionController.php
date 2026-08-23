@@ -26,6 +26,11 @@ class SubscriptionController extends Controller
         'paused',
     ];
 
+    private const CANCELED_STATUSES = [
+        'canceled',
+        'cancelled',
+    ];
+
     public function __construct(
         private MercadoPagoService $mercadoPago
     ) {
@@ -34,11 +39,9 @@ class SubscriptionController extends Controller
     /**
      * Inicia el checkout de una suscripción.
      *
-     * IMPORTANTE: creamos el preapproval por API ANTES de redirigir.
-     * Esto nos da el `id` real de la suscripción en Mercado Pago de
-     * entrada, sin depender de que el webhook adivine a qué empresa
-     * pertenece por external_reference (que el link genérico del
-     * plan NO envía).
+     * Creamos el preapproval por API ANTES de redirigir: así tenemos
+     * el `id` real de Mercado Pago desde el vamos, sin depender de que
+     * el webhook adivine a qué empresa pertenece.
      */
     public function checkout(Request $request, string $plan)
     {
@@ -79,9 +82,6 @@ class SubscriptionController extends Controller
         try {
             $response = $this->mercadoPago->createSubscription([
                 'preapproval_plan_id' => $subscriptionPlan->mercadopago_plan_id,
-                // TODO: reemplazar por el email de facturación de la empresa
-                // si tenés uno (ej. $company->billing_email), si no, el del
-                // usuario que está contratando funciona como fallback.
                 'payer_email' => $company->billing_email ?? $user->email,
                 'external_reference' => $externalReference,
                 'back_url' => route('subscriptions.return'),
@@ -138,16 +138,32 @@ class SubscriptionController extends Controller
     /**
      * Recibe notificaciones de Mercado Pago y sincroniza la suscripción.
      *
-     * Matchea primero por provider_subscription_id (confiable, siempre
-     * lo tenemos desde que checkout() crea el preapproval por API) y
-     * solo si no lo encuentra cae a external_reference como respaldo.
+     * OJO: esta ruta tiene que estar exenta de CSRF (o vivir en
+     * routes/api.php) y estar dada de alta como notification_url en
+     * tu aplicación de Mercado Pago. Si no, Mercado Pago nunca va a
+     * poder avisarte de nada y vas a depender pura y exclusivamente
+     * de la sincronización activa que agregamos en show().
      */
     public function webhook(Request $request)
     {
-        $type = $request->input('type');
-        $dataId = $request->input('data.id');
+        // Log del payload crudo: dejalo unos días mientras confirmamos
+        // el formato exacto que manda Mercado Pago, después lo podés sacar.
+        Log::info('WEBHOOK MERCADO PAGO RECIBIDO', [
+            'query' => $request->query(),
+            'body' => $request->all(),
+            'raw_query_string' => $request->server('QUERY_STRING'),
+        ]);
 
-        if ($type !== 'subscription_preapproval' || !$dataId) {
+        $type = $request->input('type') ?? $request->input('topic');
+
+        $dataId = $this->extractDataId($request);
+
+        if (!in_array($type, ['subscription_preapproval', 'preapproval'], true) || !$dataId) {
+            Log::warning('WEBHOOK MERCADO PAGO IGNORADO (tipo o data.id no reconocido)', [
+                'type' => $type,
+                'data_id' => $dataId,
+            ]);
+
             return response()->json(['status' => 'ignored'], 200);
         }
 
@@ -182,50 +198,18 @@ class SubscriptionController extends Controller
             return response()->json(['status' => 'subscription_not_found'], 200);
         }
 
-        $plan = SubscriptionPlan::query()
-            ->where('mercadopago_plan_id', $response['preapproval_plan_id'] ?? null)
-            ->first();
-
-        $status = $response['status'] ?? $subscription->status;
-
-        if (in_array($status, ['cancelled', 'canceled'], true)) {
-            $status = 'canceled';
-        }
-
-        /*
-         * Si la cancelación fue "programada" (el usuario pidió cancelar
-         * pero le dejamos usar Ascento hasta current_period_end), no
-         * pisamos el status todavía cuando llega la notificación de
-         * cancelación de Mercado Pago: dejamos que siga reflejando el
-         * último estado "usable" hasta que venza el período. Necesitás
-         * un job programado que, pasado current_period_end, la pase
-         * a 'canceled' definitivamente.
-         */
-        if ($status === 'canceled'
-            && $subscription->cancel_at_period_end
-            && $subscription->current_period_end
-            && $subscription->current_period_end->isFuture()
-        ) {
-            $status = $subscription->status;
-        }
-
-        $subscription->update([
-            'provider' => 'mercadopago',
-            'provider_subscription_id' => (string) $dataId,
-            'provider_plan_id' => $plan?->mercadopago_plan_id ?? $subscription->provider_plan_id,
-            'external_reference' => $response['external_reference'] ?? $subscription->external_reference,
-            'plan' => $plan?->slug ?? $subscription->plan,
-            'status' => $status,
-            'amount' => data_get($response, 'auto_recurring.transaction_amount', $subscription->amount),
-            'currency' => data_get($response, 'auto_recurring.currency_id', $subscription->currency),
-            'current_period_start' => data_get($response, 'auto_recurring.start_date', $subscription->current_period_start),
-            'current_period_end' => data_get($response, 'next_payment_date', $subscription->current_period_end),
-            'canceled_at' => $status === 'canceled' ? ($subscription->canceled_at ?? now()) : $subscription->canceled_at,
-        ]);
+        $this->applyMercadoPagoResponse($subscription, $response);
 
         return response()->json(['status' => 'ok'], 200);
     }
 
+    /**
+     * Muestra el estado de la suscripción.
+     *
+     * Sincroniza activamente contra Mercado Pago antes de renderizar,
+     * así el estado se ve correcto aunque el webhook todavía no esté
+     * llegando (por ejemplo, mientras terminás de configurarlo).
+     */
     public function show(Request $request)
     {
         $user = $request->user();
@@ -240,14 +224,17 @@ class SubscriptionController extends Controller
             ->latest('id')
             ->first();
 
+        if ($subscription) {
+            $subscription = $this->syncSubscriptionState($subscription);
+        }
+
         return view('subscriptions.show', compact('company', 'subscription'));
     }
 
     /**
      * Ruta de retorno (back_url) a la que Mercado Pago manda al usuario
-     * después del checkout. No confiamos en esto para actualizar el
-     * estado (eso lo hace el webhook), solo la usamos para mostrar un
-     * mensaje y forzar una sincronización inmediata si es posible.
+     * después del checkout. Forzamos una sincronización inmediata para
+     * que, apenas vuelve, ya vea el estado real sin esperar al webhook.
      */
     public function returnFromCheckout(Request $request)
     {
@@ -263,27 +250,8 @@ class SubscriptionController extends Controller
             ->latest('id')
             ->first();
 
-        if ($subscription?->provider_subscription_id) {
-            try {
-                $response = $this->mercadoPago->getSubscription($subscription->provider_subscription_id);
-
-                $status = $response['status'] ?? $subscription->status;
-
-                if (in_array($status, ['cancelled', 'canceled'], true)) {
-                    $status = 'canceled';
-                }
-
-                $subscription->update([
-                    'status' => $status,
-                    'current_period_start' => data_get($response, 'auto_recurring.start_date', $subscription->current_period_start),
-                    'current_period_end' => data_get($response, 'next_payment_date', $subscription->current_period_end),
-                ]);
-            } catch (Throwable $e) {
-                Log::warning('NO SE PUDO SINCRONIZAR AL VOLVER DEL CHECKOUT', [
-                    'company_id' => $company->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
+        if ($subscription) {
+            $this->syncSubscriptionState($subscription);
         }
 
         return redirect()
@@ -326,12 +294,10 @@ class SubscriptionController extends Controller
 
         try {
             /*
-             * Le pedimos a Mercado Pago que no continúe renovando la
-             * suscripción. Esto es inmediato del lado de Mercado Pago
-             * (no existe "cancelar al final del período" en su API),
-             * pero localmente NO marcamos status = canceled: dejamos
-             * que la empresa siga usando Ascento hasta current_period_end
-             * ya que ese período fue pagado.
+             * Mercado Pago no tiene "cancelar al final del período":
+             * esto detiene la renovación YA. Localmente no marcamos
+             * status = canceled porque dejamos que la empresa siga
+             * usando Ascento hasta current_period_end (ya pagado).
              */
             $this->mercadoPago->cancelSubscription(
                 $subscription->provider_subscription_id
@@ -368,5 +334,113 @@ class SubscriptionController extends Controller
             ->firstOrFail();
 
         return $this->checkout($request, (string) $plan->getKey());
+    }
+
+    /**
+     * Busca el ID del recurso notificado en todas las formas en que
+     * Mercado Pago puede llegar a mandarlo:
+     *
+     * 1. Body JSON anidado:      {"data": {"id": "123"}}
+     * 2. Query string "mangleada" por PHP: ?data.id=123 -> $_GET['data_id']
+     * 3. Como último recurso, un regex contra la query string cruda,
+     *    por si PHP la parseó de alguna otra forma inesperada.
+     */
+    protected function extractDataId(Request $request): ?string
+    {
+        $dataId = $request->input('data.id')
+            ?? $request->query('data_id')
+            ?? $request->input('id');
+
+        if ($dataId) {
+            return (string) $dataId;
+        }
+
+        $rawQueryString = (string) $request->server('QUERY_STRING');
+
+        if (preg_match('/data\.id=([^&]+)/', $rawQueryString, $matches)) {
+            return urldecode($matches[1]);
+        }
+
+        return null;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | SINCRONIZACIÓN COMPARTIDA
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Vuelve a consultar Mercado Pago y aplica el resultado. Se usa
+     * desde show(), returnFromCheckout() y potencialmente desde un
+     * botón manual de "actualizar estado" en la vista.
+     */
+    protected function syncSubscriptionState(Subscription $subscription): Subscription
+    {
+        if (!$subscription->provider_subscription_id) {
+            return $subscription;
+        }
+
+        try {
+            $response = $this->mercadoPago->getSubscription($subscription->provider_subscription_id);
+
+            return $this->applyMercadoPagoResponse($subscription, $response);
+        } catch (Throwable $e) {
+            Log::warning('NO SE PUDO SINCRONIZAR SUSCRIPCIÓN CON MERCADO PAGO', [
+                'company_id' => $subscription->company_id,
+                'subscription_id' => $subscription->id,
+                'provider_subscription_id' => $subscription->provider_subscription_id,
+                'error' => $e->getMessage(),
+            ]);
+
+            // Si Mercado Pago está caído o hay un problema de red,
+            // seguimos mostrando el último estado local conocido en
+            // vez de romper la página.
+            return $subscription;
+        }
+    }
+
+    /**
+     * Aplica la respuesta de Mercado Pago (de getSubscription o del
+     * webhook) al registro local. Único punto de verdad para el mapeo.
+     */
+    protected function applyMercadoPagoResponse(Subscription $subscription, array $response): Subscription
+    {
+        $plan = SubscriptionPlan::query()
+            ->where('mercadopago_plan_id', $response['preapproval_plan_id'] ?? null)
+            ->first();
+
+        $status = $response['status'] ?? $subscription->status;
+
+        if (in_array($status, self::CANCELED_STATUSES, true)) {
+            $status = 'canceled';
+        }
+
+        // Cancelación programada: no bajamos el status todavía si
+        // seguimos dentro del período ya pagado.
+        if ($status === 'canceled'
+            && $subscription->cancel_at_period_end
+            && $subscription->current_period_end
+            && $subscription->current_period_end->isFuture()
+        ) {
+            $status = $subscription->status;
+        }
+
+        $subscription->update([
+            'provider' => 'mercadopago',
+            'provider_subscription_id' => (string) ($response['id'] ?? $subscription->provider_subscription_id),
+            'provider_plan_id' => $plan?->mercadopago_plan_id ?? $subscription->provider_plan_id,
+            'external_reference' => $response['external_reference'] ?? $subscription->external_reference,
+            'plan' => $plan?->slug ?? $subscription->plan,
+            'status' => $status,
+            'amount' => data_get($response, 'auto_recurring.transaction_amount', $subscription->amount),
+            'currency' => data_get($response, 'auto_recurring.currency_id', $subscription->currency),
+            'current_period_start' => data_get($response, 'auto_recurring.start_date', $subscription->current_period_start),
+            'current_period_end' => data_get($response, 'next_payment_date', $subscription->current_period_end),
+            'canceled_at' => $status === 'canceled' ? ($subscription->canceled_at ?? now()) : $subscription->canceled_at,
+        ]);
+
+        return $subscription->fresh();
     }
 }
