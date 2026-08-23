@@ -13,7 +13,7 @@ class SubscriptionPlanSeeder extends Seeder
             ['slug' => 'professional'],
             [
                 'name' => 'Ascento',
-                'price' => 270000,
+                'price' => 15,
                 'currency' => 'ARS',
                 'mercadopago_plan_id' => 'd9756cbef3474fb6b09ddd83917473e2',
                 'features' => [
