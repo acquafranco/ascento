@@ -496,20 +496,14 @@ class Subscription extends Page
     }
 
     /**
-     * IMPORTANTE: creamos el preapproval por API ANTES de redirigir,
-     * en vez de mandar al link genérico del plan
-     * (".../subscriptions/checkout?preapproval_plan_id=X"). Ese link
-     * genérico NO lleva external_reference y no te da un ID hasta que
-     * el webhook (si es que llega) te avisa — lo que en la práctica
-     * significa que la suscripción local se queda en "pending" para
-     * siempre. Creando el preapproval acá sabemos el ID real de una y
-     * lo guardamos junto con el external_reference, así:
+     * IMPORTANTE: NO mandamos preapproval_plan_id acá.
      *
-     * 1. El sync automático en mount() (syncCurrentSubscription) puede
-     *    encontrar y actualizar la suscripción apenas volvés a esta
-     *    página después de pagar.
-     * 2. El webhook puede matchear por provider_subscription_id en vez
-     *    de depender de external_reference.
+     * Mercado Pago exige card_token_id cuando creás una suscripción
+     * CON plan asociado por API (tokenización de tarjeta de tu lado,
+     * que no tenemos armada). El modo "sin plan asociado" sí soporta
+     * el flujo de redirección (el usuario carga la tarjeta en Mercado
+     * Pago) y SÍ acepta external_reference, así que replicamos acá
+     * los datos de recurrencia del plan en vez de referenciarlo.
      */
     protected function startCheckout(SubscriptionModel $subscription, SubscriptionPlan $plan): void
     {
@@ -518,11 +512,26 @@ class Subscription extends Page
 
             $user = auth()->user();
 
+            $autoRecurring = [
+                'frequency' => 1,
+                'frequency_type' => 'months',
+                'transaction_amount' => (float) $plan->price,
+                'currency_id' => $plan->currency,
+            ];
+
+            if ($plan->trial_days ?? null) {
+                $autoRecurring['free_trial'] = [
+                    'frequency' => (int) $plan->trial_days,
+                    'frequency_type' => 'days',
+                ];
+            }
+
             $response = $mp->createSubscription([
-                'preapproval_plan_id' => $plan->mercadopago_plan_id,
+                'reason' => $plan->name,
                 'payer_email' => $user?->company?->billing_email ?? $user?->email,
                 'external_reference' => $subscription->external_reference,
                 'back_url' => static::getUrl(),
+                'auto_recurring' => $autoRecurring,
             ]);
 
             $providerSubscriptionId = (string) ($response['id'] ?? '');
@@ -534,6 +543,7 @@ class Subscription extends Page
 
             $subscription->update([
                 'provider_subscription_id' => $providerSubscriptionId,
+                'provider_plan_id' => $plan->mercadopago_plan_id,
                 'status' => $response['status'] ?? $subscription->status,
             ]);
 

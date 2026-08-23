@@ -80,11 +80,34 @@ class SubscriptionController extends Controller
         $externalReference = 'company_' . $company->id . '_plan_' . $subscriptionPlan->id;
 
         try {
+            /*
+             * IMPORTANTE: NO mandamos preapproval_plan_id. Mercado Pago
+             * exige card_token_id para crear por API una suscripción
+             * CON plan asociado (tokenización de tarjeta de tu lado,
+             * que no tenemos armada). El modo "sin plan asociado" sí
+             * soporta el flujo de redirección y external_reference,
+             * así que replicamos acá los datos de recurrencia del plan.
+             */
+            $autoRecurring = [
+                'frequency' => 1,
+                'frequency_type' => 'months',
+                'transaction_amount' => (float) $subscriptionPlan->price,
+                'currency_id' => $subscriptionPlan->currency,
+            ];
+
+            if ($subscriptionPlan->trial_days ?? null) {
+                $autoRecurring['free_trial'] = [
+                    'frequency' => (int) $subscriptionPlan->trial_days,
+                    'frequency_type' => 'days',
+                ];
+            }
+
             $response = $this->mercadoPago->createSubscription([
-                'preapproval_plan_id' => $subscriptionPlan->mercadopago_plan_id,
+                'reason' => $subscriptionPlan->name,
                 'payer_email' => $company->billing_email ?? $user->email,
                 'external_reference' => $externalReference,
                 'back_url' => route('subscriptions.return'),
+                'auto_recurring' => $autoRecurring,
             ]);
 
             $providerSubscriptionId = (string) ($response['id'] ?? '');
