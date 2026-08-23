@@ -379,15 +379,35 @@ class SubscriptionController extends Controller
     protected function syncSubscriptionState(Subscription $subscription): Subscription
     {
         if (!$subscription->provider_subscription_id) {
+            Log::info('SYNC OMITIDO: SUSCRIPCIÓN SIN provider_subscription_id', [
+                'company_id' => $subscription->company_id,
+                'subscription_id' => $subscription->id,
+            ]);
+
             return $subscription;
         }
 
         try {
             $response = $this->mercadoPago->getSubscription($subscription->provider_subscription_id);
 
-            return $this->applyMercadoPagoResponse($subscription, $response);
+            Log::info('SYNC MERCADO PAGO OK', [
+                'company_id' => $subscription->company_id,
+                'subscription_id' => $subscription->id,
+                'provider_subscription_id' => $subscription->provider_subscription_id,
+                'status_antes' => $subscription->status,
+                'status_mercadopago' => $response['status'] ?? null,
+            ]);
+
+            $subscription = $this->applyMercadoPagoResponse($subscription, $response);
+
+            Log::info('SYNC MERCADO PAGO: ESTADO GUARDADO', [
+                'subscription_id' => $subscription->id,
+                'status_despues' => $subscription->status,
+            ]);
+
+            return $subscription;
         } catch (Throwable $e) {
-            Log::warning('NO SE PUDO SINCRONIZAR SUSCRIPCIÓN CON MERCADO PAGO', [
+            Log::error('NO SE PUDO SINCRONIZAR SUSCRIPCIÓN CON MERCADO PAGO', [
                 'company_id' => $subscription->company_id,
                 'subscription_id' => $subscription->id,
                 'provider_subscription_id' => $subscription->provider_subscription_id,
