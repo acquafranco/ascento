@@ -26,10 +26,13 @@ class Subscription extends Page
 
     protected static ?string $slug = 'subscription';
 
-    /**
-     * Estados que consideramos "vivos" en Mercado Pago:
-     * la suscripción está pagando o a la espera de pagar.
-     */
+
+    /*
+    |--------------------------------------------------------------------------
+    | ESTADOS
+    |--------------------------------------------------------------------------
+    */
+
     protected const ACTIVE_STATUSES = [
         'authorized',
         'active',
@@ -37,10 +40,6 @@ class Subscription extends Page
         'past_due',
     ];
 
-    /**
-     * Estados que bloquean la creación de una suscripción nueva
-     * (ya existe algo en curso que hay que resolver primero).
-     */
     protected const BLOCKING_STATUSES = [
         'pending',
         'trialing',
@@ -55,6 +54,13 @@ class Subscription extends Page
         'cancelled',
     ];
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | MOUNT
+    |--------------------------------------------------------------------------
+    */
+
     public function mount(): void
     {
         $this->authorizeAndGetCompany();
@@ -62,10 +68,11 @@ class Subscription extends Page
         $this->syncCurrentSubscription();
     }
 
+
     /*
-    |--------------------------------------------------------------------
-    | Estado computado (para la vista)
-    |--------------------------------------------------------------------
+    |--------------------------------------------------------------------------
+    | ESTADOS PARA LA VISTA
+    |--------------------------------------------------------------------------
     */
 
     public function isActive(): bool
@@ -100,10 +107,11 @@ class Subscription extends Page
             && in_array($subscription->status, self::CANCELED_STATUSES, true);
     }
 
+
     /*
-    |--------------------------------------------------------------------
-    | Helpers de autorización / notificación
-    |--------------------------------------------------------------------
+    |--------------------------------------------------------------------------
+    | AUTORIZACIÓN
+    |--------------------------------------------------------------------------
     */
 
     protected function authorizeAndGetCompany(): Company
@@ -122,39 +130,34 @@ class Subscription extends Page
         return $company;
     }
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | NOTIFICACIONES
+    |--------------------------------------------------------------------------
+    */
+
     protected function notifySuccess(string $title, ?string $body = null): void
     {
-        Notification::make()
-            ->title($title)
-            ->body($body)
-            ->success()
-            ->send();
+        Notification::make()->title($title)->body($body)->success()->send();
     }
 
     protected function notifyWarning(string $title, ?string $body = null): void
     {
-        Notification::make()
-            ->title($title)
-            ->body($body)
-            ->warning()
-            ->send();
+        Notification::make()->title($title)->body($body)->warning()->send();
     }
 
     protected function notifyDanger(string $title, ?string $body = null): void
     {
-        Notification::make()
-            ->title($title)
-            ->body($body)
-            ->danger()
-            ->send();
+        Notification::make()->title($title)->body($body)->danger()->send();
     }
 
-    /**
-     * Registra el error en el log y le muestra al usuario un mensaje
-     * entendible en vez de dejar que la excepción reviente en un 500.
-     */
-    protected function reportFailure(string $logMessage, SubscriptionModel $subscription, Throwable $e, string $userTitle): void
-    {
+    protected function reportFailure(
+        string $logMessage,
+        SubscriptionModel $subscription,
+        Throwable $e,
+        string $userTitle
+    ): void {
         Log::error($logMessage, [
             'company_id' => $subscription->company_id,
             'subscription_id' => $subscription->id,
@@ -165,10 +168,11 @@ class Subscription extends Page
         $this->notifyDanger($userTitle, $e->getMessage());
     }
 
+
     /*
-    |--------------------------------------------------------------------
-    | Consultas
-    |--------------------------------------------------------------------
+    |--------------------------------------------------------------------------
+    | PLAN
+    |--------------------------------------------------------------------------
     */
 
     protected function getPlan(): ?SubscriptionPlan
@@ -179,6 +183,13 @@ class Subscription extends Page
             ->orderBy('id')
             ->first();
     }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | SUSCRIPCIÓN LOCAL
+    |--------------------------------------------------------------------------
+    */
 
     protected function getActiveSubscription(): ?SubscriptionModel
     {
@@ -198,10 +209,11 @@ class Subscription extends Page
             ->first();
     }
 
+
     /*
-    |--------------------------------------------------------------------
-    | Sincronización con Mercado Pago
-    |--------------------------------------------------------------------
+    |--------------------------------------------------------------------------
+    | SINCRONIZACIÓN MERCADO PAGO -> BASE LOCAL
+    |--------------------------------------------------------------------------
     */
 
     protected function syncCurrentSubscription(): void
@@ -215,12 +227,10 @@ class Subscription extends Page
         try {
             $mp = app(MercadoPagoService::class);
 
-            $mpSubscription = $mp->getSubscription($subscription->provider_subscription_id);
+            $response = $mp->getSubscription($subscription->provider_subscription_id);
 
-            $this->syncLocalSubscription($subscription, $mpSubscription);
+            $this->syncLocalSubscription($subscription, $response);
         } catch (Throwable $e) {
-            // No bloqueamos el mount() de la página por un problema
-            // transitorio de red con Mercado Pago; solo lo dejamos logueado.
             Log::warning('NO SE PUDO SINCRONIZAR SUSCRIPCIÓN CON MERCADO PAGO', [
                 'company_id' => $subscription->company_id,
                 'subscription_id' => $subscription->id,
@@ -302,17 +312,11 @@ class Subscription extends Page
         return $subscription->fresh();
     }
 
+
     /*
-    |--------------------------------------------------------------------
+    |--------------------------------------------------------------------------
     | CHECKOUT
-    |--------------------------------------------------------------------
-    |
-    | SIN SUSCRIPCIÓN       -> crea preapproval
-    | PENDING SIN ID        -> crea preapproval
-    | PENDING CON ID        -> recupera checkout
-    | ACTIVA                -> no hace nada
-    | PAUSADA               -> reactiva la misma
-    | CANCELADA             -> crea una suscripción nueva
+    |--------------------------------------------------------------------------
     */
 
     public function checkout(): void
@@ -325,7 +329,7 @@ class Subscription extends Page
             if (!$plan) {
                 $this->notifyDanger(
                     'No hay un plan disponible',
-                    'No hay ningún plan activo configurado para Ascento. Contactá a soporte.'
+                    'No hay ningún plan activo configurado para Ascento.'
                 );
 
                 return;
@@ -355,15 +359,13 @@ class Subscription extends Page
                 return;
             }
 
-            // Si tenemos un id de MP y el estado es "bloqueante", lo
-            // sincronizamos primero para decidir con datos frescos.
             if ($subscription->provider_subscription_id
                 && in_array($subscription->status, self::BLOCKING_STATUSES, true)
             ) {
                 try {
                     $mp = app(MercadoPagoService::class);
-                    $mpSubscription = $mp->getSubscription($subscription->provider_subscription_id);
-                    $subscription = $this->syncLocalSubscription($subscription, $mpSubscription);
+                    $response = $mp->getSubscription($subscription->provider_subscription_id);
+                    $subscription = $this->syncLocalSubscription($subscription, $response);
                 } catch (Throwable $e) {
                     Log::warning('ERROR SINCRONIZANDO ANTES DEL CHECKOUT', [
                         'company_id' => $company->id,
@@ -371,7 +373,6 @@ class Subscription extends Page
                         'provider_subscription_id' => $subscription->provider_subscription_id,
                         'error' => $e->getMessage(),
                     ]);
-                    // Seguimos con el último estado local conocido.
                 }
             }
 
@@ -432,7 +433,7 @@ class Subscription extends Page
 
             $this->notifyDanger(
                 'No se pudo iniciar el pago',
-                'Ocurrió un error inesperado. Intentá nuevamente en unos minutos.'
+                'Ocurrió un error inesperado. Intentá nuevamente.'
             );
         }
     }
@@ -442,9 +443,9 @@ class Subscription extends Page
         try {
             $mp = app(MercadoPagoService::class);
 
-            $mpSubscription = $mp->getSubscription($subscription->provider_subscription_id);
+            $response = $mp->getSubscription($subscription->provider_subscription_id);
 
-            $subscription = $this->syncLocalSubscription($subscription, $mpSubscription);
+            $subscription = $this->syncLocalSubscription($subscription, $response);
 
             if (in_array($subscription->status, self::ACTIVE_STATUSES, true)) {
                 $this->notifyWarning('Ya tenés una suscripción activa');
@@ -452,7 +453,7 @@ class Subscription extends Page
                 return;
             }
 
-            $initPoint = $mpSubscription['init_point'] ?? null;
+            $initPoint = $response['init_point'] ?? null;
 
             if ($initPoint) {
                 $this->redirect($initPoint, navigate: false);
@@ -495,21 +496,46 @@ class Subscription extends Page
     }
 
     /**
-     * Crea el preapproval real en Mercado Pago y redirige al checkout.
-     * Cualquier fallo se convierte en notificación, nunca en un 500.
+     * IMPORTANTE: creamos el preapproval por API ANTES de redirigir,
+     * en vez de mandar al link genérico del plan
+     * (".../subscriptions/checkout?preapproval_plan_id=X"). Ese link
+     * genérico NO lleva external_reference y no te da un ID hasta que
+     * el webhook (si es que llega) te avisa — lo que en la práctica
+     * significa que la suscripción local se queda en "pending" para
+     * siempre. Creando el preapproval acá sabemos el ID real de una y
+     * lo guardamos junto con el external_reference, así:
+     *
+     * 1. El sync automático en mount() (syncCurrentSubscription) puede
+     *    encontrar y actualizar la suscripción apenas volvés a esta
+     *    página después de pagar.
+     * 2. El webhook puede matchear por provider_subscription_id en vez
+     *    de depender de external_reference.
      */
     protected function startCheckout(SubscriptionModel $subscription, SubscriptionPlan $plan): void
     {
         try {
             $mp = app(MercadoPagoService::class);
 
-            $mpPlan = $mp->getSubscriptionPlan($plan->mercadopago_plan_id);
+            $user = auth()->user();
 
-            $initPoint = $mpPlan['init_point'] ?? null;
+            $response = $mp->createSubscription([
+                'preapproval_plan_id' => $plan->mercadopago_plan_id,
+                'payer_email' => $user?->company?->billing_email ?? $user?->email,
+                'external_reference' => $subscription->external_reference,
+                'back_url' => static::getUrl(),
+            ]);
 
-            if (!$initPoint) {
-                throw new RuntimeException('Mercado Pago no devolvió el checkout del plan.');
+            $providerSubscriptionId = (string) ($response['id'] ?? '');
+            $initPoint = $response['init_point'] ?? null;
+
+            if (!$providerSubscriptionId || !$initPoint) {
+                throw new RuntimeException('Mercado Pago no devolvió los datos esperados al crear la suscripción.');
             }
+
+            $subscription->update([
+                'provider_subscription_id' => $providerSubscriptionId,
+                'status' => $response['status'] ?? $subscription->status,
+            ]);
 
             $this->redirect($initPoint, navigate: false);
         } catch (Throwable $e) {
@@ -522,10 +548,11 @@ class Subscription extends Page
         }
     }
 
+
     /*
-    |--------------------------------------------------------------------
+    |--------------------------------------------------------------------------
     | PAUSAR (reversible)
-    |--------------------------------------------------------------------
+    |--------------------------------------------------------------------------
     */
 
     public function pauseSubscription(): void
@@ -613,10 +640,15 @@ class Subscription extends Page
         }
     }
 
+
     /*
-    |--------------------------------------------------------------------
+    |--------------------------------------------------------------------------
     | CANCELAR (definitivo, irreversible)
-    |--------------------------------------------------------------------
+    |--------------------------------------------------------------------------
+    |
+    | Se puede cancelar tanto desde un estado activo (authorized, active,
+    | trialing, past_due) como desde "paused". El MercadoPagoService ya
+    | contempla ambos casos en cancelSubscription().
     */
 
     public function cancelSubscription(): void
@@ -646,6 +678,26 @@ class Subscription extends Page
         try {
             $mp = app(MercadoPagoService::class);
 
+            $mpSubscription = $mp->getSubscription($subscription->provider_subscription_id);
+            $mpStatus = $mpSubscription['status'] ?? null;
+
+            if (in_array($mpStatus, self::CANCELED_STATUSES, true)) {
+                $subscription = $this->syncLocalSubscription($subscription, $mpSubscription);
+                $this->notifyWarning('La suscripción ya estaba cancelada');
+
+                return;
+            }
+
+            // Activa o pausada: ambos casos son cancelables.
+            if (!in_array($mpStatus, [...self::ACTIVE_STATUSES, 'paused'], true)) {
+                $this->notifyWarning(
+                    'No se puede cancelar',
+                    'Mercado Pago informa: ' . ($mpStatus ?? 'desconocido')
+                );
+
+                return;
+            }
+
             $mpSubscription = $mp->cancelSubscription($subscription->provider_subscription_id);
 
             $subscription = $this->syncLocalSubscription($subscription, $mpSubscription);
@@ -654,7 +706,7 @@ class Subscription extends Page
                 $this->dispatch('subscription-updated');
                 $this->notifySuccess(
                     'Suscripción cancelada',
-                    'La cancelación es definitiva. Para volver a suscribirte vas a tener que empezar un checkout nuevo.'
+                    'La cancelación es definitiva. Para volver a suscribirte vas a tener que iniciar un checkout nuevo.'
                 );
 
                 return;
@@ -674,10 +726,11 @@ class Subscription extends Page
         }
     }
 
+
     /*
-    |--------------------------------------------------------------------
+    |--------------------------------------------------------------------------
     | REACTIVAR
-    |--------------------------------------------------------------------
+    |--------------------------------------------------------------------------
     */
 
     public function resumeSubscription(): void
