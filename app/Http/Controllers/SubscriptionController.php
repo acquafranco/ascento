@@ -178,20 +178,44 @@ class SubscriptionController extends Controller
         ]);
 
         $type = $request->input('type') ?? $request->input('topic');
-
         $dataId = $this->extractDataId($request);
 
-        if (!in_array($type, ['subscription_preapproval', 'preapproval'], true) || !$dataId) {
-            Log::warning('WEBHOOK MERCADO PAGO IGNORADO (tipo o data.id no reconocido)', [
-                'type' => $type,
-                'data_id' => $dataId,
-            ]);
+        if (!$dataId) {
+            Log::warning('WEBHOOK MERCADO PAGO IGNORADO (data.id no reconocido)', ['type' => $type]);
 
             return response()->json(['status' => 'ignored'], 200);
         }
 
         try {
-            $response = $this->mercadoPago->syncSubscription((string) $dataId);
+            if (in_array($type, ['subscription_preapproval', 'preapproval'], true)) {
+                // La notificación YA es sobre el preapproval en sí.
+                $response = $this->mercadoPago->syncSubscription((string) $dataId);
+            } elseif ($type === 'subscription_authorized_payment') {
+                // La notificación es sobre un COBRO puntual (alta, renovación).
+                // data.id acá es el ID del pago, no del preapproval: hay que
+                // ir a buscar a qué preapproval pertenece.
+                $payment = $this->mercadoPago->getAuthorizedPayment((string) $dataId);
+
+                $preapprovalId = $payment['preapproval_id'] ?? null;
+
+                if (!$preapprovalId) {
+                    Log::warning('WEBHOOK MERCADO PAGO: PAGO SIN preapproval_id', [
+                        'payment_id' => $dataId,
+                    ]);
+
+                    return response()->json(['status' => 'ignored_no_preapproval'], 200);
+                }
+
+                $response = $this->mercadoPago->getSubscription((string) $preapprovalId);
+                $dataId = $preapprovalId;
+            } else {
+                Log::warning('WEBHOOK MERCADO PAGO IGNORADO (tipo no reconocido)', [
+                    'type' => $type,
+                    'data_id' => $dataId,
+                ]);
+
+                return response()->json(['status' => 'ignored'], 200);
+            }
         } catch (Throwable $e) {
             report($e);
 
