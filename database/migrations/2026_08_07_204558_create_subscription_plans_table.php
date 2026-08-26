@@ -22,6 +22,8 @@ return new class extends Migration
 
             $table->string('mercadopago_plan_id')->nullable()->unique();
 
+            $table->unsignedInteger('trial_days')->nullable()->default(0);
+
             $table->json('features')->nullable();
             $table->boolean('is_active')->default(true);
 
