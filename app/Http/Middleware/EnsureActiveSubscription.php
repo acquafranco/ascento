@@ -25,6 +25,11 @@ class EnsureActiveSubscription
             return $next($request);
         }
 
+        // El logout SIEMPRE debe quedar accesible.
+        if ($request->routeIs('filament.ascensores_app.auth.logout')) {
+            return $next($request);
+        }
+
         $subscription = $user->company->subscription;
 
         if (
