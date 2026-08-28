@@ -415,8 +415,8 @@
                                     Elegir plan
                                 </a>
                             @elseif (auth()->user()->isAdmin() || auth()->user()->isSuperAdmin())
-                                <a href="{{ route('subscription.checkout', $plan) }}"
-                                   class="mt-8 text-center rounded-full {{ $isFeatured ? 'bg-amber-500 text-graphite hover:bg-amber-400' : 'border border-ink/15 hover:border-ink/30' }} font-semibold py-3 transition-colors">
+                                <a href="{{ route('filament.ascensores_app.pages.subscription') }}"
+                                class="mt-8 text-center rounded-full {{ $isFeatured ? 'bg-amber-500 text-graphite hover:bg-amber-400' : 'border border-ink/15 hover:border-ink/30' }} font-semibold py-3 transition-colors">
                                     Elegir plan
                                 </a>
                             @else

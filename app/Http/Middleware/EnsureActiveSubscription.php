@@ -12,12 +12,19 @@ class EnsureActiveSubscription
     {
         $user = $request->user();
 
-        if (!$user || !$user->company) {
+        if (!$user) {
             abort(403);
         }
 
+        // El SuperAdmin no necesita empresa ni suscripción.
+        // Tiene acceso total al sistema.
         if ($user->isSuperAdmin()) {
             return $next($request);
+        }
+
+        // Todo usuario normal debe pertenecer a una empresa.
+        if (!$user->company) {
+            abort(403);
         }
 
         // La página de suscripción SIEMPRE debe quedar accesible.

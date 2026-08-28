@@ -46,6 +46,60 @@ class CompaniesTable
                     ->boolean(),
                 IconColumn::make('whatsapp_connected')
                     ->boolean(),
+
+
+
+            TextColumn::make('subscription_status')
+
+                ->label('Suscripción')
+
+                ->state(function ($record) {
+
+                    $status = $record->subscription?->status;
+
+                    return match ($status) {
+
+                        'authorized',
+
+                        'active',
+
+                        'trialing' => 'Activa',
+
+                        'pending' => 'Pendiente',
+
+                        'paused' => 'Pausada',
+
+                        'canceled',
+
+                        'cancelled' => 'Cancelada',
+
+                        default => 'Sin suscripción',
+
+                    };
+
+                })
+
+                ->badge()
+
+                ->color(function ($state) {
+
+                    return match ($state) {
+
+                        'Activa' => 'success',
+
+                        'Pendiente',
+
+                        'Pausada' => 'warning',
+
+                        'Cancelada',
+
+                        'Sin suscripción' => 'danger',
+
+                        default => 'gray',
+
+                    };
+
+                }),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
