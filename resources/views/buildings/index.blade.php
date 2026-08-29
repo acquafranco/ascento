@@ -19,13 +19,13 @@
 <div class="grid grid-cols-3 gap-2 w-full">
 
     {{-- TOTAL --}}
-<div class="bg-blue-100 border border-blue-200 rounded-2xl p-2 text-center">
-<div class="text-xs font-semibold text-blue-700">
-                🛗 Máquinas totales
+    <div class="bg-blue-100 border border-blue-200 rounded-2xl p-2 text-center">
+        <div class="h-8 flex items-center justify-center text-xs font-semibold text-blue-700 leading-tight">
+            🛗 Máquinas totales
         </div>
 
-<div class="text-3xl font-black text-blue-800">
-                {{ $totalMachines }}
+        <div class="text-3xl font-black text-blue-800 leading-none mt-1">
+            {{ $totalMachines }}
         </div>
     </div>
 
@@ -33,32 +33,31 @@
     {{-- MANTENIMIENTO --}}
     @if($maintenanceTotalMachines > 0)
 
-<div class="bg-green-100 border border-green-200 rounded-2xl p-2 text-center">
-        <div class="text-xs font-semibold text-green-700">
-            🔧 Mant. restantes
-        </div>
+        <div class="bg-green-100 border border-green-200 rounded-2xl p-2 text-center">
+            <div class="h-8 flex items-center justify-center text-xs font-semibold text-green-700 leading-tight">
+                🔧 Mant. restantes
+            </div>
 
-        <div class="text-3xl font-black text-green-800">
-            {{ $maintenanceRemaining }}
+            <div class="text-3xl font-black text-green-800 leading-none mt-1">
+                {{ $maintenanceRemaining }}
+            </div>
         </div>
-    </div>
 
     @endif
-
 
 
     {{-- INSPECCION --}}
     @if($inspectionTotalMachines > 0)
 
-<div class="bg-purple-100 border border-purple-200 rounded-2xl p-2 text-center">
-        <div class="text-xs font-semibold text-purple-700">
-            🔎 Insp. restantes
-        </div>
+        <div class="bg-purple-100 border border-purple-200 rounded-2xl p-2 text-center">
+            <div class="h-8 flex items-center justify-center text-xs font-semibold text-purple-700 leading-tight">
+                🔎 Insp. restantes
+            </div>
 
-        <div class="text-3xl font-black text-purple-800">
-            {{ $inspectionRemaining }}
+            <div class="text-3xl font-black text-purple-800 leading-none mt-1">
+                {{ $inspectionRemaining }}
+            </div>
         </div>
-    </div>
 
     @endif
 
