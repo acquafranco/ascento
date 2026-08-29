@@ -193,6 +193,21 @@ public function save(): void
         ->send();
 }
 
+public function getTitle(): string
+{
+    return Auth::user()?->company?->name ?? 'Mi empresa';
+}
+
+public function getHeading(): string
+{
+    return Auth::user()?->company?->name ?? 'Mi empresa';
+}
+
+public function getSubheading(): ?string
+{
+    return 'Configuración de la empresa';
+}
+
 protected function getHeaderActions(): array
 {
     return [];
