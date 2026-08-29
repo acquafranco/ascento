@@ -93,7 +93,7 @@
                 <span class="text-sm text-ink/50 leading-5">
                     Acepto los
                     <a
-                        href="{{ route('terms') }}"
+                        href="{{ route('legal.terms') }}"
                         target="_blank"
                         class="font-medium text-ink underline underline-offset-2 hover:text-amber-600 transition-colors"
                     >
