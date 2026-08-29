@@ -81,29 +81,9 @@ class DashboardController extends Controller
             ->count();
 
 
-        $completed = WorkOrder::where(function ($q) use ($user) {
+       $completed = WorkOrder::whereHas('users', function ($query) use ($user) {
 
-            $q->whereHas('participants', function ($query) use ($user) {
-
-                $query->where(
-                    'users.id',
-                    $user->id
-                );
-
-            })
-            ->orWhere(function ($old) use ($user) {
-
-                $old->whereDoesntHave('participants')
-                    ->whereHas('users', function ($query) use ($user) {
-
-                        $query->where(
-                            'users.id',
-                            $user->id
-                        );
-
-                    });
-
-            });
+            $query->where('users.id', $user->id);
 
         })
         ->where('status', 'completed')
