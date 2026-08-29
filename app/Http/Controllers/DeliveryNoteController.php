@@ -27,8 +27,17 @@ class DeliveryNoteController extends Controller
     ])->where('company_id', $company->id);
 
     if (!$user->isAdmin()) {
-        $query->where('user_id', $user->id);
-    }
+    $query->where(function ($q) use ($user) {
+
+        // Remitos propios
+        $q->where('delivery_notes.user_id', $user->id)
+
+        // O remitos de una visita donde el usuario participó
+        ->orWhereHas('buildingVisit.participants', function ($participants) use ($user) {
+            $participants->where('users.id', $user->id);
+        });
+    });
+}
 
     if ($request->filled('day')) {
 
@@ -93,7 +102,15 @@ class DeliveryNoteController extends Controller
         // Usuarios normales solo ven sus remitos
         if (!$user->isAdmin() && !$user->isSuperAdmin()) {
 
-            if ($deliveryNote->user_id !== $user->id) {
+            $isOwner = $deliveryNote->user_id === $user->id;
+
+            $isParticipant = $deliveryNote->buildingVisit()
+                ->whereHas('participants', function ($query) use ($user) {
+                    $query->where('users.id', $user->id);
+                })
+                ->exists();
+
+            if (!$isOwner && !$isParticipant) {
                 abort(404);
             }
         }
@@ -391,9 +408,6 @@ class DeliveryNoteController extends Controller
     if ($request->filled('work_order_id')) {
         $finishedAt = now();
 
-        // Guardamos los participantes originales antes de modificar la relación.
-        $originalParticipantsCount = $workOrder->participants()->count();
-
         /*
         |--------------------------------------------------------------------------
         | PARTICIPANTES REALES DE LA WORK ORDER
@@ -438,12 +452,10 @@ class DeliveryNoteController extends Controller
 
         // No completar la orden automáticamente si hay participantes pendientes.
         // La orden debe quedar en progreso hasta que todos confirmen.
-        if ($originalParticipantsCount <= 1) {
-            $workOrder->update([
-                'status' => 'completed',
-                'finished_at' => $finishedAt,
-            ]);
-        }
+        $workOrder->update([
+            'status' => 'completed',
+            'finished_at' => $finishedAt,
+        ]);
 
         $visit = BuildingVisit::create([
             'company_id' => $workOrder->company_id,
@@ -517,8 +529,16 @@ class DeliveryNoteController extends Controller
             abort(404);
         }
 
+       $isOwner = $deliveryNote->user_id === $user->id;
+
+        $isParticipant = $deliveryNote->buildingVisit()
+            ->whereHas('participants', function ($query) use ($user) {
+                $query->where('users.id', $user->id);
+            })
+            ->exists();
+
         abort_unless(
-            $user->isAdmin() || $deliveryNote->user_id === $user->id,
+            $user->isAdmin() || $user->isSuperAdmin() || $isOwner || $isParticipant,
             404
         );
     }
