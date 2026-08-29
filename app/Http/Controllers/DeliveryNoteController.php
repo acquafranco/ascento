@@ -388,7 +388,7 @@ class DeliveryNoteController extends Controller
     ]);
 
 
-   if ($request->filled('work_order_id')) {
+    if ($request->filled('work_order_id')) {
 
     $finishedAt = now();
 
@@ -397,8 +397,8 @@ class DeliveryNoteController extends Controller
     | PARTICIPANTES DE LA WORK ORDER
     |--------------------------------------------------------------------------
     |
-    | La WorkOrder ya tiene definidos sus participantes.
-    | El remito NO debe reemplazar esa lista.
+    | La WorkOrder ya contiene los técnicos asignados.
+    | El remito no modifica esa relación.
     |
     */
 
@@ -407,7 +407,7 @@ class DeliveryNoteController extends Controller
         ->pluck('users.id')
         ->toArray();
 
-    // El usuario que genera el remito debe estar incluido.
+    // Nos aseguramos de que quien genera el remito esté incluido.
     if (!in_array(auth()->id(), $participants)) {
         $participants[] = auth()->id();
     }
@@ -418,18 +418,14 @@ class DeliveryNoteController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    if (count($participants) <= 1) {
-
-        $workOrder->update([
-            'status' => 'completed',
-            'finished_at' => $finishedAt,
-        ]);
-
-    }
+    $workOrder->update([
+        'status' => 'completed',
+        'finished_at' => $finishedAt,
+    ]);
 
     /*
     |--------------------------------------------------------------------------
-    | CREAR BUILDING VISIT
+    | CREAR UNA SOLA VISITA
     |--------------------------------------------------------------------------
     */
 
@@ -459,7 +455,7 @@ class DeliveryNoteController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | COPIAR PARTICIPANTES DE LA WORK ORDER A LA VISITA
+    | TODOS LOS PARTICIPANTES DE LA ORDEN
     |--------------------------------------------------------------------------
     */
 
@@ -483,7 +479,6 @@ class DeliveryNoteController extends Controller
         'building_visit_id' => $visit->id,
     ]);
 }
-
     return redirect()
         ->route('delivery-notes.index', [
             'company' => auth()->user()->company->slug,

@@ -62,57 +62,32 @@ class WorkOrderService
      * Toda la lógica de negocio debe vivir aquí.
      */
     public function finish(WorkOrder $workOrder, User $user): void
-    {
-        $finishedAt = now();
+{
+    DB::transaction(function () use ($workOrder, $user) {
 
-        DB::transaction(function () use ($workOrder, $user, $finishedAt) {
-            $workOrder = WorkOrder::lockForUpdate()
-                ->where('id', $workOrder->id)
-                ->where('company_id', $user->company_id)
-                ->firstOrFail();
+        $workOrder = WorkOrder::lockForUpdate()
+            ->where('id', $workOrder->id)
+            ->where('company_id', $user->company_id)
+            ->firstOrFail();
 
-            if ($workOrder->status !== 'in_progress') {
-                return;
-            }
+        if ($workOrder->status !== 'in_progress') {
+            return;
+        }
 
-            $workOrder->load('participants');
+        /*
+        |--------------------------------------------------------------------------
+        | COMPLETAR ORDEN
+        |--------------------------------------------------------------------------
+        |
+        | La finalización real se registra cuando se genera el remito.
+        | La WorkOrder ya conoce a todos sus participantes.
+        |
+        */
 
-            $participants = $workOrder->participants;
-
-            // Si hay más de un participante, no se completa hasta que todos confirmen.
-            if ($participants->count() > 1) {
-                return;
-            }
-
-            $workOrder->update([
-                'status' => 'completed',
-                'finished_at' => $finishedAt,
-            ]);
-
-            foreach ($participants as $technician) {
-                if ($technician->id !== $user->id) {
-                    continue;
-                }
-
-                BuildingVisit::firstOrCreate([
-                    'company_id' => $workOrder->company_id,
-                    'work_order_id' => $workOrder->id,
-                    'user_id' => $technician->id,
-                ], [
-                    'building_id' => $workOrder->building_id,
-                    'source' => 'work_order',
-                    'visit_type' => 'work_order',
-                    'assignment_type' => 'work_order',
-                    'month' => $finishedAt->month,
-                    'year' => $finishedAt->year,
-                    'visited_at' => $finishedAt,
-                    'started_at' => $workOrder->started_at,
-                    'finished_at' => $finishedAt,
-                    'work_type' => $workOrder->type,
-                    'unit' => $workOrder->unit,
-                    'notes' => $workOrder->notes,
-                ]);
-            }
-        });
-    }
+        $workOrder->update([
+            'status' => 'completed',
+            'finished_at' => now(),
+        ]);
+    });
+}
 }
