@@ -388,77 +388,101 @@ class DeliveryNoteController extends Controller
     ]);
 
 
-    if ($request->filled('work_order_id')) {
-        $finishedAt = now();
+   if ($request->filled('work_order_id')) {
 
-        // Guardamos los participantes originales antes de modificar la relación.
-        $originalParticipantsCount = $workOrder->participants()->count();
+    $finishedAt = now();
 
-        $participants = $request->participants ?? [auth()->id()];
+    /*
+    |--------------------------------------------------------------------------
+    | PARTICIPANTES DE LA WORK ORDER
+    |--------------------------------------------------------------------------
+    |
+    | La WorkOrder ya tiene definidos sus participantes.
+    | El remito NO debe reemplazar esa lista.
+    |
+    */
 
-        $workOrder->participants()->syncWithPivotValues(
-            $participants,
-            ['role' => 'participant']
-        );
+    $participants = $workOrder
+        ->participants()
+        ->pluck('users.id')
+        ->toArray();
 
-        $workOrder->participants()->updateExistingPivot(
-            auth()->id(),
-            ['role' => 'creator']
-        );
-
-        // No completar la orden automáticamente si hay participantes pendientes.
-        // La orden debe quedar en progreso hasta que todos confirmen.
-        if ($originalParticipantsCount <= 1) {
-            $workOrder->update([
-                'status' => 'completed',
-                'finished_at' => $finishedAt,
-            ]);
-        }
-
-        $visit = BuildingVisit::create([
-            'company_id' => $workOrder->company_id,
-            'building_id' => $workOrder->building_id,
-            'user_id' => auth()->id(),
-            'source' => 'work_order',
-            'visit_type' => 'work_order',
-            'work_order_id' => $workOrder->id,
-            'assignment_type' => 'work_order',
-            'month' => $finishedAt->month,
-            'year' => $finishedAt->year,
-            'status' => 'done',
-            'visited_at' => $finishedAt,
-            'started_at' => $workOrder->started_at,
-            'finished_at' => $finishedAt,
-            'work_type' => $workOrder->type,
-            'unit' => $workOrder->unit,
-            'notes' => $workOrder->notes,
-        ]);
-
-        $visit->participants()->syncWithPivotValues(
-            [auth()->id()],
-            ['role' => 'participant']
-        );
-
-        $visit->participants()->updateExistingPivot(
-            auth()->id(),
-            ['role' => 'creator']
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | PARTICIPANTES (PREPARADO PARA building_visit_participants)
-        |--------------------------------------------------------------------------
-        |
-        | Cuando exista la tabla building_visit_participants,
-        | aquí se sincronizarán los participantes del work order.
-        | Ejemplo:
-        | $visit->participants()->sync([...]);
-        |
-        */
-        $deliveryNote->update([
-            'building_visit_id' => $visit->id,
-        ]);
+    // El usuario que genera el remito debe estar incluido.
+    if (!in_array(auth()->id(), $participants)) {
+        $participants[] = auth()->id();
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | COMPLETAR WORK ORDER
+    |--------------------------------------------------------------------------
+    */
+
+    if (count($participants) <= 1) {
+
+        $workOrder->update([
+            'status' => 'completed',
+            'finished_at' => $finishedAt,
+        ]);
+
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CREAR BUILDING VISIT
+    |--------------------------------------------------------------------------
+    */
+
+    $visit = BuildingVisit::create([
+        'company_id' => $workOrder->company_id,
+        'building_id' => $workOrder->building_id,
+        'user_id' => auth()->id(),
+
+        'source' => 'work_order',
+        'visit_type' => 'work_order',
+        'work_order_id' => $workOrder->id,
+        'assignment_type' => 'work_order',
+
+        'month' => $finishedAt->month,
+        'year' => $finishedAt->year,
+
+        'status' => 'done',
+        'visited_at' => $finishedAt,
+
+        'started_at' => $workOrder->started_at,
+        'finished_at' => $finishedAt,
+
+        'work_type' => $workOrder->type,
+        'unit' => $workOrder->unit,
+        'notes' => $workOrder->notes,
+    ]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | COPIAR PARTICIPANTES DE LA WORK ORDER A LA VISITA
+    |--------------------------------------------------------------------------
+    */
+
+    $visit->participants()->syncWithPivotValues(
+        $participants,
+        ['role' => 'participant']
+    );
+
+    $visit->participants()->updateExistingPivot(
+        auth()->id(),
+        ['role' => 'creator']
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | ASOCIAR VISITA AL REMITO
+    |--------------------------------------------------------------------------
+    */
+
+    $deliveryNote->update([
+        'building_visit_id' => $visit->id,
+    ]);
+}
 
     return redirect()
         ->route('delivery-notes.index', [
