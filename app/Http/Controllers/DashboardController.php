@@ -31,24 +31,9 @@ class DashboardController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $workOrdersBase = WorkOrder::where(function ($q) use ($user) {
+        $workOrdersBase = WorkOrder::whereHas('users', function ($query) use ($user) {
 
-            $q->whereHas('participants', function ($query) use ($user) {
-
-                $query->where(
-                    'users.id',
-                    $user->id
-                );
-
-            })
-            ->orWhereHas('users', function ($query) use ($user) {
-
-                $query->where(
-                    'users.id',
-                    $user->id
-                );
-
-            });
+            $query->where('users.id', $user->id);
 
         });
 
