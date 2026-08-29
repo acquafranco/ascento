@@ -389,96 +389,109 @@ class DeliveryNoteController extends Controller
 
 
     if ($request->filled('work_order_id')) {
+        $finishedAt = now();
 
-    $finishedAt = now();
+        // Guardamos los participantes originales antes de modificar la relación.
+        $originalParticipantsCount = $workOrder->participants()->count();
 
-    /*
-    |--------------------------------------------------------------------------
-    | PARTICIPANTES DE LA WORK ORDER
-    |--------------------------------------------------------------------------
-    |
-    | La WorkOrder ya contiene los técnicos asignados.
-    | El remito no modifica esa relación.
-    |
-    */
+        /*
+        |--------------------------------------------------------------------------
+        | PARTICIPANTES REALES DE LA WORK ORDER
+        |--------------------------------------------------------------------------
+        |
+        | Los técnicos vienen de work_order_user.
+        | Si la orden fue asignada a 2 técnicos,
+        | ambos participaron del trabajo.
+        |
+        */
 
-    $participants = $workOrder
-        ->participants()
-        ->pluck('users.id')
-        ->toArray();
+        $participants = $workOrder
+            ->users()
+            ->pluck('users.id')
+            ->toArray();
 
-    // Nos aseguramos de que quien genera el remito esté incluido.
-    if (!in_array(auth()->id(), $participants)) {
-        $participants[] = auth()->id();
+        /*
+        |--------------------------------------------------------------------------
+        | ASEGURAR QUE EL TÉCNICO QUE GENERA EL REMITO ESTÉ INCLUIDO
+        |--------------------------------------------------------------------------
+        */
+
+        if (!in_array(auth()->id(), $participants)) {
+            $participants[] = auth()->id();
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | GUARDAR PARTICIPANTES DE LA WORK ORDER
+        |--------------------------------------------------------------------------
+        */
+
+        $workOrder->participants()->syncWithPivotValues(
+            $participants,
+            ['role' => 'participant']
+        );
+
+        $workOrder->participants()->updateExistingPivot(
+            auth()->id(),
+            ['role' => 'creator']
+        );
+
+        // No completar la orden automáticamente si hay participantes pendientes.
+        // La orden debe quedar en progreso hasta que todos confirmen.
+        if ($originalParticipantsCount <= 1) {
+            $workOrder->update([
+                'status' => 'completed',
+                'finished_at' => $finishedAt,
+            ]);
+        }
+
+        $visit = BuildingVisit::create([
+            'company_id' => $workOrder->company_id,
+            'building_id' => $workOrder->building_id,
+            'user_id' => auth()->id(),
+            'source' => 'work_order',
+            'visit_type' => 'work_order',
+            'work_order_id' => $workOrder->id,
+            'assignment_type' => 'work_order',
+            'month' => $finishedAt->month,
+            'year' => $finishedAt->year,
+            'status' => 'done',
+            'visited_at' => $finishedAt,
+            'started_at' => $workOrder->started_at,
+            'finished_at' => $finishedAt,
+            'work_type' => $workOrder->type,
+            'unit' => $workOrder->unit,
+            'notes' => $workOrder->notes,
+        ]);
+
+        $visit->participants()->syncWithPivotValues(
+            $participants,
+            ['role' => 'participant']
+        );
+
+        $visit->participants()->updateExistingPivot(
+            auth()->id(),
+            ['role' => 'creator']
+        );
+
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | PARTICIPANTES (PREPARADO PARA building_visit_participants)
+        |--------------------------------------------------------------------------
+        |
+        | Cuando exista la tabla building_visit_participants,
+        | aquí se sincronizarán los participantes del work order.
+        | Ejemplo:
+        | $visit->participants()->sync([...]);
+        |
+        */
+        $deliveryNote->update([
+            'building_visit_id' => $visit->id,
+        ]);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | COMPLETAR WORK ORDER
-    |--------------------------------------------------------------------------
-    */
-
-    $workOrder->update([
-        'status' => 'completed',
-        'finished_at' => $finishedAt,
-    ]);
-
-    /*
-    |--------------------------------------------------------------------------
-    | CREAR UNA SOLA VISITA
-    |--------------------------------------------------------------------------
-    */
-
-    $visit = BuildingVisit::create([
-        'company_id' => $workOrder->company_id,
-        'building_id' => $workOrder->building_id,
-        'user_id' => auth()->id(),
-
-        'source' => 'work_order',
-        'visit_type' => 'work_order',
-        'work_order_id' => $workOrder->id,
-        'assignment_type' => 'work_order',
-
-        'month' => $finishedAt->month,
-        'year' => $finishedAt->year,
-
-        'status' => 'done',
-        'visited_at' => $finishedAt,
-
-        'started_at' => $workOrder->started_at,
-        'finished_at' => $finishedAt,
-
-        'work_type' => $workOrder->type,
-        'unit' => $workOrder->unit,
-        'notes' => $workOrder->notes,
-    ]);
-
-    /*
-    |--------------------------------------------------------------------------
-    | TODOS LOS PARTICIPANTES DE LA ORDEN
-    |--------------------------------------------------------------------------
-    */
-
-    $visit->participants()->syncWithPivotValues(
-        $participants,
-        ['role' => 'participant']
-    );
-
-    $visit->participants()->updateExistingPivot(
-        auth()->id(),
-        ['role' => 'creator']
-    );
-
-    /*
-    |--------------------------------------------------------------------------
-    | ASOCIAR VISITA AL REMITO
-    |--------------------------------------------------------------------------
-    */
-
-    $deliveryNote->update([
-        'building_visit_id' => $visit->id,
-    ]);
-}
     return redirect()
         ->route('delivery-notes.index', [
             'company' => auth()->user()->company->slug,

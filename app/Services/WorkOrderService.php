@@ -74,16 +74,6 @@ class WorkOrderService
             return;
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | COMPLETAR ORDEN
-        |--------------------------------------------------------------------------
-        |
-        | La finalización real se registra cuando se genera el remito.
-        | La WorkOrder ya conoce a todos sus participantes.
-        |
-        */
-
         $workOrder->update([
             'status' => 'completed',
             'finished_at' => now(),
