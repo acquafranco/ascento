@@ -78,6 +78,34 @@
             </div>
         </div>
 
+        {{-- Términos y condiciones --}}
+        <div class="pt-2">
+            <label for="terms" class="flex items-start gap-3 cursor-pointer">
+                <input
+                    id="terms"
+                    type="checkbox"
+                    name="terms"
+                    value="1"
+                    required
+                    class="mt-0.5 h-4 w-4 rounded border-ink/20 text-amber-600 focus:ring-amber-500"
+                >
+
+                <span class="text-sm text-ink/50 leading-5">
+                    Acepto los
+                    <a
+                        href="{{ route('terms') }}"
+                        target="_blank"
+                        class="font-medium text-ink underline underline-offset-2 hover:text-amber-600 transition-colors"
+                    >
+                        términos y condiciones
+                    </a>
+                    de uso.
+                </span>
+            </label>
+
+            <x-input-error :messages="$errors->get('terms')" class="mt-1.5" />
+        </div>
+
         <div class="flex items-center justify-between gap-4 pt-2 border-t border-ink/10">
             <a class="mt-4 text-sm font-medium text-ink/50 hover:text-ink transition-colors" href="{{ route('login') }}">
                 Ya tengo cuenta
@@ -85,7 +113,13 @@
 
             <x-primary-button class="mt-4">
                 Crear cuenta
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                    <path d="M3 8H13M13 8L9 4M13 8L9 12"
+                          stroke="currentColor"
+                          stroke-width="1.6"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"/>
+                </svg>
             </x-primary-button>
         </div>
     </form>
