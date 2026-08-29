@@ -31,6 +31,10 @@ class ReportResource extends Resource
 
     protected static ?string $navigationLabel = 'Reportes';
 
+    protected static ?string $modelLabel = 'reporte';
+
+    protected static ?string $pluralModelLabel = 'reportes';
+
     public static function form(Schema $schema): Schema
     {
         return ReportForm::configure($schema);
