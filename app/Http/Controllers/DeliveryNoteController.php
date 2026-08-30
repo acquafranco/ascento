@@ -419,26 +419,12 @@ class DeliveryNoteController extends Controller
         |
         */
 
-        $participants = $workOrder
-            ->users()
-            ->pluck('users.id')
-            ->toArray();
+       $participants = $request->participants ?? [];
 
-        /*
-        |--------------------------------------------------------------------------
-        | ASEGURAR QUE EL TÉCNICO QUE GENERA EL REMITO ESTÉ INCLUIDO
-        |--------------------------------------------------------------------------
-        */
-
+        // El técnico que genera el remito siempre participa.
         if (!in_array(auth()->id(), $participants)) {
             $participants[] = auth()->id();
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | GUARDAR PARTICIPANTES DE LA WORK ORDER
-        |--------------------------------------------------------------------------
-        */
 
         $workOrder->participants()->syncWithPivotValues(
             $participants,
@@ -449,7 +435,6 @@ class DeliveryNoteController extends Controller
             auth()->id(),
             ['role' => 'creator']
         );
-
         // No completar la orden automáticamente si hay participantes pendientes.
         // La orden debe quedar en progreso hasta que todos confirmen.
         $workOrder->update([
