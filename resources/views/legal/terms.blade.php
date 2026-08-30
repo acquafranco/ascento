@@ -120,103 +120,721 @@
     </div>
 
 
-    <main class="max-w-3xl mx-auto px-6 py-14">
+   <main class="max-w-3xl mx-auto px-6 py-14">
 
-        <h1 class="text-3xl font-bold mb-2">Términos y Condiciones de Uso</h1>
-        <p class="text-sm text-[#14171C]/50 mb-10">Última actualización: {{ now()->translatedFormat('d \d\e F \d\e Y') }}</p>
+    <h1 class="text-3xl font-bold mb-2">
+        Términos y Condiciones de Uso
+    </h1>
 
-        <div class="prose prose-neutral max-w-none space-y-8">
+    <p class="text-sm text-[#14171C]/50 mb-10">
+        Última actualización:
+        {{ now()->translatedFormat('d \d\e F \d\e Y') }}
+    </p>
 
-            <section>
-                <h2 class="text-xl font-semibold mb-2">1. Aceptación de los términos</h2>
-                <p class="text-[#14171C]/80 leading-relaxed">
-                    Al acceder o utilizar la plataforma Ascento (en adelante, "el Servicio"), operada por
-                    [Razón social / Nombre de la empresa], CUIT [00-00000000-0], con domicilio en [Dirección],
-                    Argentina, aceptás quedar obligado por estos Términos y Condiciones. Si no estás de acuerdo,
-                    no debés utilizar el Servicio.
-                </p>
-            </section>
+    <div class="prose prose-neutral max-w-none space-y-10">
 
-            <section>
-                <h2 class="text-xl font-semibold mb-2">2. Descripción del servicio</h2>
-                <p class="text-[#14171C]/80 leading-relaxed">
-                    Ascento es una plataforma de gestión para empresas de mantenimiento de ascensores, que permite
-                    administrar clientes, edificios, ascensores, órdenes de trabajo, remitos y reportes mensuales
-                    de mantenimiento, entre otras funcionalidades.
-                </p>
-            </section>
+        {{-- 1 --}}
+        <section>
+            <h2 class="text-xl font-semibold mb-3">
+                1. Identificación del proveedor y aceptación
+            </h2>
 
-            <section>
-                <h2 class="text-xl font-semibold mb-2">3. Cuentas de usuario</h2>
-                <p class="text-[#14171C]/80 leading-relaxed">
-                    Cada empresa (tenant) que utiliza Ascento es responsable de la veracidad de los datos que
-                    carga, de la administración de sus propios usuarios (administradores, técnicos, ingenieros) y
-                    de mantener la confidencialidad de sus credenciales de acceso. Sos responsable de toda actividad
-                    realizada bajo tu cuenta.
-                </p>
-            </section>
+            <p class="text-[#14171C]/80 leading-relaxed">
+                Estos Términos y Condiciones de Uso (en adelante, los
+                "Términos") regulan el acceso y utilización de la plataforma
+                denominada <strong>Ascento</strong> (en adelante, "Ascento" o
+                el "Servicio"), operada por
+                <strong>[RAZÓN SOCIAL / NOMBRE COMPLETO]</strong>,
+                CUIT <strong>[CUIT]</strong>, con domicilio en
+                <strong>[DOMICILIO]</strong>, República Argentina
+                (en adelante, el "Proveedor").
+            </p>
 
-            <section>
-                <h2 class="text-xl font-semibold mb-2">4. Uso de WhatsApp Business</h2>
-                <p class="text-[#14171C]/80 leading-relaxed">
-                    Si tu empresa habilita la integración con WhatsApp Business dentro de Ascento, aceptás además
-                    los términos de servicio de Meta Platforms, Inc. y de WhatsApp, y sos responsable del contenido
-                    de los mensajes enviados a través de dicha integración.
-                </p>
-            </section>
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                El acceso, registro, contratación o utilización de Ascento
+                implica la aceptación expresa de estos Términos, así como de
+                la Política de Privacidad y de las demás políticas que resulten
+                aplicables al Servicio.
+            </p>
 
-            <section>
-                <h2 class="text-xl font-semibold mb-2">5. Propiedad intelectual</h2>
-                <p class="text-[#14171C]/80 leading-relaxed">
-                    El software, diseño, marca y contenidos de Ascento son propiedad de [Razón social] y están
-                    protegidos por la legislación de propiedad intelectual vigente en Argentina. No se otorga
-                    ningún derecho de uso más allá del necesario para operar el Servicio conforme a estos términos.
-                </p>
-            </section>
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                Si una persona utiliza Ascento en representación de una empresa
+                u otra persona jurídica, declara y garantiza que posee facultades
+                suficientes para obligarla contractualmente.
+            </p>
 
-            <section>
-                <h2 class="text-xl font-semibold mb-2">6. Limitación de responsabilidad</h2>
-                <p class="text-[#14171C]/80 leading-relaxed">
-                    El Servicio se provee "tal cual". [Razón social] no garantiza disponibilidad ininterrumpida y
-                    no será responsable por daños indirectos derivados del uso o imposibilidad de uso del Servicio,
-                    en la máxima medida permitida por la ley argentina.
-                </p>
-            </section>
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                Si no está de acuerdo con estos Términos, deberá abstenerse de
+                registrarse o utilizar el Servicio.
+            </p>
+        </section>
 
-            <section>
-                <h2 class="text-xl font-semibold mb-2">7. Suspensión y cancelación</h2>
-                <p class="text-[#14171C]/80 leading-relaxed">
-                    Nos reservamos el derecho de suspender o cancelar cuentas que incumplan estos términos, incluyan
-                    contenido ilegal, o comprometan la seguridad de la plataforma o de otros usuarios.
-                </p>
-            </section>
+        {{-- 2 --}}
+        <section>
+            <h2 class="text-xl font-semibold mb-3">
+                2. Objeto y descripción del Servicio
+            </h2>
 
-            <section>
-                <h2 class="text-xl font-semibold mb-2">8. Modificaciones</h2>
-                <p class="text-[#14171C]/80 leading-relaxed">
-                    Podemos actualizar estos Términos en cualquier momento. Los cambios relevantes serán notificados
-                    dentro de la plataforma. El uso continuado del Servicio implica la aceptación de los nuevos términos.
-                </p>
-            </section>
+            <p class="text-[#14171C]/80 leading-relaxed">
+                Ascento es una plataforma de software como servicio (SaaS)
+                destinada a facilitar la gestión administrativa y operativa de
+                empresas dedicadas, entre otras actividades, al mantenimiento,
+                inspección y asistencia técnica de ascensores y otros equipos.
+            </p>
 
-            <section>
-                <h2 class="text-xl font-semibold mb-2">9. Ley aplicable y jurisdicción</h2>
-                <p class="text-[#14171C]/80 leading-relaxed">
-                    Estos Términos se rigen por las leyes de la República Argentina. Cualquier controversia será
-                    sometida a los tribunales ordinarios de [Ciudad], Argentina.
-                </p>
-            </section>
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                Según el plan contratado y las funcionalidades disponibles,
+                Ascento puede permitir la gestión de empresas, usuarios,
+                técnicos, clientes, edificios, equipos, mantenimientos,
+                inspecciones, órdenes de trabajo, visitas, remitos,
+                reportes, firmas, historial de actividades, notificaciones
+                e indicadores de gestión.
+            </p>
 
-            <section>
-                <h2 class="text-xl font-semibold mb-2">10. Contacto</h2>
-                <p class="text-[#14171C]/80 leading-relaxed">
-                    Ante consultas sobre estos Términos, escribinos a
-                    <a href="mailto:[email protected]" style="color:#FF6A1A;">[email protected]</a>.
-                </p>
-            </section>
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                Las funcionalidades disponibles pueden variar según el plan
+                contratado, la configuración de la cuenta y las modificaciones
+                realizadas por el Proveedor.
+            </p>
 
-        </div>
-    </main>
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                Ascento constituye una herramienta de gestión y organización.
+                No reemplaza las obligaciones legales, técnicas, profesionales
+                o de seguridad que correspondan al usuario, a sus técnicos,
+                profesionales, clientes o terceros conforme a la normativa
+                aplicable.
+            </p>
+        </section>
+
+        {{-- 3 --}}
+        <section>
+            <h2 class="text-xl font-semibold mb-3">
+                3. Registro y cuenta de usuario
+            </h2>
+
+            <p class="text-[#14171C]/80 leading-relaxed">
+                Para utilizar determinadas funcionalidades será necesario
+                crear una cuenta y proporcionar información válida, completa
+                y actualizada.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                El titular de la cuenta será responsable de mantener actualizada
+                la información proporcionada y de informar cualquier cambio
+                relevante.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                Las credenciales de acceso son personales e intransferibles.
+                El titular de la cuenta deberá adoptar medidas razonables para
+                impedir el acceso no autorizado y deberá comunicar al Proveedor,
+                tan pronto como sea posible, cualquier sospecha de acceso
+                indebido, pérdida o compromiso de sus credenciales.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                La empresa contratante será responsable de las acciones
+                realizadas por los usuarios que haya creado, autorizado o
+                incorporado a su cuenta, sin perjuicio de las responsabilidades
+                que legalmente correspondan a cada usuario.
+            </p>
+        </section>
+
+        {{-- 4 --}}
+        <section>
+            <h2 class="text-xl font-semibold mb-3">
+                4. Responsabilidad sobre la información cargada
+            </h2>
+
+            <p class="text-[#14171C]/80 leading-relaxed">
+                El usuario conserva la responsabilidad sobre la información,
+                documentos, fotografías, firmas, datos de clientes, datos de
+                edificios, registros de mantenimiento, reportes y cualquier
+                otro contenido que incorpore a Ascento.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                El usuario declara que cuenta con las autorizaciones,
+                legitimaciones o bases jurídicas necesarias para recopilar,
+                utilizar y almacenar dicha información mediante el Servicio.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                El Proveedor no será responsable por la veracidad, exactitud,
+                legalidad, integridad o legitimidad de la información ingresada
+                por los usuarios.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                El usuario deberá abstenerse de cargar información cuya
+                utilización, almacenamiento o tratamiento resulte contrario
+                a la legislación aplicable o a estos Términos.
+            </p>
+        </section>
+
+        {{-- 5 --}}
+        <section>
+            <h2 class="text-xl font-semibold mb-3">
+                5. Datos personales y privacidad
+            </h2>
+
+            <p class="text-[#14171C]/80 leading-relaxed">
+                El tratamiento de datos personales realizado mediante Ascento
+                se encuentra sujeto a la Política de Privacidad del Servicio
+                y a la legislación argentina aplicable en materia de protección
+                de datos personales.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                El Proveedor implementará medidas técnicas y organizativas
+                razonables destinadas a preservar la seguridad y
+                confidencialidad de la información bajo su control.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                Cuando una empresa utilice Ascento para almacenar y gestionar
+                datos personales de sus propios clientes, empleados,
+                contratistas u otros terceros, dicha empresa será responsable
+                de determinar la legitimidad de la recopilación y tratamiento
+                de dichos datos y de cumplir las obligaciones que le
+                correspondan como responsable del tratamiento.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                El Proveedor podrá tratar dichos datos en la medida necesaria
+                para prestar, mantener, proteger y mejorar el Servicio,
+                conforme a estos Términos y a la Política de Privacidad.
+            </p>
+        </section>
+
+        {{-- 6 --}}
+        <section>
+            <h2 class="text-xl font-semibold mb-3">
+                6. Propiedad y titularidad de los datos del usuario
+            </h2>
+
+            <p class="text-[#14171C]/80 leading-relaxed">
+                Salvo respecto de los derechos que correspondan al Proveedor
+                sobre el software, la marca y demás elementos propios de
+                Ascento, el usuario conserva sus derechos sobre los datos y
+                contenidos que incorpore legítimamente al Servicio.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                El usuario otorga al Proveedor una autorización limitada,
+                no exclusiva y necesaria para alojar, procesar, transmitir,
+                respaldar y utilizar técnicamente dicha información únicamente
+                en la medida necesaria para prestar y mantener el Servicio.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                El Proveedor no adquiere la propiedad de los datos ingresados
+                por el usuario por el solo hecho de que estos sean almacenados
+                en Ascento.
+            </p>
+        </section>
+
+        {{-- 7 --}}
+        <section>
+            <h2 class="text-xl font-semibold mb-3">
+                7. Uso permitido del Servicio
+            </h2>
+
+            <p class="text-[#14171C]/80 leading-relaxed">
+                El Servicio deberá utilizarse exclusivamente para fines lícitos
+                y de acuerdo con estos Términos.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                Está prohibido utilizar Ascento para:
+            </p>
+
+            <ul class="mt-3 list-disc pl-6 text-[#14171C]/80 space-y-2">
+                <li>
+                    realizar actividades contrarias a la legislación aplicable;
+                </li>
+                <li>
+                    vulnerar derechos de terceros;
+                </li>
+                <li>
+                    intentar acceder sin autorización a cuentas, sistemas o
+                    información de terceros;
+                </li>
+                <li>
+                    introducir código malicioso, virus o cualquier mecanismo
+                    destinado a afectar el funcionamiento del Servicio;
+                </li>
+                <li>
+                    interferir con la seguridad, disponibilidad o integridad
+                    de la plataforma;
+                </li>
+                <li>
+                    utilizar el Servicio para fines fraudulentos o ilícitos;
+                </li>
+                <li>
+                    revender, sublicenciar o explotar comercialmente el
+                    Servicio fuera de las condiciones expresamente autorizadas.
+                </li>
+            </ul>
+        </section>
+
+        {{-- 8 --}}
+        <section>
+            <h2 class="text-xl font-semibold mb-3">
+                8. Suscripciones, precios y pagos
+            </h2>
+
+            <p class="text-[#14171C]/80 leading-relaxed">
+                El acceso a determinadas funcionalidades de Ascento puede
+                requerir la contratación de un plan de suscripción.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                Los precios, impuestos aplicables, períodos de facturación,
+                funcionalidades incluidas y condiciones particulares del plan
+                serán informados antes de la contratación y podrán encontrarse
+                detallados en el sitio web o dentro de la plataforma.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                El Proveedor podrá modificar los precios de los planes para
+                períodos futuros. Las modificaciones serán comunicadas con
+                anticipación razonable y no afectarán períodos ya abonados,
+                salvo que corresponda legalmente otra solución.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                En caso de falta de pago, el Proveedor podrá limitar o suspender
+                determinadas funcionalidades hasta la regularización de la
+                situación, respetando las obligaciones legales aplicables.
+            </p>
+        </section>
+
+        {{-- 9 --}}
+        <section>
+            <h2 class="text-xl font-semibold mb-3">
+                9. Cancelación de la suscripción
+            </h2>
+
+            <p class="text-[#14171C]/80 leading-relaxed">
+                El titular de la cuenta podrá solicitar la cancelación de su
+                suscripción conforme al procedimiento disponible dentro de
+                Ascento o mediante los canales de contacto habilitados.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                La cancelación evitará futuras renovaciones cuando corresponda,
+                pero no necesariamente implicará el reintegro de importes
+                correspondientes a períodos ya iniciados, salvo que dicho
+                reintegro corresponda conforme al plan contratado o a la
+                legislación aplicable.
+            </p>
+        </section>
+
+        {{-- 10 --}}
+        <section>
+            <h2 class="text-xl font-semibold mb-3">
+                10. Disponibilidad y mantenimiento
+            </h2>
+
+            <p class="text-[#14171C]/80 leading-relaxed">
+                El Proveedor realizará esfuerzos razonables para mantener
+                Ascento disponible y operativo, pero no garantiza una
+                disponibilidad ininterrumpida o libre de errores.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                El Servicio podrá experimentar interrupciones temporales por
+                tareas de mantenimiento, actualizaciones, mejoras, fallas
+                técnicas, problemas de infraestructura, proveedores externos,
+                interrupciones de conectividad, fuerza mayor u otras
+                circunstancias que razonablemente escapen al control del
+                Proveedor.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                Cuando resulte razonablemente posible, el Proveedor procurará
+                realizar mantenimientos programados de manera que reduzcan el
+                impacto sobre los usuarios.
+            </p>
+        </section>
+
+        {{-- 11 --}}
+        <section>
+            <h2 class="text-xl font-semibold mb-3">
+                11. Copias de seguridad y conservación de información
+            </h2>
+
+            <p class="text-[#14171C]/80 leading-relaxed">
+                El Proveedor podrá implementar mecanismos de respaldo y
+                recuperación de información destinados a reducir el riesgo de
+                pérdida de datos.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                No obstante, ningún sistema informático puede garantizar la
+                recuperación absoluta de toda la información ante cualquier
+                circunstancia. El usuario deberá conservar, cuando resulte
+                necesario por la naturaleza de su actividad, copias propias de
+                aquella información que considere crítica.
+            </p>
+        </section>
+
+        {{-- 12 --}}
+        <section>
+            <h2 class="text-xl font-semibold mb-3">
+                12. Integraciones y servicios de terceros
+            </h2>
+
+            <p class="text-[#14171C]/80 leading-relaxed">
+                Ascento puede integrarse con servicios de terceros, incluyendo
+                proveedores de mensajería, pagos, almacenamiento, autenticación
+                u otros servicios tecnológicos.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                El funcionamiento de dichas integraciones puede depender de
+                servicios, políticas, condiciones técnicas o decisiones de
+                terceros ajenos al control del Proveedor.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                El usuario acepta que el uso de dichos servicios puede estar
+                sujeto adicionalmente a sus propios términos y políticas.
+            </p>
+        </section>
+
+        {{-- 13 --}}
+        <section>
+            <h2 class="text-xl font-semibold mb-3">
+                13. WhatsApp y Meta
+            </h2>
+
+            <p class="text-[#14171C]/80 leading-relaxed">
+                Cuando Ascento permita el envío de comunicaciones mediante
+                WhatsApp u otros servicios de Meta, dichas funcionalidades
+                estarán sujetas a la disponibilidad, políticas, requisitos,
+                límites y condiciones establecidos por los respectivos
+                proveedores.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                El usuario será responsable de contar con las autorizaciones
+                y bases legales necesarias para enviar comunicaciones a sus
+                contactos y de cumplir las políticas aplicables de WhatsApp,
+                Meta y demás proveedores involucrados.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                El Proveedor no garantiza que un mensaje enviado mediante una
+                integración de terceros sea entregado, leído o procesado por
+                el destinatario.
+            </p>
+        </section>
+
+        {{-- 14 --}}
+        <section>
+            <h2 class="text-xl font-semibold mb-3">
+                14. Propiedad intelectual
+            </h2>
+
+            <p class="text-[#14171C]/80 leading-relaxed">
+                Ascento, incluyendo su software, código fuente, arquitectura,
+                diseño, interfaz, marca, logotipos, elementos gráficos,
+                documentación y demás componentes desarrollados por el
+                Proveedor, son propiedad del Proveedor o se encuentran
+                legítimamente licenciados a este.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                La contratación del Servicio no implica la transferencia al
+                usuario de ningún derecho de propiedad intelectual sobre
+                Ascento.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                Se concede únicamente un derecho limitado, personal,
+                no exclusivo y no transferible de utilización del Servicio
+                durante la vigencia de la suscripción y conforme a estos
+                Términos.
+            </p>
+        </section>
+
+        {{-- 15 --}}
+        <section>
+            <h2 class="text-xl font-semibold mb-3">
+                15. Firmas, remitos y registros generados mediante Ascento
+            </h2>
+
+            <p class="text-[#14171C]/80 leading-relaxed">
+                Las funcionalidades de firma, generación de remitos, órdenes
+                de trabajo, registros de visitas y demás documentos disponibles
+                en Ascento constituyen herramientas tecnológicas para registrar
+                información proporcionada por los usuarios.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                El usuario será responsable de verificar que la información
+                registrada sea correcta y de determinar, según la naturaleza
+                de su actividad y la normativa aplicable, si los documentos
+                generados resultan suficientes para sus necesidades legales,
+                comerciales, técnicas o administrativas.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                Ascento no garantiza que un determinado documento generado
+                mediante la plataforma sea considerado por una autoridad,
+                organismo, cliente o tercero como documento legalmente
+                suficiente en todos los casos.
+            </p>
+        </section>
+
+        {{-- 16 --}}
+        <section>
+            <h2 class="text-xl font-semibold mb-3">
+                16. Limitación de responsabilidad
+            </h2>
+
+            <p class="text-[#14171C]/80 leading-relaxed">
+                En la máxima medida permitida por la legislación aplicable,
+                el Proveedor no será responsable por daños, pérdidas o
+                perjuicios derivados de información incorrecta ingresada por
+                los usuarios, decisiones tomadas sobre la base de dicha
+                información, incumplimientos de obligaciones propias del
+                usuario o hechos atribuibles a terceros ajenos al control
+                razonable del Proveedor.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                Tampoco será responsable por interrupciones, demoras o fallas
+                originadas en servicios de terceros, proveedores de
+                infraestructura, conectividad a Internet, servicios de
+                mensajería, plataformas de pago u otros servicios externos.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                Las limitaciones establecidas en esta sección no serán
+                aplicables en aquellos supuestos en los que la legislación
+                vigente no permita limitar o excluir la responsabilidad.
+            </p>
+        </section>
+
+        {{-- 17 --}}
+        <section>
+            <h2 class="text-xl font-semibold mb-3">
+                17. Suspensión y terminación de cuentas
+            </h2>
+
+            <p class="text-[#14171C]/80 leading-relaxed">
+                El Proveedor podrá suspender temporalmente una cuenta cuando
+                resulte razonablemente necesario para proteger la seguridad
+                del Servicio, prevenir abusos, investigar actividades
+                potencialmente ilícitas, evitar daños a terceros o ante
+                incumplimientos de estos Términos.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                Cuando las circunstancias lo permitan, el Proveedor procurará
+                informar al titular de la cuenta y otorgarle la posibilidad de
+                subsanar el incumplimiento antes de proceder a una terminación
+                definitiva.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                La terminación de una cuenta no afectará las obligaciones que,
+                por su naturaleza, deban continuar vigentes después de la
+                finalización de la relación contractual.
+            </p>
+        </section>
+
+        {{-- 18 --}}
+        <section>
+            <h2 class="text-xl font-semibold mb-3">
+                18. Eliminación y conservación de datos
+            </h2>
+
+            <p class="text-[#14171C]/80 leading-relaxed">
+                Luego de la cancelación de una cuenta, los datos asociados a
+                ella podrán conservarse durante el período que resulte
+                necesario para cumplir obligaciones legales, resolver
+                controversias, prevenir fraudes, mantener registros contables
+                o ejercer derechos legítimos.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                Una vez cumplidos dichos plazos, la información podrá ser
+                eliminada o anonimizada conforme a las políticas internas del
+                Proveedor y a la legislación aplicable.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                El usuario podrá solicitar información sobre los mecanismos
+                disponibles para la exportación o eliminación de sus datos,
+                sujeto a las obligaciones legales de conservación que resulten
+                aplicables.
+            </p>
+        </section>
+
+        {{-- 19 --}}
+        <section>
+            <h2 class="text-xl font-semibold mb-3">
+                19. Modificaciones del Servicio
+            </h2>
+
+            <p class="text-[#14171C]/80 leading-relaxed">
+                El Proveedor podrá modificar, actualizar, agregar o retirar
+                funcionalidades de Ascento con el objetivo de mejorar,
+                mantener o adaptar el Servicio.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                Cuando una modificación implique un cambio sustancial en las
+                condiciones contratadas, el Proveedor procurará comunicarlo
+                con una antelación razonable cuando ello sea posible.
+            </p>
+        </section>
+
+        {{-- 20 --}}
+        <section>
+            <h2 class="text-xl font-semibold mb-3">
+                20. Modificaciones de estos Términos
+            </h2>
+
+            <p class="text-[#14171C]/80 leading-relaxed">
+                El Proveedor podrá actualizar estos Términos cuando resulte
+                necesario por cambios legales, regulatorios, técnicos,
+                comerciales o en el funcionamiento del Servicio.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                Las modificaciones relevantes serán comunicadas mediante la
+                plataforma, correo electrónico u otro medio razonable
+                disponible.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                La nueva versión será aplicable a partir de la fecha indicada
+                en ella, sin perjuicio de los derechos que correspondan al
+                usuario conforme a la legislación aplicable.
+            </p>
+        </section>
+
+        {{-- 21 --}}
+        <section>
+            <h2 class="text-xl font-semibold mb-3">
+                21. Comunicaciones
+            </h2>
+
+            <p class="text-[#14171C]/80 leading-relaxed">
+                El usuario acepta que determinadas comunicaciones relacionadas
+                con la prestación del Servicio, incluyendo avisos de seguridad,
+                mantenimiento, cambios de funcionalidades, facturación y
+                cuestiones administrativas, puedan realizarse mediante correo
+                electrónico, notificaciones dentro de Ascento u otros medios
+                asociados a la cuenta.
+            </p>
+        </section>
+
+        {{-- 22 --}}
+        <section>
+            <h2 class="text-xl font-semibold mb-3">
+                22. Cesión
+            </h2>
+
+            <p class="text-[#14171C]/80 leading-relaxed">
+                El usuario no podrá ceder, transferir o sublicenciar los
+                derechos derivados de estos Términos sin autorización previa
+                del Proveedor, salvo que la legislación aplicable disponga
+                expresamente lo contrario.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                El Proveedor podrá transferir sus derechos u obligaciones
+                derivados del Servicio a una sociedad vinculada, sucesora o
+                adquirente del negocio, siempre respetando los derechos que
+                correspondan a los usuarios conforme a la legislación aplicable.
+            </p>
+        </section>
+
+        {{-- 23 --}}
+        <section>
+            <h2 class="text-xl font-semibold mb-3">
+                23. Nulidad parcial
+            </h2>
+
+            <p class="text-[#14171C]/80 leading-relaxed">
+                Si alguna disposición de estos Términos fuera declarada nula,
+                inválida o inaplicable, ello no afectará la validez de las
+                restantes disposiciones, salvo que la legislación aplicable
+                determine lo contrario.
+            </p>
+        </section>
+
+        {{-- 24 --}}
+        <section>
+            <h2 class="text-xl font-semibold mb-3">
+                24. Ley aplicable y jurisdicción
+            </h2>
+
+            <p class="text-[#14171C]/80 leading-relaxed">
+                Estos Términos se regirán e interpretarán de conformidad con
+                las leyes de la República Argentina, sin perjuicio de las
+                normas imperativas que resulten aplicables al usuario en
+                función de su condición y domicilio.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                Cualquier controversia será sometida a la jurisdicción de los
+                tribunales que resulten competentes conforme a la legislación
+                aplicable.
+            </p>
+
+            <p class="mt-3 text-[#14171C]/80 leading-relaxed">
+                Cuando resulte aplicable la normativa de defensa del consumidor,
+                se respetarán las reglas de competencia y jurisdicción previstas
+                por dicha normativa.
+            </p>
+        </section>
+
+        {{-- 25 --}}
+        <section>
+            <h2 class="text-xl font-semibold mb-3">
+                25. Contacto
+            </h2>
+
+            <p class="text-[#14171C]/80 leading-relaxed">
+                Para consultas, solicitudes o comunicaciones relacionadas con
+                estos Términos o con el funcionamiento del Servicio, el usuario
+                podrá comunicarse con el Proveedor mediante:
+            </p>
+
+            <ul class="mt-3 list-disc pl-6 text-[#14171C]/80 space-y-2">
+                <li>
+                    <strong>Responsable:</strong>
+                    [RAZÓN SOCIAL / NOMBRE COMPLETO]
+                </li>
+                <li>
+                    <strong>CUIT:</strong>
+                    [CUIT]
+                </li>
+                <li>
+                    <strong>Domicilio:</strong>
+                    [DOMICILIO]
+                </li>
+                <li>
+                    <strong>Email:</strong>
+                    <a
+                        href="mailto:[EMAIL LEGAL]"
+                        class="text-[#FF6A1A] hover:underline"
+                    >
+                        [EMAIL LEGAL]
+                    </a>
+                </li>
+            </ul>
+        </section>
+
+    </div>
+</main>
 
     <footer class="border-t border-black/[0.06] py-8">
         <div class="max-w-3xl mx-auto px-6 flex flex-wrap gap-4 text-sm text-[#14171C]/50">
