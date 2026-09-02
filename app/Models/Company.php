@@ -31,11 +31,13 @@ class Company extends Model
         'whatsapp_waba_id',
         'whatsapp_business_id',
         'whatsapp_connected',
+        'trial_ends_at',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
         'whatsapp_connected' => 'boolean',
+        'trial_ends_at' => 'datetime',
     ];
 
     public function users()
@@ -83,5 +85,17 @@ class Company extends Model
             ])
             ->whereNotNull('provider_subscription_id')
             ->orderByDesc('id');
+    }
+
+    /**
+     * Trial gratuito de 30 días manejado por Ascento (no por Mercado
+     * Pago): true mientras trial_ends_at exista y no haya vencido.
+     * Lo usa EnsureActiveSubscription para dejar pasar a empresas
+     * nuevas sin pedirles tarjeta todavía.
+     */
+    public function onTrial(): bool
+    {
+        return $this->trial_ends_at !== null
+            && $this->trial_ends_at->isFuture();
     }
 }

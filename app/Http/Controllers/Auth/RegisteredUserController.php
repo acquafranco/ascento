@@ -112,6 +112,13 @@ class RegisteredUserController extends Controller
                 . '-' .
                 Str::random(5),
 
+
+            // Trial de 30 días sin pedir tarjeta: mientras esta fecha
+            // no venza, EnsureActiveSubscription deja pasar aunque no
+            // haya ninguna suscripción cargada todavía.
+
+            'trial_ends_at' => now()->addDays(30),
+
         ]);
 
 

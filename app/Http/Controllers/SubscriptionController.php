@@ -88,6 +88,8 @@ class SubscriptionController extends Controller
              * soporta el flujo de redirección y external_reference,
              * así que replicamos acá los datos de recurrencia del plan.
              */
+            // Sin free_trial acá: el trial de 30 días ahora lo da la
+            // app (companies.trial_ends_at), sin pedir tarjeta.
             $autoRecurring = [
                 'frequency' => 1,
                 'frequency_type' => 'months',
@@ -95,16 +97,14 @@ class SubscriptionController extends Controller
                 'currency_id' => $subscriptionPlan->currency,
             ];
 
-            if ($subscriptionPlan->trial_days ?? null) {
-                $autoRecurring['free_trial'] = [
-                    'frequency' => (int) $subscriptionPlan->trial_days,
-                    'frequency_type' => 'days',
-                ];
-            }
+            // Ver nota en Subscription.php (Filament) sobre
+            // MERCADOPAGO_TEST_PAYER_EMAIL.
+            $payerEmail = config('services.mercadopago.test_payer_email')
+                ?: ($company->billing_email ?? $user->email);
 
             $response = $this->mercadoPago->createSubscription([
                 'reason' => $subscriptionPlan->name,
-                'payer_email' => $company->billing_email ?? $user->email,
+                'payer_email' => $payerEmail,
                 'external_reference' => $externalReference,
                 'back_url' => route('subscriptions.return'),
                 'auto_recurring' => $autoRecurring,

@@ -78,6 +78,19 @@ return new class extends Migration
 
             /*
             |--------------------------------------------------------------------------
+            | Suscripción / trial
+            |--------------------------------------------------------------------------
+            */
+
+            $table->timestamp('trial_ends_at')->nullable();
+            // Trial gratuito de 30 días manejado por Ascento (no por
+            // Mercado Pago). Se setea al registrarse. Mientras no
+            // venza, EnsureActiveSubscription deja pasar sin exigir
+            // ninguna suscripción cargada.
+
+
+            /*
+            |--------------------------------------------------------------------------
             | WhatsApp Business
             |--------------------------------------------------------------------------
             */

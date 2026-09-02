@@ -512,6 +512,20 @@ class Subscription extends Page
 
             $user = auth()->user();
 
+            // En modo test, MERCADOPAGO_TEST_PAYER_EMAIL debe ser el email
+            // EXACTO del usuario de prueba (comprador) con el que te logueás
+            // en Mercado Pago al pagar. Si no coincide con el payer_email
+            // que le mandamos acá, Mercado Pago lo trata como una
+            // inconsistencia y rechaza el pago "por motivos de seguridad".
+            // En producción dejá esa variable vacía/sin definir.
+            $payerEmail = config('services.mercadopago.test_payer_email')
+                ?: ($user?->company?->billing_email ?? $user?->email);
+
+            // Sin free_trial acá: el trial de 30 días ahora lo da la
+            // app (companies.trial_ends_at), sin pedir tarjeta. Cuando
+            // alguien llega a este checkout es porque ya se le vence
+            // el trial o quiere contratar antes de tiempo — en ambos
+            // casos se le cobra ya.
             $autoRecurring = [
                 'frequency' => 1,
                 'frequency_type' => 'months',
@@ -519,16 +533,9 @@ class Subscription extends Page
                 'currency_id' => $plan->currency,
             ];
 
-            if ($plan->trial_days ?? null) {
-                $autoRecurring['free_trial'] = [
-                    'frequency' => (int) $plan->trial_days,
-                    'frequency_type' => 'days',
-                ];
-            }
-
             $response = $mp->createSubscription([
                 'reason' => $plan->name,
-                'payer_email' => $user?->company?->billing_email ?? $user?->email,
+                'payer_email' => $payerEmail,
                 'external_reference' => $subscription->external_reference,
                 'back_url' => static::getUrl(),
                 'auto_recurring' => $autoRecurring,

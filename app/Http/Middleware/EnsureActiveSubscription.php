@@ -37,6 +37,12 @@ class EnsureActiveSubscription
             return $next($request);
         }
 
+        // Trial gratuito de 30 días manejado por Ascento: mientras no
+        // venza, dejamos pasar sin exigir ninguna suscripción.
+        if ($user->company->onTrial()) {
+            return $next($request);
+        }
+
         $subscription = $user->company->subscription;
 
         if (
