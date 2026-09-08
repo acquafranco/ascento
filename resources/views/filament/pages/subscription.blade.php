@@ -103,13 +103,26 @@
                     @endif
 
 
-                    {{-- ================================================= --}}
-                    {{-- CONTRATAR POR MERCADO PAGO — COMENTADO --}}
-                    {{-- Reactivar sacando el comentario cuando el pago
-                         con Mercado Pago esté confirmado funcionando. --}}
-                    {{-- ================================================= --}}
-
                     {{--
+                    ============================================================
+                    BLOQUE MERCADO PAGO — COMENTADO A PROPÓSITO (2026-09).
+
+                    Todo lo que dice "MERCADO PAGO — COMENTADO" en este
+                    archivo depende de que exista una suscripción real
+                    creada vía MercadoPagoService (checkout, pausar,
+                    cancelar, reactivar). Mientras el pago con Mercado
+                    Pago no esté confirmado funcionando en producción,
+                    estos botones rompen (llaman a la API con datos que
+                    no existen ahí). Se reemplazan por la tarjeta de
+                    transferencia manual.
+
+                    Para reactivar en el futuro: buscar
+                    "MERCADO PAGO — COMENTADO" en este archivo y sacar
+                    los bloques {{-- --}} correspondientes.
+                    ============================================================
+                    --}}
+
+                    {{-- MERCADO PAGO — COMENTADO: botón "Contratar Ascento"
                     <div class="mt-8">
 
                         <x-filament::button
@@ -136,7 +149,7 @@
                         </x-filament::button>
 
                     </div>
-                    --}}
+                    FIN MERCADO PAGO — COMENTADO --}}
 
                     <div class="mt-8 text-left">
                         @include('filament.pages.partials.transfer-card')
@@ -273,17 +286,22 @@
                 {{-- ================================================= --}}
                 {{-- BOTONES --}}
                 {{-- ================================================= --}}
+                {{--
+                    Todo este bloque de botones depende de Mercado Pago
+                    y está comentado (ver nota grande más arriba). Hoy
+                    no se muestra ningún botón acá — pausar/cancelar/
+                    reactivar/contratar quedan deshabilitados hasta que
+                    se reactive Mercado Pago. La única acción disponible
+                    para el usuario es la tarjeta de transferencia, que
+                    se muestra más abajo según el estado.
+                --}}
 
                 <div class="flex flex-wrap items-center gap-2">
 
-
-                    {{-- ================================================= --}}
-                    {{-- PENDIENTE --}}
-                    {{-- ================================================= --}}
+                    {{-- MERCADO PAGO — COMENTADO: botones de checkout/pausar/cancelar/reactivar
 
                     @if ($isPending)
 
-                        {{--
                         <x-filament::button
                             wire:click="checkout"
                             wire:loading.attr="disabled"
@@ -306,16 +324,9 @@
                             </span>
 
                         </x-filament::button>
-                        --}}
-
-
-                    {{-- ================================================= --}}
-                    {{-- CANCELADA --}}
-                    {{-- ================================================= --}}
 
                     @elseif ($isCanceled)
 
-                        {{--
                         <x-filament::button
                             wire:click="checkout"
                             wire:loading.attr="disabled"
@@ -338,12 +349,6 @@
                             </span>
 
                         </x-filament::button>
-                        --}}
-
-
-                    {{-- ================================================= --}}
-                    {{-- PAUSADA --}}
-                    {{-- ================================================= --}}
 
                     @elseif ($isPaused)
 
@@ -370,9 +375,6 @@
 
                         </x-filament::button>
 
-
-                        {{-- CANCELAR DESDE PAUSADA --}}
-
                         <x-filament::button
                             color="danger"
                             wire:click="cancelSubscription"
@@ -397,14 +399,7 @@
 
                         </x-filament::button>
 
-
-                    {{-- ================================================= --}}
-                    {{-- ACTIVA --}}
-                    {{-- ================================================= --}}
-
                     @elseif ($isActive)
-
-                        {{-- PAUSAR --}}
 
                         <x-filament::button
                             color="warning"
@@ -430,9 +425,6 @@
 
                         </x-filament::button>
 
-
-                        {{-- CANCELAR --}}
-
                         <x-filament::button
                             color="danger"
                             wire:click="cancelSubscription"
@@ -457,14 +449,8 @@
 
                         </x-filament::button>
 
-
-                    {{-- ================================================= --}}
-                    {{-- ESTADO NO CONTEMPLADO (red de seguridad) --}}
-                    {{-- ================================================= --}}
-
                     @else
 
-                        {{--
                         <x-filament::button
                             wire:click="checkout"
                             wire:loading.attr="disabled"
@@ -487,9 +473,10 @@
                             </span>
 
                         </x-filament::button>
-                        --}}
 
                     @endif
+
+                    FIN MERCADO PAGO — COMENTADO --}}
 
                 </div>
 
@@ -571,13 +558,12 @@
                     </div>
 
                     <div class="mt-1">
-                        Podés reactivarla cuando quieras utilizando
-                        <strong>Reactivar suscripción</strong>,
-                        o cancelarla definitivamente con
-                        <strong>Cancelar suscripción</strong>.
+                        Para reactivarla, hacé la transferencia de abajo y avisanos por WhatsApp.
                     </div>
 
                 </div>
+
+                @include('filament.pages.partials.transfer-card')
 
             @endif
 
