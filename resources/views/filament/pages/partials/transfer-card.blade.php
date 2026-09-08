@@ -1,8 +1,7 @@
 {{--
     Tarjeta de pago por transferencia. Se usa en los lugares donde
     antes iba un botón de Mercado Pago (sin suscripción, pendiente,
-    cancelada, pausada) mientras el checkout de Mercado Pago esté
-    comentado / no disponible.
+    cancelada, pausada) mientras el checkout esté comentado.
 --}}
 @php
     $cbu = 'TU-CBU-ACA';
@@ -15,17 +14,15 @@
     $company = $user?->company;
 
     $empresa = $company?->name ?? 'mi empresa';
-    $razonSocial = $company?->business_name;
     $cuit = $company?->cuit;
-    $contacto = $user?->name;
-    $emailContacto = $user?->email;
+    $monto = isset($plan) && $plan?->price
+        ? number_format((float) $plan->price, 0, ',', '.')
+        : null;
 
-    $mensajeWhatsapp = "Hola! Quiero avisar un pago por transferencia para activar mi suscripción a Ascento.\n\n"
+    $mensajeWhatsapp = "Hola! Quiero avisar un pago por transferencia de Ascento.\n\n"
         . "Empresa: {$empresa}\n"
-        . ($razonSocial ? "Razón social: {$razonSocial}\n" : '')
         . ($cuit ? "CUIT: {$cuit}\n" : '')
-        . "Usuario: {$contacto}\n"
-        . "Email: {$emailContacto}\n\n"
+        . "Usuario: {$user?->name} ({$user?->email})\n\n"
         . "Ahora te mando el comprobante.";
 @endphp
 
@@ -35,11 +32,13 @@
         Pagar por transferencia
     </h3>
 
-    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-        Transferí el monto de tu plan a estos datos y avisanos por WhatsApp con el comprobante. Activamos tu cuenta apenas lo recibimos.
-    </p>
+    @if ($monto)
+        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+            Monto a transferir: <strong class="text-gray-950 dark:text-white">${{ $monto }}</strong>
+        </p>
+    @endif
 
-    <div class="mt-4 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+    <div class="mt-3 grid grid-cols-1 gap-1.5 text-sm sm:grid-cols-2">
 
         <div>
             <span class="text-gray-500 dark:text-gray-400">CBU:</span>
@@ -63,29 +62,11 @@
 
     </div>
 
-    {{-- Datos que se van a incluir en el mensaje de WhatsApp, para que
-         se vea antes de mandarlo qué está identificando. --}}
-    <div class="mt-4 rounded-md bg-white p-3 text-xs text-gray-500 dark:bg-gray-900 dark:text-gray-400">
+    <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
+        Al avisar por WhatsApp se identifica como <strong>{{ $empresa }}</strong> ({{ $user?->email }}).
+    </p>
 
-        <div class="font-medium text-gray-700 dark:text-gray-300">
-            Se va a identificar con estos datos:
-        </div>
-
-        <div class="mt-1">Empresa: <strong class="text-gray-700 dark:text-gray-300">{{ $empresa }}</strong></div>
-
-        @if ($razonSocial)
-            <div>Razón social: <strong class="text-gray-700 dark:text-gray-300">{{ $razonSocial }}</strong></div>
-        @endif
-
-        @if ($cuit)
-            <div>CUIT: <strong class="text-gray-700 dark:text-gray-300">{{ $cuit }}</strong></div>
-        @endif
-
-        <div>Usuario: <strong class="text-gray-700 dark:text-gray-300">{{ $contacto }}</strong> ({{ $emailContacto }})</div>
-
-    </div>
-
-    <div class="mt-5">
+    <div class="mt-4">
 
         <x-filament::button
             tag="a"

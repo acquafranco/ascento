@@ -105,24 +105,23 @@
 
                     {{--
                     ============================================================
-                    BLOQUE MERCADO PAGO — COMENTADO A PROPÓSITO (2026-09).
+                    BLOQUE MERCADO PAGO COMENTADO A PROPOSITO (2026-09).
 
-                    Todo lo que dice "MERCADO PAGO — COMENTADO" en este
-                    archivo depende de que exista una suscripción real
-                    creada vía MercadoPagoService (checkout, pausar,
+                    Todo lo que dice "MERCADO PAGO COMENTADO" en este
+                    archivo depende de que exista una suscripcion real
+                    creada via MercadoPagoService (checkout, pausar,
                     cancelar, reactivar). Mientras el pago con Mercado
-                    Pago no esté confirmado funcionando en producción,
-                    estos botones rompen (llaman a la API con datos que
-                    no existen ahí). Se reemplazan por la tarjeta de
-                    transferencia manual.
+                    Pago no este confirmado funcionando en produccion,
+                    estos botones rompen. Se reemplazan por la tarjeta
+                    de transferencia manual.
 
-                    Para reactivar en el futuro: buscar
-                    "MERCADO PAGO — COMENTADO" en este archivo y sacar
-                    los bloques {{-- --}} correspondientes.
+                    Para reactivar en el futuro: buscar el texto
+                    MERCADO PAGO COMENTADO en este archivo y descomentar
+                    los bloques marcados con ese texto.
                     ============================================================
                     --}}
 
-                    {{-- MERCADO PAGO — COMENTADO: botón "Contratar Ascento"
+                    {{-- MERCADO PAGO COMENTADO: boton "Contratar Ascento"
                     <div class="mt-8">
 
                         <x-filament::button
@@ -149,7 +148,7 @@
                         </x-filament::button>
 
                     </div>
-                    FIN MERCADO PAGO — COMENTADO --}}
+                    FIN MERCADO PAGO COMENTADO --}}
 
                     <div class="mt-8 text-left">
                         @include('filament.pages.partials.transfer-card')
@@ -288,17 +287,14 @@
                 {{-- ================================================= --}}
                 {{--
                     Todo este bloque de botones depende de Mercado Pago
-                    y está comentado (ver nota grande más arriba). Hoy
-                    no se muestra ningún botón acá — pausar/cancelar/
-                    reactivar/contratar quedan deshabilitados hasta que
-                    se reactive Mercado Pago. La única acción disponible
-                    para el usuario es la tarjeta de transferencia, que
-                    se muestra más abajo según el estado.
+                    y esta comentado (ver nota grande mas arriba). Hoy
+                    no se muestra ningun boton aca. La unica accion
+                    disponible es la tarjeta de transferencia, mas abajo.
                 --}}
 
                 <div class="flex flex-wrap items-center gap-2">
 
-                    {{-- MERCADO PAGO — COMENTADO: botones de checkout/pausar/cancelar/reactivar
+                    {{-- MERCADO PAGO COMENTADO: botones de checkout, pausar, cancelar y reactivar
 
                     @if ($isPending)
 
@@ -476,7 +472,7 @@
 
                     @endif
 
-                    FIN MERCADO PAGO — COMENTADO --}}
+                    FIN MERCADO PAGO COMENTADO --}}
 
                 </div>
 
