@@ -60,7 +60,7 @@
                 @if ($plan)
 
                     {{-- PRECIO --}}
-                    <div class="mt-8">
+                    <!-- <div class="mt-8">
 
                         <div class="text-4xl font-bold text-gray-950 dark:text-white">
                             ${{ number_format((float) $plan->price, 0, ',', '.') }}
@@ -70,7 +70,7 @@
                             {{ $plan->currency }} / mes
                         </div>
 
-                    </div>
+                    </div> -->
 
 
                     {{-- FEATURES --}}

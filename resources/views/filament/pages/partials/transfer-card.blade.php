@@ -34,7 +34,7 @@
 
     @if ($monto)
         <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
-            Monto a transferir: <strong class="text-gray-950 dark:text-white">${{ $monto }}</strong>
+            Monto a transferir: <strong class="text-gray-950 dark:text-white">${{ $monto }} ARS / mes</strong>
         </p>
     @endif
 
