@@ -103,7 +103,13 @@
                     @endif
 
 
-                    {{-- CONTRATAR --}}
+                    {{-- ================================================= --}}
+                    {{-- CONTRATAR POR MERCADO PAGO — COMENTADO --}}
+                    {{-- Reactivar sacando el comentario cuando el pago
+                         con Mercado Pago esté confirmado funcionando. --}}
+                    {{-- ================================================= --}}
+
+                    {{--
                     <div class="mt-8">
 
                         <x-filament::button
@@ -129,6 +135,11 @@
 
                         </x-filament::button>
 
+                    </div>
+                    --}}
+
+                    <div class="mt-8 text-left">
+                        @include('filament.pages.partials.transfer-card')
                     </div>
 
                 @else
@@ -272,6 +283,7 @@
 
                     @if ($isPending)
 
+                        {{--
                         <x-filament::button
                             wire:click="checkout"
                             wire:loading.attr="disabled"
@@ -294,6 +306,7 @@
                             </span>
 
                         </x-filament::button>
+                        --}}
 
 
                     {{-- ================================================= --}}
@@ -302,6 +315,7 @@
 
                     @elseif ($isCanceled)
 
+                        {{--
                         <x-filament::button
                             wire:click="checkout"
                             wire:loading.attr="disabled"
@@ -324,6 +338,7 @@
                             </span>
 
                         </x-filament::button>
+                        --}}
 
 
                     {{-- ================================================= --}}
@@ -449,6 +464,7 @@
 
                     @else
 
+                        {{--
                         <x-filament::button
                             wire:click="checkout"
                             wire:loading.attr="disabled"
@@ -471,6 +487,7 @@
                             </span>
 
                         </x-filament::button>
+                        --}}
 
                     @endif
 
@@ -494,6 +511,8 @@
                     </div>
 
                 </div>
+
+                @include('filament.pages.partials.transfer-card')
 
             @endif
 
@@ -527,10 +546,12 @@
                     @endif
 
                     <div class="mt-2">
-                        Podés contratar nuevamente utilizando el botón de arriba.
+                        Podés contratar nuevamente utilizando la opción de abajo.
                     </div>
 
                 </div>
+
+                @include('filament.pages.partials.transfer-card')
 
             @endif
 
