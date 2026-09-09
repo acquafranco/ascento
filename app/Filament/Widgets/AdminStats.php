@@ -26,6 +26,24 @@ class AdminStats extends StatsOverviewWidget
             DB::raw('elevator_count + freight_elevator_count')
         );
 
+          $tecnicosOcupados = WorkOrder::where('status', 'in_progress')
+
+        ->with(['users', 'participants'])
+
+        ->get()
+
+        ->flatMap(function ($workOrder) {
+
+            return $workOrder->users
+
+                ->merge($workOrder->participants);
+
+        })
+
+        ->unique('id')
+
+        ->count();
+
         return [
 
             Stat::make(
@@ -73,10 +91,15 @@ class AdminStats extends StatsOverviewWidget
                 ->descriptionIcon('heroicon-m-building-office-2')
                 ->color('primary'),
 
-            Stat::make('Ascensores', $ascensores)
-                ->description('Total instalados')
+            Stat::make('Máquinas', $ascensores)
+                ->description('Total instaladas')
                 ->descriptionIcon('heroicon-m-arrows-up-down')
                 ->color('gray'),
+
+            Stat::make('Técnicos ocupados', $tecnicosOcupados)
+                ->description('Actualmente en trabajo')
+                ->descriptionIcon('heroicon-m-user-group')
+                ->color('warning'),
 
         ];
     }

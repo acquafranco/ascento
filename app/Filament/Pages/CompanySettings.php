@@ -96,14 +96,14 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
 
                     TextInput::make('name')
                         ->label('Nombre interno')
-                        ->placeholder('Acqua Ascensores')
+                        ->placeholder('Empresa Ascensores')
                         ->prefixIcon('heroicon-o-tag')
                         ->required()
                         ->columnSpan(4),
 
                     TextInput::make('business_name')
                         ->label('Razón social')
-                        ->placeholder('Acqua Ascensores S.R.L.')
+                        ->placeholder('Empresa Ascensores S.R.L.')
                         ->prefixIcon('heroicon-o-building-office')
                         ->columnSpan(5),
 
