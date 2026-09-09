@@ -58,8 +58,8 @@
 
         <div class="mb-4 flex items-center gap-2 rounded-lg border p-4 text-sm
             {{ $daysRemaining <= 2
-                ? 'border-danger-300 bg-danger-50 text-danger-800 dark:border-danger-700 dark:bg-danger-950 dark:text-danger-200'
-                : 'border-warning-300 bg-warning-50 text-warning-800 dark:border-warning-700 dark:bg-warning-950 dark:text-warning-200' }}">
+                ? 'border-red-300 bg-red-50 text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200'
+                : 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200' }}">
 
             <span class="text-lg leading-none">⏰</span>
 
