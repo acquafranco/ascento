@@ -45,6 +45,50 @@ class ManualSubscriptionActivator
     }
 
     /**
+     * Corta el acceso ya mismo (no pagó, hay un problema, etc.) sin
+     * tocar current_period_end — así, si se resuelve, se puede
+     * reanudar sin perder los días que ya tenía pagos.
+     */
+    public static function pause(Company $company): ?Subscription
+    {
+        $subscription = Subscription::where('company_id', $company->id)
+            ->latest('id')
+            ->first();
+
+        if (!$subscription) {
+            return null;
+        }
+
+        $subscription->update(['status' => 'paused']);
+
+        return $subscription->fresh();
+    }
+
+    /**
+     * Deshace un pausado manual, siempre que todavía quede período
+     * vigente (current_period_end en el futuro). No suma días — si ya
+     * no queda período vigente, no hace nada y devuelve null: en ese
+     * caso corresponde usar activate() en su lugar.
+     */
+    public static function resume(Company $company): ?Subscription
+    {
+        $subscription = Subscription::where('company_id', $company->id)
+            ->latest('id')
+            ->first();
+
+        if (!$subscription
+            || !$subscription->current_period_end
+            || $subscription->current_period_end->isPast()
+        ) {
+            return null;
+        }
+
+        $subscription->update(['status' => 'active']);
+
+        return $subscription->fresh();
+    }
+
+    /**
      * Días restantes de acceso para mostrar en el panel: prioriza la
      * suscripción activa; si no hay, cae al trial gratuito de la
      * empresa; si no hay ninguno de los dos, null (sin acceso).

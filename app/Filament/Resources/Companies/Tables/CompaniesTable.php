@@ -156,7 +156,7 @@ class CompaniesTable
             ])
             ->recordActions([
                 Action::make('activarPago')
-                    ->label('Activar pago (30 días)')
+                    ->label('Activar pago (+ días)')
                     ->icon('heroicon-o-banknotes')
                     ->color('success')
                     ->schema([
@@ -167,7 +167,7 @@ class CompaniesTable
                             ->required(),
                     ])
                     ->requiresConfirmation()
-                    ->modalDescription('Esto activa el acceso de la empresa y suma los días al período que ya tuviera vigente (no lo resetea).')
+                    ->modalDescription('Confirma que entró un pago: activa el acceso y suma los días al período que ya tuviera vigente (no lo resetea).')
                     ->action(function ($record, array $data) {
                         $subscription = ManualSubscriptionActivator::activate(
                             $record,
@@ -183,6 +183,63 @@ class CompaniesTable
                             ->success()
                             ->send();
                     }),
+
+                Action::make('pausarManual')
+                    ->label('Pausar acceso')
+                    ->icon('heroicon-o-pause-circle')
+                    ->color('warning')
+                    ->visible(fn ($record) => in_array($record->subscription?->status, ['active', 'authorized', 'trialing'], true))
+                    ->requiresConfirmation()
+                    ->modalDescription('Corta el acceso ya mismo. No toca los días pagados — si después reanudás, los recupera.')
+                    ->action(function ($record) {
+                        $subscription = ManualSubscriptionActivator::pause($record);
+
+                        if (!$subscription) {
+                            Notification::make()
+                                ->title('No hay ninguna suscripción para pausar')
+                                ->warning()
+                                ->send();
+
+                            return;
+                        }
+
+                        Notification::make()
+                            ->title('Acceso pausado')
+                            ->body($record->name . ' ya no puede entrar a la app.')
+                            ->warning()
+                            ->send();
+                    }),
+
+                Action::make('reanudarManual')
+                    ->label('Reanudar (sin sumar días)')
+                    ->icon('heroicon-o-play-circle')
+                    ->color('success')
+                    ->visible(fn ($record) => $record->subscription?->status === 'paused')
+                    ->requiresConfirmation()
+                    ->modalDescription('Reactiva el acceso usando el período que ya tenía pagado, sin sumar días nuevos.')
+                    ->action(function ($record) {
+                        $subscription = ManualSubscriptionActivator::resume($record);
+
+                        if (!$subscription) {
+                            Notification::make()
+                                ->title('No se puede reanudar')
+                                ->body('Ya no le queda período vigente — usá "Activar pago" para sumarle días nuevos.')
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        Notification::make()
+                            ->title('Acceso reanudado')
+                            ->body(
+                                $record->name . ' recuperó el acceso hasta '
+                                . $subscription->current_period_end->format('d/m/Y')
+                            )
+                            ->success()
+                            ->send();
+                    }),
+
                 Action::make('entrar')
                     ->label('Entrar')
                     ->icon('heroicon-o-arrow-right')
