@@ -44,14 +44,11 @@ class AdminStats extends StatsOverviewWidget
 
         ->count();
 
-        $totalTecnicos = \App\Models\User::where('company_id', auth()->user()->company_id)
-    ->whereIn('job_type', [
-        'maintenance',
-        'inspection',
-    ])
-    ->count();
+       $totalTecnicos = \App\Models\User::where('company_id', auth()->user()->company_id)
+        ->where('role', '!=', 'admin')
+        ->count();
 
-$tecnicosDisponibles = max(0, $totalTecnicos - $tecnicosOcupados);
+        $tecnicosDisponibles = max(0, $totalTecnicos - $tecnicosOcupados);
 
         return [
 
