@@ -19,7 +19,7 @@ class SuperAdminSeeder extends Seeder
             }
 
             User::updateOrCreate(
-                ['email' => 'franco@ascento.online'],
+                ['email' => 'acquafranco97@gmail.com'],
                 [
                     'name' => 'Franco Acqua',
                     'password' => Hash::make($password),
