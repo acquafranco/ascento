@@ -294,62 +294,50 @@
                 </div>
 
                <div data-reveal class="mt-14 rounded-3xl bg-white border border-ink/10 shadow-cardHover overflow-hidden">
-    <div class="flex items-center gap-2 px-5 py-3.5 border-b border-ink/10 bg-ink/[0.02]">
-        <span class="h-2.5 w-2.5 rounded-full bg-ink/15"></span>
-        <span class="h-2.5 w-2.5 rounded-full bg-ink/15"></span>
-        <span class="h-2.5 w-2.5 rounded-full bg-ink/15"></span>
-        <span class="ml-3 font-mono text-[11px] text-ink/35">Ascento.online</span>
-    </div>
-
-    <div class="relative py-8 sm:py-10 bg-paper">
-        <!-- Fades laterales -->
-        <div class="pointer-events-none absolute inset-y-0 left-0 w-16 sm:w-24 z-10 bg-gradient-to-r from-paper to-transparent"></div>
-        <div class="pointer-events-none absolute inset-y-0 right-0 w-16 sm:w-24 z-10 bg-gradient-to-l from-paper to-transparent"></div>
-
-        <div class="overflow-hidden">
-            <div class="flex w-max animate-marquee gap-5 sm:gap-6">
-                @php
-                    $shots = [
-                        'screenshot-1.jpg',
-                        'screenshot-2.jpg',
-                        'screenshot-3.jpg',
-                        'screenshot-4.jpg',
-                        'screenshot-5.jpg',
-                        'screenshot-6.jpg',
-                        'screenshot-7.jpg',
-                    ];
-                @endphp
-
-                {{-- Duplicamos la lista para que el loop sea infinito y sin cortes --}}
-                @foreach (array_merge($shots, $shots) as $shot)
-                    <div class="shrink-0 w-[170px] sm:w-[200px] lg:w-[220px] rounded-2xl overflow-hidden border border-ink/10 shadow-card bg-white">
-                        <img
-                            src="{{ asset('images/' . $shot) }}"
-                            alt="Captura de la app Ascento"
-                            width="640"
-                            height="1141"
-                            loading="lazy"
-                            class="w-full h-full object-cover"
-                        >
+                    <div class="flex items-center gap-2 px-5 py-3.5 border-b border-ink/10 bg-ink/[0.02]">
+                        <span class="h-2.5 w-2.5 rounded-full bg-ink/15"></span>
+                        <span class="h-2.5 w-2.5 rounded-full bg-ink/15"></span>
+                        <span class="h-2.5 w-2.5 rounded-full bg-ink/15"></span>
+                        <span class="ml-3 font-mono text-[11px] text-ink/35">Ascento.online</span>
                     </div>
-                @endforeach
-            </div>
-        </div>
-    </div>
-</div>
 
-                <style>
-                    @keyframes marquee {
-    from { transform: translateX(0); }
-    to   { transform: translateX(-50%); }
-}
-.animate-marquee {
-    animation: marquee 35s linear infinite;
-}
-.animate-marquee:hover {
-    animation-play-state: paused;
-}
-                </style>
+                    <div class="relative py-8 sm:py-10 bg-paper">
+                        <!-- Fades laterales -->
+                        <div class="pointer-events-none absolute inset-y-0 left-0 w-16 sm:w-24 z-10 bg-gradient-to-r from-paper to-transparent"></div>
+                        <div class="pointer-events-none absolute inset-y-0 right-0 w-16 sm:w-24 z-10 bg-gradient-to-l from-paper to-transparent"></div>
+
+                        <div class="overflow-hidden">
+                            <div class="flex w-max animate-marquee gap-5 sm:gap-6">
+                                @php
+                                    $shots = [
+                                        'screenshot-1.jpg',
+                                        'screenshot-2.jpg',
+                                        'screenshot-3.jpg',
+                                        'screenshot-4.jpg',
+                                        'screenshot-5.jpg',
+                                        'screenshot-6.jpg',
+                                        'screenshot-7.jpg',
+                                    ];
+                                @endphp
+
+                                {{-- Duplicamos la lista para que el loop sea infinito y sin cortes --}}
+                                @foreach (array_merge($shots, $shots) as $shot)
+                                    <div class="shrink-0 w-[170px] sm:w-[200px] lg:w-[220px] rounded-2xl overflow-hidden border border-ink/10 shadow-card bg-white">
+                                        <img
+                                            src="{{ asset('images/' . $shot) }}"
+                                            alt="Captura de la app Ascento"
+                                            width="640"
+                                            height="1141"
+                                            loading="lazy"
+                                            class="w-full h-full object-cover"
+                                        >
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </section>
 
@@ -683,6 +671,21 @@
             </div>
         </div>
     </footer>
+
+
+                <style>
+                    @keyframes marquee {
+                        from { transform: translateX(0); }
+                        to   { transform: translateX(-50%); }
+                    }
+                    .animate-marquee {
+                        animation: marquee 35s linear infinite;
+                    }
+                    .animate-marquee:hover {
+                        animation-play-state: paused;
+                    }
+                </style>
+
 
     <script>
         // Scroll-reveal
