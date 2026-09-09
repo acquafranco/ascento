@@ -36,7 +36,49 @@
             $isActive => 'success',
             default => 'gray',
         };
+
+        // Aviso de "te quedan pocos días", solo cuando todavía tiene
+        // acceso (no si ya está pendiente/pausada/cancelada, esos
+        // estados ya tienen su propio mensaje más abajo).
+        $daysRemaining = \App\Support\ManualSubscriptionActivator::daysRemaining(auth()->user()->company);
+
+        $showRenewalWarning = !$isPending
+            && !$isPaused
+            && !$isCanceled
+            && $daysRemaining !== null
+            && $daysRemaining <= 5;
     @endphp
+
+
+    {{-- ========================================================= --}}
+    {{-- AVISO: QUEDAN POCOS DÍAS --}}
+    {{-- ========================================================= --}}
+
+    @if ($showRenewalWarning)
+
+        <x-filament::section class="mb-4">
+
+            <div class="flex items-center gap-3 text-sm {{ $daysRemaining <= 2 ? 'text-danger-700 dark:text-danger-300' : 'text-warning-700 dark:text-warning-300' }}">
+
+                <x-filament::icon
+                    icon="heroicon-o-clock"
+                    class="h-5 w-5 shrink-0"
+                />
+
+                <div>
+                    @if ($daysRemaining === 0)
+                        <strong>Tu acceso vence hoy.</strong>
+                    @else
+                        <strong>Te {{ $daysRemaining === 1 ? 'queda 1 día' : "quedan {$daysRemaining} días" }} de acceso.</strong>
+                    @endif
+                    Hacé la transferencia y avisanos por WhatsApp para no perder el acceso.
+                </div>
+
+            </div>
+
+        </x-filament::section>
+
+    @endif
 
 
     {{-- ========================================================= --}}
@@ -60,7 +102,7 @@
                 @if ($plan)
 
                     {{-- PRECIO --}}
-                    <!-- <div class="mt-8">
+                    <div class="mt-8">
 
                         <div class="text-4xl font-bold text-gray-950 dark:text-white">
                             ${{ number_format((float) $plan->price, 0, ',', '.') }}
@@ -70,7 +112,7 @@
                             {{ $plan->currency }} / mes
                         </div>
 
-                    </div> -->
+                    </div>
 
 
                     {{-- FEATURES --}}

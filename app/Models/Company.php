@@ -99,6 +99,34 @@ class Company extends Model
     }
 
     /**
+     * Empresas cuyo acceso (suscripción activa o trial) vence dentro
+     * de los próximos $days días. Se usa en el filtro "Vence pronto"
+     * del panel de admin.
+     */
+    public function scopeExpiringSoon($query, int $days = 5)
+    {
+        $threshold = now()->addDays($days);
+
+        return $query->where(function ($q) use ($threshold) {
+
+            // Tiene una suscripción usable que vence dentro de la ventana.
+            $q->whereHas('latestSubscription', function ($sq) use ($threshold) {
+                $sq->whereIn('status', ['authorized', 'active', 'trialing'])
+                    ->whereNotNull('current_period_end')
+                    ->whereBetween('current_period_end', [now(), $threshold]);
+            });
+
+            // O nunca tuvo suscripción (sigue en trial gratuito) y el
+            // trial vence dentro de la ventana.
+            $q->orWhere(function ($q2) use ($threshold) {
+                $q2->whereDoesntHave('subscriptions')
+                    ->whereNotNull('trial_ends_at')
+                    ->whereBetween('trial_ends_at', [now(), $threshold]);
+            });
+        });
+    }
+
+    /**
      * Trial gratuito de 30 días manejado por Ascento (no por Mercado
      * Pago): true mientras trial_ends_at exista y no haya vencido.
      * Lo usa EnsureActiveSubscription para dejar pasar a empresas

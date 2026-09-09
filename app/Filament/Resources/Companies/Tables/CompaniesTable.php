@@ -11,6 +11,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use App\Support\CompanyContext;
 
@@ -152,7 +153,10 @@ class CompaniesTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                Filter::make('expiringSoon')
+                    ->label('Vence pronto (≤ 5 días)')
+                    ->query(fn ($query) => $query->expiringSoon(5))
+                    ->toggle(),
             ])
             ->recordActions([
                 Action::make('activarPago')
