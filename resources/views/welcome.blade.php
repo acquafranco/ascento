@@ -232,7 +232,7 @@
                         $benefits = [
                             ['Órdenes en tiempo real', 'Cada trabajo se actualiza al instante, desde que se asigna hasta que se cierra.', 'M3 8H13M13 8L9 4M13 8L9 12'],
                             ['Técnicos siempre conectados', 'Tu equipo carga avances y fotos desde el celular, en el momento.', 'M8 2C5 2 2.5 4.5 2.5 7.5C2.5 11 8 14 8 14C8 14 13.5 11 13.5 7.5C13.5 4.5 11 2 8 2Z'],
-                            ['Historial completo', 'Cada ascensor guarda su trazabilidad: mantenimientos, fallas y repuestos.', 'M3 3H13V13H3V3ZM3 6.5H13M6.5 6.5V13'],
+                            ['Historial completo', 'Cada ascensor guarda su trazabilidad: mantenimientos, fallas y reportes.', 'M3 3H13V13H3V3ZM3 6.5H13M6.5 6.5V13'],
                             ['Edificios organizados', 'Todos los edificios, con sus ascensores y contactos, siempre a mano.', 'M2 13V5.5L8 2L14 5.5V13H2ZM6 13V9H10V13'],
                             ['Mantenimientos mensuales', 'Programá y controlá los mantenimientos sin depender de la memoria de nadie.', 'M8 2V5M8 11V14M2 8H5M11 8H14'],
                             ['Reclamos organizados', 'Cada reclamo queda registrado, asignado y con seguimiento hasta resolverse.', 'M3 3H13V10H6L3 13V10H3V3Z'],
