@@ -10,17 +10,12 @@ class SuperAdminSeeder extends Seeder
 {
     public function run(): void
     {
-        $env = file_get_contents(base_path('.env'));
-
-        preg_match('/^SUPER_ADMIN_EMAIL=(.*)$/m', $env, $emailMatch);
-        preg_match('/^SUPER_ADMIN_PASSWORD=(.*)$/m', $env, $passwordMatch);
-
-        $email = trim($emailMatch[1] ?? '');
-        $password = trim($passwordMatch[1] ?? '');
+        $email = config('app.super_admin_email');
+        $password = config('app.super_admin_password');
 
         if (!$email || !$password) {
             throw new \RuntimeException(
-                'SUPER_ADMIN_EMAIL o SUPER_ADMIN_PASSWORD no están configurados en .env'
+                'SUPER_ADMIN_EMAIL o SUPER_ADMIN_PASSWORD no están configurados.'
             );
         }
 
