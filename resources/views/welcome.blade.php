@@ -293,49 +293,63 @@
                     <h2 class="mt-3 font-display font-semibold text-3xl sm:text-4xl tracking-tight">Un panel pensado para el día a día del mantenimiento.</h2>
                 </div>
 
-                <div data-reveal class="mt-14 rounded-3xl bg-white border border-ink/10 shadow-cardHover overflow-hidden">
-                    <div class="flex items-center gap-2 px-5 py-3.5 border-b border-ink/10 bg-ink/[0.02]">
-                        <span class="h-2.5 w-2.5 rounded-full bg-ink/15"></span>
-                        <span class="h-2.5 w-2.5 rounded-full bg-ink/15"></span>
-                        <span class="h-2.5 w-2.5 rounded-full bg-ink/15"></span>
-                        <span class="ml-3 font-mono text-[11px] text-ink/35">Ascento.online</span>
+               <div data-reveal class="mt-14 rounded-3xl bg-white border border-ink/10 shadow-cardHover overflow-hidden">
+    <div class="flex items-center gap-2 px-5 py-3.5 border-b border-ink/10 bg-ink/[0.02]">
+        <span class="h-2.5 w-2.5 rounded-full bg-ink/15"></span>
+        <span class="h-2.5 w-2.5 rounded-full bg-ink/15"></span>
+        <span class="h-2.5 w-2.5 rounded-full bg-ink/15"></span>
+        <span class="ml-3 font-mono text-[11px] text-ink/35">Ascento.online</span>
+    </div>
+
+    <div class="relative py-8 sm:py-10 bg-paper">
+        <!-- Fades laterales -->
+        <div class="pointer-events-none absolute inset-y-0 left-0 w-16 sm:w-24 z-10 bg-gradient-to-r from-paper to-transparent"></div>
+        <div class="pointer-events-none absolute inset-y-0 right-0 w-16 sm:w-24 z-10 bg-gradient-to-l from-paper to-transparent"></div>
+
+        <div class="overflow-hidden">
+            <div class="flex w-max animate-marquee gap-5 sm:gap-6">
+                @php
+                    $shots = [
+                        'screenshot-1.jpg',
+                        'screenshot-2.jpg',
+                        'screenshot-3.jpg',
+                        'screenshot-4.jpg',
+                        'screenshot-5.jpg',
+                        'screenshot-6.jpg',
+                        'screenshot-7.jpg',
+                    ];
+                @endphp
+
+                {{-- Duplicamos la lista para que el loop sea infinito y sin cortes --}}
+                @foreach (array_merge($shots, $shots) as $shot)
+                    <div class="shrink-0 w-[170px] sm:w-[200px] lg:w-[220px] rounded-2xl overflow-hidden border border-ink/10 shadow-card bg-white">
+                        <img
+                            src="{{ asset('images/' . $shot) }}"
+                            alt="Captura de la app Ascento"
+                            width="640"
+                            height="1141"
+                            loading="lazy"
+                            class="w-full h-full object-cover"
+                        >
                     </div>
-                    <div class="p-5 sm:p-8 grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                        <div class="rounded-2xl bg-paper border border-ink/10 p-5 lg:col-span-2">
-                            <div class="text-xs font-semibold text-ink/40 uppercase tracking-wide">Clientes</div>
-                            <div class="mt-4 space-y-3">
-                                @foreach (['Consorcio Belgrano 880','Torre Puerto Norte','Edificio San Martín 210'] as $c)
-                                <div class="flex items-center justify-between text-sm">
-                                    <span class="text-ink/70">{{ $c }}</span>
-                                    <span class="h-1.5 w-1.5 rounded-full bg-rail-500"></span>
-                                </div>
-                                @endforeach
-                            </div>
-                        </div>
-                        <div class="rounded-2xl bg-paper border border-ink/10 p-5">
-                            <div class="text-xs font-semibold text-ink/40 uppercase tracking-wide">Edificios</div>
-                            <div class="mt-4 font-display text-3xl font-semibold">42</div>
-                            <div class="mt-1 text-xs text-ink/45">activos este mes</div>
-                        </div>
-                        <div class="rounded-2xl bg-graphite text-white p-5">
-                            <div class="text-xs font-semibold text-white/40 uppercase tracking-wide">Órdenes de trabajo</div>
-                            <div class="mt-4 space-y-2.5">
-                                <div class="flex items-center justify-between text-xs"><span>OT-1042 · Reparación cable</span><span class="text-amber-500">En curso</span></div>
-                                <div class="flex items-center justify-between text-xs"><span>OT-1041 · Inspección anual</span><span class="text-white/40">Pendiente</span></div>
-                                <div class="flex items-center justify-between text-xs"><span>OT-1039 · Mantenimiento</span><span class="text-emerald-400">Cerrada</span></div>
-                            </div>
-                        </div>
-                        <div class="rounded-2xl bg-paper border border-ink/10 p-5">
-                            <div class="text-xs font-semibold text-ink/40 uppercase tracking-wide">Técnicos</div>
-                            <div class="mt-4 flex -space-x-2">
-                                @for ($i = 0; $i < 5; $i++)
-                                <span class="h-8 w-8 rounded-full bg-rail-100 border-2 border-white flex items-center justify-center text-[10px] font-semibold text-rail-600">T{{ $i+1 }}</span>
-                                @endfor
-                            </div>
-                            <div class="mt-3 text-xs text-ink/45">6 en ruta ahora</div>
-                        </div>
-                    </div>
-                </div>
+                @endforeach
+            </div>
+        </div>
+    </div>
+</div>
+
+                <style>
+                    @keyframes marquee {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+}
+.animate-marquee {
+    animation: marquee 35s linear infinite;
+}
+.animate-marquee:hover {
+    animation-play-state: paused;
+}
+                </style>
             </div>
         </section>
 
