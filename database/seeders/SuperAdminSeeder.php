@@ -9,24 +9,25 @@ use Illuminate\Support\Facades\Hash;
 class SuperAdminSeeder extends Seeder
 {
     public function run(): void
-        {
-            $password = config('app.super_admin_password');
+    {
+        $email = config('app.super_admin_email');
+        $password = config('app.super_admin_password');
 
-            if (!$password) {
-                throw new \RuntimeException(
-                    'SUPER_ADMIN_PASSWORD no está configurada.'
-                );
-            }
-
-            User::updateOrCreate(
-                ['email' => 'acquafranco97@gmail.com'],
-                [
-                    'name' => 'Franco Acqua',
-                    'password' => Hash::make($password),
-                    'role' => 'admin',
-                    'is_super_admin' => true,
-                    'company_id' => null,
-                ]
+        if (!$email || !$password) {
+            throw new \RuntimeException(
+                'SUPER_ADMIN_EMAIL o SUPER_ADMIN_PASSWORD no están configurados.'
             );
         }
+
+        User::updateOrCreate(
+            ['email' => $email],
+            [
+                'name' => 'Franco Acqua',
+                'password' => Hash::make($password),
+                'role' => 'admin',
+                'is_super_admin' => true,
+                'company_id' => null,
+            ]
+        );
+    }
 }
