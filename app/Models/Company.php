@@ -88,6 +88,17 @@ class Company extends Model
     }
 
     /**
+     * La última suscripción, sin importar el status (a diferencia de
+     * subscription(), que solo devuelve las "usables" para control de
+     * acceso). Usar esta en el panel de admin, donde hace falta ver
+     * el estado real incluso si está paused/canceled.
+     */
+    public function latestSubscription(): HasOne
+    {
+        return $this->hasOne(Subscription::class)->latestOfMany();
+    }
+
+    /**
      * Trial gratuito de 30 días manejado por Ascento (no por Mercado
      * Pago): true mientras trial_ends_at exista y no haya vencido.
      * Lo usa EnsureActiveSubscription para dejar pasar a empresas

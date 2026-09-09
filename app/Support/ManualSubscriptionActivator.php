@@ -95,7 +95,7 @@ class ManualSubscriptionActivator
      */
     public static function daysRemaining(Company $company): ?int
     {
-        $subscription = $company->subscription;
+        $subscription = $company->latestSubscription;
 
         if ($subscription?->current_period_end) {
             if ($subscription->current_period_end->isPast()) {

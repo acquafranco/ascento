@@ -58,7 +58,7 @@ class CompaniesTable
 
                 ->state(function ($record) {
 
-                    $status = $record->subscription?->status;
+                    $status = $record->latestSubscription?->status;
 
                     return match ($status) {
 
@@ -116,7 +116,7 @@ class CompaniesTable
                         return 'Sin acceso';
                     }
 
-                    if ($record->subscription === null && $record->onTrial()) {
+                    if ($record->latestSubscription === null && $record->onTrial()) {
                         return "{$days} (trial)";
                     }
 
@@ -188,7 +188,7 @@ class CompaniesTable
                     ->label('Pausar acceso')
                     ->icon('heroicon-o-pause-circle')
                     ->color('warning')
-                    ->visible(fn ($record) => in_array($record->subscription?->status, ['active', 'authorized', 'trialing'], true))
+                    ->visible(fn ($record) => in_array($record->latestSubscription?->status, ['active', 'authorized', 'trialing'], true))
                     ->requiresConfirmation()
                     ->modalDescription('Corta el acceso ya mismo. No toca los días pagados — si después reanudás, los recupera.')
                     ->action(function ($record) {
@@ -214,7 +214,7 @@ class CompaniesTable
                     ->label('Reanudar (sin sumar días)')
                     ->icon('heroicon-o-play-circle')
                     ->color('success')
-                    ->visible(fn ($record) => $record->subscription?->status === 'paused')
+                    ->visible(fn ($record) => $record->latestSubscription?->status === 'paused')
                     ->requiresConfirmation()
                     ->modalDescription('Reactiva el acceso usando el período que ya tenía pagado, sin sumar días nuevos.')
                     ->action(function ($record) {
