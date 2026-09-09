@@ -56,27 +56,23 @@
 
     @if ($showRenewalWarning)
 
-        <x-filament::section class="mb-4">
+        <div class="mb-4 flex items-center gap-2 rounded-lg border p-4 text-sm
+            {{ $daysRemaining <= 2
+                ? 'border-danger-300 bg-danger-50 text-danger-800 dark:border-danger-700 dark:bg-danger-950 dark:text-danger-200'
+                : 'border-warning-300 bg-warning-50 text-warning-800 dark:border-warning-700 dark:bg-warning-950 dark:text-warning-200' }}">
 
-            <div class="flex items-center gap-3 text-sm {{ $daysRemaining <= 2 ? 'text-danger-700 dark:text-danger-300' : 'text-warning-700 dark:text-warning-300' }}">
+            <span class="text-lg leading-none">⏰</span>
 
-                <x-filament::icon
-                    icon="heroicon-o-clock"
-                    class="h-5 w-5 shrink-0"
-                />
+            <span>
+                @if ($daysRemaining === 0)
+                    <strong>Tu acceso vence hoy.</strong>
+                @else
+                    <strong>Te {{ $daysRemaining === 1 ? 'queda 1 día' : "quedan {$daysRemaining} días" }} de acceso.</strong>
+                @endif
+                Hacé la transferencia y avisanos por WhatsApp para no perder el acceso.
+            </span>
 
-                <div>
-                    @if ($daysRemaining === 0)
-                        <strong>Tu acceso vence hoy.</strong>
-                    @else
-                        <strong>Te {{ $daysRemaining === 1 ? 'queda 1 día' : "quedan {$daysRemaining} días" }} de acceso.</strong>
-                    @endif
-                    Hacé la transferencia y avisanos por WhatsApp para no perder el acceso.
-                </div>
-
-            </div>
-
-        </x-filament::section>
+        </div>
 
     @endif
 
