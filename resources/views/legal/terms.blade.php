@@ -827,7 +827,7 @@
                         href="mailto:[EMAIL LEGAL]"
                         class="text-[#FF6A1A] hover:underline"
                     >
-                        [EMAIL LEGAL]
+                        contacto@ascento.online
                     </a>
                 </li>
             </ul>
