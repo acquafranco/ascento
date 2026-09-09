@@ -44,6 +44,13 @@ class AdminStats extends StatsOverviewWidget
 
         ->count();
 
+        $totalTecnicos = \App\Models\User::whereIn('job_type', [
+            'maintenance',
+            'inspection',
+        ])->count();
+
+        $tecnicosDisponibles = max(0, $totalTecnicos - $tecnicosOcupados);
+
         return [
 
             Stat::make(
@@ -100,6 +107,11 @@ class AdminStats extends StatsOverviewWidget
                 ->description('Actualmente en trabajo')
                 ->descriptionIcon('heroicon-m-user-group')
                 ->color('warning'),
+
+            Stat::make('Técnicos disponibles', $tecnicosDisponibles)
+                ->description('Sin trabajo activo')
+                ->descriptionIcon('heroicon-m-user-group')
+                ->color('success'),
 
         ];
     }
