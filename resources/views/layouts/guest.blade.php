@@ -9,17 +9,18 @@
 
     <meta name="description" content="Gestioná tu empresa de ascensores desde un solo lugar. Edificios, técnicos, mantenimientos, trabajos, presupuestos y remitos.">
 
+    {{-- Favicon --}}
     <link rel="icon" type="image/png" href="{{ asset('images/logo.png') }}">
 
     {{-- WhatsApp / redes sociales --}}
     <meta property="og:title" content="Ascento | Gestión para empresas de ascensores">
     <meta property="og:description" content="Toda la gestión de tu empresa de ascensores, en un solo lugar.">
 
-    <meta property="og:image" content="https://ascento.online/images/logo.png?v=1">
-    <meta property="og:image:secure_url" content="https://ascento.online/images/logo.png?v=1">
+    <meta property="og:image" content="https://ascento.online/images/ascento-preview.png">
+    <meta property="og:image:secure_url" content="https://ascento.online/images/ascento-preview.png">
     <meta property="og:image:type" content="image/png">
-    <meta property="og:image:width" content="800">
-    <meta property="og:image:height" content="800">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
     <meta property="og:image:alt" content="Ascento">
 
     <meta property="og:url" content="https://ascento.online/login">
@@ -28,13 +29,14 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Ascento | Gestión para empresas de ascensores">
     <meta name="twitter:description" content="Toda la gestión de tu empresa de ascensores, en un solo lugar.">
-    <meta name="twitter:image" content="https://ascento.online/images/logo.png?v=1">
+    <meta name="twitter:image" content="https://ascento.online/images/ascento-preview.png">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 
     <script src="https://cdn.tailwindcss.com"></script>
+
     <script>
         tailwind.config = {
             theme: {
@@ -107,6 +109,7 @@
                 alt="Ascento"
                 class="rounded-md h-9 w-9 object-contain"
             >
+
             <span class="font-display font-semibold text-lg tracking-tight text-ink">
                 Ascento
             </span>
@@ -119,11 +122,13 @@
 
         <a href="/" class="mt-8 text-xs font-medium text-ink/40 hover:text-ink/70 transition-colors flex items-center gap-1.5">
             <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                <path d="M13 8H3M3 8L7 4M3 8L7 12"
-                      stroke="currentColor"
-                      stroke-width="1.6"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"/>
+                <path
+                    d="M13 8H3M3 8L7 4M3 8L7 12"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                />
             </svg>
             Volver al inicio
         </a>
