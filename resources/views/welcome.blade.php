@@ -1,27 +1,39 @@
 <!DOCTYPE html>
 <html lang="es" class="scroll-smooth">
 <head>
-    <meta property="og:title" content="Ascento | Gestión para empresas de ascensores">
-    <meta property="og:description" content="Toda la gestión de tu empresa de ascensores, en un solo lugar.">
-    <meta property="og:image" content="https://ascento.online/images/ascento-preview.png">
-    <meta property="og:image:secure_url" content="https://ascento.online/images/ascento-preview.png">
-    <meta property="og:image:type" content="image/png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="Ascento">
-    <meta property="og:url" content="https://ascento.online/">
-    <meta property="og:type" content="website">
+     <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Ascento | Gestión para empresas de ascensores">
-    <meta name="twitter:description" content="Toda la gestión de tu empresa de ascensores, en un solo lugar.">
-    <meta name="twitter:image" content="https://ascento.online/images/ascento-preview.png">
+        <title>Ascento — Software de gestión para empresas de mantenimiento de ascensores</title>
+        <meta name="description" content="Ascento es la plataforma para administrar clientes, edificios, técnicos, órdenes de trabajo, mantenimientos e inspecciones de tu empresa de ascensores, todo en un solo lugar.">
+        <meta name="theme-color" content="#12151C">
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+        {{-- Favicon (ícono de la pestaña) --}}
+        <link rel="icon" type="image/png" href="{{ asset('images/logo.png') }}">
 
-    <script src="https://cdn.tailwindcss.com"></script>
+        {{-- WhatsApp / redes sociales --}}
+        <meta property="og:title" content="Ascento | Gestión para empresas de ascensores">
+        <meta property="og:description" content="Toda la gestión de tu empresa de ascensores, en un solo lugar.">
+        <meta property="og:image" content="https://ascento.online/images/ascento-preview.png">
+        <meta property="og:image:secure_url" content="https://ascento.online/images/ascento-preview.png">
+        <meta property="og:image:type" content="image/png">
+        <meta property="og:image:width" content="1200">
+        <meta property="og:image:height" content="630">
+        <meta property="og:image:alt" content="Ascento">
+        <meta property="og:url" content="https://ascento.online/">
+        <meta property="og:type" content="website">
+
+        <meta name="twitter:card" content="summary_large_image">
+        <meta name="twitter:title" content="Ascento | Gestión para empresas de ascensores">
+        <meta name="twitter:description" content="Toda la gestión de tu empresa de ascensores, en un solo lugar.">
+        <meta name="twitter:image" content="https://ascento.online/images/ascento-preview.png">
+
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+
+        <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             theme: {
