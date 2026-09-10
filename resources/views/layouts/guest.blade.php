@@ -14,14 +14,21 @@
     {{-- WhatsApp / redes sociales --}}
     <meta property="og:title" content="Ascento | Gestión para empresas de ascensores">
     <meta property="og:description" content="Toda la gestión de tu empresa de ascensores, en un solo lugar.">
-    <meta property="og:image" content="https://ascento.online/images/logo.png">
-    <meta property="og:image:secure_url" content="https://ascento.online/images/logo.png">
+
+    <meta property="og:image" content="https://ascento.online/images/logo.png?v=1">
+    <meta property="og:image:secure_url" content="https://ascento.online/images/logo.png?v=1">
     <meta property="og:image:type" content="image/png">
     <meta property="og:image:width" content="800">
     <meta property="og:image:height" content="800">
     <meta property="og:image:alt" content="Ascento">
+
     <meta property="og:url" content="https://ascento.online/login">
     <meta property="og:type" content="website">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Ascento | Gestión para empresas de ascensores">
+    <meta name="twitter:description" content="Toda la gestión de tu empresa de ascensores, en un solo lugar.">
+    <meta name="twitter:image" content="https://ascento.online/images/logo.png?v=1">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
