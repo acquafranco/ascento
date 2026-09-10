@@ -4,12 +4,14 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+
     <title>Ascento | Gestión para empresas de ascensores</title>
 
     <meta name="description" content="Gestioná tu empresa de ascensores desde un solo lugar. Edificios, técnicos, mantenimientos, trabajos, presupuestos y remitos.">
 
     <link rel="icon" type="image/png" href="{{ asset('images/logo.png') }}">
 
+    {{-- WhatsApp / redes sociales --}}
     <meta property="og:title" content="Ascento | Gestión para empresas de ascensores">
     <meta property="og:description" content="Toda la gestión de tu empresa de ascensores, en un solo lugar.">
     <meta property="og:image" content="{{ asset('images/logo.png') }}">
@@ -30,8 +32,19 @@
                         paper: '#F7F7F4',
                         graphite: '#12151C',
                         graphite2: '#1B1F29',
-                        amber: { 100: '#FFE8D6', 400: '#FF8A3D', 500: '#FF6A1A', 600: '#E85A0A', 700: '#C24800' },
-                        rail: { 100: '#E7ECFB', 400: '#5A78D6', 500: '#2E4FBE', 600: '#233D99' },
+                        amber: {
+                            100: '#FFE8D6',
+                            400: '#FF8A3D',
+                            500: '#FF6A1A',
+                            600: '#E85A0A',
+                            700: '#C24800'
+                        },
+                        rail: {
+                            100: '#E7ECFB',
+                            400: '#5A78D6',
+                            500: '#2E4FBE',
+                            600: '#233D99'
+                        },
                     },
                     fontFamily: {
                         display: ['"Space Grotesk"', 'sans-serif'],
@@ -46,22 +59,45 @@
             }
         }
     </script>
+
     <style>
-        body { -webkit-font-smoothing: antialiased; }
-        ::selection { background: #FFE8D6; color: #14171C; }
-        :focus-visible { outline: 2px solid #2E4FBE; outline-offset: 2px; border-radius: 4px; }
-        input[type="checkbox"] { accent-color: #FF6A1A; }
+        body {
+            -webkit-font-smoothing: antialiased;
+        }
+
+        ::selection {
+            background: #FFE8D6;
+            color: #14171C;
+        }
+
+        :focus-visible {
+            outline: 2px solid #2E4FBE;
+            outline-offset: 2px;
+            border-radius: 4px;
+        }
+
+        input[type="checkbox"] {
+            accent-color: #FF6A1A;
+        }
     </style>
 </head>
+
 <body class="bg-paper text-ink font-body antialiased min-h-screen">
 
     <div class="relative min-h-screen flex flex-col items-center justify-center px-5 py-12 overflow-hidden">
+
         <div class="pointer-events-none absolute inset-0 -z-10 [background:radial-gradient(55%_55%_at_85%_0%,rgba(255,106,26,0.08),transparent_60%),radial-gradient(45%_45%_at_5%_100%,rgba(46,79,190,0.07),transparent_60%)]"></div>
 
         {{-- Brand mark --}}
-       <a href="/" class="flex items-center gap-2.5 mb-8">
-            <img src="{{ asset('images/logo.png') }}" alt="Ascento" class="rounded-md h-9 w-9 object-contain">
-            <span class="font-display font-semibold text-lg tracking-tight text-ink">Ascento</span>
+        <a href="/" class="flex items-center gap-2.5 mb-8">
+            <img
+                src="{{ asset('images/logo.png') }}"
+                alt="Ascento"
+                class="rounded-md h-9 w-9 object-contain"
+            >
+            <span class="font-display font-semibold text-lg tracking-tight text-ink">
+                Ascento
+            </span>
         </a>
 
         {{-- Card --}}
@@ -70,9 +106,17 @@
         </div>
 
         <a href="/" class="mt-8 text-xs font-medium text-ink/40 hover:text-ink/70 transition-colors flex items-center gap-1.5">
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M13 8H3M3 8L7 4M3 8L7 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                <path d="M13 8H3M3 8L7 4M3 8L7 12"
+                      stroke="currentColor"
+                      stroke-width="1.6"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"/>
+            </svg>
             Volver al inicio
         </a>
+
     </div>
+
 </body>
 </html>
