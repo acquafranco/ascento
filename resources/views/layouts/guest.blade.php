@@ -4,7 +4,17 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ config('app.name', 'Ascento') }}</title>
+    <title>Ascento | Gestión para empresas de ascensores</title>
+
+    <meta name="description" content="Gestioná tu empresa de ascensores desde un solo lugar. Edificios, técnicos, mantenimientos, trabajos, presupuestos y remitos.">
+
+    <link rel="icon" type="image/png" href="{{ asset('images/logo.png') }}">
+
+    <meta property="og:title" content="Ascento | Gestión para empresas de ascensores">
+    <meta property="og:description" content="Toda la gestión de tu empresa de ascensores, en un solo lugar.">
+    <meta property="og:image" content="{{ asset('images/logo.png') }}">
+    <meta property="og:url" content="{{ url('/login') }}">
+    <meta property="og:type" content="website">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
