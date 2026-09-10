@@ -1,29 +1,21 @@
 <!DOCTYPE html>
 <html lang="es">
-<head>
-    <meta charset="utf-8">
+ <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-
-    <title>Ascento | Gestión para empresas de ascensores</title>
-
-    <meta name="description" content="Gestioná tu empresa de ascensores desde un solo lugar. Edificios, técnicos, mantenimientos, trabajos, presupuestos y remitos.">
-
-    {{-- Favicon --}}
-    <link rel="icon" type="image/png" href="{{ asset('images/logo.png') }}">
+    <title>Ascento — Software de gestión para empresas de mantenimiento de ascensores</title>
+    <meta name="description" content="Ascento es la plataforma para administrar clientes, edificios, técnicos, órdenes de trabajo, mantenimientos e inspecciones de tu empresa de ascensores, todo en un solo lugar.">
+    <meta name="theme-color" content="#12151C">
 
     {{-- WhatsApp / redes sociales --}}
     <meta property="og:title" content="Ascento | Gestión para empresas de ascensores">
     <meta property="og:description" content="Toda la gestión de tu empresa de ascensores, en un solo lugar.">
-
     <meta property="og:image" content="https://ascento.online/images/ascento-preview.png">
     <meta property="og:image:secure_url" content="https://ascento.online/images/ascento-preview.png">
     <meta property="og:image:type" content="image/png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:image:alt" content="Ascento">
-
-    <meta property="og:url" content="https://ascento.online/login">
+    <meta property="og:url" content="https://ascento.online/">
     <meta property="og:type" content="website">
 
     <meta name="twitter:card" content="summary_large_image">
