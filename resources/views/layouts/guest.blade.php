@@ -14,7 +14,9 @@
     {{-- WhatsApp / redes sociales --}}
     <meta property="og:title" content="Ascento | Gestión para empresas de ascensores">
     <meta property="og:description" content="Toda la gestión de tu empresa de ascensores, en un solo lugar.">
-    <meta property="og:image" content="{{ asset('images/logo.png') }}">
+    <meta property="og:image" content="https://ascento.online/images/logo.png">
+    <meta property="og:image:alt" content="Ascento">
+    <meta property="og:image:type" content="image/png">
     <meta property="og:url" content="{{ url('/login') }}">
     <meta property="og:type" content="website">
 
