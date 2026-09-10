@@ -154,7 +154,7 @@
                         </span>
 
                         <h1 class="mt-6 font-display font-semibold text-[2.5rem] leading-[1.08] sm:text-6xl sm:leading-[1.05] tracking-tight text-ink">
-                            Organizá toda tu empresa de ascensores<span class="text-amber-500">.</span>
+                            Orascsefwefwesores<span class="text-amber-500">.</span>
                             <span class="block text-ink/40">Desde un solo lugar.</span>
                         </h1>
 
