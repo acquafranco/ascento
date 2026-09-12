@@ -4,10 +4,10 @@
     cancelada, pausada) mientras el checkout esté comentado.
 --}}
 @php
-    $cbu = 'TU-CBU-ACA';
-    $alias = 'TU-ALIAS-ACA';
-    $titular = 'NOMBRE DEL TITULAR';
-    $banco = 'NOMBRE DEL BANCO';
+    $cbu = '0070159030004039958247';
+    $alias = 'ascento';
+    $titular = 'Franco Leonel Acqua';
+    $banco = 'Banco Galicia';
     $whatsappNumero = '5491178233886';
 
     $user = auth()->user();
