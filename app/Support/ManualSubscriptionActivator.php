@@ -24,6 +24,13 @@ class ManualSubscriptionActivator
 
         $newPeriodEnd = $baseDate->copy()->addDays($days);
 
+        // Si la empresa nunca tuvo ninguna fila en subscriptions
+        // (venía solo del trial gratuito), no hay de dónde sacar
+        // plan/monto previos: los completamos con el plan activo.
+        $activePlan = $subscription
+            ? null
+            : \App\Models\SubscriptionPlan::where('is_active', true)->first();
+
         return Subscription::updateOrCreate(
             ['company_id' => $company->id],
             [
@@ -31,10 +38,10 @@ class ManualSubscriptionActivator
                 'provider_subscription_id' => 'manual_' . $company->id . '_' . now()->timestamp,
                 'provider_plan_id' => null,
                 'external_reference' => 'company_' . $company->id,
-                'plan' => $subscription->plan ?? 'professional',
+                'plan' => $subscription?->plan ?? $activePlan?->slug ?? 'professional',
                 'status' => 'active',
-                'amount' => $subscription->amount,
-                'currency' => $subscription->currency ?? 'ARS',
+                'amount' => $subscription?->amount ?? $activePlan?->price,
+                'currency' => $subscription?->currency ?? $activePlan?->currency ?? 'ARS',
                 'trial_ends_at' => null,
                 'current_period_start' => now(),
                 'current_period_end' => $newPeriodEnd,
