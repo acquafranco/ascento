@@ -37,25 +37,32 @@ class EnsureActiveSubscription
             return $next($request);
         }
 
-        // Trial gratuito de 30 días manejado por Ascento: mientras no
-        // venza, dejamos pasar sin exigir ninguna suscripción.
-        if ($user->company->onTrial()) {
-            return $next($request);
-        }
+        $company = $user->company;
 
-        $subscription = $user->company->subscription;
+        // Si ya existe alguna suscripción (manual o de Mercado Pago),
+        // su estado manda — sin importar si el trial gratuito todavía
+        // no venció. Pausar/cancelar tiene que poder cortar el acceso
+        // aunque falten días de trial.
+        $subscription = $company->latestSubscription;
 
-        if (
-            !$subscription ||
-            !in_array($subscription->status, [
+        if ($subscription) {
+            if (in_array($subscription->status, [
                 'authorized',
                 'active',
                 'trialing',
-            ], true)
-        ) {
+            ], true)) {
+                return $next($request);
+            }
+
             return redirect()->to('/admin/subscription');
         }
 
-        return $next($request);
+        // Nunca tuvo ninguna suscripción: acá sí importa el trial
+        // gratuito de 30 días manejado por Ascento.
+        if ($company->onTrial()) {
+            return $next($request);
+        }
+
+        return redirect()->to('/admin/subscription');
     }
 }
