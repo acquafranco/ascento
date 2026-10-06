@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\DeliveryNotes\Pages;
 
 use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
-use Filament\Actions\DeleteAction;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Pages\EditRecord;
 
@@ -15,7 +14,6 @@ class EditDeliveryNote extends EditRecord
     {
         return [
                 ViewAction::make(),
-                DeleteAction::make(),
         ];
     }
 }

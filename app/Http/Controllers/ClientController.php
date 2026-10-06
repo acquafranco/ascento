@@ -10,13 +10,17 @@ class ClientController extends Controller
     public function index()
 {
     return view('clients.index', [
-        'clients' => Client::all()
+        'clients' => Client::orderBy('name')->get()
     ]);
     }
 
-    public function show(Client $client)
+    public function show($company, Client $client)
     {
-        abort(403);
+        // El binding ya está acotado a la empresa de la URL (scopeBindings
+        // + scope global), así que un cliente de otra empresa da 404.
+        $client->load('buildings');
+
+        return view('clients.show', compact('client'));
     }
 
 }

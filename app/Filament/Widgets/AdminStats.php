@@ -44,7 +44,7 @@ class AdminStats extends StatsOverviewWidget
 
         ->count();
 
-       $totalTecnicos = \App\Models\User::where('company_id', auth()->user()->company_id)
+       $totalTecnicos = \App\Models\User::where('company_id', \App\Support\CompanyContext::currentId())
         ->where('role', '!=', 'admin')
         ->count();
 

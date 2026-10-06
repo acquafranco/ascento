@@ -19,13 +19,13 @@ class AppServiceProvider extends ServiceProvider
         Carbon::setLocale('es');
         Gate::define('view-user-template', function (User $authUser, User $user) {
 
-            // 🔐 admin ve todo
-            if ($authUser->role === 'admin') {
-                return true;
+            // Nunca entre empresas distintas.
+            if ($authUser->company_id === null || $authUser->company_id !== $user->company_id) {
+                return false;
             }
 
-            // 👤 usuario solo su propio template
-            return $authUser->id === $user->id;
+            // El admin ve las plantillas de su empresa; el resto, solo la propia.
+            return $authUser->isAdmin() || $authUser->id === $user->id;
         });
     }
 }

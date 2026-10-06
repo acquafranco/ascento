@@ -5,6 +5,9 @@ namespace App\Filament\Resources\Companies\Tables;
 use App\Support\ManualSubscriptionActivator;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\RestoreAction;
+use Filament\Actions\RestoreBulkAction;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Actions\EditAction;
 use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
@@ -20,6 +23,8 @@ class CompaniesTable
     public static function configure(Table $table): Table
     {
         return $table
+            // Eager loading de lo que usan las columnas/acciones (evita N+1).
+            ->modifyQueryUsing(fn (\Illuminate\Database\Eloquent\Builder $query) => $query->with(['latestSubscription']))
             ->columns([
                 TextColumn::make('name')
                     ->searchable(),
@@ -153,12 +158,14 @@ class CompaniesTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                TrashedFilter::make()->label('Desactivados'),
                 Filter::make('expiringSoon')
                     ->label('Vence pronto (≤ 5 días)')
                     ->query(fn ($query) => $query->expiringSoon(5))
                     ->toggle(),
             ])
             ->recordActions([
+                RestoreAction::make()->label('Reactivar'),
                 Action::make('activarPago')
                     ->label('Activar pago (+ días)')
                     ->icon('heroicon-o-banknotes')
@@ -194,7 +201,7 @@ class CompaniesTable
                     ->color('warning')
                     ->visible(fn ($record) => in_array($record->latestSubscription?->status, ['active', 'authorized', 'trialing'], true))
                     ->requiresConfirmation()
-                    ->modalDescription('Corta el acceso ya mismo. No toca los días pagados — si después reanudás, los recupera.')
+                    ->modalDescription('Corta el acceso ya mismo para toda la empresa: técnicos y administradores dejan de poder operar (el admin solo ve la pantalla de suscripción). No toca los días pagados — si después reanudás, los recupera.')
                     ->action(function ($record) {
                         $subscription = ManualSubscriptionActivator::pause($record);
 
@@ -209,7 +216,7 @@ class CompaniesTable
 
                         Notification::make()
                             ->title('Acceso pausado')
-                            ->body($record->name . ' ya no puede entrar a la app.')
+                            ->body($record->name . ': sus técnicos y administradores ya no pueden operar. El admin solo puede entrar a la pantalla de suscripción.')
                             ->warning()
                             ->send();
                     }),
@@ -258,7 +265,11 @@ class CompaniesTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->label('Desactivar seleccionadas')
+                        ->modalHeading('Desactivar seleccionadas')
+                        ->modalSubmitActionLabel('Desactivar'),
+                    RestoreBulkAction::make()->label('Reactivar seleccionados'),
                 ]),
             ]);
 

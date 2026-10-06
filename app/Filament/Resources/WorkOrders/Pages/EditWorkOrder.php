@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\WorkOrders\Pages;
 
 use App\Filament\Resources\WorkOrders\WorkOrderResource;
-use App\Services\WhatsAppService;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 
@@ -14,17 +13,9 @@ class EditWorkOrder extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
+            // Solo órdenes sin historial (ver WorkOrder::canBeDeleted()).
+            DeleteAction::make()
+                ->visible(fn ($record) => $record->canBeDeleted()),
         ];
-    }
-
-    protected function afterSave(): void
-    {
-        $record = $this->record;
-
-        if ($record->technician?->phone) {
-            app(WhatsAppService::class)
-                ->sendWorkOrder($record);
-        }
     }
 }

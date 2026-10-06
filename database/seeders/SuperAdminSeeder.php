@@ -19,15 +19,17 @@ class SuperAdminSeeder extends Seeder
             );
         }
 
-        User::updateOrCreate(
+        $user = User::updateOrCreate(
             ['email' => $email],
             [
                 'name' => 'Franco Acqua',
                 'password' => Hash::make($password),
                 'role' => 'admin',
-                'is_super_admin' => true,
                 'company_id' => null,
             ]
         );
+
+        // is_super_admin no es asignable masivamente a propósito.
+        $user->forceFill(['is_super_admin' => true])->save();
     }
 }

@@ -11,6 +11,13 @@ class AdminUserSeeder extends Seeder
 {
     public function run(): void
     {
+        // Datos DEMO (contraseñas "1234"): nunca en producción.
+        if (app()->environment('production')) {
+            $this->command?->warn('AdminUserSeeder omitido: crea cuentas demo y no corre en producción.');
+
+            return;
+        }
+
         /*
         |--------------------------------------------------------------------------
         | EMPRESA 1 - ASCENTO

@@ -21,6 +21,8 @@ class QuotesTable
     {
         return $table
 
+            // Eager loading de lo que usan las columnas/acciones (evita N+1).
+            ->modifyQueryUsing(fn (\Illuminate\Database\Eloquent\Builder $query) => $query->with(['building.client', 'client', 'company']))
             ->defaultSort('created_at', 'desc')
 
             ->columns([
@@ -231,9 +233,9 @@ Muchas gracias.";
                 Saludos cordiales.";
 
                         return 'mailto:?subject=' .
-                            urlencode($asunto) .
+                            rawurlencode($asunto) .
                             '&body=' .
-                            urlencode($cuerpo);
+                            rawurlencode($cuerpo);
 
                     }),
 

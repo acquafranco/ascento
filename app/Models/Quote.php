@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Support\Str;
@@ -10,6 +12,7 @@ use Illuminate\Support\Str;
 class Quote extends Model
 {
 
+    use HasFactory, SoftDeletes;
     use BelongsToCompany;
 
     protected $fillable = [
@@ -35,21 +38,21 @@ class Quote extends Model
 
     public function building()
     {
-        return $this->belongsTo(Building::class);
+        return $this->belongsTo(Building::class)->withTrashed();
     }
 
     public function client()
     {
-        return $this->belongsTo(Client::class);
+        return $this->belongsTo(Client::class)->withTrashed();
     }
 
     public function creator()
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(User::class, 'created_by')->withTrashed();
     }
 
         public function company()
     {
-        return $this->belongsTo(Company::class);
+        return $this->belongsTo(Company::class)->withTrashed();
     }
 }

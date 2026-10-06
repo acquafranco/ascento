@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Users\Widgets;
 
 use App\Models\WorkOrder;
+use Livewire\Attributes\Locked;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
@@ -10,6 +11,8 @@ use App\Support\WorkOrderLabels;
 
 class UserOrdersWidget extends TableWidget
 {
+    // Lo fija la página (ViewUser); el cliente no puede cambiarlo.
+    #[Locked]
     public ?object $record = null;
 
     protected int|string|array $columnSpan = 'full';

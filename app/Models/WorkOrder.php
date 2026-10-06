@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Concerns\BelongsToCompany;
 
 class WorkOrder extends Model
 {
+    use HasFactory, SoftDeletes;
     use BelongsToCompany;
 
     protected $fillable = [
@@ -30,6 +33,10 @@ class WorkOrder extends Model
 
     protected static function booted(): void
     {
+        // Solo se pueden eliminar (soft delete) órdenes que todavía no
+        // tienen historial: pendientes o fallidas y sin remito.
+        static::deleting(fn (WorkOrder $workOrder) => $workOrder->canBeDeleted());
+
         static::creating(function (WorkOrder $workOrder) {
 
             if (Auth::check() && empty($workOrder->company_id)) {
@@ -51,7 +58,7 @@ class WorkOrder extends Model
 
     public function building()
     {
-        return $this->belongsTo(Building::class);
+        return $this->belongsTo(Building::class)->withTrashed();
     }
 
     /**
@@ -63,6 +70,7 @@ class WorkOrder extends Model
             User::class,
             'work_order_user'
         )
+        ->withTrashed()
         ->withTimestamps();
     }
 
@@ -87,6 +95,12 @@ class WorkOrder extends Model
     | SCOPES
     |--------------------------------------------------------------------------
     */
+
+    public function canBeDeleted(): bool
+    {
+        return in_array($this->status, ['pending', 'failed'], true)
+            && ! $this->deliveryNote()->exists();
+    }
 
     public function scopeForCompany($query, $companyId)
     {
@@ -117,6 +131,7 @@ class WorkOrder extends Model
             User::class,
             'work_order_participants'
         )
+        ->withTrashed()
         ->withPivot('role')
         ->withTimestamps();
     }

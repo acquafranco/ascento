@@ -17,7 +17,7 @@ class ReportForm
             ->components([
                 Select::make('building_id')
                     ->label('Edificio')
-                    ->relationship('building', 'name')
+                    ->relationship('building', 'name', fn ($query) => $query->withoutTrashed())
                     ->searchable()
                     ->preload()
                     ->live()
@@ -48,6 +48,13 @@ class ReportForm
                 FileUpload::make('photo')
                     ->label('Foto')
                     ->image()
+                    // image() acepta image/* (incluye SVG, que ejecuta JS
+                    // si se abre desde /storage). Solo formatos raster.
+                    ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                    ->maxSize(10240)
+                    // Disco privado: se sirve por la ruta reports.photo.
+                    ->disk('local')
+                    ->visibility('private')
                     ->directory(fn () => 'reports/' . auth()->user()->company_id),
                 Textarea::make('description')
                     ->label('Descripción')

@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\Inspections\Pages;
 
 use App\Filament\Resources\Inspections\InspectionResource;
-use Filament\Actions\DeleteAction;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Pages\EditRecord;
 
@@ -15,7 +14,6 @@ class EditInspection extends EditRecord
     {
         return [
             ViewAction::make(),
-            DeleteAction::make(),
         ];
     }
 }

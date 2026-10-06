@@ -6,13 +6,14 @@ use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Notifications\Notifiable;
 use App\Notifications\ResetPasswordNotification;
 
 class User extends Authenticatable implements FilamentUser
 {
 
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, SoftDeletes;
 
 
     protected $fillable = [
@@ -24,7 +25,6 @@ class User extends Authenticatable implements FilamentUser
         'role',
         'job_type',
         'phone',
-        'is_super_admin',
     ];
 
     protected $hidden = [
@@ -38,7 +38,51 @@ class User extends Authenticatable implements FilamentUser
         'is_super_admin' => 'boolean',
     ];
 
-   public function canAccessPanel(Panel $panel): bool
+    /*
+    |--------------------------------------------------------------------------
+    | CAMPOS DE AUTORIZACIÓN PROTEGIDOS
+    |--------------------------------------------------------------------------
+    |
+    | is_super_admin no es asignable masivamente (ver $fillable). Además,
+    | desde una request autenticada por alguien que NO es SuperAdmin:
+    | - un usuario nuevo siempre nace en la empresa de quien lo crea;
+    | - nadie puede mover un usuario a otra empresa;
+    | - nadie puede otorgar ni quitar el flag de SuperAdmin.
+    |
+    */
+    protected static function booted(): void
+    {
+        static::creating(function (User $user) {
+            $actor = auth()->user();
+
+            if ($actor && ! $actor->isSuperAdmin()) {
+                $user->company_id = $actor->company_id;
+                $user->is_super_admin = false;
+            }
+        });
+
+        // Nadie puede desactivarse a sí mismo (evita que un admin se deje
+        // afuera, y que un técnico "desaparezca" del historial).
+        static::deleting(fn (User $user) => auth()->id() !== $user->id);
+
+        static::updating(function (User $user) {
+            $actor = auth()->user();
+
+            if (! $actor || $actor->isSuperAdmin()) {
+                return;
+            }
+
+            if ($user->isDirty('company_id')) {
+                $user->company_id = $user->getOriginal('company_id');
+            }
+
+            if ($user->isDirty('is_super_admin')) {
+                $user->is_super_admin = (bool) $user->getOriginal('is_super_admin');
+            }
+        });
+    }
+
+    public function canAccessPanel(Panel $panel): bool
     {
         if ($panel->getId() !== 'ascensores_app') {
             return false;
@@ -50,9 +94,22 @@ class User extends Authenticatable implements FilamentUser
 
         public function isSuperAdmin(): bool
     {
-        return $this->is_super_admin;
+        return (bool) $this->is_super_admin;
     }
 
+
+    /**
+     * Pantalla de inicio según el tipo de usuario: el panel de Filament
+     * para admins/SuperAdmin, el dashboard de la empresa para técnicos.
+     */
+    public function homeUrl(): string
+    {
+        if ($this->isSuperAdmin() || $this->isAdmin() || ! $this->company) {
+            return url('/admin');
+        }
+
+        return route('dashboard', ['company' => $this->company->slug]);
+    }
 
     public function isAdmin(): bool
     {

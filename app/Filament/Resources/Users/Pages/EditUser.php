@@ -13,7 +13,13 @@ class EditUser extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
+            DeleteAction::make()
+                ->label('Desactivar')
+                ->modalHeading('Desactivar técnico')
+                ->modalDescription('No podrá iniciar sesión. Su historial (remitos, visitas, reportes) se conserva y se puede reactivar cuando quieras.')
+                ->modalSubmitActionLabel('Desactivar')
+                ->successNotificationTitle('Desactivado')
+                ->hidden(fn ($record) => $record->is(auth()->user())),
         ];
     }
 }

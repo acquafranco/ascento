@@ -4,13 +4,14 @@ namespace App\Models;
 
 use App\Models\Report;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Company extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'name',
@@ -48,6 +49,11 @@ class Company extends Model
     public function clients()
     {
         return $this->hasMany(Client::class);
+    }
+
+    public function buildings()
+    {
+        return $this->hasMany(Building::class);
     }
 
     public function workOrders()
@@ -132,6 +138,43 @@ class Company extends Model
      * Lo usa EnsureActiveSubscription para dejar pasar a empresas
      * nuevas sin pedirles tarjeta todavía.
      */
+    /**
+     * Regla ÚNICA de acceso de la empresa a Ascento (panel, app de
+     * técnicos y botones de WhatsApp). La usa EnsureActiveSubscription.
+     *
+     * - Empresa desactivada por el SuperAdmin (is_active = false): sin acceso.
+     * - Si alguna vez tuvo suscripción, manda la última:
+     *     authorized / active / trialing → acceso
+     *       (las manuales solo hasta current_period_end, sin esperar al cron);
+     *     canceled con período ya pago vigente → acceso hasta que termine;
+     *     paused / pending / past_due / canceled sin período → sin acceso.
+     * - Si nunca tuvo suscripción: el trial gratuito de la app.
+     */
+    public function hasActiveAccess(): bool
+    {
+        if (! $this->is_active) {
+            return false;
+        }
+
+        $subscription = $this->latestSubscription;
+
+        if (! $subscription) {
+            return $this->onTrial();
+        }
+
+        $periodIsCurrent = $subscription->current_period_end?->isFuture() ?? false;
+
+        if (in_array($subscription->status, ['authorized', 'active', 'trialing'], true)) {
+            return $subscription->provider !== 'manual' || $periodIsCurrent;
+        }
+
+        if (in_array($subscription->status, ['canceled', 'cancelled'], true)) {
+            return $periodIsCurrent;
+        }
+
+        return false;
+    }
+
     public function onTrial(): bool
     {
         return $this->trial_ends_at !== null

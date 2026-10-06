@@ -3,11 +3,14 @@
 namespace App\Filament\Resources\Users\Widgets;
 
 use App\Models\WorkOrder;
+use Livewire\Attributes\Locked;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
 class UserStatsWidget extends StatsOverviewWidget
 {
+    // Lo fija la página (ViewUser); el cliente no puede cambiarlo.
+    #[Locked]
     public ?object $record = null;
 
     protected function getStats(): array

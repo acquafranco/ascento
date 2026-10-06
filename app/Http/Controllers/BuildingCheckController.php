@@ -11,6 +11,7 @@ class BuildingCheckController extends Controller
 
     public function done(
         Request $request,
+        $company,
         Building $building
     ) {
 
@@ -44,6 +45,12 @@ class BuildingCheckController extends Controller
         */
 
         if($visit){
+
+            if (! $visit->canBeUnmarked()) {
+                return back()->withErrors([
+                    'general' => 'Este mantenimiento ya tiene un remito firmado y no se puede desmarcar.',
+                ]);
+            }
 
             $visit->delete();
 

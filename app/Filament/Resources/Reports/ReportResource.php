@@ -75,10 +75,11 @@ class ReportResource extends Resource
             Section::make('Evidencia fotográfica')
                 ->columns(2)
                 ->schema([
+                    // Siempre por la ruta autenticada (disco privado).
                     ImageEntry::make('photo')
                         ->label('Foto')
-                        ->disk('public')
-                        ->url(fn ($record) => $record->photo ? Storage::disk('public')->url($record->photo) : null)
+                        ->state(fn ($record) => $record->photo ? route('reports.photo', $record) : null)
+                        ->url(fn ($record) => $record->photo ? route('reports.photo', $record) : null)
                         ->openUrlInNewTab(),
 
                     Grid::make(1)

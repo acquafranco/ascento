@@ -226,8 +226,8 @@
                                 <span class="text-xs font-bold text-slate-700 uppercase tracking-wider">Técnico</span>
                             </div>
                             <div class="h-24 md:h-28 flex items-center justify-center bg-white px-2">
-                                @if($deliveryNote->signature)
-                                    <img src="{{ $deliveryNote->signature }}" alt="Firma técnico"
+                                @if($deliveryNote->safeSignature('signature'))
+                                    <img src="{{ $deliveryNote->safeSignature('signature') }}" alt="Firma técnico"
                                         class="max-h-20 md:max-h-24 max-w-full object-contain">
                                 @else
                                     <span class="text-slate-300 text-xs">Sin firma</span>
@@ -248,8 +248,8 @@
                                 <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Cliente</span>
                             </div>
                             <div class="h-24 md:h-28 flex items-center justify-center bg-white px-2">
-                                @if($deliveryNote->client_signature)
-                                    <img src="{{ $deliveryNote->client_signature }}" alt="Firma cliente"
+                                @if($deliveryNote->safeSignature('client_signature'))
+                                    <img src="{{ $deliveryNote->safeSignature('client_signature') }}" alt="Firma cliente"
                                         class="max-h-20 md:max-h-24 max-w-full object-contain">
                                 @else
                                     <span class="text-slate-300 text-xs">Sin firma</span>

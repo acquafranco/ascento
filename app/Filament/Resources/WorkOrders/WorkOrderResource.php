@@ -42,6 +42,8 @@ class WorkOrderResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            // Eager loading de lo que usan las columnas/acciones (evita N+1).
+            ->modifyQueryUsing(fn (\Illuminate\Database\Eloquent\Builder $query) => $query->with(['building', 'users']))
             ->columns([
 
                 Tables\Columns\TextColumn::make('building.name')
@@ -172,5 +174,13 @@ public static function shouldRegisterNavigation(): bool
     public static function canAccess(): bool
     {
         return auth()->check();
+    }
+
+    /**
+     * Solo órdenes sin historial (pendientes/fallidas y sin remito).
+     */
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return $record->canBeDeleted();
     }
 }

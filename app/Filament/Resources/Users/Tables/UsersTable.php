@@ -4,6 +4,9 @@ namespace App\Filament\Resources\Users\Tables;
 
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\RestoreAction;
+use Filament\Actions\RestoreBulkAction;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -55,7 +58,11 @@ class UsersTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
 
+            ->filters([
+                TrashedFilter::make()->label('Desactivados'),
+            ])
             ->recordActions([
+                RestoreAction::make()->label('Reactivar'),
 
                 // 🔥 VER USUARIO (correcto en Filament)
                 EditAction::make()
@@ -67,7 +74,10 @@ class UsersTable
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
-                        ->label('Eliminar seleccionados'),
+                        ->label('Desactivar seleccionados')
+                        ->modalHeading('Desactivar seleccionados')
+                        ->modalSubmitActionLabel('Desactivar'),
+                    RestoreBulkAction::make()->label('Reactivar seleccionados'),
                 ]),
             ]);
     }

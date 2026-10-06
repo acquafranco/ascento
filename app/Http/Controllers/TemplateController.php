@@ -15,15 +15,7 @@ class TemplateController extends Controller
 
         $currentCompanyId = auth()->user()->company_id;
 
-        $month = request(
-            'month',
-            now()->month
-        );
-
-        $year = request(
-            'year',
-            now()->year
-        );
+        [$month, $year] = $this->period();
 
         /*
         |--------------------------------------------------------------------------
@@ -169,7 +161,7 @@ class TemplateController extends Controller
 {
     $currentCompanyId = auth()->user()->company_id;
 
-    $date = Carbon::parse($date);
+    $date = $this->parseDate($date);
 
     $visits = BuildingVisit::with([
         'building.client',
@@ -247,8 +239,7 @@ public function userTemplate($company, User $user)
 
     Carbon::setLocale('es');
 
-    $month = request('month', now()->month);
-    $year  = request('year', now()->year);
+    [$month, $year] = $this->period();
 
     $visits = BuildingVisit::with([
         'building.client',
@@ -337,7 +328,7 @@ public function userTemplateDay($company, User $user, $date)
 
     abort_unless($user->company_id === $currentCompanyId, 404);
 
-    $date = Carbon::parse($date);
+    $date = $this->parseDate($date);
 
     $visits = BuildingVisit::with([
         'building.client',
@@ -391,4 +382,36 @@ public function userTemplateDay($company, User $user, $date)
         'user' => $user,
     ]);
 }
+
+    /**
+     * Mes/año pedidos por query string, validados (antes un valor no
+     * numérico terminaba en un 500 al armar las semanas).
+     *
+     * @return array{0: int, 1: int}
+     */
+    private function period(): array
+    {
+        $data = validator(request()->only('month', 'year'), [
+            'month' => 'nullable|integer|between:1,12',
+            'year' => 'nullable|integer|between:2000,2100',
+        ])->validate();
+
+        return [
+            (int) ($data['month'] ?? now()->month),
+            (int) ($data['year'] ?? now()->year),
+        ];
+    }
+
+    private function parseDate(string $date): Carbon
+    {
+        try {
+            $parsed = Carbon::createFromFormat('!Y-m-d', $date);
+        } catch (\Throwable) {
+            abort(404);
+        }
+
+        abort_unless($parsed && $parsed->format('Y-m-d') === $date, 404);
+
+        return $parsed;
+    }
 }

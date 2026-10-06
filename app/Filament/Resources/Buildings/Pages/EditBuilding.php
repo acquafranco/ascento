@@ -13,7 +13,12 @@ class EditBuilding extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
+            DeleteAction::make()
+                ->label('Desactivar')
+                ->modalHeading('Desactivar edificio')
+                ->modalDescription('Deja de aparecer en los listados y en la app de técnicos. Su historial de remitos, órdenes y mantenimientos se conserva y se puede reactivar.')
+                ->modalSubmitActionLabel('Desactivar')
+                ->successNotificationTitle('Desactivado'),
         ];
     }
 }

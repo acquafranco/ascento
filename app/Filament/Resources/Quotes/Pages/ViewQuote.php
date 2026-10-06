@@ -118,10 +118,12 @@ class ViewQuote extends ViewRecord
 
                         Saludos cordiales.";
 
+                    // mailto solo entiende subject/body, y rawurlencode
+                    // (con urlencode los espacios llegan como "+").
                     return 'mailto:' .
-                        $this->record->client?->email .
-                        '?asunto=' . urlencode($asunto) .
-                        '&cuerpo=' . urlencode($cuerpo);
+                        rawurlencode((string) $this->record->client?->email) .
+                        '?subject=' . rawurlencode($asunto) .
+                        '&body=' . rawurlencode($cuerpo);
 
                 }),
 

@@ -16,10 +16,8 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-
-            $table->dropConstrainedForeignId('company_id');
-
-        });
+        // up() no hace nada (company_id se crea en create_users_table), así
+        // que el rollback tampoco: antes borraba users.company_id y dejaba a
+        // todos los usuarios sin empresa.
     }
 };

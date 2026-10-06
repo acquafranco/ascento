@@ -40,7 +40,6 @@ class WhatsAppService
 
         Log::info('WhatsApp request', [
             'url' => $url,
-            'token_prefix' => substr($company->whatsapp_access_token, 0, 10),
             'api_version' => config('services.whatsapp.version'),
             'payload' => [
                 'messaging_product' => 'whatsapp',
@@ -72,7 +71,6 @@ class WhatsAppService
                 'company_id' => $company->id,
                 'phone_number_id' => $company->whatsapp_phone_number_id,
                 'request_url' => $url,
-                'token_prefix' => substr($company->whatsapp_access_token, 0, 10),
                 'sent_to' => $to,
             ]);
 

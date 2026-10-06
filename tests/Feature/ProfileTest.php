@@ -2,39 +2,38 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
 class ProfileTest extends TestCase
 {
-    use RefreshDatabase;
+    use InteractsWithTenants, RefreshDatabase;
+
+    private function profileUrl(array $tenant): string
+    {
+        return "/{$tenant['company']->slug}/profile";
+    }
 
     public function test_profile_page_is_displayed(): void
     {
-        $user = User::factory()->create();
+        $a = $this->makeTenant();
 
-        $response = $this
-            ->actingAs($user)
-            ->get('/profile');
-
-        $response->assertOk();
+        $this->actingAs($a['technician'])->get($this->profileUrl($a))->assertOk();
     }
 
     public function test_profile_information_can_be_updated(): void
     {
-        $user = User::factory()->create();
+        $a = $this->makeTenant();
+        $user = $a['technician'];
 
-        $response = $this
-            ->actingAs($user)
-            ->patch('/profile', [
+        $this->actingAs($user)
+            ->patch($this->profileUrl($a), [
                 'name' => 'Test User',
                 'email' => 'test@example.com',
-            ]);
-
-        $response
+            ])
             ->assertSessionHasNoErrors()
-            ->assertRedirect('/profile');
+            ->assertRedirect($this->profileUrl($a));
 
         $user->refresh();
 
@@ -43,57 +42,70 @@ class ProfileTest extends TestCase
         $this->assertNull($user->email_verified_at);
     }
 
+    public function test_profile_update_ignores_privilege_fields(): void
+    {
+        $a = $this->makeTenant();
+        $b = $this->makeTenant();
+        $user = $a['technician'];
+
+        $this->actingAs($user)
+            ->patch($this->profileUrl($a), [
+                'name' => 'Técnico',
+                'email' => $user->email,
+                'role' => 'admin',
+                'company_id' => $b['company']->id,
+                'is_super_admin' => 1,
+                'job_type' => 'admin',
+            ])
+            ->assertSessionHasNoErrors();
+
+        $user->refresh();
+
+        $this->assertSame('technician', $user->role);
+        $this->assertSame($a['company']->id, $user->company_id);
+        $this->assertFalse($user->isSuperAdmin());
+        $this->assertSame('maintenance', $user->job_type);
+    }
+
+    public function test_email_must_be_unique_across_all_companies(): void
+    {
+        $a = $this->makeTenant();
+        $b = $this->makeTenant();
+
+        $this->actingAs($a['technician'])
+            ->patch($this->profileUrl($a), ['name' => 'x', 'email' => $b['admin']->email])
+            ->assertSessionHasErrors('email');
+    }
+
     public function test_email_verification_status_is_unchanged_when_the_email_address_is_unchanged(): void
     {
-        $user = User::factory()->create();
+        $a = $this->makeTenant();
+        $user = $a['technician'];
 
-        $response = $this
-            ->actingAs($user)
-            ->patch('/profile', [
-                'name' => 'Test User',
-                'email' => $user->email,
-            ]);
-
-        $response
+        $this->actingAs($user)
+            ->patch($this->profileUrl($a), ['name' => 'Test User', 'email' => $user->email])
             ->assertSessionHasNoErrors()
-            ->assertRedirect('/profile');
+            ->assertRedirect($this->profileUrl($a));
 
         $this->assertNotNull($user->refresh()->email_verified_at);
     }
 
-    public function test_user_can_delete_their_account(): void
+    public function test_technician_cannot_delete_their_own_account(): void
     {
-        $user = User::factory()->create();
+        $a = $this->makeTenant();
+        $user = $a['technician'];
 
-        $response = $this
-            ->actingAs($user)
-            ->delete('/profile', [
-                'password' => 'password',
-            ]);
+        $this->actingAs($user)
+            ->get($this->profileUrl($a))
+            ->assertOk()
+            ->assertSee('Baja de la cuenta')
+            ->assertDontSee('confirm-user-deletion');
 
-        $response
-            ->assertSessionHasNoErrors()
-            ->assertRedirect('/');
-
-        $this->assertGuest();
-        $this->assertNull($user->fresh());
-    }
-
-    public function test_correct_password_must_be_provided_to_delete_account(): void
-    {
-        $user = User::factory()->create();
-
-        $response = $this
-            ->actingAs($user)
-            ->from('/profile')
-            ->delete('/profile', [
-                'password' => 'wrong-password',
-            ]);
-
-        $response
-            ->assertSessionHasErrorsIn('userDeletion', 'password')
-            ->assertRedirect('/profile');
+        $this->actingAs($user)
+            ->delete($this->profileUrl($a), ['password' => 'password'])
+            ->assertStatus(405);
 
         $this->assertNotNull($user->fresh());
+        $this->assertNull($user->fresh()->deleted_at);
     }
 }

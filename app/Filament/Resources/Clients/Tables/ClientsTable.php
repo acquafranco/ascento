@@ -4,6 +4,9 @@ namespace App\Filament\Resources\Clients\Tables;
 
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\RestoreAction;
+use Filament\Actions\RestoreBulkAction;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -58,12 +61,20 @@ class ClientsTable
                 ->sortable()
                 ->toggleable(isToggledHiddenByDefault: true),
         ])
-        ->recordActions([
+        ->filters([
+                TrashedFilter::make()->label('Desactivados'),
+            ])
+            ->recordActions([
+                RestoreAction::make()->label('Reactivar'),
             EditAction::make()->label('Editar'),
         ])
         ->toolbarActions([
             BulkActionGroup::make([
-                DeleteBulkAction::make()->label('Eliminar'),
+                DeleteBulkAction::make()
+                        ->label('Desactivar seleccionados')
+                        ->modalHeading('Desactivar seleccionados')
+                        ->modalSubmitActionLabel('Desactivar'),
+                    RestoreBulkAction::make()->label('Reactivar seleccionados'),
             ]),
         ]);
     }

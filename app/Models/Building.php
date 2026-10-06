@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+    use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
     use Illuminate\Database\Eloquent\Model;
     use App\Models\Concerns\BelongsToCompany;
 
     class Building extends Model
     {
 
+        use HasFactory, SoftDeletes;
         use BelongsToCompany;
 
         protected $fillable = [
@@ -46,7 +49,7 @@ namespace App\Models;
 
         public function client()
         {
-            return $this->belongsTo(Client::class);
+            return $this->belongsTo(Client::class)->withTrashed();
         }
 
         public function users()

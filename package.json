@@ -19,5 +19,8 @@
     },
     "dependencies": {
         "axios": "^1.16.1"
+    },
+    "overrides": {
+        "shell-quote": "^1.12.0"
     }
 }

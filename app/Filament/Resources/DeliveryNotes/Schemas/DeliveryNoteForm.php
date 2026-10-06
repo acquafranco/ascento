@@ -2,9 +2,9 @@
 
 namespace App\Filament\Resources\DeliveryNotes\Schemas;
 
-use App\Models\Building;
-use App\Models\User;
-use App\Models\WorkOrder;
+use App\Models\DeliveryNote;
+use App\Support\WorkOrderLabels;
+
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
@@ -47,47 +47,32 @@ class DeliveryNoteForm
                         Grid::make(12)
                             ->schema([
 
+                                // Selects de solo lectura: basta con la opción del propio
+                                // remito (antes se cargaban todos los edificios, órdenes y
+                                // usuarios en cada vista).
                                 Select::make('building_id')
                                     ->label('Edificio')
                                     ->disabled()
                                     ->columnSpan(6)
-                                    ->options(
-                                        Building::query()
-                                            ->orderBy('name')
-                                            ->get()
-                                            ->mapWithKeys(fn ($building) => [
-                                                $building->id => "{$building->name} - {$building->address}",
-                                            ])
-                                    ),
+                                    ->options(fn (?DeliveryNote $record) => $record?->building
+                                        ? [$record->building_id => "{$record->building->name} - {$record->building->address}"]
+                                        : []),
 
                                 Select::make('work_order_id')
                                     ->label('Orden de trabajo')
                                     ->disabled()
                                     ->columnSpan(6)
-                                    ->options(
-                                        WorkOrder::query()
-                                            ->get()
-                                            ->mapWithKeys(fn ($wo) => [
-                                                $wo->id => match ($wo->type) {
-                                                    'maintenance' => 'Mantenimiento',
-                                                    'inspection' => 'Inspección',
-                                                    'claim' => 'Reclamo',
-                                                    'installation' => 'Instalación',
-                                                    'modernization' => 'Modernización',
-                                                    default => $wo->type,
-                                                },
-                                            ])
-                                    ),
+                                    ->options(fn (?DeliveryNote $record) => $record?->workOrder
+                                        ? [$record->work_order_id => WorkOrderLabels::type($record->workOrder->type)]
+                                        : []),
 
                                 Select::make('user_id')
                                     ->label('Técnico')
                                     ->disabled()
                                     ->columnSpan(4)
-                                    ->options(
-                                        User::query()
-                                            ->orderBy('name')
-                                            ->pluck('name', 'id')
-                                    ),
+                                    ->options(fn (?DeliveryNote $record) => $record?->user
+                                        ? [$record->user_id => $record->user->name]
+                                        : []),
 
                                 Select::make('month')
                                     ->label('Mes')

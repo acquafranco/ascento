@@ -174,34 +174,6 @@ return view('buildings.index', compact(
 
 }
 
-    public function show(Building $building)
-    {
-        /*
-        |--------------------------------------------------------------------------
-        | SEGURIDAD
-        |--------------------------------------------------------------------------
-        */
-        if ($building->company_id !== auth()->user()->company_id) {
-            abort(404);
-        }
-
-        abort_unless(
-
-            auth()->user()
-                ->buildings()
-                ->where('company_id', $building->company_id)
-                ->where('buildings.id', $building->id)
-                ->exists(),
-
-            403
-        );
-
-        return view(
-            'buildings.show',
-            compact('building')
-        );
-    }
-
 public function all(Request $request)
 {
     $user = auth()->user();

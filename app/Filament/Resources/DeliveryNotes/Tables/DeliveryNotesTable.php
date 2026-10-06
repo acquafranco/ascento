@@ -16,6 +16,8 @@ class DeliveryNotesTable
     public static function configure(Table $table): Table
     {
         return $table
+            // Eager loading de lo que usan las columnas/acciones (evita N+1).
+            ->modifyQueryUsing(fn (\Illuminate\Database\Eloquent\Builder $query) => $query->with(['building', 'user', 'workOrder', 'buildingVisit', 'company']))
             ->columns([
             TextColumn::make('number')
                 ->label('Remito')
@@ -132,18 +134,13 @@ class DeliveryNotesTable
 
                     ->icon('heroicon-o-document-arrow-down')
 
-                    ->url(function ($record) {
-                        $companyId = session('selected_company_id');
-
-                        $company = $companyId
-                            ? \App\Models\Company::find($companyId)
-                            : null;
-
-                        return route('delivery-notes.pdf', [
-                            'company' => $company?->slug ?? $record->company?->slug,
-                            'deliveryNote' => $record,
-                        ]);
-                    })
+                    // El remito siempre pertenece a la empresa en la que se
+                    // está operando: alcanza con su propia relación (ya
+                    // cargada), sin un Company::find() por fila.
+                    ->url(fn ($record) => route('delivery-notes.pdf', [
+                        'company' => $record->company?->slug,
+                        'deliveryNote' => $record,
+                    ]))
 
                     ->openUrlInNewTab(),
             ]);
