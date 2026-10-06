@@ -21,7 +21,7 @@ class WhatsAppWebhookController extends Controller
     {
         $verifyToken = config('services.whatsapp.verify_token');
 
-        if ($request->query('hub_verify_token') === $verifyToken) {
+        if (filled($verifyToken) && hash_equals((string) $verifyToken, (string) $request->query('hub_verify_token'))) {
             return response($request->query('hub_challenge'), 200);
         }
 
@@ -30,7 +30,13 @@ class WhatsAppWebhookController extends Controller
 
     public function handle(Request $request)
     {
-        Log::info('================ WEBHOOK DISPARADO ================');
+        // Sin firma válida de Meta no se procesa nada: este endpoint es
+        // público y cambia el estado de órdenes de trabajo.
+        if (! $this->hasValidSignature($request)) {
+            Log::warning('WHATSAPP WEBHOOK RECHAZADO: firma inválida');
+
+            return response()->json(['status' => 'invalid_signature'], 403);
+        }
 
         $payload = $request->all();
 
@@ -76,11 +82,7 @@ class WhatsAppWebhookController extends Controller
                 $buttonId
             );
 
-            $technician = User::query()
-                ->where('phone', $phone)
-                ->first();
-
-            $workOrder = WorkOrder::find($workOrderId);
+            [$workOrder, $technician] = $this->resolveAssignment($workOrderId, $phone);
 
             Log::info('Tomar orden detectado', [
                 'work_order_id' => $workOrderId,
@@ -140,11 +142,7 @@ class WhatsAppWebhookController extends Controller
                 $buttonId
             );
 
-            $technician = User::query()
-                ->where('phone', $phone)
-                ->first();
-
-            $workOrder = WorkOrder::find($workOrderId);
+            [$workOrder, $technician] = $this->resolveAssignment($workOrderId, $phone);
 
             if (! $technician || ! $workOrder) {
                 Log::warning('No se encontró técnico o trabajo al finalizar', [
@@ -187,5 +185,53 @@ class WhatsAppWebhookController extends Controller
         return response()->json([
             'status' => 'ignored_unknown_button',
         ], 200);
+    }
+
+    /**
+     * Valida X-Hub-Signature-256 (HMAC-SHA256 del body crudo con el App
+     * Secret). Si el secret no está configurado, se rechaza: es preferible
+     * que los botones dejen de funcionar a aceptar requests falsificados.
+     */
+    private function hasValidSignature(Request $request): bool
+    {
+        $secret = (string) config('services.whatsapp.app_secret');
+        $header = (string) $request->header('X-Hub-Signature-256');
+
+        if ($secret === '' || ! str_starts_with($header, 'sha256=')) {
+            return false;
+        }
+
+        $expected = 'sha256=' . hash_hmac('sha256', $request->getContent(), $secret);
+
+        return hash_equals($expected, $header);
+    }
+
+    /**
+     * Busca la orden y, DENTRO DE SU EMPRESA, al técnico asignado con ese
+     * teléfono. Un mismo número puede existir en más de una empresa, y un
+     * técnico no asignado no puede operar la orden.
+     *
+     * @return array{0: ?WorkOrder, 1: ?User}
+     */
+    private function resolveAssignment(string $workOrderId, string $phone): array
+    {
+        if (! ctype_digit($workOrderId)) {
+            return [null, null];
+        }
+
+        $workOrder = WorkOrder::withoutGlobalScopes()->find((int) $workOrderId);
+
+        // Empresa sin suscripción/trial vigente: los botones no operan,
+        // igual que la app web.
+        if (! $workOrder || ! $workOrder->company?->hasActiveAccess()) {
+            return [null, null];
+        }
+
+        $technician = $workOrder->users()
+            ->where('users.company_id', $workOrder->company_id)
+            ->where('users.phone', $phone)
+            ->first();
+
+        return [$workOrder, $technician];
     }
 }

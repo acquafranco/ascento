@@ -14,7 +14,8 @@ use App\Http\Controllers\{
     DeliveryNoteController,
     WhatsAppController,
     ReportController,
-    SubscriptionController
+    SubscriptionController,
+    ReportPhotoController
 };
 
 use App\Models\User;
@@ -72,6 +73,8 @@ Route::prefix('{company:slug}')
         'auth',
         'company',
         'company.defaults',
+        // Sin suscripción/trial vigente no se opera (técnicos ni admins).
+        'subscription',
     ])
     ->scopeBindings()
     ->group(function () {
@@ -79,7 +82,7 @@ Route::prefix('{company:slug}')
     Route::get('/whatsapp/connect', [
         WhatsAppController::class,
         'connect'
-    ])->name('whatsapp.connect');
+    ])->middleware('admin')->name('whatsapp.connect');
 
     /*
     |--------------------------------------------------------------------------
@@ -107,8 +110,6 @@ Route::prefix('{company:slug}')
         Route::patch('/profile', 'update')
             ->name('profile.update');
 
-        Route::delete('/profile', 'destroy')
-            ->name('profile.destroy');
 
     });
 
@@ -130,12 +131,6 @@ Route::prefix('{company:slug}')
     ])->name('buildings.index');
 
 
-    Route::get('/buildings/{building}', [
-        BuildingController::class,
-        'show'
-    ])->name('buildings.show');
-
-
 
     /*
     |--------------------------------------------------------------------------
@@ -152,7 +147,7 @@ Route::prefix('{company:slug}')
     Route::get('/my-templates/day/{date}', [
         TemplateController::class,
         'day'
-    ])->name('templates.day');
+    ])->where('date', '\d{4}-\d{2}-\d{2}')->name('templates.day');
 
 
 
@@ -203,7 +198,7 @@ Route::prefix('{company:slug}')
             Route::get('/users/{user}/template/day/{date}', [
                 TemplateController::class,
                 'userTemplateDay',
-            ])->name('users.template.day');
+            ])->where('date', '\d{4}-\d{2}-\d{2}')->name('users.template.day');
 
         });
 
@@ -244,12 +239,6 @@ Route::prefix('{company:slug}')
         BuildingCheckController::class,
         'done'
     ])->name('building-check.done');
-
-
-    Route::post('/building-check/{building}/failed',[
-        BuildingCheckController::class,
-        'failed'
-    ])->name('building-check.failed');
 
 
 
@@ -302,18 +291,15 @@ Route::prefix('{company:slug}')
     Route::middleware('admin')->group(function(){
 
 
-        Route::resource(
-            'buildings',
-            BuildingController::class
-        )->except([
-            'index',
-            'show'
-        ]);
-
+        // El CRUD de edificios y clientes vive en Filament (/admin).
+        // Acá solo quedan las vistas de lectura que existen realmente.
         Route::resource(
             'clients',
             ClientController::class
-        );
+        )->only([
+            'index',
+            'show',
+        ]);
 
 
 
@@ -332,10 +318,23 @@ Route::prefix('{company:slug}')
 });
 
 
+/*
+|--------------------------------------------------------------------------
+| ARCHIVOS PRIVADOS
+|--------------------------------------------------------------------------
+| Las fotos de reportes viven en el disco privado: solo se descargan por
+| acá, con sesión y permisos (ver ReportPhotoController).
+*/
+
+Route::get('/files/reports/{report}/photo', ReportPhotoController::class)
+    ->middleware('auth')
+    ->whereNumber('report')
+    ->name('reports.photo');
+
 Route::get('/whatsapp/callback', [
     WhatsAppController::class,
     'callback'
-])->name('whatsapp.callback');
+])->middleware('auth')->name('whatsapp.callback');
 
 /*
 |--------------------------------------------------------------------------

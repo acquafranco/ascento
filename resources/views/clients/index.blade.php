@@ -6,9 +6,9 @@
 
     <div class="bg-white rounded-xl shadow overflow-hidden">
 
-        @foreach($clients as $client)
+        @forelse($clients as $client)
 
-            <a href="{{ route('clients.show', $client) }}"
+            <a href="{{ route('clients.show', ['client' => $client]) }}"
                class="block p-4 border-b hover:bg-gray-50">
 
                 <div class="font-semibold">
@@ -21,7 +21,11 @@
 
             </a>
 
-        @endforeach
+        @empty
+
+            <p class="p-4 text-gray-500">Todavía no hay clientes cargados.</p>
+
+        @endforelse
 
     </div>
 

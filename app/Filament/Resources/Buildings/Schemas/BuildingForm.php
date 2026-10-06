@@ -10,23 +10,12 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
-use Filament\Forms\Components\Hidden;
 
 class BuildingForm
 {
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
-
-
-            Hidden::make('company_id')
-                ->default(function () {
-                    $user = auth()->user();
-
-                    return $user->isSuperAdmin()
-                        ? session('selected_company_id')
-                        : $user->company_id;
-                }),
 
 
             Select::make('client_id')
@@ -40,7 +29,7 @@ class BuildingForm
                             ? session('selected_company_id')
                             : $user->company_id;
 
-                        return $query->where('company_id', $companyId);
+                        return $query->withoutTrashed()->where('company_id', $companyId);
                     }
                 )
                 ->searchable()

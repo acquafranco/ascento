@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Notifications\NewReportNotification;
 use App\Models\User;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Imagick\Driver as ImagickDriver;
 use Intervention\Image\Encoders\WebpEncoder;
@@ -52,7 +53,10 @@ class ReportController extends Controller
             $company->id
         )
         ->where('is_active',true)
-        ->get();
+        ->orderBy('name')
+        // Solo lo que usa el buscador del formulario (se serializa a JSON
+        // en la página).
+        ->get(['id', 'name', 'address', 'elevator_count', 'freight_elevator_count']);
 
 
         return view(
@@ -90,41 +94,31 @@ class ReportController extends Controller
             403
         );
 
-        logger()->info('ENTRO STORE REPORTE', [
-            'has_photo' => $request->hasFile('photo'),
-            'files' => array_keys($request->allFiles()),
-        ]);
 
-        if ($request->hasFile('photo')) {
-            logger()->info('FOTO ANTES VALIDACION', [
-                'name' => $request->file('photo')->getClientOriginalName(),
-                'mime' => $request->file('photo')->getMimeType(),
-                'client_mime' => $request->file('photo')->getClientMimeType(),
-                'size' => $request->file('photo')->getSize(),
-            ]);
-        }
 
         $data = $request->validate([
 
-            'building_id'=>'required|exists:buildings,id',
+            'building_id'=>'required|integer',
             'elevator_number'=>'required|string|max:255',
-            'description'=>'required|string|min:5',
+            'description'=>'required|string|min:5|max:5000',
             'priority'=>'required|in:baja,media,alta,critica',
+            // Solo fotos: nada de SVG/PDF/etc. (se decodifican con Imagick).
             'photo' => [
                 'required',
                 'file',
-                'max:10240'
+                'max:10240',
+                'mimes:jpg,jpeg,png,webp,heic,heif',
             ],
 
         ], [
             'building_id.required'=>'Tenés que seleccionar un edificio.',
-            'building_id.exists'=>'El edificio seleccionado no existe.',
+
             'elevator_number.required'=>'Tenés que seleccionar un equipo.',
             'description.required'=>'La descripción es obligatoria.',
             'description.min'=>'La descripción debe tener al menos 5 caracteres.',
             'priority.required'=>'Seleccioná una prioridad.',
             'photo.required'=>'Tenés que adjuntar una imagen.',
-            'photo.mimetypes'=>'Formato de imagen no permitido.',
+            'photo.mimes'=>'Formato de imagen no permitido. Usá JPG, PNG, WEBP o HEIC.',
             'photo.max'=>'La imagen no puede superar los 10 MB.',
         ]);
 
@@ -139,11 +133,6 @@ class ReportController extends Controller
                 ->withInput();
         }
 
-        logger()->info('Archivo recibido', [
-            'name' => $request->file('photo')->getClientOriginalName(),
-            'mime' => $request->file('photo')->getMimeType(),
-            'size' => $request->file('photo')->getSize(),
-        ]);
 
 
         if($request->hasFile('photo')){
@@ -153,7 +142,9 @@ class ReportController extends Controller
 
                 $filename = Str::random(40).'.jpg';
 
-                $fullPath = storage_path('app/public/'.$folder.'/'.$filename);
+                // Disco privado (storage/app/private): la foto solo se sirve
+                // por ReportPhotoController, que valida empresa y permisos.
+                $fullPath = Storage::disk('local')->path($folder.'/'.$filename);
 
                 if (!file_exists(dirname($fullPath))) {
                     mkdir(dirname($fullPath), 0755, true);
@@ -163,19 +154,10 @@ class ReportController extends Controller
 
                 $image = $manager->decode(fopen($request->file('photo')->getRealPath(), 'rb'));
 
-                logger()->info('Imagen cargada', [
-                    'path' => $request->file('photo')->getRealPath(),
-                    'width' => $image->width(),
-                    'height' => $image->height(),
-                    'mime' => $request->file('photo')->getMimeType(),
-                ]);
 
                 $image->encode(new \Intervention\Image\Encoders\JpegEncoder(quality: 90))
                 ->save($fullPath);
 
-                logger()->info('Imagen guardada correctamente', [
-                    'path' => $fullPath,
-                ]);
 
                 $data['photo'] = $folder.'/'.$filename;
 
@@ -195,7 +177,6 @@ class ReportController extends Controller
         }
 
 
-        logger()->info('Antes de crear reporte');
 
         $report = Report::create([
 
@@ -207,9 +188,6 @@ class ReportController extends Controller
 
         ]);
 
-        logger()->info('Reporte creado correctamente', [
-            'report_id' => $report->id,
-        ]);
 
 
         $report->load('building');
@@ -220,26 +198,13 @@ class ReportController extends Controller
             ->where('is_super_admin', false)
             ->get();
 
-        logger()->info('Admins encontrados para notificacion', [
-            'cantidad' => $admins->count(),
-            'admins' => $admins->pluck('email'),
-        ]);
 
 
         try {
             foreach ($admins as $admin) {
-                logger()->info('Intentando enviar notificacion de reporte', [
-                    'admin_id' => $admin->id,
-                    'admin_email' => $admin->email,
-                    'report_id' => $report->id,
-                ]);
 
                 $admin->notify(new NewReportNotification($report));
 
-                logger()->info('Notificacion enviada correctamente', [
-                    'admin_id' => $admin->id,
-                    'report_id' => $report->id,
-                ]);
             }
         } catch (\Throwable $e) {
             logger()->error('Error enviando notificacion de reporte', [

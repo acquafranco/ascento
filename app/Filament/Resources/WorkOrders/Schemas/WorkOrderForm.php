@@ -30,6 +30,7 @@ class WorkOrderForm
                                 : $user->company_id;
 
                             return $query
+                                ->withoutTrashed()
                                 ->where('company_id', $companyId)
                                 ->orderBy('name');
                         },
@@ -141,6 +142,7 @@ class WorkOrderForm
                                 : $user->company_id;
 
                             return $query
+                                ->withoutTrashed()
                                 ->where('company_id', $companyId)
                                 ->where('role', 'technician')
                                 ->orderBy('name');

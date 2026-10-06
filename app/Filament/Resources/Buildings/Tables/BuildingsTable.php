@@ -9,6 +9,9 @@ use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\RestoreAction;
+use Filament\Actions\RestoreBulkAction;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -20,6 +23,8 @@ class BuildingsTable
     ): Table
     {
         return $table
+            // Eager loading de lo que usan las columnas/acciones (evita N+1).
+            ->modifyQueryUsing(fn (\Illuminate\Database\Eloquent\Builder $query) => $query->with(['client', 'users']))
             ->columns([
 
                 TextColumn::make('name')
@@ -83,6 +88,7 @@ class BuildingsTable
             ])
 
             ->recordActions([
+                RestoreAction::make()->label('Reactivar'),
 
                 EditAction::make(),
 
@@ -289,6 +295,7 @@ class BuildingsTable
                     ),
             ])
                 ->filters([
+                TrashedFilter::make()->label('Desactivados'),
                     SelectFilter::make('locality')
                         ->label('Localidad')
                         ->options(function () {
@@ -308,7 +315,11 @@ class BuildingsTable
             ->toolbarActions([
 
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->label('Desactivar seleccionados')
+                        ->modalHeading('Desactivar seleccionados')
+                        ->modalSubmitActionLabel('Desactivar'),
+                    RestoreBulkAction::make()->label('Reactivar seleccionados'),
                 ]),
 
             ]);

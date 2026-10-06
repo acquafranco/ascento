@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources\Clients\Schemas;
 
-use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
@@ -14,15 +13,6 @@ class ClientForm
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
-
-            Hidden::make('company_id')
-                ->default(function () {
-                    $user = auth()->user();
-
-                    return $user->isSuperAdmin()
-                        ? session('selected_company_id')
-                        : $user->company_id;
-                }),
 
             TextInput::make('name')
                 ->label('Nombre')

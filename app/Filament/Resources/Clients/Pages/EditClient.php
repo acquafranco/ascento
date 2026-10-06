@@ -13,7 +13,12 @@ class EditClient extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
+            DeleteAction::make()
+                ->label('Desactivar')
+                ->modalHeading('Desactivar cliente')
+                ->modalDescription('Deja de aparecer en los listados. Sus edificios, remitos y presupuestos se conservan y se puede reactivar.')
+                ->modalSubmitActionLabel('Desactivar')
+                ->successNotificationTitle('Desactivado'),
         ];
     }
 }

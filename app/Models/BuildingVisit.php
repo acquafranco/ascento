@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Concerns\BelongsToCompany;
 
 class BuildingVisit extends Model
 {
+    use HasFactory;
     use BelongsToCompany;
 
     protected $fillable = [
@@ -48,19 +50,19 @@ class BuildingVisit extends Model
 
     public function building()
     {
-        return $this->belongsTo(Building::class);
+        return $this->belongsTo(Building::class)->withTrashed();
     }
 
 
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class)->withTrashed();
     }
 
 
     public function workOrder()
     {
-        return $this->belongsTo(WorkOrder::class);
+        return $this->belongsTo(WorkOrder::class)->withTrashed();
     }
 
 
@@ -72,7 +74,15 @@ class BuildingVisit extends Model
 
     public function company()
     {
-        return $this->belongsTo(Company::class);
+        return $this->belongsTo(Company::class)->withTrashed();
+    }
+
+    /**
+     * Una visita con remito es historial documentado: no se puede desmarcar.
+     */
+    public function canBeUnmarked(): bool
+    {
+        return ! $this->deliveryNote()->exists();
     }
 
     public function participants()
@@ -80,7 +90,8 @@ class BuildingVisit extends Model
         return $this->belongsToMany(
             User::class,
             'building_visit_participants'
-        )->withPivot('role')
+        )->withTrashed()
+        ->withPivot('role')
         ->withTimestamps();
     }
 

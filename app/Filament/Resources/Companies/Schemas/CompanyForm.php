@@ -33,6 +33,8 @@ class CompanyForm
                     ->required()
                     ->default('#2563eb'),
                 Toggle::make('is_active')
+                    ->label('Empresa activa')
+                    ->helperText('Si se desactiva, nadie de la empresa puede operar (aunque tenga suscripción paga).')
                     ->required(),
                 Section::make('WhatsApp Business')
                     ->components([

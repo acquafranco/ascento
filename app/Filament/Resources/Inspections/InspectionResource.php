@@ -118,5 +118,17 @@ public static function getEloquentQuery(): Builder
         return auth()->check();
     }
 
+    /**
+     * Los remitos (y por lo tanto mantenimientos e inspecciones) son
+     * historial firmado: no se eliminan. El modelo también lo impide.
+     */
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return false;
+    }
 
+    public static function canDeleteAny(): bool
+    {
+        return false;
+    }
 }

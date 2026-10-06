@@ -2,11 +2,16 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Concerns\BelongsToCompany;
 
 class Report extends Model
 {
 
+    use HasFactory, SoftDeletes;
+    use BelongsToCompany;
     protected $fillable = [
 
         'company_id',
@@ -29,13 +34,13 @@ class Report extends Model
 
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class)->withTrashed();
     }
 
 
     public function building()
     {
-        return $this->belongsTo(Building::class);
+        return $this->belongsTo(Building::class)->withTrashed();
     }
 
 }

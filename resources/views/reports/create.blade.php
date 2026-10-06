@@ -193,7 +193,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
             item.type = 'button';
             item.className = 'w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-100';
-            item.innerHTML = `${building.name}<br><span class="text-xs text-gray-500">${building.address ?? ''}</span>`;
+            // textContent: nombre y dirección son texto cargado por usuarios.
+            const name = document.createElement('span');
+            name.textContent = building.name;
+
+            const address = document.createElement('span');
+            address.className = 'block text-xs text-gray-500';
+            address.textContent = building.address ?? '';
+
+            item.append(name, address);
 
             item.onclick = () => {
                 buildingSelect.value = building.id;

@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\Company;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class DeliveryNoteController extends Controller
 {
@@ -189,33 +190,62 @@ class DeliveryNoteController extends Controller
 
     public function store(Request $request)
 {
+    $companyId = auth()->user()->company_id;
+
+    // Firma dibujada en canvas: solo data URLs de imagen, con tope de tamaño.
+    $signatureRule = 'regex:/^data:image\/(png|jpeg);base64,[A-Za-z0-9+\/=]+$/';
+
     $request->validate(
         [
-            'building_id' => 'required|exists:buildings,id',
-            'work_order_id' => 'nullable|exists:work_orders,id',
-            'description' => 'required|string',
-            'month' => 'nullable|integer|min:1|max:12',
-            'year' => 'nullable|integer',
-            'elevator_quantity' => 'required|integer|min:0',
-            'freight_elevator_quantity' => 'required|integer|min:0',
-            'assignment_type' => 'required|in:maintenance,inspection,work_order',
+            'building_id' => 'required|integer',
+            'work_order_id' => 'nullable|integer',
+            'description' => 'required|string|max:5000',
+            'month' => 'nullable|integer|between:1,12',
+            'year' => 'nullable|integer|between:2000,2100',
+            'elevator_quantity' => 'required|integer|min:0|max:500',
+            'freight_elevator_quantity' => 'required|integer|min:0|max:500',
+            'assignment_type' => [
+                'required',
+                $request->filled('work_order_id')
+                    ? Rule::in(['maintenance', 'inspection', 'work_order'])
+                    : Rule::in(['maintenance', 'inspection']),
+            ],
             'signature_name' => 'required|string|max:255',
-            'signature' => 'required|string|min:100',
-            'client_signature' => 'nullable|string',
+            'signature' => ['required', 'string', 'min:100', 'max:1000000', $signatureRule],
+            'client_signature' => ['nullable', 'string', 'max:1000000', $signatureRule],
             'client_signature_name' => 'nullable|string|max:255',
-            'participants' => 'nullable|array',
-            'participants.*' => 'exists:users,id',
+            'participants' => 'nullable|array|max:20',
+            // Los participantes tienen que ser de la MISMA empresa.
+            'participants.*' => [
+                'integer',
+                Rule::exists('users', 'id')->where('company_id', $companyId),
+            ],
         ],
         [
             'description.required' => 'Debe escribir el trabajo realizado.',
             'signature.required' => 'Debe realizar la firma del técnico.',
+            'signature.regex' => 'La firma del técnico no es válida. Volvé a firmar.',
+            'client_signature.regex' => 'La firma del cliente no es válida. Volvé a firmar.',
             'signature_name.required' => 'Debe escribir el nombre del técnico.',
             'building_id.required' => 'No se encontró el edificio.',
             'assignment_type.required' => 'No se pudo identificar el tipo de trabajo.',
+            'assignment_type.in' => 'El tipo de trabajo no es válido.',
+            'participants.*.exists' => 'Uno de los participantes no pertenece a tu empresa.',
         ]
     );
 
-    return DB::transaction(function () use ($request) {
+    // month/year son NOT NULL en la base: si no vienen, el período actual.
+    $request->merge([
+        'month' => $request->filled('month') ? (int) $request->input('month') : now()->month,
+        'year' => $request->filled('year') ? (int) $request->input('year') : now()->year,
+    ]);
+
+    return DB::transaction(function () use ($request, $companyId) {
+
+        // Serializa la creación de remitos por empresa: el número se
+        // calcula como max(number) + 1 y dos técnicos simultáneos
+        // obtendrían el mismo valor (violando el unique company+number).
+        Company::whereKey($companyId)->lockForUpdate()->first();
 
         $workOrder = null;
 

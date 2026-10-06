@@ -5,12 +5,14 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Company;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Contracts\Encryption\DecryptException;
 
 class WhatsAppController extends Controller
 {
     public function connect(Request $request)
     {
-        $company = Company::where('slug', $request->route('company'))->firstOrFail();
+        // El middleware "company" ya resolvió y validó la empresa de la URL.
+        $company = app('company');
 
         $appId = config('services.facebook.client_id');
 
@@ -37,9 +39,25 @@ class WhatsAppController extends Controller
 
     public function callback(Request $request)
     {
-        $state = decrypt($request->input('state'));
+        try {
+            $state = decrypt((string) $request->input('state'));
+        } catch (DecryptException) {
+            abort(400, 'Solicitud de conexión inválida.');
+        }
 
-        $company = \App\Models\Company::findOrFail($state['company_id']);
+        // El state solo vale para el mismo admin que inició la conexión,
+        // y solo para su propia empresa.
+        $user = $request->user();
+
+        abort_unless(
+            is_array($state)
+                && ($state['user_id'] ?? null) === $user->id
+                && ($state['company_id'] ?? null) === $user->company_id
+                && $user->isAdmin(),
+            403
+        );
+
+        $company = Company::findOrFail($state['company_id']);
 
         $response = Http::asForm()->post('https://graph.facebook.com/v26.0/oauth/access_token', [
             'client_id' => config('services.facebook.client_id'),

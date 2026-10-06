@@ -109,10 +109,12 @@ class DeliveryNoteInfolist
 
                                 ImageEntry::make('signature')
                                     ->label('Firma técnico')
+                                    ->state(fn ($record) => $record?->safeSignature('signature'))
                                     ->height(120),
 
                                 ImageEntry::make('client_signature')
                                     ->label('Firma cliente')
+                                    ->state(fn ($record) => $record?->safeSignature('client_signature'))
                                     ->height(120),
                             ]),
 

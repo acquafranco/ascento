@@ -32,8 +32,7 @@ class ReportsTable
 
                 ImageColumn::make('photo')
                     ->label('Foto')
-                    ->disk('public')
-                    ->visibility('public')
+                    ->state(fn ($record) => $record->photo ? route('reports.photo', $record) : null)
                     ->size(60)
                     ->square(),
 

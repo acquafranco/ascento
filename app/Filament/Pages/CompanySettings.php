@@ -55,10 +55,9 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
         'address' => $company->address,
         'logo' => $company->logo,
         'primary_color' => $company->primary_color,
-        'whatsapp_business_id' => $company->whatsapp_business_id,
-        'whatsapp_waba_id' => $company->whatsapp_waba_id,
-        'whatsapp_phone_number_id' => $company->whatsapp_phone_number_id,
-        'whatsapp_access_token' => $company->whatsapp_access_token,
+        // Los datos de WhatsApp (incluido el access token) NO se cargan
+        // acá: todo lo que entra al form viaja al navegador en el estado
+        // de Livewire.
     ]);
 }
 
@@ -96,6 +95,7 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
 
                     TextInput::make('name')
                         ->label('Nombre interno')
+                        ->maxLength(255)
                         ->placeholder('Empresa Ascensores')
                         ->prefixIcon('heroicon-o-tag')
                         ->required()
@@ -103,18 +103,21 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
 
                     TextInput::make('business_name')
                         ->label('Razón social')
+                        ->maxLength(255)
                         ->placeholder('Empresa Ascensores S.R.L.')
                         ->prefixIcon('heroicon-o-building-office')
                         ->columnSpan(5),
 
                     TextInput::make('cuit')
                         ->label('CUIT')
+                        ->maxLength(20)
                         ->placeholder('30-12345678-9')
                         ->prefixIcon('heroicon-o-identification')
                         ->columnSpan(4),
 
                     TextInput::make('phone')
                         ->label('Teléfono')
+                        ->maxLength(50)
                         ->tel()
                         ->placeholder('+54 11 1234-5678')
                         ->prefixIcon('heroicon-o-phone')
@@ -122,6 +125,7 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
 
                     TextInput::make('email')
                         ->label('Email')
+                        ->maxLength(255)
                         ->email()
                         ->placeholder('contacto@empresa.com')
                         ->prefixIcon('heroicon-o-envelope')
@@ -129,6 +133,7 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
 
                     TextInput::make('address')
                         ->label('Dirección')
+                        ->maxLength(255)
                         ->placeholder('Av. Corrientes 1234')
                         ->prefixIcon('heroicon-o-map-pin')
                         ->columnSpanFull(),
@@ -180,10 +185,10 @@ public function save(): void
         abort(403);
     }
 
+    // getState() solo devuelve los campos del formulario: el estado de
+    // WhatsApp no se toca desde acá (antes se recalculaba con campos que
+    // no están en el form y cada guardado desconectaba WhatsApp).
     $data = $this->form->getState();
-
-    $data['whatsapp_connected'] = ! empty($data['whatsapp_access_token'])
-        && ! empty($data['whatsapp_phone_number_id']);
 
     $user->company->update($data);
 

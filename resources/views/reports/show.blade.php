@@ -92,7 +92,7 @@
 
                 <div class="flex justify-center">
                     <div class="rounded-2xl border border-slate-200 bg-slate-50 overflow-hidden shadow-sm" style="width:128px;height:128px;flex:0 0 128px;">
-                        <img src="{{ asset('storage/' . $report->photo) }}"
+                        <img src="{{ route('reports.photo', $report) }}"
                              loading="lazy"
                              width="128" height="128"
                              class="block w-full h-full max-w-none max-h-none object-cover"

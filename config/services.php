@@ -35,10 +35,6 @@ return [
         ],
     ],
 
-        'whatsapp' => [
-        'version' => env('WHATSAPP_API_VERSION', 'v23.0'),
-    ],
-
         'facebook' => [
         'client_id' => env('FACEBOOK_CLIENT_ID'),
         'client_secret' => env('FACEBOOK_CLIENT_SECRET'),
@@ -47,6 +43,10 @@ return [
         'whatsapp' => [
         'version' => env('WHATSAPP_API_VERSION', 'v23.0'),
         'verify_token' => env('WHATSAPP_VERIFY_TOKEN'),
+        // Meta firma cada webhook con el App Secret (X-Hub-Signature-256).
+        // Si la app de WhatsApp es la misma que la de Facebook Login,
+        // alcanza con FACEBOOK_CLIENT_SECRET.
+        'app_secret' => env('WHATSAPP_APP_SECRET', env('FACEBOOK_CLIENT_SECRET')),
     ],
 
         'mercadopago' => [

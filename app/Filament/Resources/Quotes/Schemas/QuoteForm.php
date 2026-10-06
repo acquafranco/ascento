@@ -29,7 +29,7 @@ class QuoteForm
                     ->schema([
 
                         Select::make('client_id')
-                            ->relationship('client', 'name')
+                            ->relationship('client', 'name', fn ($query) => $query->withoutTrashed())
                             ->searchable()
                             ->preload()
                             ->required()
@@ -41,7 +41,7 @@ class QuoteForm
                                 'building',
                                 'name',
                                 fn ($query, callable $get) =>
-                                    $query->where('client_id', $get('client_id'))
+                                    $query->withoutTrashed()->where('client_id', $get('client_id'))
                             )
                             ->searchable()
                             ->preload()

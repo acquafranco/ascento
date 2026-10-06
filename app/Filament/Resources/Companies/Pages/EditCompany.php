@@ -13,7 +13,12 @@ class EditCompany extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
+            DeleteAction::make()
+                ->label('Desactivar')
+                ->modalHeading('Desactivar empresa')
+                ->modalDescription('Sus usuarios pierden el acceso. Todos los datos se conservan y la empresa se puede reactivar.')
+                ->modalSubmitActionLabel('Desactivar')
+                ->successNotificationTitle('Desactivado'),
         ];
     }
 }

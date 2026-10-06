@@ -140,6 +140,12 @@ class WorkOrderController extends Controller
             abort(404);
         }
 
+        // Solo los técnicos asignados pueden tomar la orden (el remito
+        // final también exige estar asignado).
+        if (! $user->isAdmin() && ! $workOrder->users()->whereKey($user->id)->exists()) {
+            abort(403, 'No estás asignado a esta orden de trabajo.');
+        }
+
         $this->workOrderService->start($workOrder, $user);
 
 
