@@ -36,6 +36,8 @@ class User extends Authenticatable implements FilamentUser
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
         'is_super_admin' => 'boolean',
+        'onboarding_completed_at' => 'datetime',
+        'onboarding_skipped_at' => 'datetime',
     ];
 
     /*
@@ -109,6 +111,25 @@ class User extends Authenticatable implements FilamentUser
         }
 
         return route('dashboard', ['company' => $this->company->slug]);
+    }
+
+    /**
+     * La guía de bienvenida del panel es para administradores de empresa
+     * (el SuperAdmin no tiene "Mi empresa" ni opera una empresa propia).
+     */
+    public function canUseOnboarding(): bool
+    {
+        return $this->isAdmin() && ! $this->isSuperAdmin() && $this->company_id !== null;
+    }
+
+    /**
+     * Se abre sola solo la primera vez: hasta que la termine o la omita.
+     */
+    public function shouldAutoStartOnboarding(): bool
+    {
+        return $this->canUseOnboarding()
+            && $this->onboarding_completed_at === null
+            && $this->onboarding_skipped_at === null;
     }
 
     public function isAdmin(): bool

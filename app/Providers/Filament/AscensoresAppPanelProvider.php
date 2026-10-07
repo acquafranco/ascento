@@ -17,6 +17,8 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use App\Http\Middleware\SetCompanyTheme;
+use Filament\View\PanelsRenderHook;
+use Illuminate\Support\Facades\Blade;
 
 class AscensoresAppPanelProvider extends PanelProvider
 {
@@ -69,6 +71,22 @@ class AscensoresAppPanelProvider extends PanelProvider
             )
 
             ->widgets([])
+
+            // Guía de bienvenida + ayuda: solo para admins de empresa.
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_END,
+                fn (): string => auth()->user()?->canUseOnboarding()
+                    ? view('filament.partials.help-button')->render()
+                    : '',
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn (): string => auth()->user()?->canUseOnboarding()
+                    ? Blade::render('@livewire(\App\Livewire\AdminOnboarding::class, [\'routeName\' => $routeName])', [
+                        'routeName' => (string) request()->route()?->getName(),
+                    ])
+                    : '',
+            )
 
             ->globalSearch(false)
 
