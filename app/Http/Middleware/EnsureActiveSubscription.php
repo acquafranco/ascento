@@ -21,8 +21,9 @@ class EnsureActiveSubscription
     {
         $user = $request->user();
 
+        // Sin sesión: lo resuelve el middleware de autenticación (login).
         if (! $user) {
-            abort(403);
+            return $next($request);
         }
 
         if ($user->isSuperAdmin()) {
@@ -32,8 +33,10 @@ class EnsureActiveSubscription
         // Todo usuario normal debe pertenecer a una empresa (activa).
         $company = $user->company;
 
+        // Cuenta sin empresa (eliminada): se cierra la sesión y vuelve al
+        // login con un mensaje, en vez de un 403 sin salida.
         if (! $company) {
-            abort(403);
+            return \App\Support\HomeRedirect::to();
         }
 
         // La página de suscripción y el logout del panel SIEMPRE quedan

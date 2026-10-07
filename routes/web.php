@@ -15,7 +15,8 @@ use App\Http\Controllers\{
     WhatsAppController,
     ReportController,
     SubscriptionController,
-    ReportPhotoController
+    ReportPhotoController,
+    PushSubscriptionController
 };
 
 use App\Models\User;
@@ -30,12 +31,9 @@ use App\Models\BuildingVisit;
 
 Route::get('/', function () {
 
-    if (auth()->check() && auth()->user()->company) {
-
-        return redirect()->route('dashboard', [
-            'company' => auth()->user()->company->slug,
-        ]);
-
+    // Logueado: a la pantalla de su rol (panel para admins, app para técnicos).
+    if (auth()->check() && ($home = auth()->user()->homeUrl())) {
+        return redirect()->to($home);
     }
 
     return view('welcome');
@@ -214,6 +212,32 @@ Route::prefix('{company:slug}')
         WorkOrderController::class,
         'index'
     ])->name('work-orders.index');
+
+    // Detalle de una orden: destino del push "Nueva orden de trabajo".
+    // withTrashed: una orden eliminada (cancelada) muestra un aviso claro
+    // en vez de un 404 (el controller decide qué se ve).
+    Route::get('/work-orders/{workOrder}', [
+        WorkOrderController::class,
+        'show'
+    ])->whereNumber('workOrder')->withTrashed()->name('work-orders.show');
+
+    /*
+    |--------------------------------------------------------------------------
+    | NOTIFICACIONES PUSH (técnicos)
+    |--------------------------------------------------------------------------
+    */
+
+    Route::post('/push-subscriptions', [PushSubscriptionController::class, 'store'])
+        ->middleware('throttle:20,1')
+        ->name('push-subscriptions.store');
+
+    Route::delete('/push-subscriptions', [PushSubscriptionController::class, 'destroy'])
+        ->middleware('throttle:20,1')
+        ->name('push-subscriptions.destroy');
+
+    Route::post('/push-subscriptions/test', [PushSubscriptionController::class, 'test'])
+        ->middleware('throttle:3,1')
+        ->name('push-subscriptions.test');
 
 
     Route::post('/work-orders/{workOrder}/start',[

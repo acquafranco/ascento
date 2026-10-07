@@ -28,9 +28,13 @@ class AuthorizationTest extends TestCase
     {
         $a = $this->makeTenant();
 
-        $this->actingAs($a['technician'])->get('/admin')->assertForbidden();
-        $this->actingAs($a['technician'])->get('/admin/users')->assertForbidden();
-        $this->actingAs($a['technician'])->get('/admin/companies')->assertForbidden();
+        // Sin 403 sin salida: el técnico vuelve a SU pantalla, sin ver el panel.
+        $home = route('dashboard', ['company' => $a['company']->slug]);
+
+        $this->actingAs($a['technician'])->get('/admin')->assertRedirect($home);
+        $this->actingAs($a['technician'])->get('/admin/users')->assertRedirect($home);
+        $this->actingAs($a['technician'])->get('/admin/companies')->assertRedirect($home);
+        $this->assertAuthenticatedAs($a['technician']);
     }
 
     public function test_guest_is_redirected_from_admin_panel(): void
@@ -114,7 +118,13 @@ class AuthorizationTest extends TestCase
 
         $this->actingAs($superAdmin)
             ->get("/{$a['company']->slug}/dashboard")
-            ->assertForbidden();
+            ->assertRedirect(url('/admin'));
+
+        $status = $this->actingAs($superAdmin)
+            ->post("/{$a['company']->slug}/work-orders/1/start")
+            ->status();
+
+        $this->assertContains($status, [403, 404]);
     }
 
     public function test_company_admin_cannot_mount_super_admin_components(): void

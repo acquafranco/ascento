@@ -321,6 +321,11 @@ class DeletionPolicyTest extends TestCase
         $this->actingAs($this->a['technician']->fresh())
             ->get("/{$this->a['company']->slug}/dashboard")
             ->assertNotFound();
-        $this->actingAs($this->a['admin']->fresh())->get('/admin/buildings')->assertForbidden();
+        // El admin no ve nada: se cierra su sesión y vuelve al login con un aviso.
+        $this->actingAs($this->a['admin']->fresh())
+            ->get('/admin/buildings')
+            ->assertRedirect(route('login'))
+            ->assertSessionHas('status', \App\Support\HomeRedirect::NO_ACCESS_MESSAGE);
+        $this->assertGuest();
     }
 }

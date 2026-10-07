@@ -26,7 +26,9 @@ return Application::configure(basePath: dirname(__DIR__))
                 return null;
             }
 
-            return auth()->user()->homeUrl();
+            // Ya logueado y pide /login: a su pantalla, o al login limpio
+            // si su cuenta no tiene a dónde entrar (nunca un 403).
+            return \App\Support\HomeRedirect::url();
         });
     })
     ->withExceptions(function (Exceptions $exceptions): void {

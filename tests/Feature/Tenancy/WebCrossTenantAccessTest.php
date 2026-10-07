@@ -41,13 +41,22 @@ class WebCrossTenantAccessTest extends TestCase
 
     public function test_user_cannot_use_another_company_slug(): void
     {
+        // GET: vuelve a su propia pantalla, sin ver nada de la otra empresa.
         $this->actingAs($this->a['technician'])
             ->get('/'.$this->b['company']->slug.'/dashboard')
-            ->assertForbidden();
+            ->assertRedirect(route('dashboard', ['company' => $this->a['company']->slug]))
+            ->assertDontSee($this->b['company']->name);
 
         $this->actingAs($this->a['admin'])
             ->get('/'.$this->b['company']->slug.'/clients')
-            ->assertForbidden();
+            ->assertRedirect(url('/admin'));
+
+        // Escrituras: rechazo directo.
+        $status = $this->actingAs($this->a['technician'])
+            ->post('/'.$this->b['company']->slug.'/work-orders/1/start')
+            ->status();
+
+        $this->assertContains($status, [403, 404]);
     }
 
     public function test_guest_is_redirected_to_login_on_company_routes(): void

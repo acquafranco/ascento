@@ -107,7 +107,7 @@ class AscensoresAppPanelProvider extends PanelProvider
             ])
 
             ->authMiddleware([
-                Authenticate::class,
+                \App\Http\Middleware\AuthenticatePanel::class,
             ]);
     }
 }

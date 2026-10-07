@@ -195,7 +195,8 @@ class BuildingsMapPageTest extends TestCase
     {
         $this->actingInPanel($this->a['technician'])
             ->get(BuildingsMap::getUrl())
-            ->assertForbidden();
+            ->assertRedirect(route('dashboard', ['company' => $this->a['company']->slug]))
+            ->assertDontSee('Calle Empresa A');
     }
 
     public function test_super_admin_sees_only_the_selected_company(): void

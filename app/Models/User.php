@@ -9,11 +9,13 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Notifications\Notifiable;
 use App\Notifications\ResetPasswordNotification;
+use NotificationChannels\WebPush\HasPushSubscriptions;
 
 class User extends Authenticatable implements FilamentUser
 {
 
     use HasFactory, Notifiable, SoftDeletes;
+    use HasPushSubscriptions;
 
 
     protected $fillable = [
@@ -103,14 +105,39 @@ class User extends Authenticatable implements FilamentUser
     /**
      * Pantalla de inicio según el tipo de usuario: el panel de Filament
      * para admins/SuperAdmin, el dashboard de la empresa para técnicos.
+     *
+     * Null si la cuenta no tiene ningún lugar válido al que entrar (por
+     * ejemplo, un técnico cuya empresa fue eliminada): quien llama debe
+     * cerrar la sesión y mandarlo al login, nunca a una pantalla 403.
      */
-    public function homeUrl(): string
+    public function homeUrl(): ?string
     {
-        if ($this->isSuperAdmin() || $this->isAdmin() || ! $this->company) {
+        if ($this->isSuperAdmin()) {
+            return url('/admin');
+        }
+
+        if (! $this->company) {
+            return null;
+        }
+
+        if ($this->isAdmin()) {
             return url('/admin');
         }
 
         return route('dashboard', ['company' => $this->company->slug]);
+    }
+
+    /**
+     * ¿Puede recibir avisos (push) de órdenes de trabajo? Solo técnicos de
+     * una empresa: ni admins ni SuperAdmin, que trabajan desde el panel.
+     */
+    public function canReceiveWorkOrderPush(): bool
+    {
+        return ! $this->trashed()
+            && ! $this->isSuperAdmin()
+            && ! $this->isAdmin()
+            && $this->role === 'technician'
+            && $this->company_id !== null;
     }
 
     /**
