@@ -1,0 +1,333 @@
+/* Mapa de edificios. Usa las variables de color de Filament para respetar
+   el tema (claro/oscuro) del panel. */
+
+.bm-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.bm-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.bm-stat {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.875rem;
+    background: var(--gray-100);
+    color: var(--gray-700);
+    text-decoration: none;
+}
+
+.bm-stat--warning {
+    background: color-mix(in oklab, var(--warning-500) 15%, transparent);
+    color: var(--warning-700);
+}
+
+.dark .bm-stat {
+    background: var(--gray-800);
+    color: var(--gray-200);
+}
+
+.dark .bm-stat--warning {
+    color: var(--warning-400);
+}
+
+.bm-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.bm-filters > * {
+    min-width: 0;
+}
+
+.bm-map-shell {
+    position: relative;
+}
+
+.bm-map {
+    height: min(70vh, 640px);
+    min-height: 360px;
+    border-radius: 0.75rem;
+    border: 1px solid var(--gray-200);
+    overflow: hidden;
+    z-index: 0;
+}
+
+.dark .bm-map {
+    border-color: var(--gray-700);
+}
+
+.bm-map.is-placing {
+    cursor: crosshair;
+    outline: 3px solid var(--primary-500);
+    outline-offset: 2px;
+}
+
+.bm-map-empty {
+    position: absolute;
+    inset: 50% auto auto 50%;
+    transform: translate(-50%, -50%);
+    z-index: 500;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    max-width: 90%;
+    padding: 1rem 1.25rem;
+    border-radius: 0.75rem;
+    background: rgb(255 255 255 / 0.95);
+    box-shadow: 0 10px 25px rgb(0 0 0 / 0.15);
+    text-align: center;
+    font-size: 0.875rem;
+    color: var(--gray-700);
+    pointer-events: none;
+}
+
+.bm-place-bar {
+    position: absolute;
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    z-index: 600;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem;
+    background: var(--gray-900);
+    color: white;
+    font-size: 0.875rem;
+    box-shadow: 0 10px 25px rgb(0 0 0 / 0.25);
+}
+
+.bm-place-bar[hidden] {
+    display: none;
+}
+
+.bm-place-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.bm-hint {
+    font-size: 0.8125rem;
+    color: var(--gray-500);
+}
+
+/* Pines */
+.bm-pin {
+    display: block;
+    width: 26px;
+    height: 26px;
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    background: var(--primary-500);
+    border: 3px solid white;
+    box-shadow: 0 2px 6px rgb(0 0 0 / 0.35);
+}
+
+.bm-pin.is-inactive {
+    background: var(--gray-400);
+}
+
+.bm-pin.is-manual {
+    background: var(--info-500, #3b82f6);
+}
+
+.bm-pin.is-placing {
+    width: 30px;
+    height: 30px;
+    background: var(--danger-500);
+    animation: bm-bounce 0.9s ease-in-out infinite alternate;
+}
+
+@keyframes bm-bounce {
+    to { translate: 0 -4px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bm-pin.is-placing { animation: none; }
+}
+
+/* Clusters con el color de la marca */
+.marker-cluster-small,
+.marker-cluster-medium,
+.marker-cluster-large {
+    background-color: color-mix(in oklab, var(--primary-500) 35%, transparent);
+}
+
+.marker-cluster-small div,
+.marker-cluster-medium div,
+.marker-cluster-large div {
+    background-color: var(--primary-500);
+    color: white;
+    font-weight: 600;
+}
+
+/* Popup */
+.bm-popup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    font-size: 0.8125rem;
+    color: var(--gray-700);
+}
+
+.bm-popup-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--gray-950);
+}
+
+.bm-popup-client {
+    display: flex;
+    gap: 0.35rem;
+}
+
+.bm-popup-label {
+    color: var(--gray-500);
+}
+
+.bm-popup-meta,
+.bm-popup-note {
+    color: var(--gray-500);
+}
+
+.bm-popup-badge {
+    align-self: flex-start;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    background: var(--gray-100);
+    font-size: 0.75rem;
+}
+
+.bm-popup-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.4rem;
+}
+
+.bm-popup-link,
+.bm-popup-button {
+    padding: 0.35rem 0.7rem;
+    border-radius: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.bm-popup .bm-popup-link {
+    background: var(--primary-500);
+    color: white;
+}
+
+.bm-popup-button {
+    background: var(--gray-100);
+    color: var(--gray-700);
+    border: 0;
+}
+
+/* Lista de sin ubicar */
+.bm-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.bm-list-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.75rem 0;
+    border-top: 1px solid var(--gray-100);
+}
+
+.bm-list-item:first-child {
+    border-top: 0;
+    padding-top: 0;
+}
+
+.dark .bm-list-item {
+    border-color: var(--gray-800);
+}
+
+.bm-list-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+}
+
+.bm-list-title {
+    font-weight: 600;
+    color: var(--gray-950);
+}
+
+.dark .bm-list-title {
+    color: white;
+}
+
+.bm-list-meta {
+    font-size: 0.8125rem;
+    color: var(--gray-500);
+}
+
+.bm-list-reason {
+    font-size: 0.8125rem;
+    color: var(--gray-600);
+}
+
+.bm-list-reason.is-warning {
+    color: var(--warning-700);
+}
+
+.dark .bm-list-reason.is-warning {
+    color: var(--warning-400);
+}
+
+.bm-list-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.bm-empty-text {
+    color: var(--gray-500);
+}
+
+.bm-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+    .bm-map {
+        height: 60vh;
+        min-height: 320px;
+    }
+
+    .bm-filters,
+    .bm-filters > * {
+        width: 100%;
+    }
+}

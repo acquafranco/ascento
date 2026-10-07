@@ -331,6 +331,15 @@ Route::get('/files/reports/{report}/photo', ReportPhotoController::class)
     ->whereNumber('report')
     ->name('reports.photo');
 
+/*
+| Mosaicos del mapa de edificios (proxy a Geoapify: la API key no sale del
+| servidor). Ver MapTileController.
+*/
+Route::get('/map-tiles/{z}/{x}/{y}.png', \App\Http\Controllers\MapTileController::class)
+    ->middleware(['auth', 'subscription', 'throttle:900,1'])
+    ->whereNumber(['z', 'x', 'y'])
+    ->name('map.tiles');
+
 Route::get('/whatsapp/callback', [
     WhatsAppController::class,
     'callback'

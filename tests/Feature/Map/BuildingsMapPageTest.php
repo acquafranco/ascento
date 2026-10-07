@@ -1,0 +1,224 @@
+<?php
+
+namespace Tests\Feature\Map;
+
+use App\Filament\Pages\BuildingsMap;
+use App\Models\Building;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
+use Livewire\Livewire;
+use Tests\Concerns\InteractsWithTenants;
+use Tests\TestCase;
+
+/**
+ * Mapa de edificios: cada empresa ve SOLO sus edificios, abrir el mapa no
+ * consulta a Geoapify y la API key nunca llega al navegador.
+ */
+class BuildingsMapPageTest extends TestCase
+{
+    use InteractsWithTenants, RefreshDatabase;
+
+    private const API_KEY = 'super-secret-geoapify-key';
+
+    private array $a;
+
+    private array $b;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->withoutVite();
+        Http::preventStrayRequests();
+
+        $this->a = $this->makeTenant();
+        $this->b = $this->makeTenant();
+
+        $this->locate($this->a['building'], 'Calle Empresa A', -34.60, -58.38);
+        $this->locate($this->b['building'], 'Calle Empresa B', -31.42, -64.18);
+
+        config(['services.geoapify.api_key' => self::API_KEY]);
+    }
+
+    /** Crea edificios sin que el modelo dispare la geocodificación automática. */
+    private function withoutAutoGeocoding(callable $callback): mixed
+    {
+        config(['services.geoapify.api_key' => null]);
+
+        try {
+            return $callback();
+        } finally {
+            config(['services.geoapify.api_key' => self::API_KEY]);
+        }
+    }
+
+    private function locate(Building $building, string $street, float $lat, float $lng): void
+    {
+        $building->forceFill([
+            'name' => $street,
+            'latitude' => $lat,
+            'longitude' => $lng,
+            'geocoding_status' => Building::GEO_GEOCODED,
+        ])->saveQuietly();
+    }
+
+    public function test_admin_only_sees_buildings_of_their_company(): void
+    {
+        Building::factory()->create(['company_id' => $this->b['company']->id, 'name' => 'Pendiente Empresa B']);
+
+        $this->actingInPanel($this->a['admin'])
+            ->get(BuildingsMap::getUrl())
+            ->assertOk()
+            ->assertSee('Calle Empresa A')
+            ->assertDontSee('Calle Empresa B')
+            ->assertDontSee('Pendiente Empresa B');
+
+        $markers = Livewire::test(BuildingsMap::class)->instance()->getMarkers();
+
+        $this->assertSame([$this->a['building']->id], array_column($markers, 'id'));
+    }
+
+    public function test_marker_has_client_and_basic_info(): void
+    {
+        $this->actingInPanel($this->a['admin']);
+
+        $marker = Livewire::test(BuildingsMap::class)->instance()->getMarkers()[0];
+
+        $this->assertSame($this->a['building']->client->name, $marker['client']);
+        $this->assertSame(-34.6, $marker['lat']);
+        $this->assertArrayHasKey('elevators', $marker);
+    }
+
+    public function test_buildings_without_coordinates_are_listed_not_drawn(): void
+    {
+        $missing = Building::factory()->create([
+            'company_id' => $this->a['company']->id,
+            'name' => 'Sin Localidad',
+            'locality' => null,
+        ]);
+
+        $this->actingInPanel($this->a['admin']);
+        $page = Livewire::test(BuildingsMap::class);
+
+        $this->assertNotContains($missing->id, array_column($page->instance()->getMarkers(), 'id'));
+
+        $unlocated = $page->instance()->unlocated->firstWhere('id', $missing->id);
+        $this->assertSame('Falta localidad en la dirección', $unlocated['reason']);
+
+        $page->assertSee('Sin Localidad')->assertSee('Marcar en el mapa');
+    }
+
+    public function test_opening_the_map_never_calls_geoapify(): void
+    {
+        $this->withoutAutoGeocoding(fn () => Building::factory()->count(3)->create(['company_id' => $this->a['company']->id]));
+        Http::fake();
+
+        $this->actingInPanel($this->a['admin'])->get(BuildingsMap::getUrl())->assertOk();
+
+        Http::assertNothingSent();
+    }
+
+    public function test_api_key_never_reaches_the_browser(): void
+    {
+        $response = $this->actingInPanel($this->a['admin'])->get(BuildingsMap::getUrl());
+
+        $response->assertOk()
+            ->assertDontSee(self::API_KEY)
+            ->assertSee('map-tiles', false);
+
+        // Ni en el estado de Livewire.
+        $this->assertStringNotContainsString(self::API_KEY, json_encode(Livewire::test(BuildingsMap::class)->snapshot));
+    }
+
+    public function test_admin_can_place_a_building_manually(): void
+    {
+        $this->actingInPanel($this->a['admin']);
+
+        Livewire::test(BuildingsMap::class)
+            ->call('placeBuilding', $this->a['building']->id, -34.5, -58.4)
+            ->assertReturned(fn ($marker) => $marker['id'] === $this->a['building']->id && $marker['manual'] === true);
+
+        $building = $this->a['building']->fresh();
+        $this->assertSame(Building::GEO_MANUAL, $building->geocoding_status);
+        $this->assertEqualsWithDelta(-34.5, $building->latitude, 0.000001);
+        $this->assertSame($building->geocodingAddress()->canonical(), $building->geocoded_address);
+    }
+
+    public function test_invalid_coordinates_are_rejected(): void
+    {
+        $this->actingInPanel($this->a['admin']);
+
+        Livewire::test(BuildingsMap::class)
+            ->call('placeBuilding', $this->a['building']->id, 'abc', 500)
+            ->assertReturned(null);
+
+        $this->assertEqualsWithDelta(-34.60, $this->a['building']->fresh()->latitude, 0.000001);
+    }
+
+    public function test_admin_cannot_move_a_building_of_another_company(): void
+    {
+        $this->actingInPanel($this->a['admin']);
+
+        Livewire::test(BuildingsMap::class)
+            ->call('placeBuilding', $this->b['building']->id, 0, 0)
+            ->assertNotFound();
+
+        $building = $this->b['building']->fresh();
+        $this->assertEqualsWithDelta(-31.42, $building->latitude, 0.000001);
+        $this->assertSame(Building::GEO_GEOCODED, $building->geocoding_status);
+    }
+
+    public function test_geocode_pending_only_touches_the_current_company(): void
+    {
+        [$ownPending, $otherPending] = $this->withoutAutoGeocoding(fn () => [
+            Building::factory()->create(['company_id' => $this->a['company']->id, 'name' => 'Mitre', 'address' => '1234', 'locality' => 'Rosario']),
+            Building::factory()->create(['company_id' => $this->b['company']->id, 'name' => 'Mitre', 'address' => '1234', 'locality' => 'Rosario']),
+        ]);
+
+        Http::fake(['api.geoapify.com/*' => Http::response(['results' => [[
+            'lat' => -32.9, 'lon' => -60.6, 'result_type' => 'building', 'housenumber' => '1234',
+            'rank' => ['confidence' => 0.97, 'confidence_city_level' => 1],
+        ]]])]);
+
+        $this->actingInPanel($this->a['admin']);
+        Livewire::test(BuildingsMap::class)->call('geocodePending');
+
+        $this->assertSame(Building::GEO_GEOCODED, $ownPending->fresh()->geocoding_status);
+        $this->assertSame(Building::GEO_PENDING, $otherPending->fresh()->geocoding_status);
+        Http::assertSentCount(1);
+        Http::assertSent(fn (Request $request) => $request['city'] === 'Rosario');
+    }
+
+    public function test_technicians_cannot_open_the_map(): void
+    {
+        $this->actingInPanel($this->a['technician'])
+            ->get(BuildingsMap::getUrl())
+            ->assertForbidden();
+    }
+
+    public function test_super_admin_sees_only_the_selected_company(): void
+    {
+        $super = User::factory()->superAdmin()->create();
+        $this->actingInPanel($super);
+
+        $this->assertSame([], Livewire::test(BuildingsMap::class)->instance()->getMarkers());
+
+        session(['selected_company_id' => $this->b['company']->id]);
+
+        $this->assertSame(
+            [$this->b['building']->id],
+            array_column(Livewire::test(BuildingsMap::class)->instance()->getMarkers(), 'id')
+        );
+    }
+
+    public function test_company_without_access_cannot_open_the_map(): void
+    {
+        $this->a['company']->forceFill(['trial_ends_at' => now()->subDay()])->save();
+
+        $this->actingInPanel($this->a['admin'])
+            ->get(BuildingsMap::getUrl())
+            ->assertRedirect('/admin/subscription');
+    }
+}
