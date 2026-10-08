@@ -7,6 +7,7 @@
  */
 
 const OWNER_KEY = 'ascento-push-user';
+const SYNC_KEY = 'ascento-push-synced-at';
 
 export function pushConfig() {
     const meta = document.querySelector('meta[name="ascento-push"]');
@@ -102,6 +103,10 @@ export async function silentSync() {
     if (!config?.vapidPublicKey || !supported || Notification.permission !== 'granted') return;
     if (localStorage.getItem(OWNER_KEY) !== String(config.userId)) return;
 
+    // Una vez cada 12 h alcanza (no una request extra en cada pantalla).
+    const lastSync = Number(localStorage.getItem(SYNC_KEY) || 0);
+    if (Date.now() - lastSync < 12 * 3600 * 1000) return;
+
     try {
         const reg = await registration();
         let subscription = await reg.pushManager.getSubscription();
@@ -117,6 +122,7 @@ export async function silentSync() {
         });
 
         await saveSubscription(config, subscription);
+        localStorage.setItem(SYNC_KEY, String(Date.now()));
     } catch (error) {
         // Silencioso: la tarjeta de notificaciones muestra el estado real.
     }

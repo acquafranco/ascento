@@ -10,6 +10,8 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
 use Filament\Infolists\Components\TextEntry;
 use App\Filament\Pages\BuildingsMap;
+use App\Services\Geocoding\AddressAutocomplete;
+use App\Support\CompanyContext;
 use App\Models\Building;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
@@ -48,6 +50,36 @@ class BuildingForm
             | DIRECCIÓN
             |--------------------------------------------------------------------------
             */
+
+            // Buscador: completa la dirección y deja el edificio ubicado en el
+            // mapa al guardar (las coordenadas las pone el servidor, ver
+            // AddressAutocomplete). Los campos de abajo siguen editables.
+            Select::make('address_search')
+                ->label('Buscar dirección')
+                ->placeholder('Escribí calle y altura. Ej: Cabildo 2040')
+                ->helperText('Elegí una opción y se completan los datos de abajo. Así el edificio aparece solo en el mapa.')
+                ->searchable()
+                ->searchDebounce(400)
+                ->searchPrompt('Escribí al menos 4 letras de la calle y la altura')
+                ->searchingMessage('Buscando…')
+                ->noSearchResultsMessage('No encontramos esa dirección. Podés cargarla a mano abajo.')
+                ->getSearchResultsUsing(fn (string $search): array => app(AddressAutocomplete::class)->search($search, CompanyContext::currentId()))
+                ->getOptionLabelUsing(fn ($value): ?string => app(AddressAutocomplete::class)->pick($value)['label'] ?? null)
+                ->live()
+                ->afterStateUpdated(function (?string $state, Set $set) {
+                    $pick = app(AddressAutocomplete::class)->pick($state);
+
+                    if (! $pick) {
+                        return;
+                    }
+
+                    foreach ($pick['fields'] as $field => $value) {
+                        $set($field, $value);
+                    }
+                })
+                ->dehydrated(false)
+                ->visible(fn (): bool => app(AddressAutocomplete::class)->isAvailable())
+                ->columnSpanFull(),
 
             Grid::make(4)
             ->schema([

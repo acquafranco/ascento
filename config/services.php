@@ -77,6 +77,12 @@ return [
         // compartidos con los mosaicos del mapa: 4 mosaicos = 1 crédito).
         'daily_limit' => (int) env('GEOAPIFY_DAILY_LIMIT', 1500),
         'map_style' => env('GEOAPIFY_MAP_STYLE', 'osm-bright'),
+        // Key SOLO para dibujar el mapa (mosaicos). Va al navegador, así que
+        // tiene que ser una key aparte, restringida a tu dominio en
+        // myprojects.geoapify.com (API keys → Allowed origins). Los mosaicos
+        // se piden directo a Geoapify: no pasan por el servidor de Ascento.
+        // La de arriba (GEOAPIFY_API_KEY) nunca sale del servidor.
+        'map_key' => env('GEOAPIFY_MAP_KEY'),
     ],
 
 ];

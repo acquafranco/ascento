@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Models\Subscription as SubscriptionModel;
 use App\Models\SubscriptionPayment;
 use App\Models\SubscriptionPlan;
+use App\Services\MercadoPagoApiException;
 use App\Services\MercadoPagoService;
 use App\Services\MercadoPagoSubscriptionSync;
 use App\Support\ManualSubscriptionActivator;
@@ -176,11 +177,15 @@ class Subscription extends Page
             );
         } catch (Throwable $e) {
             Log::error('Error iniciando el checkout de Mercado Pago', ['company_id' => $company->id, 'error' => $e->getMessage()]);
+            report($e);
 
             Notification::make()
                 ->title('No se pudo iniciar el pago')
-                ->body('Intentá de nuevo en unos minutos. Si sigue fallando, podés pagar por transferencia.')
+                ->body($e instanceof MercadoPagoApiException
+                    ? $e->hint()
+                    : 'Intentá de nuevo en unos minutos. Si sigue fallando, podés pagar por transferencia.')
                 ->danger()
+                ->persistent()
                 ->send();
 
             return;
@@ -216,7 +221,11 @@ class Subscription extends Page
                 } catch (Throwable $e) {
                     Log::error('Error cancelando la suscripción', ['subscription_id' => $subscription?->id, 'error' => $e->getMessage()]);
 
-                    Notification::make()->title('No se pudo cancelar')->body('Intentá de nuevo en unos minutos.')->danger()->send();
+                    Notification::make()
+                        ->title('No se pudo cancelar')
+                        ->body($e instanceof MercadoPagoApiException ? $e->hint() : 'Intentá de nuevo en unos minutos.')
+                        ->danger()
+                        ->send();
 
                     return;
                 }

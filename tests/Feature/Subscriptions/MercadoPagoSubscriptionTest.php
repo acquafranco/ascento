@@ -7,6 +7,8 @@ use App\Models\Subscription;
 use App\Models\SubscriptionPayment;
 use App\Models\User;
 use App\Models\WebhookEvent;
+use App\Services\MercadoPagoApiException;
+use Filament\Notifications\Notification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -495,6 +497,65 @@ class MercadoPagoSubscriptionTest extends TestCase
         $super = User::factory()->superAdmin()->create();
 
         $this->actingInPanel($super)->get('/admin/subscription')->assertForbidden();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | ERRORES DE CONFIGURACIÓN (explicados)
+    |--------------------------------------------------------------------------
+    */
+
+    public function test_simulated_notifications_with_fake_ids_answer_200(): void
+    {
+        // "Simular notificación" del panel de MP manda ids de ejemplo.
+        $this->mpWebhook('subscription_preapproval', '123456')->assertOk()->assertJson(['status' => 'not_found']);
+        $this->mpWebhook('subscription_authorized_payment', '123456')->assertOk()->assertJson(['status' => 'not_found']);
+
+        // Un 404 no se reintenta (no tiene sentido): una sola consulta por aviso.
+        $this->assertSame(2, Http::recorded()->count());
+    }
+
+    public function test_the_admin_sees_why_mercado_pago_rejected_the_checkout(): void
+    {
+        $this->mpApi['POST /preapproval'] = ['__status' => 400, 'message' => 'Both payer and collector must be real or test users'];
+
+        $this->actingInPanel($this->a['admin']);
+        Livewire::test(SubscriptionPage::class)
+            ->call('checkout')
+            ->assertNoRedirect()
+            ->assertNotified(
+                Notification::make()
+                    ->title('No se pudo iniciar el pago')
+                    ->body((new MercadoPagoApiException(400, 'Both payer and collector must be real or test users'))->hint())
+                    ->danger()
+                    ->persistent()
+            );
+    }
+
+    public function test_common_mercado_pago_errors_have_actionable_explanations(): void
+    {
+        $hint = fn (int $status, string $detail) => (new MercadoPagoApiException($status, $detail))->hint();
+
+        $this->assertStringContainsString('MERCADOPAGO_TEST_PAYER_EMAIL', $hint(400, 'Both payer and collector must be real or test users'));
+        $this->assertStringContainsString('mismo de la cuenta', $hint(400, 'Payer and collector cannot be the same user'));
+        $this->assertStringContainsString('config:clear', $hint(401, 'invalid access token'));
+        $this->assertStringContainsString('APP_URL', $hint(400, 'Invalid back_url'));
+        $this->assertStringContainsString('temporal', $hint(503, 'Service unavailable'));
+    }
+
+    public function test_diagnostic_command_explains_the_setup(): void
+    {
+        $this->mpApi['/users/me'] = ['id' => 1, 'nickname' => 'TESTUSER', 'site_id' => 'MLA', 'tags' => ['test_user'], 'email' => 'vendedor@test.com'];
+        config(['app.url' => 'https://app.ascento.test']);
+
+        $this->artisan('mercadopago:check')
+            ->expectsOutputToContain('USUARIO DE PRUEBA')
+            ->expectsOutputToContain('MERCADOPAGO_TEST_PAYER_EMAIL')
+            ->expectsOutputToContain('https://app.ascento.test/api/mercadopago/webhook')
+            ->assertFailed();
+
+        config(['services.mercadopago.test_payer_email' => 'comprador@test.com']);
+        $this->artisan('mercadopago:check')->expectsOutputToContain('Todo en orden')->assertSuccessful();
     }
 
     /*

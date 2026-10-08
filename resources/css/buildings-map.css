@@ -331,3 +331,63 @@
         width: 100%;
     }
 }
+
+/* Botones livianos de la lista (sin componentes de Filament: con cientos
+   de edificios, cada componente pesa varios KB de HTML). */
+.bm-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.4rem 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    border: 1px solid var(--gray-200);
+    background: white;
+    color: var(--gray-700);
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.dark .bm-btn {
+    background: var(--gray-800);
+    border-color: var(--gray-700);
+    color: var(--gray-200);
+}
+
+.bm-btn--primary,
+.dark .bm-btn--primary {
+    background: var(--primary-500);
+    border-color: var(--primary-500);
+    color: white;
+}
+
+.bm-btn:focus-visible {
+    outline: 2px solid var(--primary-500);
+    outline-offset: 2px;
+}
+
+.bm-stat--progress {
+    background: color-mix(in oklab, var(--primary-500) 14%, transparent);
+    color: var(--primary-700);
+}
+
+.dark .bm-stat--progress {
+    color: var(--primary-300);
+}
+
+.bm-spinner {
+    width: 0.8rem;
+    height: 0.8rem;
+    border-radius: 50%;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    animation: bm-spin 0.8s linear infinite;
+}
+
+@keyframes bm-spin {
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bm-spinner { animation-duration: 2s; }
+}
