@@ -65,7 +65,7 @@ class ClientsTable
                 TrashedFilter::make()->label('Desactivados'),
             ])
             ->recordActions([
-                RestoreAction::make()->label('Reactivar'),
+                RestoreAction::make()->before(\App\Support\Plans\PlanRestoreGuard::before(\App\Enums\PlanLimit::Clients))->label('Reactivar'),
             EditAction::make()->label('Editar'),
         ])
         ->toolbarActions([
@@ -74,7 +74,7 @@ class ClientsTable
                         ->label('Desactivar seleccionados')
                         ->modalHeading('Desactivar seleccionados')
                         ->modalSubmitActionLabel('Desactivar'),
-                    RestoreBulkAction::make()->label('Reactivar seleccionados'),
+                    RestoreBulkAction::make()->before(\App\Support\Plans\PlanRestoreGuard::beforeBulk(\App\Enums\PlanLimit::Clients))->label('Reactivar seleccionados'),
             ]),
         ]);
     }

@@ -76,7 +76,7 @@ class UsersTable
                 TrashedFilter::make()->label('Desactivados'),
             ])
             ->recordActions([
-                RestoreAction::make()->label('Reactivar'),
+                RestoreAction::make()->before(\App\Support\Plans\PlanRestoreGuard::before(\App\Enums\PlanLimit::Technicians))->label('Reactivar'),
 
                 // 🔥 VER USUARIO (correcto en Filament)
                 EditAction::make()
@@ -91,7 +91,7 @@ class UsersTable
                         ->label('Desactivar seleccionados')
                         ->modalHeading('Desactivar seleccionados')
                         ->modalSubmitActionLabel('Desactivar'),
-                    RestoreBulkAction::make()->label('Reactivar seleccionados'),
+                    RestoreBulkAction::make()->before(\App\Support\Plans\PlanRestoreGuard::beforeBulk(\App\Enums\PlanLimit::Technicians))->label('Reactivar seleccionados'),
                 ]),
             ]);
     }

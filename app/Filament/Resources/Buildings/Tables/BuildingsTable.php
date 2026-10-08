@@ -96,7 +96,7 @@ class BuildingsTable
             ])
 
             ->recordActions([
-                RestoreAction::make()->label('Reactivar'),
+                RestoreAction::make()->before(\App\Support\Plans\PlanRestoreGuard::before(\App\Enums\PlanLimit::Buildings))->label('Reactivar'),
 
                 EditAction::make(),
 
@@ -327,7 +327,7 @@ class BuildingsTable
                         ->label('Desactivar seleccionados')
                         ->modalHeading('Desactivar seleccionados')
                         ->modalSubmitActionLabel('Desactivar'),
-                    RestoreBulkAction::make()->label('Reactivar seleccionados'),
+                    RestoreBulkAction::make()->before(\App\Support\Plans\PlanRestoreGuard::beforeBulk(\App\Enums\PlanLimit::Buildings))->label('Reactivar seleccionados'),
                 ]),
 
             ]);

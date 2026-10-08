@@ -74,6 +74,11 @@ class SubscriptionResource extends Resource
                     ->color(fn (Subscription $record) => $record->company ? SubscriptionStatus::color($record->company) : 'gray')
                     ->badge(),
 
+                TextColumn::make('plan_name')
+                    ->label('Plan')
+                    ->state(fn ($record) => ($record instanceof \App\Models\Company ? $record : $record->company)?->plan()->shortName())
+                    ->description(fn ($record) => (($record instanceof \App\Models\Company ? $record->latestSubscription : $record)?->legacy_plan) ? 'Precio anterior conservado' : null),
+
                 TextColumn::make('amount')
                     ->label('Importe')
                     ->formatStateUsing(fn ($state, Subscription $record) => $state ? '$'.number_format((float) $state, 0, ',', '.').' '.$record->currency : '—'),

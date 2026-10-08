@@ -268,6 +268,12 @@
 
             </div>
 
+            @php
+                // Remito digital para el cliente (PDF, link, WhatsApp, email): desde Profesional.
+                $canShareDigitally = $deliveryNote->company?->plan()->allows(\App\Enums\PlanFeature::DigitalDeliveryNotes) ?? false;
+            @endphp
+
+            @if ($canShareDigitally)
             {{-- Acciones --}}
         <div class="pdf-actions border-t border-slate-100 bg-slate-50 px-4 py-3 md:px-7 md:py-4">
 
@@ -378,6 +384,14 @@
         </div>
     </div>
 </div>
+            @elseif (auth()->check())
+        <div class="border-t border-slate-100 bg-slate-50 px-4 py-3 md:px-7 md:py-4 text-sm text-slate-600" data-plan-locked="digital_delivery_notes">
+            📄 Compartir el remito con el cliente (PDF, WhatsApp o email) está disponible desde el plan <strong>Profesional</strong>.
+            @if (auth()->user()->isAdmin())
+                <a href="{{ \App\Support\Plans\PlanUpsell::url(feature: \App\Enums\PlanFeature::DigitalDeliveryNotes) }}" class="font-semibold underline">Ver planes</a>
+            @endif
+        </div>
+            @endif
 
 {{-- Estilos de impresión para PDF --}}
 <style>
@@ -453,6 +467,7 @@
 }
 </style>
 
+@if ($canShareDigitally)
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
@@ -566,5 +581,6 @@ btnPDF.addEventListener('click', function () {
 
 });
 </script>
+@endif
 
 </x-delivery-note-layout>

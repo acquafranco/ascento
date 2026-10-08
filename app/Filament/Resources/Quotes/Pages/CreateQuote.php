@@ -7,6 +7,10 @@ use Filament\Resources\Pages\CreateRecord;
 
 class CreateQuote extends CreateRecord
 {
+    use \App\Filament\Concerns\RequiresPlanFeature;
+
+    protected static \App\Enums\PlanFeature $planFeature = \App\Enums\PlanFeature::Quotes;
+
     protected static string $resource = QuoteResource::class;
     protected function mutateFormDataBeforeCreate(array $data): array
 {

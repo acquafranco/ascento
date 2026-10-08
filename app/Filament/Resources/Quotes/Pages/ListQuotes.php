@@ -8,6 +8,10 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListQuotes extends ListRecords
 {
+    use \App\Filament\Concerns\RequiresPlanFeature;
+
+    protected static \App\Enums\PlanFeature $planFeature = \App\Enums\PlanFeature::Quotes;
+
     protected static string $resource = QuoteResource::class;
 
     protected function getHeaderActions(): array

@@ -76,11 +76,12 @@ class CheckMercadoPago extends Command
 
         $this->line('• URL del webhook a configurar en Mercado Pago: '.rtrim($appUrl, '/').'/api/mercadopago/webhook (evento: Planes y suscripciones)');
 
-        $plan = SubscriptionPlan::where('is_active', true)->orderBy('id')->first();
-        if (! $plan) {
-            $this->problem('No hay un plan activo en subscription_plans (correr el seeder SubscriptionPlanSeeder).');
-        } else {
-            $this->line("• Plan activo: {$plan->name} — {$plan->currency} ".number_format((float) $plan->price, 0, ',', '.').'/mes');
+        $plans = SubscriptionPlan::offered();
+        if ($plans->isEmpty()) {
+            $this->problem('No hay planes activos en subscription_plans (correr las migraciones o el seeder SubscriptionPlanSeeder).');
+        }
+        foreach ($plans as $plan) {
+            $this->line("• Plan {$plan->name}: {$plan->currency} ".number_format((float) $plan->price, 0, ',', '.').'/mes');
         }
 
         if ($this->problems === 0) {

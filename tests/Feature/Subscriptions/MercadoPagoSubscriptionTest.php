@@ -54,7 +54,7 @@ class MercadoPagoSubscriptionTest extends TestCase
     |--------------------------------------------------------------------------
     */
 
-    public function test_admin_starts_a_monthly_subscription_of_149000_ars(): void
+    public function test_admin_subscribes_to_the_chosen_plan_price(): void
     {
         $this->expireTrial($this->a);
         $this->mpApi['POST /preapproval'] = [
@@ -66,16 +66,16 @@ class MercadoPagoSubscriptionTest extends TestCase
         $this->actingInPanel($this->a['admin']);
 
         Livewire::test(SubscriptionPage::class)
-            ->assertSee('$149.000')
-            ->assertSee('Suscribirme con Mercado Pago')
-            ->call('checkout')
+            ->assertSee('$119.000')
+            ->assertSee('Suscribirme a Profesional')
+            ->call('checkout', 'profesional')
             ->assertRedirect('https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_id=PRE-A1');
 
         Http::assertSent(fn (Request $request) => $request->method() === 'POST'
             && str_ends_with($request->url(), '/preapproval')
             && $request['status'] === 'pending'
             && $request['external_reference'] === 'ascento-company-'.$this->a['company']->id
-            && $request['auto_recurring']['transaction_amount'] == 149000
+            && $request['auto_recurring']['transaction_amount'] == 119000
             && $request['auto_recurring']['currency_id'] === 'ARS'
             && $request['auto_recurring']['frequency_type'] === 'months'
             && str_contains($request['back_url'], '/admin/subscription?mp=return')
@@ -84,7 +84,7 @@ class MercadoPagoSubscriptionTest extends TestCase
         $subscription = Subscription::where('company_id', $this->a['company']->id)->sole();
         $this->assertSame('PRE-A1', $subscription->provider_subscription_id);
         $this->assertSame(Subscription::PENDING, $subscription->status);
-        $this->assertEquals(149000, $subscription->amount);
+        $this->assertEquals(119000, $subscription->amount);
     }
 
     public function test_a_recent_pending_checkout_is_reused_instead_of_duplicated(): void
@@ -94,7 +94,7 @@ class MercadoPagoSubscriptionTest extends TestCase
 
         $this->actingInPanel($this->a['admin']);
         Livewire::test(SubscriptionPage::class)
-            ->call('checkout')
+            ->call('checkout', 'profesional')
             ->assertRedirect('https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_id=PRE-A1');
 
         $this->assertSame(0, $this->mpRequests('POST', '/preapproval'));
@@ -106,8 +106,8 @@ class MercadoPagoSubscriptionTest extends TestCase
 
         $this->actingInPanel($this->a['admin']);
         Livewire::test(SubscriptionPage::class)
-            ->assertDontSee('Suscribirme con Mercado Pago')
-            ->call('checkout')
+            ->assertDontSee('Suscribirme a Profesional')
+            ->call('checkout', 'profesional')
             ->assertNoRedirect();
 
         $this->assertSame(0, $this->mpRequests('POST', '/preapproval'));
@@ -120,7 +120,7 @@ class MercadoPagoSubscriptionTest extends TestCase
         $this->actingInPanel($this->a['admin']);
 
         Livewire::test(SubscriptionPage::class)
-            ->call('checkout')
+            ->call('checkout', 'profesional')
             ->assertNoRedirect()
             ->assertNotified('No se pudo iniciar el pago');
 
@@ -133,13 +133,13 @@ class MercadoPagoSubscriptionTest extends TestCase
         $this->actingInPanel($this->a['admin']);
 
         Livewire::test(SubscriptionPage::class)
-            ->assertSee('Suscribirme con Mercado Pago')
+            ->assertSee('Suscribirme a Profesional')
             ->assertDontSee('transferencia')
             ->assertDontSee('CBU');
 
         config(['services.mercadopago.access_token' => null]);
         Livewire::test(SubscriptionPage::class)
-            ->assertDontSee('Suscribirme con Mercado Pago')
+            ->assertDontSee('Suscribirme a Profesional')
             ->assertDontSee('transferencia');
     }
 
@@ -151,8 +151,8 @@ class MercadoPagoSubscriptionTest extends TestCase
         Livewire::test(SubscriptionPage::class)
             ->assertSee('Prueba gratis')
             ->assertSee($this->a['company']->trial_ends_at->format('d/m/Y'))
-            ->assertDontSee('Suscribirme con Mercado Pago')
-            ->call('checkout') // forzado desde Livewire: igual se rechaza
+            ->assertDontSee('Suscribirme a Profesional')
+            ->call('checkout', 'profesional') // forzado desde Livewire: igual se rechaza
             ->assertNoRedirect();
 
         $this->assertSame(0, $this->mpRequests('POST', '/preapproval'));
@@ -162,8 +162,8 @@ class MercadoPagoSubscriptionTest extends TestCase
         $this->travelTo($this->a['company']->trial_ends_at->copy()->addMinute());
         Livewire::test(SubscriptionPage::class)
             ->assertSee('Prueba terminada')
-            ->assertSee('Suscribirme con Mercado Pago')
-            ->call('checkout')
+            ->assertSee('Suscribirme a Profesional')
+            ->call('checkout', 'profesional')
             ->assertRedirect('https://www.mercadopago.com.ar/x');
     }
 
@@ -172,7 +172,7 @@ class MercadoPagoSubscriptionTest extends TestCase
         $this->expectException(\RuntimeException::class);
 
         app(\App\Services\MercadoPagoSubscriptionSync::class)->startCheckout(
-            $this->a['company'], $this->a['admin'], \App\Models\SubscriptionPlan::firstOrFail(), 'https://x.test'
+            $this->a['company'], $this->a['admin'], \App\Models\SubscriptionPlan::findBySlug('profesional'), 'https://x.test'
         );
     }
 
@@ -280,7 +280,7 @@ class MercadoPagoSubscriptionTest extends TestCase
 
         $payment = SubscriptionPayment::sole();
         $this->assertSame('AP1', $payment->provider_payment_id);
-        $this->assertEquals(149000, $payment->amount);
+        $this->assertEquals(119000, $payment->amount);
     }
 
     public function test_repeated_webhooks_never_add_the_same_month_twice(): void
@@ -456,7 +456,7 @@ class MercadoPagoSubscriptionTest extends TestCase
         $this->mpWebhook('subscription_authorized_payment', 'AP1')->assertJson(['status' => 'payment_amount_mismatch']);
 
         // En otra moneda tampoco.
-        $this->mpCharge('AP2', 'PRE-A1', 'approved', 149000, ['currency_id' => 'USD']);
+        $this->mpCharge('AP2', 'PRE-A1', 'approved', 119000, ['currency_id' => 'USD']);
         $this->mpWebhook('subscription_authorized_payment', 'AP2')->assertJson(['status' => 'payment_amount_mismatch']);
 
         $this->assertNull(Subscription::sole()->current_period_end);
@@ -564,7 +564,7 @@ class MercadoPagoSubscriptionTest extends TestCase
 
         $this->actingInPanel($this->a['admin']);
         Livewire::test(SubscriptionPage::class)
-            ->call('checkout')
+            ->call('checkout', 'profesional')
             ->assertNoRedirect()
             ->assertNotified(
                 Notification::make()

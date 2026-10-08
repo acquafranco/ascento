@@ -7,8 +7,10 @@ use App\Models\DeliveryNote;
 use App\Models\Report;
 use App\Models\User;
 use App\Notifications\NewReportNotification;
+use App\Notifications\ReportLimitReachedNotification;
 use App\Notifications\WorkCompletedNotification;
 use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -24,11 +26,23 @@ class NotifyCompanyAdmins
 
     public const WORK_COMPLETED = 'work_completed';
 
+    public const REPORT_LIMIT = 'report_limit';
+
     public function __construct(public string $event, public int $modelId) {}
 
     public static function reportCreated(Report $report): void
     {
         static::dispatchAfterResponse(self::REPORT, $report->id);
+    }
+
+    /** Una sola vez por mes y por empresa. */
+    public static function reportLimitReached(Company $company): void
+    {
+        $key = 'plan:report-limit-notified:'.$company->id.':'.now()->format('Y-m');
+
+        if (Cache::add($key, true, now()->endOfMonth())) {
+            static::dispatchAfterResponse(self::REPORT_LIMIT, $company->id);
+        }
     }
 
     public static function workCompleted(DeliveryNote $deliveryNote): void
@@ -41,6 +55,7 @@ class NotifyCompanyAdmins
         [$model, $notification] = match ($this->event) {
             self::REPORT => [$report = Report::withoutGlobalScopes()->with(['building', 'user'])->find($this->modelId), $report ? new NewReportNotification($report) : null],
             self::WORK_COMPLETED => [$note = DeliveryNote::withoutGlobalScopes()->with(['building', 'user', 'workOrder'])->find($this->modelId), $note ? new WorkCompletedNotification($note) : null],
+            self::REPORT_LIMIT => [$limitCompany = Company::find($this->modelId), $limitCompany ? new ReportLimitReachedNotification($limitCompany) : null],
             default => [null, null],
         };
 
@@ -48,7 +63,7 @@ class NotifyCompanyAdmins
             return;
         }
 
-        $company = Company::find($model->company_id);
+        $company = $model instanceof Company ? $model : Company::find($model->company_id);
 
         if (! $company || ! $company->hasActiveAccess()) {
             return;

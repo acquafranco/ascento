@@ -9,6 +9,10 @@ use Filament\Resources\Pages\EditRecord;
 
 class EditQuote extends EditRecord
 {
+    use \App\Filament\Concerns\RequiresPlanFeature;
+
+    protected static \App\Enums\PlanFeature $planFeature = \App\Enums\PlanFeature::Quotes;
+
     protected static string $resource = QuoteResource::class;
 
     protected function getHeaderActions(): array
