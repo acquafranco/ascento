@@ -135,7 +135,8 @@ class ViewQuote extends ViewRecord
 
                 }),
 
-            EditAction::make(),
+            // Con un cobro activo el presupuesto queda cerrado (ver canEdit).
+            EditAction::make()->visible(fn () => QuoteResource::canEdit($this->record)),
 
         ];
     }

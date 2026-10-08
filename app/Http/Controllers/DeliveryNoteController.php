@@ -662,7 +662,9 @@ public function showPublic(
 )
 {
 
-    $deliveryNote = DeliveryNote::where(
+    // Link público: empresa + token, sin el scope de la sesión (otra cuenta
+    // logueada en el mismo navegador no debe romper el link del cliente).
+    $deliveryNote = DeliveryNote::withoutGlobalScopes()->where(
         'public_token',
         $token
     )
@@ -673,11 +675,16 @@ public function showPublic(
     ->firstOrFail();
 
 
+    $unscoped = fn ($q) => $q->withoutGlobalScopes();
+
     $deliveryNote->load([
-        'building',
+        'building' => $unscoped,
         'user',
+        'workOrder' => $unscoped,
         'workOrder.participants',
-        'workOrder.materials.stockItem',
+        'workOrder.materials' => $unscoped,
+        'workOrder.materials.stockItem' => $unscoped,
+        'buildingVisit' => $unscoped,
         'buildingVisit.participants',
     ]);
 

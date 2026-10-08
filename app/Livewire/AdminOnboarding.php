@@ -194,7 +194,7 @@ class AdminOnboarding extends Component
             [
                 'key' => 'quotes',
                 'title' => 'Presupuestos',
-                'body' => 'Armá presupuestos para tus clientes: edificio, ascensor, título, detalle e importe. Les vas cambiando el estado (pendiente, enviado, aprobado o rechazado) y se los podés mandar por WhatsApp o por mail con un link para verlo online.',
+                'body' => 'Armá presupuestos para tus clientes: edificio, equipo, ítems con cantidad y precio (el total se calcula solo) y validez. Les vas cambiando el estado (borrador, enviado, aprobado, rechazado o anulado) y se los podés mandar por WhatsApp o por mail con un link para verlo online.',
                 'target' => QuoteResource::getUrl(),
             ],
             [
@@ -230,7 +230,7 @@ class AdminOnboarding extends Component
             'reports' => ['title' => 'Reportes', 'body' => 'Problemas que detectan los técnicos en un ascensor, con foto y prioridad. Cambiá el estado a "En revisión" o "Resuelto" a medida que los atendés.'],
             'delivery_notes' => ['title' => 'Remitos', 'body' => 'El historial de todo el trabajo realizado (mantenimientos, inspecciones y órdenes de trabajo), con las firmas. Podés verlos y descargarlos; no se pueden borrar.'],
             'work_orders' => ['title' => 'Órdenes de trabajo', 'body' => 'Trabajos puntuales: elegí edificio, ascensor, técnicos, tipo de trabajo, prioridad y detalle. El técnico la toma desde el celular y la cierra con el remito.'],
-            'quotes' => ['title' => 'Presupuestos', 'body' => 'Presupuestos para tus clientes con importe y estado (pendiente, enviado, aprobado o rechazado). Desde cada presupuesto lo podés enviar por WhatsApp o por mail.'],
+            'quotes' => ['title' => 'Presupuestos', 'body' => 'Presupuestos para tus clientes con ítems, total calculado, validez y estado (borrador, enviado, aprobado, rechazado o anulado; vencido si pasa la validez). Desde cada presupuesto lo podés enviar por WhatsApp o por mail.'],
             'map' => ['title' => 'Mapa', 'body' => 'Todos tus edificios en el mapa. Se ubican solos con la dirección que cargaste; si alguno no se pudo ubicar con precisión, aparece en "Edificios sin ubicar" para que corrijas la dirección o lo marques a mano. Tocá un punto para ver el cliente y abrir el edificio.'],
             'subscription' => ['title' => 'Mi suscripción', 'body' => 'Tu plan (Inicial, Profesional o Empresa), cuánto usaste de cada límite y cómo cambiar de plan o suscribirte con Mercado Pago.'],
         ];

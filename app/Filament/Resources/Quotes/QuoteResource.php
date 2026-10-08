@@ -105,6 +105,20 @@ class QuoteResource extends Resource
         return auth()->check();
     }
 
+    /**
+     * Con un cobro generado (no anulado) el presupuesto queda cerrado: su
+     * importe ya se está cobrando. Para cambiarlo, primero se anula el cobro.
+     */
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return ! $record->hasActiveReceivable();
+    }
+
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return ! $record->hasActiveReceivable();
+    }
+
     /** Si el plan no incluye presupuestos, el menú lo indica (y la página explica). */
     public static function getNavigationBadge(): ?string
     {

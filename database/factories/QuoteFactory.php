@@ -21,9 +21,11 @@ class QuoteFactory extends Factory
             'created_by' => fn (array $attributes) => User::factory()->admin()->create([
                 'company_id' => $attributes['company_id'],
             ])->id,
+            'client_id' => fn (array $attributes) => Building::withoutGlobalScopes()
+                ->find($attributes['building_id'])->client_id,
             'title' => fake()->sentence(3),
             'amount' => 1000,
-            'status' => 'pending',
+            'status' => 'draft',
         ];
     }
 }

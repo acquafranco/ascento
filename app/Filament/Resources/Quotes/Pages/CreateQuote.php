@@ -15,7 +15,13 @@ class CreateQuote extends CreateRecord
     protected function mutateFormDataBeforeCreate(array $data): array
 {
     $data['created_by'] = auth()->id();
+    unset($data['amount']); // el total sale de los ítems
 
     return $data;
 }
+
+    protected function afterCreate(): void
+    {
+        $this->record->refreshTotal();
+    }
 }

@@ -18,7 +18,7 @@ class AdminStats extends StatsOverviewWidget
 
         $remitosHoy = DeliveryNote::whereDate('created_at', today())->count();
 
-        $presupuestosPendientes = Quote::where('status', 'pending')->count();
+        $presupuestosPendientes = Quote::open()->count(); // borradores y enviados vigentes
 
         $edificios = Building::count();
 

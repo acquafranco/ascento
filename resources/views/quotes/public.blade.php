@@ -102,6 +102,42 @@
                 </div>
             @endif
 
+            {{-- ÍTEMS --}}
+            @if($quote->items->isNotEmpty())
+                <div class="overflow-x-auto rounded-xl border border-slate-200">
+                    <table class="w-full text-sm">
+                        <thead class="bg-slate-50 text-slate-500 text-xs uppercase">
+                            <tr>
+                                <th class="text-left p-3">Concepto</th>
+                                <th class="text-right p-3">Cant.</th>
+                                <th class="text-right p-3">Precio unit.</th>
+                                <th class="text-right p-3">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            @foreach($quote->items as $item)
+                                <tr>
+                                    <td class="p-3">
+                                        <div class="font-medium text-slate-800">{{ $item->concept }}</div>
+                                        @if($item->description)<div class="text-xs text-slate-500">{{ $item->description }}</div>@endif
+                                    </td>
+                                    <td class="p-3 text-right whitespace-nowrap">{{ rtrim(rtrim(number_format($item->quantity, 2, ',', '.'), '0'), ',') }}</td>
+                                    <td class="p-3 text-right whitespace-nowrap">${{ number_format($item->unit_price, 2, ',', '.') }}</td>
+                                    <td class="p-3 text-right whitespace-nowrap font-semibold">${{ number_format($item->subtotal, 2, ',', '.') }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+
+            @if($quote->conditions)
+                <div>
+                    <p class="text-xs text-slate-500 mb-1">Condiciones</p>
+                    <div class="text-slate-600 text-sm leading-relaxed whitespace-pre-line">{{ $quote->conditions }}</div>
+                </div>
+            @endif
+
             {{-- GRID INFO --}}
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 
@@ -109,7 +145,7 @@
                 <div class="bg-slate-50 rounded-xl p-4">
                     <p class="text-xs text-slate-500">Total</p>
                     <p class="text-2xl font-bold text-green-600">
-                        ${{ number_format($quote->amount, 0, ',', '.') }}
+                        ${{ number_format($quote->amount, 2, ',', '.') }}
                     </p>
                 </div>
 
@@ -117,28 +153,13 @@
                 <div class="bg-slate-50 rounded-xl p-4">
                     <p class="text-xs text-slate-500">Estado</p>
 
-                    @switch($quote->status)
-                        @case('pending')
-                            <span class="text-yellow-600 font-semibold">Pendiente</span>
-                            @break
-
-                        @case('sent')
-                            <span class="text-blue-600 font-semibold">Enviado</span>
-                            @break
-
-                        @case('approved')
-                            <span class="text-green-600 font-semibold">Aprobado</span>
-                            @break
-
-                        @case('rejected')
-                            <span class="text-red-600 font-semibold">Rechazado</span>
-                            @break
-
-                        @default
-                            <span class="text-slate-600 font-semibold">
-                                {{ $quote->status }}
-                            </span>
-                    @endswitch
+                    @php
+                        $statusColor = ['approved' => 'text-green-600', 'rejected' => 'text-red-600', 'sent' => 'text-blue-600', 'expired' => 'text-orange-600', 'void' => 'text-slate-500'][$quote->displayStatus()] ?? 'text-slate-600';
+                    @endphp
+                    <span class="{{ $statusColor }} font-semibold">{{ $quote->displayStatusLabel() }}</span>
+                    @if($quote->valid_until)
+                        <p class="text-xs text-slate-500 mt-1">Válido hasta el {{ $quote->valid_until->format('d/m/Y') }}</p>
+                    @endif
 
                 </div>
 

@@ -2,186 +2,161 @@
 
 namespace App\Filament\Resources\Quotes\Schemas;
 
-use Filament\Schemas\Schema;
-use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Grid;
-
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Textarea;
-
-
-use Filament\Forms;
-use App\Models\User;
-use Illuminate\Support\Facades\Auth;
 use App\Models\Building;
+use App\Models\Quote;
+use App\Support\CompanyContext;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Repeater\TableColumn;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Text;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
+use Filament\Schemas\Schema;
 
+/**
+ * Formulario de presupuesto: encabezado corto, ítems en tabla y detalles
+ * opcionales plegados. Los subtotales y el total que se ven acá son solo de
+ * referencia: el servidor los calcula siempre a partir de los ítems.
+ */
 class QuoteForm
 {
     public static function configure(Schema $schema): Schema
     {
+        $money = fn (float $value) => '$'.number_format($value, 2, ',', '.');
+
         return $schema
             ->components([
-
-                Section::make('Información general')
-                    ->description('Datos principales del presupuesto.')
-                    ->icon('heroicon-o-building-office')
+                Section::make('Cliente')
+                    ->columns(3)
                     ->schema([
-
                         Select::make('client_id')
-                            ->relationship('client', 'name', fn ($query) => $query->withoutTrashed())
+                            ->label('Cliente')
+                            ->relationship('client', 'name', fn ($query) => $query->withoutTrashed()->where('company_id', CompanyContext::currentId()))
                             ->searchable()
                             ->preload()
                             ->required()
                             ->live()
-                            ->label('Cliente'),
+                            ->afterStateUpdated(fn (Set $set) => $set('building_id', null)),
 
                         Select::make('building_id')
-                            ->relationship(
-                                'building',
-                                'name',
-                                fn ($query, callable $get) =>
-                                    $query->withoutTrashed()->where('client_id', $get('client_id'))
-                            )
+                            ->label('Edificio')
+                            ->relationship('building', 'name', fn ($query, Get $get) => $query->withoutTrashed()
+                                ->where('company_id', CompanyContext::currentId())
+                                ->where('client_id', $get('client_id')))
+                            ->getOptionLabelFromRecordUsing(fn (Building $record) => trim("{$record->name} {$record->address}"))
                             ->searchable()
                             ->preload()
                             ->required()
-                            ->label('Edificio'),
+                            ->live()
+                            ->afterStateUpdated(fn (Set $set) => $set('unit', null)),
 
-                            Select::make('unit')
-                    ->options(function (callable $get) {
+                        Select::make('unit')
+                            ->label('Equipo (opcional)')
+                            ->placeholder('Todo el edificio')
+                            ->options(function (Get $get, ?Quote $record) {
+                                $labels = Building::find($get('building_id'))?->unitLabels() ?? [];
 
-                        $buildingId = $get('building_id');
+                                // Dato viejo que no está en la lista: se conserva.
+                                if (filled($record?->unit) && ! in_array($record->unit, $labels, true)) {
+                                    $labels[] = $record->unit;
+                                }
 
-                        if (!$buildingId) {
-                            return [];
-                        }
-
-                        $user = Auth::user();
-
-                        $companyId = $user->isSuperAdmin()
-                            ? session('selected_company_id')
-                            : $user->company_id;
-
-                        $building = Building::query()
-                            ->whereKey($buildingId)
-                            ->where('company_id', $companyId)
-                            ->first();
-
-                        if (!$building) {
-                            return [];
-                        }
-
-                        $options = [];
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | ASCENSORES
-                        |--------------------------------------------------------------------------
-                        */
-
-                        if ($building->elevator_count > 0) {
-
-                            $elevators = [];
-
-                            for (
-                                $i = 1;
-                                $i <= $building->elevator_count;
-                                $i++
-                            ) {
-                                $elevators[
-                                    "Ascensor {$i}"
-                                ] = "Ascensor {$i}";
-                            }
-
-                            $options['🏢 Ascensores'] =
-                                $elevators;
-                        }
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | MONTACARGAS
-                        |--------------------------------------------------------------------------
-                        */
-
-                        if (
-                            $building->freight_elevator_count > 0
-                        ) {
-
-                            $freight = [];
-
-                            for (
-                                $i = 1;
-                                $i <= $building->freight_elevator_count;
-                                $i++
-                            ) {
-                                $freight[
-                                    "Montacargas {$i}"
-                                ] =
-                                    "Montacargas {$i}";
-                            }
-
-                            $options['📦 Montacargas'] =
-                                $freight;
-                        }
-
-                        return $options;
-                    })
-                    ->searchable()
-                    ->placeholder('Elegí edificio primero')
-                    ->required()
-                    ->label('Unidad'),
-
-
-                        TextInput::make('title')
-                            ->required()
-                            ->maxLength(255)
-                            ->label('Título'),
-
-                        Textarea::make('description')
-                            ->rows(6)
-                            ->columnSpanFull()
-                            ->label('Descripción'),
-
+                                return array_combine($labels, $labels) ?: [];
+                            }),
                     ]),
 
-                Section::make('Información comercial')
-                    ->description('Estado, prioridad y monto.')
-                    ->icon('heroicon-o-banknotes')
-                    ->columns(2)
+                Section::make('Presupuesto')
+                    ->columns(4)
                     ->schema([
-
-                        TextInput::make('amount')
-                            ->numeric()
-                            ->prefix('$')
-                            ->minValue(0)
+                        TextInput::make('title')
+                            ->label('Título')
+                            ->placeholder('Ej.: Cambio de operador de puertas')
                             ->required()
-                            ->label('Monto'),
+                            ->maxLength(255)
+                            ->columnSpan(4),
+
+                        DatePicker::make('issued_at')
+                            ->label('Fecha')
+                            ->default(today())
+                            ->required()
+                            ->native(false)
+                            ->displayFormat('d/m/Y'),
+
+                        DatePicker::make('valid_until')
+                            ->label('Válido hasta')
+                            ->default(today()->addDays(15))
+                            ->afterOrEqual('issued_at')
+                            ->native(false)
+                            ->displayFormat('d/m/Y'),
 
                         Select::make('status')
-                            ->required()
-                            ->default('pending')
                             ->label('Estado')
-                            ->options([
-                                'pending' => 'Pendiente',
-                                'sent' => 'Enviado',
-                                'approved' => 'Aprobado',
-                                'rejected' => 'Rechazado',
-                            ]),
+                            ->options(Quote::STATUSES)
+                            ->default(Quote::DRAFT)
+                            ->required()
+                            ->native(false),
 
                         Select::make('priority')
-                            ->required()
-                            ->default('normal')
                             ->label('Prioridad')
+                            ->default('normal')
+                            ->required()
+                            ->native(false)
                             ->options([
                                 'low' => '🟢 Baja',
                                 'normal' => '🔵 Normal',
                                 'high' => '🟠 Alta',
                                 'urgent' => '🔴 Urgente',
                             ]),
-
                     ]),
 
+                Section::make('Ítems')
+                    ->schema([
+                        Repeater::make('items')
+                            ->hiddenLabel()
+                            ->relationship()
+                            ->orderColumn('position')
+                            ->table([
+                                TableColumn::make('Concepto')->markAsRequired(),
+                                TableColumn::make('Detalle'),
+                                TableColumn::make('Cantidad')->markAsRequired(),
+                                TableColumn::make('Precio unitario')->markAsRequired(),
+                                TableColumn::make('Subtotal'),
+                            ])
+                            ->schema([
+                                TextInput::make('concept')->required()->maxLength(255)->placeholder('Cambio de contactor'),
+                                TextInput::make('description')->maxLength(1000)->placeholder('Opcional'),
+                                TextInput::make('quantity')->numeric()->required()->minValue(0.01)->maxValue(99999)->default(1)->live(onBlur: true),
+                                TextInput::make('unit_price')->numeric()->required()->minValue(0)->maxValue(999999999)->prefix('$')->live(onBlur: true),
+                                // Solo para ver: no se envía (lo calcula el servidor).
+                                TextInput::make('subtotal_preview')
+                                    ->disabled()
+                                    ->dehydrated(false)
+                                    ->formatStateUsing(fn (Get $get) => $money(round((float) $get('quantity') * (float) $get('unit_price'), 2)))
+                                    ->afterStateHydrated(fn (TextInput $component, Get $get) => $component->state($money(round((float) $get('quantity') * (float) $get('unit_price'), 2)))),
+                            ])
+                            ->minItems(1)
+                            ->defaultItems(1)
+                            ->addActionLabel('+ Agregar ítem')
+                            ->live()
+                            ->validationMessages(['min' => 'Agregá al menos un ítem.']),
+
+                        Text::make(fn (Get $get) => 'Total: '.$money(collect($get('items') ?? [])->sum(fn ($item) => round((float) ($item['quantity'] ?? 0) * (float) ($item['unit_price'] ?? 0), 2))))
+                            ->size('lg'),
+                    ]),
+
+                Section::make('Detalles')
+                    ->collapsible()
+                    ->collapsed(fn (?Quote $record) => blank($record?->description) && blank($record?->conditions) && blank($record?->notes))
+                    ->schema([
+                        Textarea::make('description')->label('Descripción general')->rows(3)->maxLength(5000),
+                        Textarea::make('conditions')->label('Condiciones')->rows(3)->maxLength(5000)
+                            ->placeholder('Forma de pago, plazo de entrega, garantía…'),
+                        Textarea::make('notes')->label('Observaciones')->rows(2)->maxLength(5000),
+                    ]),
             ]);
     }
 }

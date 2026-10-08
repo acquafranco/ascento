@@ -377,7 +377,16 @@ Route::get('/whatsapp/callback', [
 
 Route::get('/{company:slug}/quote/{token}', function (Company $company, $token) {
 
-    $quote = \App\Models\Quote::where('company_id', $company->id)
+    // Link público (lo abre el cliente): empresa + token. Sin el scope de la
+    // sesión: si en el navegador hay otra cuenta logueada, igual abre.
+    $quote = \App\Models\Quote::withoutGlobalScopes()
+        ->with([
+            'items' => fn ($q) => $q->withoutGlobalScopes(),
+            'building' => fn ($q) => $q->withoutGlobalScopes(),
+            'client' => fn ($q) => $q->withoutGlobalScopes(),
+            'company',
+        ])
+        ->where('company_id', $company->id)
         ->where('public_token', $token)
         ->firstOrFail();
 

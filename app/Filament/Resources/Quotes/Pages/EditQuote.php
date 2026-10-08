@@ -22,4 +22,16 @@ class EditQuote extends EditRecord
             DeleteAction::make(),
         ];
     }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        unset($data['amount'], $data['created_by'], $data['company_id']); // el total sale de los ítems
+
+        return $data;
+    }
+
+    protected function afterSave(): void
+    {
+        $this->record->refreshTotal();
+    }
 }
