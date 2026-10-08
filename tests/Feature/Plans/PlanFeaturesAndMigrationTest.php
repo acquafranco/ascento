@@ -127,38 +127,60 @@ class PlanFeaturesAndMigrationTest extends TestCase
     |--------------------------------------------------------------------------
     */
 
-    public function test_the_migration_moves_the_149000_plan_to_empresa_keeping_the_price(): void
+    /** Recrea el estado previo a los 3 planes y corre las dos migraciones como en producción. */
+    private function migrateFromLegacy(array $legacySubscription): Subscription
     {
-        $migration = require database_path('migrations/2026_10_13_100000_introduce_three_plans_with_limits.php');
+        $toProfesional = require database_path('migrations/2026_10_14_100000_move_legacy_subscriptions_to_profesional.php');
+        $threePlans = require database_path('migrations/2026_10_13_100000_introduce_three_plans_with_limits.php');
 
-        // Estado previo: plan "professional" de $149.000 y una empresa suscripta a él.
-        $migration->down();
+        $toProfesional->down();
+        $threePlans->down();
+
         DB::table('subscription_plans')->updateOrInsert(['slug' => 'professional'], ['name' => 'Ascento', 'price' => 149000, 'currency' => 'ARS', 'is_active' => true]);
         DB::table('subscriptions')->insert([
             'company_id' => $this->a['company']->id,
             'provider' => 'mercadopago',
-            'provider_subscription_id' => 'PRE-LEGACY',
             'external_reference' => 'ascento-company-'.$this->a['company']->id,
             'plan' => 'professional',
-            'status' => 'authorized',
             'amount' => 149000,
             'currency' => 'ARS',
-            'current_period_end' => now()->addDays(20),
             'created_at' => now(),
             'updated_at' => now(),
+            ...$legacySubscription,
         ]);
 
-        $migration->up();
+        $threePlans->up();
+        $toProfesional->up();
 
-        $subscription = Subscription::where('company_id', $this->a['company']->id)->sole();
-        $this->assertSame('empresa', $subscription->plan);
-        $this->assertSame('professional', $subscription->legacy_plan);
-        $this->assertEquals(149000, $subscription->amount);           // sigue pagando lo mismo
+        $this->a['company']->forgetPlan();
+
+        return Subscription::where('company_id', $this->a['company']->id)->sole();
+    }
+
+    public function test_companies_from_the_149000_plan_end_up_on_profesional_at_119000(): void
+    {
+        $subscription = $this->migrateFromLegacy(['status' => 'pending', 'provider_subscription_id' => null]);
+
+        $this->assertSame('profesional', $subscription->plan);
+        $this->assertSame('professional', $subscription->legacy_plan);   // queda el historial
+        $this->assertEquals(119000, $subscription->amount);
         $this->assertFalse((bool) SubscriptionPlan::where('slug', 'professional')->value('is_active')); // no se borró
-        $this->assertTrue($this->a['company']->fresh()->hasActiveAccess());
-        $this->assertSame('empresa', $this->a['company']->fresh()->plan()->slug);
+        $this->assertSame('profesional', $this->a['company']->plan()->slug);
+        $this->assertTrue($this->a['company']->fresh()->hasActiveAccess()); // sigue en su prueba gratis
+    }
 
-        // Mercado Pago le sigue cobrando $149.000 y la sincronización lo acepta.
+    public function test_a_subscription_that_mercado_pago_is_charging_keeps_its_amount(): void
+    {
+        $subscription = $this->migrateFromLegacy([
+            'status' => 'authorized',
+            'provider_subscription_id' => 'PRE-LEGACY',
+            'current_period_end' => now()->addDays(20),
+        ]);
+
+        $this->assertSame('profesional', $subscription->plan);
+        $this->assertEquals(149000, $subscription->amount); // Mercado Pago sigue cobrando eso hasta "Cambiar de plan"
+        $this->assertTrue($this->a['company']->fresh()->hasActiveAccess());
+
         $this->mpPreapproval('PRE-LEGACY', $this->a['company'], 'authorized', ['auto_recurring' => ['transaction_amount' => 149000]]);
         $this->mpWebhook('subscription_preapproval', 'PRE-LEGACY')->assertJson(['status' => 'preapproval_authorized']);
     }
@@ -168,10 +190,10 @@ class PlanFeaturesAndMigrationTest extends TestCase
         // Prueba gratis sin suscripción → Profesional.
         $this->assertSame('profesional', $this->a['company']->plan()->slug);
 
-        // Slug desconocido (dato viejo) → Empresa, sin quitarle nada.
+        // Slug desconocido (dato viejo) → Profesional.
         Subscription::create(['company_id' => $this->a['company']->id, 'provider' => 'manual', 'plan' => 'basic', 'status' => 'active', 'current_period_end' => now()->addDays(5)]);
         $this->a['company']->forgetPlan();
-        $this->assertSame('empresa', $this->a['company']->plan()->slug);
+        $this->assertSame('profesional', $this->a['company']->plan()->slug);
     }
 
     /*

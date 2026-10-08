@@ -182,8 +182,7 @@ class Company extends Model
      * - con suscripción: el plan guardado en ella;
      * - en prueba gratis (sin suscripción o con el checkout sin terminar):
      *   el plan de prueba (Profesional);
-     * - si el slug no existe (dato viejo): Empresa, el más completo, para no
-     *   quitarle nada a nadie.
+     * - si el slug no existe (dato viejo): Profesional, el plan principal.
      */
     public function plan(): SubscriptionPlan
     {
@@ -198,7 +197,7 @@ class Company extends Model
             : $subscription->plan;
 
         return $this->resolvedPlan = SubscriptionPlan::findBySlug($slug)
-            ?? SubscriptionPlan::findBySlug(SubscriptionPlan::EMPRESA)
+            ?? SubscriptionPlan::findBySlug(SubscriptionPlan::PROFESIONAL)
             ?? new SubscriptionPlan([
                 // Sin planes en la base (instalación nueva sin migrar): sin límites.
                 'name' => 'Ascento',
