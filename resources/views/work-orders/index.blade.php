@@ -155,6 +155,12 @@
 
         @endforelse
 
+        @if ($workOrders->hasPages())
+            <div class="pt-2">
+                {{ $workOrders->onEachSide(1)->links() }}
+            </div>
+        @endif
+
     </div>
 
 </div>

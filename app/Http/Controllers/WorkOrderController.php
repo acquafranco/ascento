@@ -3,18 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\WorkOrder;
+use App\Services\WorkOrderService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
-use App\Services\WhatsAppService;
-use App\Services\WorkOrderService;
-
 class WorkOrderController extends Controller
 {
-
-    public function __construct(private WorkOrderService $workOrderService)
-    {
-    }
+    public function __construct(private WorkOrderService $workOrderService) {}
 
     /*
     |--------------------------------------------------------------------------
@@ -65,7 +60,6 @@ class WorkOrderController extends Controller
             'deliveryNote',
         ])->where('company_id', $user->company_id);
 
-
         /*
         |--------------------------------------------------------------------------
         | FILTRO STATUS
@@ -80,7 +74,6 @@ class WorkOrderController extends Controller
             );
 
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -115,7 +108,6 @@ class WorkOrderController extends Controller
 
         }
 
-
         if ($request->filled('month')) {
 
             $query->whereMonth(
@@ -124,7 +116,6 @@ class WorkOrderController extends Controller
             );
 
         }
-
 
         if ($request->filled('year')) {
 
@@ -135,7 +126,6 @@ class WorkOrderController extends Controller
 
         }
 
-
         if ($request->today) {
 
             $query->whereDate(
@@ -145,11 +135,11 @@ class WorkOrderController extends Controller
 
         }
 
-
+        // Paginado: con cientos de órdenes, dibujarlas todas trababa el celular.
         $workOrders = $query
             ->latest()
-            ->get();
-
+            ->paginate(20)
+            ->withQueryString();
 
         return view(
             'work-orders.index',
@@ -157,8 +147,6 @@ class WorkOrderController extends Controller
         );
 
     }
-
-
 
     /*
     |--------------------------------------------------------------------------
@@ -169,8 +157,7 @@ class WorkOrderController extends Controller
     public function start(
         $company,
         WorkOrder $workOrder
-    )
-    {
+    ) {
 
         $user = Auth::user();
 
@@ -186,13 +173,12 @@ class WorkOrderController extends Controller
 
         $this->workOrderService->start($workOrder, $user);
 
-
         return redirect()
             ->route(
                 'work-orders.index',
                 [
-                    'company'=>$user->company->slug,
-                    'status'=>'in_progress'
+                    'company' => $user->company->slug,
+                    'status' => 'in_progress',
                 ]
             )
             ->with(
@@ -201,9 +187,6 @@ class WorkOrderController extends Controller
             );
 
     }
-
-
-
 
     /*
     |--------------------------------------------------------------------------
@@ -215,8 +198,7 @@ class WorkOrderController extends Controller
         Request $request,
         $company,
         WorkOrder $workOrder
-    )
-    {
+    ) {
 
         $user = Auth::user();
 
@@ -224,16 +206,14 @@ class WorkOrderController extends Controller
             abort(404);
         }
 
-
-
         /*
         |--------------------------------------------------------------------------
         | VALIDAR PARTICIPACIÓN
         |--------------------------------------------------------------------------
         */
 
-        if(
-            !$workOrder->participants()
+        if (
+            ! $workOrder->participants()
                 ->where(
                     'users.id',
                     $user->id
@@ -241,15 +221,13 @@ class WorkOrderController extends Controller
                 ->exists()
             &&
             $user->role !== 'admin'
-        ){
+        ) {
 
             abort(403);
 
         }
 
-
         $this->workOrderService->finish($workOrder, $user);
-
 
         return back()
             ->with(
@@ -258,5 +236,4 @@ class WorkOrderController extends Controller
             );
 
     }
-
 }
