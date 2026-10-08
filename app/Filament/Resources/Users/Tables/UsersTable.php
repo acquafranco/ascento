@@ -28,6 +28,11 @@ class UsersTable
                     ->label('Correo electrónico')
                     ->searchable(),
 
+                TextColumn::make('phone')
+                    ->label('Teléfono')
+                    ->formatStateUsing(fn (?string $state) => \App\Support\PhoneNumber::format($state))
+                    ->toggleable(),
+
                 TextColumn::make('role')
                     ->label('Rol')
                     ->formatStateUsing(fn ($state) => match ($state) {

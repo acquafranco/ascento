@@ -57,8 +57,8 @@ class UploadSecurityTest extends TestCase
 
     public function test_report_photo_is_reencoded_with_random_name_inside_company_folder(): void
     {
-        if (! extension_loaded('imagick')) {
-            $this->markTestSkipped('Imagick no está instalado en este entorno (sí en el Dockerfile de producción).');
+        if (! extension_loaded('imagick') && ! extension_loaded('gd')) {
+            $this->markTestSkipped('Requiere Imagick o GD (procesa la foto antes de guardar).');
         }
 
         Storage::fake('local');

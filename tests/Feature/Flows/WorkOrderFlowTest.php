@@ -41,11 +41,30 @@ class WorkOrderFlowTest extends TestCase
         $this->assertNotNull($workOrder->started_at);
         $this->assertTrue($workOrder->participants()->whereKey($this->a['technician']->id)->exists());
 
+        // Sin remito no se cierra: lo manda a completarlo y firmarlo.
         $this->actingAs($this->a['technician'])
             ->post($this->url("/work-orders/{$workOrder->id}/finish"))
-            ->assertRedirect();
+            ->assertRedirect($this->url("/delivery-notes/create/work-order/{$workOrder->id}"))
+            ->assertSessionHasErrors('general');
+
+        $this->assertSame('in_progress', $workOrder->fresh()->status);
+
+        // Firmando el remito, la orden queda completada.
+        $this->actingAs($this->a['technician'])
+            ->post($this->url('/delivery-notes/store'), [
+                'building_id' => $this->a['building']->id,
+                'work_order_id' => $workOrder->id,
+                'assignment_type' => 'work_order',
+                'description' => 'Trabajo realizado',
+                'elevator_quantity' => 1,
+                'freight_elevator_quantity' => 0,
+                'signature_name' => 'Técnico',
+                'signature' => $this->validSignature(),
+            ])
+            ->assertSessionHasNoErrors();
 
         $this->assertSame('completed', $workOrder->fresh()->status);
+        $this->assertNotNull($workOrder->fresh()->deliveryNote);
     }
 
     public function test_unassigned_technician_cannot_take_order(): void

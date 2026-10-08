@@ -162,9 +162,12 @@ class WorkOrderShowAndPwaTest extends TestCase
 
         $response = $this->actingAs($this->a['technician'])
             ->get("/{$this->a['company']->slug}/work-orders")
-            ->assertOk()
-            ->assertSee('page=2', false);
+            ->assertOk();
 
+        // Hay link a la página 2. (Si antes, en el mismo proceso de tests, se
+        // renderizó una tabla de Livewire, el paginador global queda con sus
+        // links "gotoPage(2)"; en una request real siempre es "?page=2".)
+        $this->assertMatchesRegularExpression('/page=2|gotoPage\(2/', $response->getContent());
         $this->assertSame(20, preg_match_all('/Unidad \d+/', $response->getContent()));
     }
 

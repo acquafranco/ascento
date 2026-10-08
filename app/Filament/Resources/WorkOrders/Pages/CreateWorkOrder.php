@@ -4,9 +4,7 @@ namespace App\Filament\Resources\WorkOrders\Pages;
 
 use App\Filament\Resources\WorkOrders\WorkOrderResource;
 use Filament\Resources\Pages\CreateRecord;
-use App\Services\WhatsAppService;
 use App\Services\WorkOrderAssignmentNotifier;
-use Illuminate\Support\Facades\Log;
 
 class CreateWorkOrder extends CreateRecord
 {
@@ -27,18 +25,8 @@ class CreateWorkOrder extends CreateRecord
         // SendWorkOrderAssignedNotification para las validaciones).
         app(WorkOrderAssignmentNotifier::class)->notifyNewAssignees($workOrder);
 
-        foreach ($workOrder->users as $technician) {
-            if ($technician->phone) {
-                Log::info('Telefono tecnico WhatsApp', [
-                    'technician_id' => $technician->id,
-                    'phone' => $technician->phone,
-                ]);
-
-                app(WhatsAppService::class)->sendWorkOrderButton(
-                    $workOrder,
-                    $technician->phone
-                );
-            }
-        }
+        // Los técnicos se avisan por push y Telegram. Ya no se manda WhatsApp
+        // al teléfono del técnico (la integración está desactivada y solo
+        // dejaba el número en el log).
     }
 }

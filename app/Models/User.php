@@ -230,27 +230,21 @@ class User extends Authenticatable implements FilamentUser
     {
         return $this->hasMany(DeliveryNote::class);
     }
+    /**
+     * Celular argentino normalizado (549 + área + número). Si no se reconoce
+     * (dato viejo o cargado por otro camino) se guardan solo los dígitos, sin
+     * inventar prefijos.
+     */
     public function setPhoneAttribute($value)
-{
-    if (!$value) {
-        $this->attributes['phone'] = null;
-        return;
-    }
+    {
+        if (blank($value)) {
+            $this->attributes['phone'] = null;
 
-    $phone = preg_replace('/\D/', '', $value);
+            return;
+        }
 
-    $phone = ltrim($phone, '0');
-
-    if (str_starts_with($phone, '549')) {
-        $this->attributes['phone'] = $phone;
-        return;
-    }
-
-    if (str_starts_with($phone, '54')) {
-        $phone = substr($phone, 2);
-    }
-
-    $this->attributes['phone'] = '549' . $phone;
+        $this->attributes['phone'] = \App\Support\PhoneNumber::normalize($value)
+            ?? preg_replace('/\D/', '', (string) $value);
     }
 
     public function company()

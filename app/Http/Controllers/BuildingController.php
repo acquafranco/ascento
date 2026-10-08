@@ -143,6 +143,9 @@ $inspectionTotalMachines = $inspectionBuildings->sum(function ($building) {
 $inspectionCompletedMachines = BuildingVisit::where('status', 'done')
     ->where('company_id', $user->company_id)
     ->where('assignment_type', 'inspection')
+    // Solo los edificios donde ESTE técnico es el inspector (como en
+    // mantenimiento): si no, las inspecciones de otros le descontaban máquinas.
+    ->whereIn('building_id', $inspectionBuildings->pluck('id'))
     ->where('month', $month)
 ->where('year', $year)
     ->with('building')

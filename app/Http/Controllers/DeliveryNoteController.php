@@ -76,11 +76,11 @@ class DeliveryNoteController extends Controller
 
     }
 
+    // Paginado: con el historial de un año, dibujar todos trababa el celular.
     $deliveryNotes = $query
-
         ->latest()
-
-        ->get();
+        ->paginate(20)
+        ->withQueryString();
 
     return view(
 
@@ -134,6 +134,8 @@ class DeliveryNoteController extends Controller
         if ($building->company_id !== auth()->user()->company_id) {
             abort(404);
         }
+
+        $this->ensureAssignedTo($building, (string) $request->assignment_type);
 
         return view(
             'delivery-notes.create',
@@ -277,9 +279,17 @@ class DeliveryNoteController extends Controller
             }
         }
 
+        // El remito de una orden es SIEMPRE del edificio de la orden (no del
+        // building_id que mande el formulario).
         $building = Building::where('company_id', auth()->user()->company_id)
-            ->where('id', $request->building_id)
+            ->where('id', $workOrder?->building_id ?? $request->building_id)
             ->firstOrFail();
+
+        // Mantenimiento / inspección mensual: solo de un edificio asignado al
+        // técnico para ese tipo de trabajo (lo mismo que le ofrece la pantalla).
+        if (! $workOrder) {
+            $this->ensureAssignedTo($building, (string) $request->assignment_type);
+        }
 
         $assignmentType = $request->filled('work_order_id')
         ? 'work_order'
@@ -531,6 +541,30 @@ class DeliveryNoteController extends Controller
 
 }
 
+
+    /**
+     * El técnico solo firma el mantenimiento / la inspección mensual de un
+     * edificio que tiene asignado para ese tipo de trabajo. Los admins no
+     * tienen esta restricción.
+     */
+    private function ensureAssignedTo(Building $building, string $assignmentType): void
+    {
+        $user = auth()->user();
+
+        if ($user->isAdmin() || $user->isSuperAdmin()) {
+            return;
+        }
+
+        abort_unless(
+            in_array($assignmentType, ['maintenance', 'inspection'], true)
+                && $building->users()
+                    ->where('users.id', $user->id)
+                    ->wherePivot('type', $assignmentType)
+                    ->exists(),
+            403,
+            'Este edificio no está asignado a vos para este trabajo.'
+        );
+    }
 
   public function pdf(Company $company, DeliveryNote $deliveryNote)
 {

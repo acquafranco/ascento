@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\Users;
 
+use App\Support\PhoneNumber;
+
 use App\Filament\Resources\Users\Pages;
 use App\Models\User;
 use BackedEnum;
@@ -47,13 +49,20 @@ class UserResource extends Resource
                     ->unique(ignoreRecord: true)
                     ->maxLength(255),
 
-               TextInput::make('phone')
-                ->label('WhatsApp')
-                ->tel()
-                ->required()
-                ->dehydrateStateUsing(function ($state) {
-                    return preg_replace('/\D/', '', $state);
-                }),
+                TextInput::make('phone')
+                    ->label('Número de teléfono')
+                    ->tel()
+                    ->required()
+                    ->maxLength(30)
+                    ->placeholder('11 2345-6789')
+                    ->helperText('Celular con código de área. Se aceptan formatos como 11 2345-6789, 0351 15 123-4567 o +54 9 11 2345-6789.')
+                    ->formatStateUsing(fn (?string $state) => PhoneNumber::format($state))
+                    ->rule(fn () => function (string $attribute, $value, \Closure $fail) {
+                        if (! PhoneNumber::isValid($value)) {
+                            $fail('Ingresá un celular argentino válido, con código de área (por ejemplo 11 2345-6789).');
+                        }
+                    })
+                    ->dehydrateStateUsing(fn (?string $state) => PhoneNumber::normalize($state)),
 
             TextInput::make('password')
                 ->label('Contraseña')
