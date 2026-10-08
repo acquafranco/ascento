@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Concerns\BelongsToCompany;
+use App\Services\Stock\StockService;
 
 class WorkOrder extends Model
 {
@@ -36,6 +37,14 @@ class WorkOrder extends Model
         // Solo se pueden eliminar (soft delete) órdenes que todavía no
         // tienen historial: pendientes o fallidas y sin remito.
         static::deleting(fn (WorkOrder $workOrder) => $workOrder->canBeDeleted());
+
+        // Al completarse (por remito, por el servicio o desde el panel) se
+        // descuentan los materiales usados. Idempotente: ver StockService.
+        static::saved(function (WorkOrder $workOrder) {
+            if ($workOrder->status === 'completed' && ($workOrder->wasRecentlyCreated || $workOrder->wasChanged('status'))) {
+                app(StockService::class)->consumeWorkOrder($workOrder);
+            }
+        });
 
         static::creating(function (WorkOrder $workOrder) {
 
@@ -134,5 +143,10 @@ class WorkOrder extends Model
         ->withTrashed()
         ->withPivot('role')
         ->withTimestamps();
+    }
+
+    public function materials()
+    {
+        return $this->hasMany(WorkOrderMaterial::class);
     }
 }

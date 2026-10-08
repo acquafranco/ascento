@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Quotes\Tables;
 
+use App\Filament\Resources\Quotes\QuoteBillingActions;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
@@ -22,7 +23,7 @@ class QuotesTable
         return $table
 
             // Eager loading de lo que usan las columnas/acciones (evita N+1).
-            ->modifyQueryUsing(fn (\Illuminate\Database\Eloquent\Builder $query) => $query->with(['building.client', 'client', 'company']))
+            ->modifyQueryUsing(fn (\Illuminate\Database\Eloquent\Builder $query) => $query->with(['building.client', 'client', 'company', 'receivables']))
             ->defaultSort('created_at', 'desc')
 
             ->columns([
@@ -126,6 +127,9 @@ class QuotesTable
             ])
 
             ->recordActions([
+
+                QuoteBillingActions::generate(),
+                QuoteBillingActions::view(),
 
                 ViewAction::make()
                     ->label('Ver'),

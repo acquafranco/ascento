@@ -19,3 +19,6 @@ Schedule::command('subscriptions:reconcile-mercadopago')->everySixHours()->witho
 
 // Auditoría de webhooks: se conservan 90 días.
 Schedule::command('model:prune', ['--model' => [\App\Models\WebhookEvent::class]])->daily();
+
+// Cobranzas: obligaciones periódicas de los servicios activos (idempotente).
+Schedule::command('billing:generate')->dailyAt('06:00')->withoutOverlapping();
