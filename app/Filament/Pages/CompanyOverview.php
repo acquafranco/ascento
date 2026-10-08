@@ -13,12 +13,9 @@ class CompanyOverview extends Page
 
     protected static bool $shouldRegisterNavigation = false;
 
-
     protected string $view = 'filament.pages.company-overview';
 
-
     public Company $company;
-
 
     public function mount(Company $company)
     {
@@ -26,7 +23,6 @@ class CompanyOverview extends Page
 
         $this->company = $company;
     }
-
 
     public static function canAccess(): bool
     {

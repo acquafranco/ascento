@@ -11,20 +11,28 @@ class EditWorkOrder extends EditRecord
 {
     protected static string $resource = WorkOrderResource::class;
 
-    /** Técnicos asignados antes de guardar (para avisar solo a los nuevos). */
+    /** Técnicos asignados y datos de la orden antes de guardar. */
     protected array $previousTechnicianIds = [];
+
+    protected array $previousSnapshot = [];
 
     protected function beforeSave(): void
     {
-        $this->previousTechnicianIds = app(WorkOrderAssignmentNotifier::class)
-            ->currentAssigneeIds($this->record);
+        $notifier = app(WorkOrderAssignmentNotifier::class);
+
+        $this->previousTechnicianIds = $notifier->currentAssigneeIds($this->record);
+        $this->previousSnapshot = $notifier->snapshot($this->record);
     }
 
     protected function afterSave(): void
     {
-        // Reasignación: avisa solo a los técnicos agregados en esta edición.
-        app(WorkOrderAssignmentNotifier::class)
-            ->notifyNewAssignees($this->record, $this->previousTechnicianIds);
+        $notifier = app(WorkOrderAssignmentNotifier::class);
+
+        // Técnicos agregados en esta edición: "Nueva orden de trabajo".
+        $notifier->notifyNewAssignees($this->record, $this->previousTechnicianIds);
+
+        // Los que ya estaban: "Orden modificada", solo si cambió algo que les importa.
+        $notifier->notifyChanges($this->record, $this->previousSnapshot, $this->previousTechnicianIds);
     }
 
     protected function getHeaderActions(): array

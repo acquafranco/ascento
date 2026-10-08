@@ -90,10 +90,16 @@ trait InteractsWithWebPush
         $this->assertNotContains($subscription->endpoint, $this->deliveredEndpoints(), 'Se entregó un push que no correspondía.');
     }
 
-    /** Corre lo despachado "after response" (como al terminar un request real). */
+    /**
+     * Lo despachado "after response" ya corrió: Livewire::test y los requests
+     * de test terminan la app igual que un request real. Acá solo se limpian
+     * esos callbacks para que un terminate() posterior no los repita (en
+     * producción corren una sola vez por request).
+     */
     protected function runAfterResponseJobs(): void
     {
-        $this->app->terminate();
+        $property = new \ReflectionProperty($this->app, 'terminatingCallbacks');
+        $property->setValue($this->app, []);
     }
 
     private function base64Url(string $value): string

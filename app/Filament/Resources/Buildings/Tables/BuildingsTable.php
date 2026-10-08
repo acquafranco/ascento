@@ -50,6 +50,14 @@ class BuildingsTable
                     ->label('Cliente')
                     ->searchable(),
 
+                TextColumn::make('map_color')
+                    ->label('Color')
+                    ->state(fn ($record) => $record->mapColorKey())
+                    ->formatStateUsing(fn ($state) => \App\Models\Building::MAP_COLORS[$state][0] ?? '')
+                    ->icon('heroicon-s-map-pin')
+                    ->iconColor(fn ($record) => \Filament\Support\Colors\Color::hex($record->mapColorHex()))
+                    ->toggleable(),
+
                 TextColumn::make('elevator_count')
                     ->label('Asc.')
                     ->sortable(),

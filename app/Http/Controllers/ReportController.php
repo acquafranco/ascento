@@ -193,26 +193,9 @@ class ReportController extends Controller
         $report->load('building');
 
 
-        $admins = User::where('role', 'admin')
-            ->where('company_id', $company->id)
-            ->where('is_super_admin', false)
-            ->get();
-
-
-
-        try {
-            foreach ($admins as $admin) {
-
-                $admin->notify(new NewReportNotification($report));
-
-            }
-        } catch (\Throwable $e) {
-            logger()->error('Error enviando notificacion de reporte', [
-                'message' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-            ]);
-        }
+        // Aviso a los admins de la empresa (campanita + push), después de
+        // responder: el técnico no espera.
+        \App\Jobs\NotifyCompanyAdmins::reportCreated($report);
 
 
 

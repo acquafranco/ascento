@@ -128,6 +128,24 @@ class User extends Authenticatable implements FilamentUser
     }
 
     /**
+     * ¿Puede recibir avisos de administración (trabajo terminado, reportes)?
+     * Solo admins de una empresa, no el SuperAdmin.
+     */
+    public function canReceiveAdminPush(): bool
+    {
+        return ! $this->trashed()
+            && $this->isAdmin()
+            && ! $this->isSuperAdmin()
+            && $this->company_id !== null;
+    }
+
+    /** ¿Puede registrar dispositivos para recibir push? */
+    public function canReceivePush(): bool
+    {
+        return $this->canReceiveWorkOrderPush() || $this->canReceiveAdminPush();
+    }
+
+    /**
      * ¿Puede recibir avisos (push) de órdenes de trabajo? Solo técnicos de
      * una empresa: ni admins ni SuperAdmin, que trabajan desde el panel.
      */

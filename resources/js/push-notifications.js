@@ -12,6 +12,7 @@
 
 const OWNER_KEY = 'ascento-push-user';
 const SYNC_KEY = 'ascento-push-synced-at';
+const DISMISS_KEY = 'ascento-push-dismissed-until';
 
 export function pushConfig() {
     const meta = document.querySelector('meta[name="ascento-push"]');
@@ -124,11 +125,23 @@ async function subscribe(reg, vapidKey) {
         subscription = null;
     }
 
-    return subscription ?? withTimeout(
+    if (subscription) return subscription;
+
+    const attempt = () => withTimeout(
         reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: base64ToUint8Array(vapidKey) }),
         15000,
         'subscribe-timeout',
     );
+
+    // El servicio de push del navegador a veces falla el primer intento
+    // ("push service error"): se reintenta una vez antes de mostrar error.
+    try {
+        return await attempt();
+    } catch (error) {
+        if (error?.name !== 'AbortError' && error?.message !== 'subscribe-timeout') throw error;
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        return attempt();
+    }
 }
 
 async function saveSubscription(config, subscription) {
@@ -181,6 +194,13 @@ export function pushNotificationsComponent() {
         busy: false,
         message: '',
         promptHint: false,
+        dismissed: Number(localStorage.getItem(DISMISS_KEY) || 0) > Date.now(),
+
+        /** "Ahora no": oculta la barra 30 días (la tarjeta completa sigue en su lugar). */
+        dismiss() {
+            localStorage.setItem(DISMISS_KEY, String(Date.now() + 30 * 24 * 3600 * 1000));
+            this.dismissed = true;
+        },
 
         async init() {
             const config = pushConfig();
@@ -239,7 +259,7 @@ export function pushNotificationsComponent() {
                 localStorage.setItem(SYNC_KEY, String(Date.now()));
 
                 this.state = 'subscribed';
-                this.message = 'Listo. Te vamos a avisar cuando te asignen una orden.';
+                this.message = config.successMessage || 'Listo. Te vamos a avisar cuando te asignen una orden.';
             } catch (error) {
                 this.state = 'error';
                 this.message = explain(error);

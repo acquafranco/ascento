@@ -42,6 +42,11 @@ class MercadoPagoSubscriptionSync
     {
         $current = Subscription::where('company_id', $company->id)->first();
 
+        // Los 30 días gratis no se cobran: la suscripción empieza al terminar.
+        if ($company->onTrial() && (! $current || ($current->isMercadoPago() && $current->status === Subscription::PENDING))) {
+            throw new RuntimeException('Tu empresa todavía está en la prueba gratis.');
+        }
+
         if ($current?->isMercadoPago() && in_array($current->status, [Subscription::AUTHORIZED, Subscription::PAST_DUE], true)) {
             throw new RuntimeException('Tu empresa ya tiene una suscripción activa en Mercado Pago.');
         }

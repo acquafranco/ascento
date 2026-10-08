@@ -140,7 +140,7 @@
 }
 
 .bm-pin.is-inactive {
-    background: var(--gray-400);
+    opacity: 0.45;
 }
 
 .bm-pin.is-manual {
