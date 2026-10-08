@@ -104,4 +104,19 @@ class QuoteResource extends Resource
     {
         return auth()->check();
     }
+
+    /** Si el plan no incluye presupuestos, el menú lo indica (y la página explica). */
+    public static function getNavigationBadge(): ?string
+    {
+        $company = \App\Support\Plans\PlanUpsell::currentCompany();
+
+        return $company && ! \App\Support\Plans\PlanGuard::for($company)->allows(\App\Enums\PlanFeature::Quotes)
+            ? 'Profesional'
+            : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'warning';
+    }
 }

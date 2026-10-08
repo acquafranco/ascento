@@ -29,7 +29,7 @@ class ManualSubscriptionActivator
         // plan/monto previos: los completamos con el plan activo.
         $activePlan = $subscription
             ? null
-            : \App\Models\SubscriptionPlan::where('is_active', true)->first();
+            : \App\Models\SubscriptionPlan::where('slug', \App\Models\SubscriptionPlan::PROFESIONAL)->first();
 
         return Subscription::updateOrCreate(
             ['company_id' => $company->id],
@@ -38,7 +38,7 @@ class ManualSubscriptionActivator
                 'provider_subscription_id' => 'manual_' . $company->id . '_' . now()->timestamp,
                 'provider_plan_id' => null,
                 'external_reference' => 'company_' . $company->id,
-                'plan' => $subscription?->plan ?? $activePlan?->slug ?? 'professional',
+                'plan' => $subscription?->plan ?? $activePlan?->slug ?? \App\Models\SubscriptionPlan::PROFESIONAL,
                 'status' => 'active',
                 'amount' => $subscription?->amount ?? $activePlan?->price,
                 'currency' => $subscription?->currency ?? $activePlan?->currency ?? 'ARS',

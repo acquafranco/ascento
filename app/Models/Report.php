@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\Concerns\ConsumesPlanLimit;
+use App\Enums\PlanLimit;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Concerns\BelongsToCompany;
 
@@ -11,6 +13,7 @@ class Report extends Model
 {
 
     use HasFactory, SoftDeletes;
+    use ConsumesPlanLimit;
     use BelongsToCompany;
     protected $fillable = [
 
@@ -43,4 +46,9 @@ class Report extends Model
         return $this->belongsTo(Building::class)->withTrashed();
     }
 
+    /** Cupo mensual de reportes (al reactivar uno borrado no se vuelve a contar: ya contaba). */
+    public function planLimit(): ?PlanLimit
+    {
+        return $this->exists ? null : PlanLimit::ReportsPerMonth;
+    }
 }

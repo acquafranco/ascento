@@ -54,6 +54,7 @@ class MercadoPagoSubscriptionSync
         if ($current?->isMercadoPago()
             && $current->status === Subscription::PENDING
             && $current->checkout_url
+            && $current->plan === $plan->slug
             && $current->updated_at?->gt(now()->subDay())
         ) {
             return $current->checkout_url;
@@ -115,6 +116,44 @@ class MercadoPagoSubscriptionSync
         );
 
         return $initPoint;
+    }
+
+    /**
+     * Cambio de plan de una suscripción activa: actualiza el importe en
+     * Mercado Pago y, solo si Mercado Pago lo acepta, el plan local. El plan
+     * nuevo rige desde ya; el importe nuevo, desde el próximo cobro.
+     */
+    public function changePlan(Subscription $subscription, SubscriptionPlan $plan): Subscription
+    {
+        if (! $subscription->isMercadoPago()
+            || ! $subscription->provider_subscription_id
+            || ! in_array($subscription->status, [Subscription::AUTHORIZED, Subscription::PAST_DUE], true)
+        ) {
+            throw new RuntimeException('La suscripción no está activa en Mercado Pago.');
+        }
+
+        if ($subscription->plan === $plan->slug && abs((float) $subscription->amount - (float) $plan->price) < 0.01) {
+            return $subscription;
+        }
+
+        $this->mercadoPago->updatePreapprovalAmount(
+            $subscription->provider_subscription_id,
+            'Ascento - '.$plan->name,
+            (float) $plan->price,
+            $plan->currency,
+        );
+
+        $subscription->update([
+            'plan' => $plan->slug,
+            'previous_amount' => $subscription->amount,
+            'amount' => $plan->price,
+            'currency' => $plan->currency,
+            'amount_changed_at' => now(),
+        ]);
+
+        $this->syncPreapproval($subscription->provider_subscription_id);
+
+        return $subscription->fresh();
     }
 
     /** Cancela en Mercado Pago; el acceso sigue hasta el fin del período pago. */
@@ -369,8 +408,19 @@ class MercadoPagoSubscriptionSync
             return false;
         }
 
-        return abs((float) $amount - (float) $subscription->amount) < 0.01
-            && strtoupper((string) $currency) === strtoupper((string) ($subscription->currency ?: 'ARS'));
+        if (strtoupper((string) $currency) !== strtoupper((string) ($subscription->currency ?: 'ARS'))) {
+            return false;
+        }
+
+        if (abs((float) $amount - (float) $subscription->amount) < 0.01) {
+            return true;
+        }
+
+        // Recién cambió de plan: el cobro de este ciclo puede venir con el
+        // importe anterior (se acepta hasta 35 días después del cambio).
+        return $subscription->previous_amount !== null
+            && $subscription->amount_changed_at?->gt(now()->subDays(35))
+            && abs((float) $amount - (float) $subscription->previous_amount) < 0.01;
     }
 
     private function date(mixed $value): ?Carbon

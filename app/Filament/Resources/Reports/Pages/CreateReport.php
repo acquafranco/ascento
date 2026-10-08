@@ -8,6 +8,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class CreateReport extends CreateRecord
 {
+    use \App\Filament\Concerns\ChecksPlanLimitOnCreate;
+
+    protected static \App\Enums\PlanLimit $planLimit = \App\Enums\PlanLimit::ReportsPerMonth;
+
     protected static string $resource = ReportResource::class;
 
     protected function handleRecordCreation(array $data): Model

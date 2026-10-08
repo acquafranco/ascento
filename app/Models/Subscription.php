@@ -47,8 +47,11 @@ class Subscription extends Model
         'payer_email',
         'checkout_url',
         'plan',
+        'legacy_plan',
         'status',
         'amount',
+        'previous_amount',
+        'amount_changed_at',
         'currency',
         'trial_ends_at',
         'authorized_at',
@@ -64,6 +67,8 @@ class Subscription extends Model
 
     protected $casts = [
         'amount' => 'decimal:2',
+        'previous_amount' => 'decimal:2',
+        'amount_changed_at' => 'datetime',
         'trial_ends_at' => 'datetime',
         'authorized_at' => 'datetime',
         'current_period_start' => 'datetime',
@@ -78,6 +83,11 @@ class Subscription extends Model
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function subscriptionPlan(): BelongsTo
+    {
+        return $this->belongsTo(SubscriptionPlan::class, 'plan', 'slug');
     }
 
     public function payments(): HasMany

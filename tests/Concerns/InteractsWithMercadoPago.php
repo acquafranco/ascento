@@ -27,20 +27,29 @@ trait InteractsWithMercadoPago
             'services.mercadopago.test_payer_email' => null,
         ]);
 
-        SubscriptionPlan::updateOrCreate(['slug' => 'professional'], [
-            'name' => 'Ascento',
-            'price' => 149000,
-            'currency' => 'ARS',
-            'is_active' => true,
-        ]);
+        // Los tres planes los crea la migración; los tests usan Profesional ($119.000).
+        $this->assertSame(119000.0, (float) SubscriptionPlan::findBySlug(SubscriptionPlan::PROFESIONAL)->price);
 
         Http::preventStrayRequests();
         Http::fake(['api.mercadopago.com/*' => function ($request) {
             $path = parse_url($request->url(), PHP_URL_PATH);
 
             if ($request->method() === 'PUT' && str_starts_with($path, '/preapproval/')) {
+                if (! empty($this->mpApi['PUT_FAILS'])) {
+                    return Http::response(['message' => 'invalid amount'], 400);
+                }
+
                 $id = basename($path);
-                $this->mpApi["/preapproval/{$id}"]['status'] = $request['status'];
+                $body = $request->data();
+                if (isset($body['status'])) {
+                    $this->mpApi["/preapproval/{$id}"]['status'] = $body['status'];
+                }
+                if (isset($body['auto_recurring'])) {
+                    $this->mpApi["/preapproval/{$id}"]['auto_recurring'] = array_replace(
+                        $this->mpApi["/preapproval/{$id}"]['auto_recurring'] ?? [],
+                        $body['auto_recurring'],
+                    );
+                }
 
                 return Http::response($this->mpApi["/preapproval/{$id}"] ?? []);
             }
@@ -66,12 +75,12 @@ trait InteractsWithMercadoPago
             'status' => $status,
             'external_reference' => 'ascento-company-'.$company->id,
             'next_payment_date' => now()->addMonth()->toIso8601String(),
-            'auto_recurring' => ['frequency' => 1, 'frequency_type' => 'months', 'transaction_amount' => 149000, 'currency_id' => 'ARS'],
+            'auto_recurring' => ['frequency' => 1, 'frequency_type' => 'months', 'transaction_amount' => 119000, 'currency_id' => 'ARS'],
         ], $extra);
     }
 
     /** Una cuota y su pago real. */
-    protected function mpCharge(string $authorizedPaymentId, string $preapprovalId, string $paymentStatus = 'approved', float $amount = 149000, array $paymentExtra = []): void
+    protected function mpCharge(string $authorizedPaymentId, string $preapprovalId, string $paymentStatus = 'approved', float $amount = 119000, array $paymentExtra = []): void
     {
         $paymentId = 'PAY'.$authorizedPaymentId;
 
@@ -102,9 +111,9 @@ trait InteractsWithMercadoPago
             'provider' => 'mercadopago',
             'provider_subscription_id' => $preapprovalId,
             'external_reference' => 'ascento-company-'.$company->id,
-            'plan' => 'professional',
+            'plan' => SubscriptionPlan::PROFESIONAL,
             'status' => Subscription::PENDING,
-            'amount' => 149000,
+            'amount' => 119000,
             'currency' => 'ARS',
             ...$attributes,
         ]);

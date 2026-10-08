@@ -32,6 +32,28 @@ return Application::configure(basePath: dirname(__DIR__))
         });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // Límites y funciones del plan: mensaje claro + "Ver planes", nunca
+        // un error genérico (ver PlanGuard / ConsumesPlanLimit).
+        $exceptions->render(function (\App\Exceptions\PlanLimitReachedException|\App\Exceptions\PlanFeatureUnavailableException $e, \Illuminate\Http\Request $request) {
+            $isLimit = $e instanceof \App\Exceptions\PlanLimitReachedException;
+            $upgradeUrl = $isLimit
+                ? \App\Support\Plans\PlanUpsell::url($e->limit)
+                : \App\Support\Plans\PlanUpsell::url(feature: $e->feature);
+
+            if ($request->expectsJson() || $request->hasHeader('X-Livewire')) {
+                return response()->json(['message' => $e->getMessage(), 'upgrade_url' => $upgradeUrl], $isLimit ? 422 : 403);
+            }
+
+            if ($request->user()?->isAdmin()) {
+                ($isLimit
+                    ? \App\Support\Plans\PlanUpsell::limitNotification($e->company, $e->limit)
+                    : \App\Support\Plans\PlanUpsell::featureNotification($e->company, $e->feature))->send();
+
+                return redirect()->to($upgradeUrl);
+            }
+
+            // Técnicos: no pueden cambiar el plan; se les explica a quién avisar.
+            return back()->withInput()->with('error', $e->getMessage().' Avisale al administrador de tu empresa.');
+        });
     })
     ->create();

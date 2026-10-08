@@ -2,6 +2,8 @@
 
 namespace App\Filament\Pages;
 
+use App\Enums\PlanFeature;
+use App\Enums\PlanLimit;
 use App\Models\Company;
 use App\Models\Subscription as SubscriptionModel;
 use App\Models\SubscriptionPayment;
@@ -10,6 +12,7 @@ use App\Services\MercadoPagoApiException;
 use App\Services\MercadoPagoService;
 use App\Services\MercadoPagoSubscriptionSync;
 use App\Support\ManualSubscriptionActivator;
+use App\Support\Plans\PlanGuard;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -44,9 +47,17 @@ class Subscription extends Page
         return $user !== null && $user->isAdmin() && ! $user->isSuperAdmin() && $user->company_id !== null;
     }
 
+    /** Motivo por el que se llegó acá (límite o función), para el aviso de upgrade. */
+    public ?string $limite = null;
+
+    public ?string $funcion = null;
+
     public function mount(): void
     {
         $this->company();
+
+        $this->limite = PlanLimit::tryFrom((string) request()->query('limite'))?->value;
+        $this->funcion = PlanFeature::tryFrom((string) request()->query('funcion'))?->value;
 
         // Vuelta del checkout: se lee el estado real en Mercado Pago.
         if (request()->query('mp') === 'return') {
@@ -69,9 +80,96 @@ class Subscription extends Page
         return $company;
     }
 
-    public function getPlan(): ?SubscriptionPlan
+    /** Plan vigente de la empresa (en la prueba gratis: Profesional). */
+    public function getPlan(): SubscriptionPlan
     {
-        return SubscriptionPlan::where('is_active', true)->orderBy('id')->first();
+        return $this->company()->plan();
+    }
+
+    /** @return Collection<int, SubscriptionPlan> Los tres planes, en orden. */
+    public function getPlans(): Collection
+    {
+        return SubscriptionPlan::offered();
+    }
+
+    /**
+     * Uso actual vs. límites del plan: [label, used, max, percent, warning].
+     *
+     * @return list<array{label: string, used: int, max: ?int, percent: int, warning: ?string}>
+     */
+    public function getUsage(): array
+    {
+        $guard = PlanGuard::for($this->company());
+
+        return array_map(function (PlanLimit $limit) use ($guard) {
+            $max = $guard->limit($limit);
+            $used = $guard->usage($limit);
+
+            return [
+                'label' => ucfirst($limit->plural()),
+                'used' => $used,
+                'max' => $max,
+                'percent' => $max ? min(100, (int) round($used * 100 / max(1, $max))) : 0,
+                'warning' => $guard->warning($limit),
+            ];
+        }, PlanLimit::cases());
+    }
+
+    /** Aviso de por qué llegó acá: [título, qué gana al actualizar] o null. */
+    public function getUpgradeReason(): ?array
+    {
+        $guard = PlanGuard::for($this->company());
+        $limit = PlanLimit::tryFrom((string) $this->limite);
+        $feature = PlanFeature::tryFrom((string) $this->funcion);
+
+        if ($limit && ! $guard->canAdd($limit)) {
+            return [$guard->limitReachedMessage($limit), $guard->upgradePitch($limit)];
+        }
+
+        if ($feature && ! $guard->allows($feature)) {
+            return [$guard->featureUnavailableMessage($feature), $guard->upgradePitch(feature: $feature)];
+        }
+
+        return null;
+    }
+
+    /**
+     * Qué se puede hacer con cada plan:
+     * current | subscribe | change | trial | unavailable
+     */
+    public function planState(SubscriptionPlan $plan): string
+    {
+        $subscription = $this->getSubscription();
+        $isCurrent = $this->getPlan()->slug === $plan->slug;
+
+        return match (true) {
+            $this->isInFreePeriod() => $isCurrent ? 'current' : 'trial',
+            $this->canCancel() => $isCurrent ? 'current' : 'change',
+            ! $this->canPayOnline() => $isCurrent && $subscription?->grantsAccess() ? 'current' : 'unavailable',
+            default => ($isCurrent && $subscription?->grantsAccess()) ? 'current' : 'subscribe',
+        };
+    }
+
+    /**
+     * Recursos en los que la empresa ya supera lo que permite el plan
+     * (para avisar antes de elegir un plan más chico).
+     *
+     * @return list<string>
+     */
+    public function overLimitsFor(SubscriptionPlan $plan): array
+    {
+        $guard = PlanGuard::for($this->company());
+        $over = [];
+
+        foreach (PlanLimit::cases() as $limit) {
+            $max = $plan->limit($limit);
+
+            if (! $limit->isMonthly() && $max !== null && $guard->usage($limit) > $max) {
+                $over[] = "tenés {$guard->usage($limit)} {$limit->plural()} y este plan permite {$max}";
+            }
+        }
+
+        return $over;
     }
 
     public function getSubscription(): ?SubscriptionModel
@@ -86,7 +184,7 @@ class Subscription extends Page
 
     public function canPayOnline(): bool
     {
-        return MercadoPagoService::isConfigured() && $this->getPlan() !== null;
+        return MercadoPagoService::isConfigured() && $this->getPlans()->isNotEmpty();
     }
 
     /** @return Collection<int, SubscriptionPayment> */
@@ -174,10 +272,15 @@ class Subscription extends Page
     |--------------------------------------------------------------------------
     */
 
-    public function checkout(): void
+    public function checkout(?string $plan = null): void
     {
         $company = $this->company();
-        $plan = $this->getPlan();
+
+        // Solo planes que se venden hoy. Un slug inválido o inactivo se rechaza
+        // (nunca se cae en otro plan). Sin slug: el actual o el recomendado.
+        $plan = $plan !== null
+            ? $this->getPlans()->firstWhere('slug', $plan)
+            : ($this->getPlans()->firstWhere('slug', $this->getPlan()->slug) ?? $this->getPlans()->firstWhere('is_recommended', true));
 
         if (! $this->canStartCheckout() || ! $plan) {
             Notification::make()->title('No se puede iniciar el pago ahora')->warning()->send();
@@ -214,6 +317,65 @@ class Subscription extends Page
     public function refreshStatus(): void
     {
         $this->syncFromMercadoPago(notify: true);
+    }
+
+    /** Cambiar de plan con la suscripción activa (Mercado Pago actualiza el importe). */
+    public function changePlanAction(): Action
+    {
+        return Action::make('changePlan')
+            ->label(fn (array $arguments) => 'Cambiar a '.($this->getPlans()->firstWhere('slug', $arguments['plan'] ?? null)?->shortName() ?? 'este plan'))
+            ->color(fn (array $arguments) => $this->getPlans()->firstWhere('slug', $arguments['plan'] ?? null)?->is_recommended ? 'primary' : 'gray')
+            ->extraAttributes(['style' => 'width:100%'])
+            ->requiresConfirmation()
+            ->modalIcon('heroicon-o-arrow-path')
+            ->modalHeading(fn (array $arguments) => 'Cambiar al plan '.($this->getPlans()->firstWhere('slug', $arguments['plan'] ?? null)?->shortName() ?? ''))
+            ->modalDescription(function (array $arguments) {
+                $plan = $this->getPlans()->firstWhere('slug', $arguments['plan'] ?? null);
+
+                if (! $plan) {
+                    return null;
+                }
+
+                $over = $this->overLimitsFor($plan);
+
+                return 'El plan nuevo rige desde ahora. Mercado Pago te va a cobrar '.$plan->formattedPrice().'/mes desde el próximo cobro.'
+                    .($over ? ' Ojo: '.implode('; ', $over).'. No se borra nada, pero no vas a poder agregar más hasta estar dentro del límite.' : '');
+            })
+            ->modalSubmitActionLabel('Sí, cambiar de plan')
+            ->modalCancelActionLabel('No, volver')
+            ->action(function (array $arguments) {
+                $plan = $this->getPlans()->firstWhere('slug', $arguments['plan'] ?? null);
+                $subscription = $this->getSubscription();
+
+                if (! $plan || ! $subscription || ! $this->canCancel()) {
+                    Notification::make()->title('No se puede cambiar de plan ahora')->warning()->send();
+
+                    return;
+                }
+
+                try {
+                    app(MercadoPagoSubscriptionSync::class)->changePlan($subscription, $plan);
+                } catch (Throwable $e) {
+                    Log::error('Error cambiando de plan', ['subscription_id' => $subscription->id, 'error' => $e->getMessage()]);
+
+                    Notification::make()
+                        ->title('No se pudo cambiar de plan')
+                        ->body($e instanceof MercadoPagoApiException ? $e->hint() : 'Intentá de nuevo en unos minutos.')
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                $this->company()->forgetPlan();
+                $this->limite = $this->funcion = null;
+
+                Notification::make()
+                    ->title('Listo: ahora tenés el plan '.$plan->shortName())
+                    ->body('Desde el próximo cobro, Mercado Pago te cobra '.$plan->formattedPrice().'/mes.')
+                    ->success()
+                    ->send();
+            });
     }
 
     public function cancelAction(): Action

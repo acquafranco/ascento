@@ -60,7 +60,9 @@
                         </x-filament::input.wrapper>
                     @endif
 
-                    @php($colors = $this->colorsInUse())
+                    @php
+                        $colors = $this->colorsInUse();
+                    @endphp
                     @if (count($colors) > 1)
                         <label class="bm-sr-only" for="bm-color">Filtrar por color</label>
                         <x-filament::input.wrapper>

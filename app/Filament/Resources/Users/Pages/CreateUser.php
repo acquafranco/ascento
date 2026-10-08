@@ -8,6 +8,10 @@ use Illuminate\Support\Facades\Auth;
 
 class CreateUser extends CreateRecord
 {
+    use \App\Filament\Concerns\ChecksPlanLimitOnCreate;
+
+    protected static \App\Enums\PlanLimit $planLimit = \App\Enums\PlanLimit::Technicians;
+
     protected static string $resource = UserResource::class;
 
     protected function mutateFormDataBeforeCreate(array $data): array

@@ -43,6 +43,11 @@ class CompaniesTable
                     ->color(fn (Company $record) => SubscriptionStatus::color($record))
                     ->badge(),
 
+                TextColumn::make('plan_name')
+                    ->label('Plan')
+                    ->state(fn ($record) => ($record instanceof \App\Models\Company ? $record : $record->company)?->plan()->shortName())
+                    ->description(fn ($record) => (($record instanceof \App\Models\Company ? $record->latestSubscription : $record)?->legacy_plan) ? 'Precio anterior conservado' : null),
+
                 TextColumn::make('latestSubscription.current_period_end')
                     ->label('Pagado hasta')
                     ->date('d/m/Y')

@@ -534,6 +534,9 @@ class DeliveryNoteController extends Controller
 
   public function pdf(Company $company, DeliveryNote $deliveryNote)
 {
+    // Remito en PDF = remito digital para el cliente (desde Profesional).
+    \App\Support\Plans\PlanGuard::for($company)->ensureFeature(\App\Enums\PlanFeature::DigitalDeliveryNotes);
+
     abort_unless(
         $deliveryNote->company_id === $company->id,
         404

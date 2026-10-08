@@ -174,6 +174,45 @@ class Company extends Model
         return $subscription->grantsAccess();
     }
 
+    /** Plan resuelto (memo por instancia). */
+    protected ?SubscriptionPlan $resolvedPlan = null;
+
+    /**
+     * Plan vigente de la empresa. Nunca devuelve null:
+     * - con suscripción: el plan guardado en ella;
+     * - en prueba gratis (sin suscripción o con el checkout sin terminar):
+     *   el plan de prueba (Profesional);
+     * - si el slug no existe (dato viejo): Empresa, el más completo, para no
+     *   quitarle nada a nadie.
+     */
+    public function plan(): SubscriptionPlan
+    {
+        if ($this->resolvedPlan) {
+            return $this->resolvedPlan;
+        }
+
+        $subscription = $this->latestSubscription;
+
+        $slug = (! $subscription || ($subscription->status === Subscription::PENDING && $this->onTrial()))
+            ? SubscriptionPlan::TRIAL_PLAN
+            : $subscription->plan;
+
+        return $this->resolvedPlan = SubscriptionPlan::findBySlug($slug)
+            ?? SubscriptionPlan::findBySlug(SubscriptionPlan::EMPRESA)
+            ?? new SubscriptionPlan([
+                // Sin planes en la base (instalación nueva sin migrar): sin límites.
+                'name' => 'Ascento',
+                'slug' => SubscriptionPlan::EMPRESA,
+                'feature_keys' => array_map(fn ($f) => $f->value, \App\Enums\PlanFeature::cases()),
+            ]);
+    }
+
+    public function forgetPlan(): void
+    {
+        $this->resolvedPlan = null;
+        $this->unsetRelation('latestSubscription');
+    }
+
     public function onTrial(): bool
     {
         return $this->trial_ends_at !== null

@@ -53,6 +53,21 @@ class MercadoPagoService
         ]);
     }
 
+    /**
+     * Cambia el importe mensual (cambio de plan). Rige desde el próximo cobro.
+     * En suscripciones sin plan Mercado Pago exige mandar también "reason".
+     */
+    public function updatePreapprovalAmount(string $preapprovalId, string $reason, float $amount, string $currency): array
+    {
+        return $this->request('put', '/preapproval/'.rawurlencode($preapprovalId), [
+            'reason' => $reason,
+            'auto_recurring' => [
+                'transaction_amount' => $amount,
+                'currency_id' => $currency,
+            ],
+        ]);
+    }
+
     /** Una cuota de la suscripción (topic subscription_authorized_payment). */
     public function getAuthorizedPayment(string $authorizedPaymentId): array
     {

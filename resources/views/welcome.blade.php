@@ -154,8 +154,8 @@
                         </span>
 
                         <h1 class="mt-6 font-display font-semibold text-[2.5rem] leading-[1.08] sm:text-6xl sm:leading-[1.05] tracking-tight text-ink">
-                            Organizá toda tu empresa de ascensores<span class="text-amber-500">.</span>
-                            <span class="block text-ink/40">Desde un solo lugar.</span>
+                            Gestioná tu empresa de ascensores
+                            <span class="block text-ink/40">desde un solo lugar<span class="text-amber-500">.</span></span>
                         </h1>
 
                         <p class="mt-6 text-lg text-ink/60 max-w-xl leading-relaxed">
@@ -175,6 +175,12 @@
                         </div>
 
                         <div class="mt-9 flex items-center gap-6 text-sm text-ink/50">
+                            @php
+                                $fromPrice = \App\Models\SubscriptionPlan::offered()->min('price');
+                            @endphp
+                            @if ($fromPrice)
+                                <a href="#planes" class="font-semibold text-ink hover:text-amber-600 transition-colors" data-price-anchor>Desde ${{ number_format((float) $fromPrice, 0, ',', '.') }}/mes</a>
+                            @endif
                             <span class="flex items-center gap-2"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="#2E4FBE" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Sin tarjeta de crédito</span>
                             <span class="flex items-center gap-2"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="#2E4FBE" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Configuración en minutos</span>
                         </div>
@@ -252,14 +258,14 @@
                 <div class="mt-14 grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
                     @php
                         $benefits = [
-                            ['Órdenes en tiempo real', 'Cada trabajo se actualiza al instante, desde que se asigna hasta que se cierra.', 'M3 8H13M13 8L9 4M13 8L9 12'],
-                            ['Técnicos siempre conectados', 'Tu equipo carga avances y fotos desde el celular, en el momento.', 'M8 2C5 2 2.5 4.5 2.5 7.5C2.5 11 8 14 8 14C8 14 13.5 11 13.5 7.5C13.5 4.5 11 2 8 2Z'],
-                            ['Historial completo', 'Cada ascensor guarda su trazabilidad: mantenimientos, fallas y reportes.', 'M3 3H13V13H3V3ZM3 6.5H13M6.5 6.5V13'],
-                            ['Edificios organizados', 'Todos los edificios, con sus ascensores y contactos, siempre a mano.', 'M2 13V5.5L8 2L14 5.5V13H2ZM6 13V9H10V13'],
-                            ['Mantenimientos mensuales', 'Programá y controlá los mantenimientos sin depender de la memoria de nadie.', 'M8 2V5M8 11V14M2 8H5M11 8H14'],
-                            ['Reclamos organizados', 'Cada reclamo queda registrado, asignado y con seguimiento hasta resolverse.', 'M3 3H13V10H6L3 13V10H3V3Z'],
-                            ['Clientes centralizados', 'Toda la información comercial y de contacto de tus clientes, en un lugar.', 'M8 8C9.7 8 11 6.7 11 5C11 3.3 9.7 2 8 2C6.3 2 5 3.3 5 5C5 6.7 6.3 8 8 8ZM3 14C3 11.2 5.2 9 8 9C10.8 9 13 11.2 13 14'],
-                            ['Desde cualquier dispositivo', 'Computadora, tablet o celular: la misma información, siempre sincronizada.', 'M4 2H12V13H4V2ZM7 11.5H9'],
+                            ['Clientes, edificios y ascensores', 'Cada consorcio con sus edificios, ascensores, montacargas y contactos, siempre a mano.', 'M2 13V5.5L8 2L14 5.5V13H2ZM6 13V9H10V13'],
+                            ['Técnicos desde el celular', 'Tu equipo ve lo que tiene asignado y carga avances en el momento, en la obra.', 'M8 2C5 2 2.5 4.5 2.5 7.5C2.5 11 8 14 8 14C8 14 13.5 11 13.5 7.5C13.5 4.5 11 2 8 2Z'],
+                            ['Mantenimientos mensuales', 'Controlá qué edificios se hicieron este mes y cuáles faltan, sin planillas.', 'M8 2V5M8 11V14M2 8H5M11 8H14'],
+                            ['Órdenes de trabajo', 'Asignás un trabajo y al técnico le llega el aviso al celular al instante.', 'M3 8H13M13 8L9 4M13 8L9 12'],
+                            ['Remitos digitales', 'Firmados en el celular por el técnico y el cliente, listos para enviar por WhatsApp.', 'M4 2H10L13 5V14H4V2ZM10 2V5H13'],
+                            ['Reportes con foto', 'Los técnicos informan fallas con foto y prioridad; vos las seguís hasta resolverlas.', 'M3 3H13V10H6L3 13V10H3V3Z'],
+                            ['Presupuestos', 'Armá el presupuesto y mandalo con un link para que el cliente lo vea desde el celular.', 'M3 3H13V13H3V3ZM3 6.5H13M6.5 6.5V13'],
+                            ['Mapa e historial', 'Todos tus edificios en el mapa y la trazabilidad completa de cada ascensor.', 'M8 8C9.7 8 11 6.7 11 5C11 3.3 9.7 2 8 2C6.3 2 5 3.3 5 5C5 6.7 6.3 8 8 8ZM3 14C3 11.2 5.2 9 8 9C10.8 9 13 11.2 13 14'],
                         ];
                     @endphp
 
@@ -364,200 +370,72 @@
         </section>
 
         {{-- ============ PLANES ============ --}}
+        @php
+            $plans = \App\Models\SubscriptionPlan::offered();
+        @endphp
         <section id="planes" class="py-24 sm:py-32 bg-white border-y border-ink/10" data-floor="04">
             <div class="mx-auto max-w-7xl px-5 sm:px-8">
                 <div data-reveal class="max-w-2xl mx-auto text-center">
-                    <span class="font-mono text-xs tracking-widest text-amber-600 uppercase">Piso 04 · Plan</span>
-                    <h2 class="mt-3 font-display font-semibold text-3xl sm:text-4xl tracking-tight">El plan perfecto para tu empresa.</h2>
+                    <span class="font-mono text-xs tracking-widest text-amber-600 uppercase">Piso 04 · Planes</span>
+                    <h2 class="mt-3 font-display font-semibold text-3xl sm:text-4xl tracking-tight">Un plan para cada tamaño de empresa de ascensores.</h2>
+                    @if ($plans->isNotEmpty())
+                        <p class="mt-4 text-ink/60">
+                            Desde <strong class="text-ink">{{ $plans->first()->formattedPrice() }}/mes</strong>. Probalo gratis 30 días, sin tarjeta.
+                        </p>
+                    @endif
                 </div>
 
-                @php
-                    $plans = \App\Models\SubscriptionPlan::query()
-                        ->where('is_active', true)
-                        ->orderBy('price', 'asc')
-                        ->get();
+                <div class="mt-14 grid gap-6 lg:grid-cols-3 lg:items-center">
+                    @foreach ($plans as $plan)
+                        @php
+                            $featured = $plan->is_recommended;
+                        @endphp
+                        <div data-reveal
+                             data-plan-card="{{ $plan->slug }}"
+                             class="relative flex flex-col rounded-3xl p-8 {{ $featured
+                                ? 'bg-graphite text-white border-2 border-amber-500 shadow-cardHover lg:py-12 lg:-my-4'
+                                : 'bg-white border border-ink/10 shadow-card' }}">
 
-                    $planFeatures = [
-                        [
-                            'Hasta 15 edificios',
-                            '3 técnicos incluidos',
-                            'Órdenes y remitos digitales',
-                        ],
-                        [
-                            'Edificios ilimitados',
-                            '10 técnicos incluidos',
-                            'Inspecciones y reclamos',
-                            'Soporte prioritario',
-                        ],
-                        [
-                            'Técnicos ilimitados',
-                            'Integraciones a medida',
-                            'Onboarding acompañado',
-                        ],
-                    ];
-                @endphp
+                            @if ($featured)
+                                <span class="absolute -top-3.5 left-1/2 -translate-x-1/2 inline-flex items-center gap-2 rounded-full bg-amber-500 text-graphite text-xs font-bold px-4 py-1.5 uppercase tracking-wider">
+                                    Recomendado
+                                </span>
+                            @endif
 
-                <div class="mt-14 flex justify-center">
-    @php
-        $plan = $plans->first();
-        $price = number_format((float) ($plan->price ?? 0), 0, ',', '.');
-    @endphp
+                            <h3 class="font-display font-semibold text-2xl tracking-tight">{{ $plan->shortName() }}</h3>
+                            <p class="mt-2 text-sm {{ $featured ? 'text-white/60' : 'text-ink/55' }}">{{ $plan->description }}</p>
 
-    @if ($plan)
-        <div data-reveal
-             class="relative w-full max-w-3xl rounded-3xl border-2 border-amber-500 bg-graphite text-white p-8 sm:p-10 lg:p-12 shadow-cardHover overflow-hidden">
+                            <div class="mt-6 font-display text-4xl font-semibold tracking-tight">
+                                {{ $plan->formattedPrice() }}
+                                <span class="text-base font-medium {{ $featured ? 'text-white/45' : 'text-ink/45' }}">/mes</span>
+                            </div>
 
-            {{-- Glow decorativo --}}
-            <div class="absolute -top-32 -right-32 w-72 h-72 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
-            <div class="absolute -bottom-32 -left-32 w-72 h-72 bg-amber-500/5 rounded-full blur-3xl pointer-events-none"></div>
+                            <ul class="mt-7 space-y-3 text-sm flex-1">
+                                @foreach ($plan->highlights() as $line)
+                                    <li class="flex gap-2.5">
+                                        <svg class="mt-0.5 shrink-0" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="{{ $featured ? '#F59E0B' : '#2E4FBE' }}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                        <span class="{{ $featured ? 'text-white/85' : 'text-ink/75' }}">{{ $line }}</span>
+                                    </li>
+                                @endforeach
+                                <li class="flex gap-2.5">
+                                    <svg class="mt-0.5 shrink-0" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="{{ $featured ? '#F59E0B' : '#2E4FBE' }}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    <span class="{{ $featured ? 'text-white/85' : 'text-ink/75' }}">Mantenimientos, órdenes de trabajo, mapa e historial</span>
+                                </li>
+                            </ul>
 
-            {{-- Badge --}}
-            <div class="relative flex justify-center">
-                <span class="inline-flex items-center gap-2 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold px-4 py-1.5 uppercase tracking-wider">
-                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                    Plan completo
-                </span>
-            </div>
-
-            {{-- Título --}}
-            <div class="relative text-center mt-6">
-                <h3 class="font-display font-semibold text-3xl sm:text-4xl tracking-tight">
-                    {{ $plan->name }}
-                </h3>
-
-                <p class="mt-3 max-w-xl mx-auto text-sm sm:text-base text-white/55 leading-relaxed">
-                    {{ $plan->description ?? 'Todo lo que necesitás para gestionar tu empresa de mantenimiento de ascensores desde un solo lugar.' }}
-                </p>
-            </div>
-
-            {{-- Precio --}}
-            <div class="relative text-center mt-8">
-                <div class="font-display text-5xl sm:text-6xl font-semibold tracking-tight">
-                    ${{ $price }}
-                    <span class="text-lg font-medium text-white/40">/mes</span>
-                </div>
-
-                <p class="mt-2 text-sm text-white/40">
-                    Sin contratos complicados. Gestioná tu empresa de forma simple.
-                </p>
-            </div>
-
-            {{-- Separador --}}
-            <div class="relative my-9 border-t border-white/10"></div>
-
-            {{-- Propuesta de valor --}}
-            <div class="relative">
-                <h4 class="text-center font-semibold text-lg">
-                    Todo lo que necesitás para administrar tu empresa
-                </h4>
-
-                <p class="text-center mt-2 text-sm text-white/45">
-                    Menos tiempo organizando. Más tiempo haciendo crecer tu negocio.
-                </p>
-            </div>
-
-            {{-- Features --}}
-            <div class="relative mt-8 grid sm:grid-cols-2 gap-x-8 gap-y-4">
-
-                @php
-                    $sellingFeatures = [
-                        'Gestioná todos tus edificios y clientes',
-                        'Organizá los mantenimientos mensuales',
-                        'Programá y gestioná inspecciones',
-                        'Asigná trabajos a uno o varios técnicos',
-                        'Órdenes de trabajo con estados en tiempo real',
-                        'Seguimiento de técnicos y participantes',
-                        'Remitos digitales listos para entregar',
-                        'Firma digital del técnico y del cliente',
-                        'Historial completo de trabajos realizados',
-                        'Calendario de visitas y trabajos',
-                        'Panel de control con indicadores',
-                        'Control de tareas pendientes y en progreso',
-                        'Registro de materiales y trabajos realizados',
-                        'Gestión centralizada de usuarios y permisos',
-                        'Información organizada por empresa y edificio',
-                        'Acceso desde computadora, tablet o celular',
-                    ];
-                @endphp
-
-                @foreach ($sellingFeatures as $feature)
-                    <div class="flex items-start gap-3">
-                        <div class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/10">
-                            <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-                                <path
-                                    d="M3 8.5L6.2 11.5L13 4.5"
-                                    stroke="#FF6A1A"
-                                    stroke-width="1.8"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                />
-                            </svg>
+                            <a href="#prueba-gratis"
+                               class="mt-8 inline-flex items-center justify-center rounded-full font-semibold px-6 py-3.5 transition-all duration-200 hover:-translate-y-0.5 {{ $featured
+                                    ? 'bg-amber-500 text-graphite hover:bg-amber-400'
+                                    : 'border border-ink/15 text-ink hover:border-ink/30' }}">
+                                Probar gratis 30 días
+                            </a>
                         </div>
+                    @endforeach
+                </div>
 
-                        <span class="text-sm text-white/70 leading-relaxed">
-                            {{ $feature }}
-                        </span>
-                    </div>
-                @endforeach
-
-            </div>
-
-            {{-- CTA --}}
-            <div class="relative mt-10">
-                @if (!auth()->check())
-
-                    <a href="{{ route('login') }}"
-                       class="flex items-center justify-center gap-2 w-full rounded-full bg-amber-500 text-graphite hover:bg-amber-400 font-semibold py-3.5 transition-colors">
-                        Empezar con Ascento
-
-                        <svg width="17" height="17" viewBox="0 0 20 20" fill="none">
-                            <path
-                                d="M4 10H16M11 5L16 10L11 15"
-                                stroke="currentColor"
-                                stroke-width="1.7"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                            />
-                        </svg>
-                    </a>
-
-                @elseif (auth()->user()->isAdmin() || auth()->user()->isSuperAdmin())
-
-                    <a href="{{ route('filament.ascensores_app.pages.subscription') }}"
-                       class="flex items-center justify-center gap-2 w-full rounded-full bg-amber-500 text-graphite hover:bg-amber-400 font-semibold py-3.5 transition-colors">
-                        Elegir este plan
-
-                        <svg width="17" height="17" viewBox="0 0 20 20" fill="none">
-                            <path
-                                d="M4 10H16M11 5L16 10L11 15"
-                                stroke="currentColor"
-                                stroke-width="1.7"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                            />
-                        </svg>
-                    </a>
-
-                @else
-
-                    <span class="flex items-center justify-center w-full rounded-full border border-white/10 bg-white/[0.03] text-white/30 font-semibold py-3.5 cursor-not-allowed">
-                        Solo administradores
-
-                    </span>
-
-                @endif
-            </div>
-
-            {{-- Texto inferior --}}
-            <div class="relative mt-5 text-center">
-                <p class="text-xs text-white/30">
-                    Ascento centraliza la operación de tu empresa para que tengas todo bajo control.
+                <p class="mt-10 text-center text-sm text-ink/50">
+                    Precios en pesos argentinos, por mes. Se paga con Mercado Pago y podés cambiar de plan o cancelar cuando quieras.
                 </p>
-            </div>
-
-        </div>
-    @endif
-</div>
             </div>
         </section>
 

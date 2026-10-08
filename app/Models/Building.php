@@ -6,6 +6,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\SoftDeletes;
     use Illuminate\Database\Eloquent\Model;
     use App\Models\Concerns\BelongsToCompany;
+    use App\Models\Concerns\ConsumesPlanLimit;
+    use App\Enums\PlanLimit;
     use App\Jobs\GeocodeBuilding;
     use App\Services\Geocoding\GeoapifyClient;
     use App\Support\Geocoding\BuildingAddress;
@@ -15,6 +17,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
         use HasFactory, SoftDeletes;
         use BelongsToCompany;
+        use ConsumesPlanLimit;
 
         /*
         | Estado de la ubicación en el mapa (geocoding_status).
@@ -150,6 +153,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
                     GeocodeBuilding::dispatchAfterResponse($building->id);
                 }
             });
+        }
+
+        public function planLimit(): ?PlanLimit
+        {
+            return PlanLimit::Buildings;
         }
 
         public function geocodingAddress(): BuildingAddress

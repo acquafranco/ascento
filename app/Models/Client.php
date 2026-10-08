@@ -7,11 +7,14 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\Concerns\BelongsToCompany;
+use App\Models\Concerns\ConsumesPlanLimit;
+use App\Enums\PlanLimit;
 
 class Client extends Model
 {
     use HasFactory, SoftDeletes;
     use BelongsToCompany;
+    use ConsumesPlanLimit;
     protected $fillable = [
         'company_id',
         'name',
@@ -34,5 +37,8 @@ class Client extends Model
         return $this->belongsTo(Company::class);
     }
 
-
+    public function planLimit(): ?PlanLimit
+    {
+        return PlanLimit::Clients;
+    }
 }

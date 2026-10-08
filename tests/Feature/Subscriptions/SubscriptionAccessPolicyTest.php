@@ -133,15 +133,6 @@ class SubscriptionAccessPolicyTest extends TestCase
     {
         config(['services.mercadopago.access_token' => 'TEST-TOKEN']);
 
-        SubscriptionPlan::create([
-            'name' => 'Ascento',
-            'slug' => 'professional',
-            'price' => 1000,
-            'currency' => 'ARS',
-            'mercadopago_plan_id' => 'PLAN-1',
-            'is_active' => true,
-        ]);
-
         Http::fake([
             'api.mercadopago.com/preapproval' => Http::response([
                 'id' => 'PRE-NEW',
@@ -155,7 +146,7 @@ class SubscriptionAccessPolicyTest extends TestCase
         $this->actingInPanel($a['admin']);
 
         Livewire::test(SubscriptionPage::class)
-            ->call('checkout')
+            ->call('checkout', 'inicial')
             ->assertRedirect('https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_id=PRE-NEW');
 
         $this->assertSame('PRE-NEW', Subscription::sole()->provider_subscription_id);

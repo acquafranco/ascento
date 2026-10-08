@@ -200,7 +200,7 @@ class AdminOnboarding extends Component
             [
                 'key' => 'subscription',
                 'title' => 'Mi suscripción',
-                'body' => 'Acá ves el estado de tu plan, cuántos días de acceso te quedan y cómo renovarlo para no perder el servicio.',
+                'body' => 'Acá ves tu plan, cuánto usaste de cada límite (edificios, clientes, técnicos y reportes) y podés elegir o cambiar de plan con Mercado Pago.',
                 'target' => Subscription::getUrl(),
             ],
             [
@@ -232,7 +232,7 @@ class AdminOnboarding extends Component
             'work_orders' => ['title' => 'Órdenes de trabajo', 'body' => 'Trabajos puntuales: elegí edificio, ascensor, técnicos, tipo de trabajo, prioridad y detalle. El técnico la toma desde el celular y la cierra con el remito.'],
             'quotes' => ['title' => 'Presupuestos', 'body' => 'Presupuestos para tus clientes con importe y estado (pendiente, enviado, aprobado o rechazado). Desde cada presupuesto lo podés enviar por WhatsApp o por mail.'],
             'map' => ['title' => 'Mapa', 'body' => 'Todos tus edificios en el mapa. Se ubican solos con la dirección que cargaste; si alguno no se pudo ubicar con precisión, aparece en "Edificios sin ubicar" para que corrijas la dirección o lo marques a mano. Tocá un punto para ver el cliente y abrir el edificio.'],
-            'subscription' => ['title' => 'Mi suscripción', 'body' => 'El estado de tu plan, cuántos días de acceso te quedan y cómo renovarlo.'],
+            'subscription' => ['title' => 'Mi suscripción', 'body' => 'Tu plan (Inicial, Profesional o Empresa), cuánto usaste de cada límite y cómo cambiar de plan o suscribirte con Mercado Pago.'],
         ];
     }
 

@@ -12,6 +12,15 @@
         </p>
     </div>
 
+    @if (! empty($planUsage))
+        <div class="mb-4 flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-sm {{ $planUsage['warning'] ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-slate-200 bg-white text-slate-600' }}" data-plan-usage>
+            <span><strong>{{ $planUsage['label'] }}</strong></span>
+            @if ($planUsage['warning'])
+                <span>{{ $planUsage['warning'] }}</span>
+            @endif
+        </div>
+    @endif
+
     @if ($errors->any())
     <div class="bg-red-100 text-red-700 p-4 rounded">
         <ul>

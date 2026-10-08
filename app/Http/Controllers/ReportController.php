@@ -48,6 +48,24 @@ class ReportController extends Controller
             403
         );
 
+        // Cupo mensual de reportes del plan: se avisa ANTES de completar el formulario.
+        $guard = \App\Support\Plans\PlanGuard::for($company);
+        $limit = \App\Enums\PlanLimit::ReportsPerMonth;
+
+        if (! $guard->canAdd($limit)) {
+            \App\Jobs\NotifyCompanyAdmins::reportLimitReached($company);
+
+            return view('reports.limit', [
+                'company' => $company,
+                'message' => $guard->limitReachedMessage($limit),
+            ]);
+        }
+
+        $planUsage = $guard->limit($limit) !== null ? [
+            'label' => $guard->usageLabel($limit),
+            'warning' => $guard->warning($limit),
+        ] : null;
+
         $buildings = Building::where(
             'company_id',
             $company->id
@@ -63,7 +81,8 @@ class ReportController extends Controller
             'reports.create',
             compact(
                 'buildings',
-                'company'
+                'company',
+                'planUsage'
             )
         );
 
@@ -94,7 +113,13 @@ class ReportController extends Controller
             403
         );
 
+        // Antes de procesar la foto: ¿queda cupo de reportes este mes?
+        if (! \App\Support\Plans\PlanGuard::for($company)->canAdd(\App\Enums\PlanLimit::ReportsPerMonth)) {
+            \App\Jobs\NotifyCompanyAdmins::reportLimitReached($company);
 
+            return redirect()
+                ->route('reports.create', ['company' => $company->slug]);
+        }
 
         $data = $request->validate([
 

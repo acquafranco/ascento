@@ -9,6 +9,10 @@ use Filament\Resources\Pages\ViewRecord;
 
 class ViewQuote extends ViewRecord
 {
+    use \App\Filament\Concerns\RequiresPlanFeature;
+
+    protected static \App\Enums\PlanFeature $planFeature = \App\Enums\PlanFeature::Quotes;
+
     protected static string $resource = QuoteResource::class;
 
     protected function getHeaderActions(): array

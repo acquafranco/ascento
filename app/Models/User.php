@@ -10,12 +10,15 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Notifications\Notifiable;
 use App\Notifications\ResetPasswordNotification;
 use NotificationChannels\WebPush\HasPushSubscriptions;
+use App\Models\Concerns\ConsumesPlanLimit;
+use App\Enums\PlanLimit;
 
 class User extends Authenticatable implements FilamentUser
 {
 
     use HasFactory, Notifiable, SoftDeletes;
     use HasPushSubscriptions;
+    use ConsumesPlanLimit;
 
 
     protected $fillable = [
@@ -260,4 +263,11 @@ class User extends Authenticatable implements FilamentUser
     $this->notify(new ResetPasswordNotification($token));
 }
 
+    /** Solo los usuarios operativos ocupan cupo; admins y SuperAdmin no. */
+    public function planLimit(): ?PlanLimit
+    {
+        return ($this->role ?? 'technician') !== 'admin' && ! $this->is_super_admin
+            ? PlanLimit::Technicians
+            : null;
     }
+}
