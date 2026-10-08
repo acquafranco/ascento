@@ -226,6 +226,32 @@ class User extends Authenticatable implements FilamentUser
             'building_visit_participants'
         );
     }
+    /*
+    |--------------------------------------------------------------------------
+    | AYUDAS CONTEXTUALES (una fila por ayuda vista o descartada)
+    |--------------------------------------------------------------------------
+    */
+
+    public function helpDismissals()
+    {
+        return $this->hasMany(HelpDismissal::class);
+    }
+
+    public function hasSeenHelp(string $key): bool
+    {
+        return $this->helpDismissals()->where('key', $key)->exists();
+    }
+
+    public function dismissHelp(string $key): void
+    {
+        $this->helpDismissals()->firstOrCreate(['key' => $key], ['dismissed_at' => now()]);
+    }
+
+    public function resetHelp(string $key): void
+    {
+        $this->helpDismissals()->where('key', $key)->delete();
+    }
+
     public function deliveryNotes()
     {
         return $this->hasMany(DeliveryNote::class);

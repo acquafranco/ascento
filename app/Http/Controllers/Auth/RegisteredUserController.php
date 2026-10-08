@@ -40,17 +40,31 @@ class RegisteredUserController extends Controller
                 'max:255'
             ],
 
-            'business_name' => [
-                'nullable',
+            // Lo mínimo para crear bien la empresa. El resto (razón social,
+            // domicilio, condición fiscal, datos bancarios…) se completa después
+            // desde "Mi empresa".
+            'cuit' => [
+                'required',
                 'string',
-                'max:255'
+                'max:20',
+                new \App\Rules\Cuit,
+                // Una empresa = una cuenta (y una sola prueba gratis).
+                function (string $attribute, $value, \Closure $fail) {
+                    if (Company::withTrashed()->where('cuit', \App\Rules\Cuit::format($value))->exists()) {
+                        $fail('Ya hay una empresa registrada con ese CUIT. Si es la tuya, ingresá con tu cuenta o escribinos.');
+                    }
+                },
             ],
 
-            'cuit' => [
-                'nullable',
-                'string',
-                'max:20'
-            ],
+            'phone' => ['required', 'string', 'min:6', 'max:30', 'regex:/^[0-9+()\-\s]+$/'],
+
+            'province' => ['required', 'string', \Illuminate\Validation\Rule::in(\App\Support\Provinces::LIST)],
+
+            'locality' => ['required', 'string', 'max:255'],
+
+            'business_name' => ['nullable', 'string', 'max:255'],
+
+            'terms' => ['accepted'],
 
 
             /*
@@ -95,15 +109,17 @@ class RegisteredUserController extends Controller
 
             'business_name' => $request->business_name,
 
-            'cuit' => $request->cuit,
+            'cuit' => \App\Rules\Cuit::format($request->cuit),
 
+            // Contacto inicial = el del responsable. El resto se completa
+            // después desde "Mi empresa".
+            'email' => $request->email,
 
-            // Estos datos se completan después
-            // desde "Mi empresa"
+            'phone' => trim((string) $request->phone),
 
-            'email' => null,
+            'province' => $request->province,
 
-            'phone' => null,
+            'city' => trim((string) $request->locality),
 
             'address' => null,
 

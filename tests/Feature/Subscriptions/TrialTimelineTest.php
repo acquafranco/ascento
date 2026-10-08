@@ -39,6 +39,11 @@ class TrialTimelineTest extends TestCase
             'email' => 'duena@prueba.test',
             'password' => 'clave-segura-123',
             'password_confirmation' => 'clave-segura-123',
+            'cuit' => '30-71234567-1',
+            'phone' => '11 4567-8900',
+            'province' => 'Buenos Aires',
+            'locality' => 'Lomas de Zamora',
+            'terms' => '1',
         ])->assertSessionHasNoErrors();
 
         $this->admin = User::where('email', 'duena@prueba.test')->sole();

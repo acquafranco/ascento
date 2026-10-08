@@ -21,6 +21,7 @@ class Report extends Model
         'user_id',
         'building_id',
         'elevator_number',
+        'component',
         // 'photo' (columna vieja, una sola foto) ya no se escribe: ver photos().
         'description',
         'observations',

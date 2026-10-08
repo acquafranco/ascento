@@ -366,6 +366,11 @@ Route::middleware(['auth', 'subscription'])->whereNumber(['report', 'photo'])->g
     Route::get('/files/reports/{report}/pdf', \App\Http\Controllers\ReportPdfController::class)->name('reports.pdf');
 });
 
+Route::get('/files/elevator-documents/{elevatorDocument}', \App\Http\Controllers\ElevatorDocumentController::class)
+    ->middleware(['auth', 'subscription'])
+    ->whereNumber('elevatorDocument')
+    ->name('elevator-documents.show');
+
 Route::get('/whatsapp/callback', [
     WhatsAppController::class,
     'callback'

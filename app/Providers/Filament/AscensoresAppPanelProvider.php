@@ -88,6 +88,21 @@ class AscensoresAppPanelProvider extends PanelProvider
                     : '',
             )
 
+            // Ayuda contextual de cada pantalla: aparece hasta que el admin la
+            // descarta (estado propio por ayuda; ver HelpTopics / HelpTip).
+            ->renderHook(
+                PanelsRenderHook::PAGE_START,
+                function (): string {
+                    $key = auth()->user()?->canUseOnboarding()
+                        ? \App\Support\Help\HelpTopics::forRoute((string) request()->route()?->getName())
+                        : null;
+
+                    return $key
+                        ? Blade::render('@livewire(\App\Livewire\HelpTip::class, [\'key\' => $key], key(\'help-page\'))', ['key' => $key])
+                        : '';
+                },
+            )
+
             // Avisos push del admin (trabajo terminado, reportes nuevos).
             ->renderHook(
                 PanelsRenderHook::HEAD_END,

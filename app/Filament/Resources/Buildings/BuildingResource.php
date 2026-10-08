@@ -48,6 +48,7 @@ class BuildingResource extends Resource
     public static function getRelations(): array
     {
         return [
+            \App\Filament\RelationManagers\ElevatorsRelationManager::class,
             ServicesRelationManager::class,
             AccountStatementRelationManager::class,
         ];

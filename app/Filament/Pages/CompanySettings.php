@@ -46,6 +46,16 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
             'email' => $company->email,
             'phone' => $company->phone,
             'address' => $company->address,
+            'province' => $company->province,
+            'city' => $company->city,
+            'postal_code' => $company->postal_code,
+            'tax_condition' => $company->tax_condition,
+            'activity' => $company->activity,
+            'gross_income_number' => $company->gross_income_number,
+            'activity_started_at' => $company->activity_started_at,
+            'bank_name' => $company->bank_name,
+            'bank_cbu' => $company->bank_cbu,
+            'bank_alias' => $company->bank_alias,
             'logo' => $company->logo,
             'primary_color' => $company->primary_color,
             // Los datos de WhatsApp (incluido el access token) NO se cargan
@@ -105,6 +115,8 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
                         TextInput::make('cuit')
                             ->label('CUIT')
                             ->maxLength(20)
+                            ->rule(new \App\Rules\Cuit)
+                            ->dehydrateStateUsing(fn (?string $state) => \App\Rules\Cuit::format($state))
                             ->placeholder('30-12345678-9')
                             ->prefixIcon('heroicon-o-identification')
                             ->columnSpan(4),
@@ -126,11 +138,63 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
                             ->columnSpan(4),
 
                         TextInput::make('address')
-                            ->label('Dirección')
+                            ->label('Domicilio')
                             ->maxLength(255)
                             ->placeholder('Av. Corrientes 1234')
                             ->prefixIcon('heroicon-o-map-pin')
-                            ->columnSpanFull(),
+                            ->columnSpan(6),
+
+                        Forms\Components\Select::make('province')
+                            ->label('Provincia')
+                            ->options(\App\Support\Provinces::options())
+                            ->searchable()
+                            ->columnSpan(2),
+
+                        TextInput::make('city')
+                            ->label('Localidad')
+                            ->maxLength(255)
+                            ->columnSpan(2),
+
+                        TextInput::make('postal_code')
+                            ->label('Código postal')
+                            ->maxLength(10)
+                            ->columnSpan(2),
+                    ]),
+
+                // Opcional: para presupuestos/remitos y una futura integración
+                // fiscal. Ascento NO factura.
+                Section::make('Datos fiscales (opcional)')
+                    ->description('Completalos cuando quieras. Ascento no emite facturas: quedan guardados para tus documentos y para una futura integración.')
+                    ->icon('heroicon-o-document-text')
+                    ->collapsible()
+                    ->collapsed()
+                    ->columns(2)
+                    ->schema([
+                        Forms\Components\Select::make('tax_condition')
+                            ->label('Condición frente al IVA')
+                            ->options([
+                                'responsable_inscripto' => 'Responsable inscripto',
+                                'monotributo' => 'Monotributo',
+                                'exento' => 'Exento',
+                                'no_alcanzado' => 'No alcanzado',
+                            ]),
+                        TextInput::make('activity')->label('Actividad')->maxLength(255)->placeholder('Mantenimiento de ascensores'),
+                        TextInput::make('gross_income_number')->label('Ingresos Brutos')->maxLength(30),
+                        Forms\Components\DatePicker::make('activity_started_at')->label('Inicio de actividades')->native(false)->displayFormat('d/m/Y'),
+                    ]),
+
+                Section::make('Datos bancarios (opcional)')
+                    ->description('Para mostrarlos en presupuestos y cobros si lo necesitás.')
+                    ->icon('heroicon-o-banknotes')
+                    ->collapsible()
+                    ->collapsed()
+                    ->columns(3)
+                    ->schema([
+                        TextInput::make('bank_name')->label('Banco')->maxLength(255),
+                        TextInput::make('bank_cbu')->label('CBU / CVU')->maxLength(22)->regex('/^\d{22}$/')
+                            ->validationMessages(['regex' => 'El CBU tiene 22 números.']),
+                        TextInput::make('bank_alias')->label('Alias')->maxLength(40)->regex('/^[A-Za-z0-9.\-]{6,20}$/')
+                            ->validationMessages(['regex' => 'El alias tiene entre 6 y 20 letras, números, puntos o guiones.']),
                     ]),
 
                 Section::make('Apariencia')
@@ -190,6 +254,45 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
             ->title('Empresa actualizada')
             ->success()
             ->send();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | AYUDA: volver a ver una ayuda puntual o la guía de bienvenida
+    |--------------------------------------------------------------------------
+    */
+
+    /** @return array<string, array{title: string, seen: bool}> */
+    public function helpTopics(): array
+    {
+        $seen = Auth::user()->helpDismissals()->pluck('key')->flip();
+
+        return collect(\App\Support\Help\HelpTopics::all())
+            ->map(fn ($topic, $key) => ['title' => $topic['title'], 'seen' => $seen->has($key)])
+            ->all();
+    }
+
+    public function resetHelp(string $key): void
+    {
+        abort_unless(\App\Support\Help\HelpTopics::exists($key), 404);
+
+        Auth::user()->resetHelp($key);
+
+        Notification::make()->title('Listo: la ayuda vuelve a aparecer en esa pantalla.')->success()->send();
+    }
+
+    public function resetAllHelp(): void
+    {
+        Auth::user()->helpDismissals()->delete();
+
+        Notification::make()->title('Listo: todas las ayudas vuelven a aparecer.')->success()->send();
+    }
+
+    public function resetWelcomeGuide(): void
+    {
+        Auth::user()->forceFill(['onboarding_completed_at' => null, 'onboarding_skipped_at' => null])->save();
+
+        Notification::make()->title('La guía de bienvenida se abre la próxima vez que entres a una pantalla.')->success()->send();
     }
 
     public function getTitle(): string

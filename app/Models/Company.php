@@ -24,6 +24,13 @@ class Company extends Model
         'address',
         'city',
         'province',
+        'postal_code',
+        'activity',
+        'gross_income_number',
+        'activity_started_at',
+        'bank_name',
+        'bank_cbu',
+        'bank_alias',
         'logo',
         'primary_color',
         'is_active',
@@ -39,6 +46,7 @@ class Company extends Model
         'is_active' => 'boolean',
         'whatsapp_connected' => 'boolean',
         'trial_ends_at' => 'datetime',
+        'activity_started_at' => 'date',
     ];
 
     public function users()
