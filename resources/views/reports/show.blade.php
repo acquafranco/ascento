@@ -84,23 +84,29 @@
         </div>
 
 
-        @if($report->photo)
+        @if($report->photos->isNotEmpty())
             <div class="mt-5">
                 <div class="text-gray-500 text-xs mb-2">
-                    Imagen adjunta
+                    Fotos ({{ $report->photos->count() }})
                 </div>
 
-                <div class="flex justify-center">
-                    <div class="rounded-2xl border border-slate-200 bg-slate-50 overflow-hidden shadow-sm" style="width:128px;height:128px;flex:0 0 128px;">
-                        <img src="{{ route('reports.photo', $report) }}"
-                             loading="lazy"
-                             width="128" height="128"
-                             class="block w-full h-full max-w-none max-h-none object-cover"
-                             alt="Imagen del reporte">
-                    </div>
+                <div class="grid grid-cols-3 gap-3">
+                    @foreach($report->photos as $photo)
+                        <a href="{{ $photo->url() }}" target="_blank" rel="noopener"
+                           class="block aspect-square rounded-2xl border border-slate-200 bg-slate-50 overflow-hidden shadow-sm">
+                            <img src="{{ $photo->url() }}" loading="lazy"
+                                 class="block w-full h-full object-cover"
+                                 alt="Foto {{ $loop->iteration }} del reporte">
+                        </a>
+                    @endforeach
                 </div>
             </div>
         @endif
+
+        <a href="{{ route('reports.pdf', $report) }}" target="_blank" rel="noopener"
+           class="mt-5 flex items-center justify-center gap-2 w-full py-3 rounded-2xl border border-slate-300 bg-white text-slate-800 font-bold">
+            📄 Descargar PDF
+        </a>
 
 
     </div>

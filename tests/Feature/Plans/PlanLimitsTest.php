@@ -306,7 +306,6 @@ class PlanLimitsTest extends TestCase
             'elevator_number' => 'Ascensor 1',
             'description' => 'Ruido en la cabina',
             'priority' => 'media',
-            'photo' => 'reports/x.jpg',
         ]);
     }
 

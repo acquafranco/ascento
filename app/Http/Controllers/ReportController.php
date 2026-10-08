@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Report;
+use App\Services\Reports\ReportPhotoService;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use App\Models\Building;
 use App\Models\Company;
 
@@ -10,13 +13,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Notifications\NewReportNotification;
 use App\Models\User;
-use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Storage;
-use Intervention\Image\ImageManager;
-use Intervention\Image\Drivers\Gd\Driver as GdDriver;
-use Intervention\Image\Drivers\Imagick\Driver as ImagickDriver;
-use Intervention\Image\Encoders\WebpEncoder;
-use Intervention\Image\Encoders\JpegEncoder;
 
 class ReportController extends Controller
 {
@@ -98,6 +94,7 @@ class ReportController extends Controller
         $report->load([
             'building',
             'user',
+            'photos',
         ]);
 
         return view('reports.show', compact('report', 'company'));
@@ -123,104 +120,61 @@ class ReportController extends Controller
         }
 
         $data = $request->validate([
-
-            'building_id'=>'required|integer',
-            'elevator_number'=>'required|string|max:255',
-            'description'=>'required|string|min:5|max:5000',
-            'priority'=>'required|in:baja,media,alta,critica',
-            // Solo fotos: nada de SVG/PDF/etc. (se decodifican con Imagick).
-            'photo' => [
-                'required',
-                'file',
-                'max:10240',
-                'mimes:jpg,jpeg,png,webp,heic,heif',
-            ],
-
+            'building_id' => 'required|integer',
+            'elevator_number' => 'required|string|max:255',
+            'description' => 'required|string|min:5|max:5000',
+            'priority' => 'required|in:baja,media,alta,critica',
+            // Fotos opcionales (hasta 6). Solo imágenes: se decodifican y se
+            // vuelven a codificar (ver ReportPhotoService).
+            ...ReportPhotoService::rules(),
         ], [
-            'building_id.required'=>'Tenés que seleccionar un edificio.',
-
-            'elevator_number.required'=>'Tenés que seleccionar un equipo.',
-            'description.required'=>'La descripción es obligatoria.',
-            'description.min'=>'La descripción debe tener al menos 5 caracteres.',
-            'priority.required'=>'Seleccioná una prioridad.',
-            'photo.required'=>'Tenés que adjuntar una imagen.',
-            'photo.mimes'=>'Formato de imagen no permitido. Usá JPG, PNG, WEBP o HEIC.',
-            'photo.max'=>'La imagen no puede superar los 10 MB.',
+            'building_id.required' => 'Tenés que seleccionar un edificio.',
+            'elevator_number.required' => 'Tenés que seleccionar un equipo.',
+            'description.required' => 'La descripción es obligatoria.',
+            'description.min' => 'La descripción debe tener al menos 5 caracteres.',
+            'priority.required' => 'Seleccioná una prioridad.',
+            ...ReportPhotoService::messages(),
         ]);
 
-        if (!Building::where('id', $data['building_id'])
+        $building = Building::where('id', $data['building_id'])
             ->where('company_id', $company->id)
-            ->exists()) {
+            ->first();
 
+        if (! $building) {
             return back()
                 ->withErrors([
-                    'building_id' => 'El edificio seleccionado no pertenece a esta empresa.'
+                    'building_id' => 'El edificio seleccionado no pertenece a esta empresa.',
                 ])
                 ->withInput();
         }
 
-
-
-        if($request->hasFile('photo')){
-
-            try {
-                $folder = 'reports/'.$company->id;
-
-                $filename = Str::random(40).'.jpg';
-
-                // Disco privado (storage/app/private): la foto solo se sirve
-                // por ReportPhotoController, que valida empresa y permisos.
-                $fullPath = Storage::disk('local')->path($folder.'/'.$filename);
-
-                if (!file_exists(dirname($fullPath))) {
-                    mkdir(dirname($fullPath), 0755, true);
-                }
-
-                // Imagick si está instalado (lee también HEIC de iPhone); si
-                // no, GD, para que un servidor sin Imagick no deje sin reportes.
-                $manager = ImageManager::usingDriver(
-                    extension_loaded('imagick') ? ImagickDriver::class : GdDriver::class
-                );
-
-                $image = $manager->decode(fopen($request->file('photo')->getRealPath(), 'rb'));
-
-                // Se orienta sola (fotos verticales) y se achica a 2000 px como
-                // máximo: alcanza para ver el problema y carga rápido en el celular.
-                $image->scaleDown(width: 2000, height: 2000)
-                    ->encode(new JpegEncoder(quality: 85))
-                    ->save($fullPath);
-
-
-                $data['photo'] = $folder.'/'.$filename;
-
-            } catch (\Throwable $e) {
-                logger()->error('Error procesando imagen de reporte', [
-                    'message' => $e->getMessage(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                ]);
-
-                return back()
-                    ->withErrors([
-                        'photo' => 'No se pudo procesar la imagen. Probá con otra foto o formato.'
-                    ])
-                    ->withInput();
-            }
+        // El equipo tiene que existir en ese edificio (no se confía en el select).
+        if (! in_array($data['elevator_number'], $building->unitLabels(), true)) {
+            return back()
+                ->withErrors(['elevator_number' => 'Elegí un equipo de este edificio.'])
+                ->withInput();
         }
 
+        // Reporte y fotos juntos: si una foto no se puede procesar, no se
+        // crea nada (ni quedan archivos sueltos).
+        try {
+            $report = DB::transaction(function () use ($data, $company, $request) {
+                $report = Report::create([
+                    'building_id' => $data['building_id'],
+                    'elevator_number' => $data['elevator_number'],
+                    'description' => $data['description'],
+                    'priority' => $data['priority'],
+                    'company_id' => $company->id,
+                    'user_id' => Auth::id(),
+                ]);
 
+                app(ReportPhotoService::class)->add($report, $request->file('photos', []));
 
-        $report = Report::create([
-
-            ...$data,
-
-            'company_id'=>$company->id,
-
-            'user_id'=>Auth::id(),
-
-        ]);
-
-
+                return $report;
+            });
+        } catch (ValidationException $e) {
+            return back()->withErrors($e->errors())->withInput();
+        }
 
         $report->load('building');
 

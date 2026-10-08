@@ -83,7 +83,7 @@ class RequestTamperingTest extends TestCase
             'elevator_number' => 'Ascensor 1',
             'description' => 'Falla',
             'priority' => 'alta',
-            'photo' => UploadedFile::fake()->image('x.jpg'),
+            'photos' => [UploadedFile::fake()->image('x.jpg')],
             'company_id' => $this->b['company']->id,
             'user_id' => $this->b['technician']->id,
             'status' => 'resuelto',

@@ -76,11 +76,11 @@ class ReportResource extends Resource
                 ->columns(2)
                 ->schema([
                     // Siempre por la ruta autenticada (disco privado).
-                    ImageEntry::make('photo')
-                        ->label('Foto')
-                        ->state(fn ($record) => $record->photo ? route('reports.photo', $record) : null)
-                        ->url(fn ($record) => $record->photo ? route('reports.photo', $record) : null)
-                        ->openUrlInNewTab(),
+                    ImageEntry::make('photos')
+                        ->label('Fotos')
+                        ->state(fn ($record) => $record->photos->map->url()->all())
+                        ->imageHeight(140)
+                        ->placeholder('Sin fotos'),
 
                     Grid::make(1)
                         ->schema([
@@ -94,6 +94,13 @@ class ReportResource extends Resource
                 ->schema([
                     TextEntry::make('description')
                         ->hiddenLabel(),
+                ]),
+
+            Section::make('Observaciones')
+                ->schema([
+                    TextEntry::make('observations')
+                        ->hiddenLabel()
+                        ->placeholder('Sin observaciones.'),
                 ]),
         ]);
     }
@@ -124,7 +131,7 @@ class ReportResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            RelationManagers\PhotosRelationManager::class,
         ];
     }
 

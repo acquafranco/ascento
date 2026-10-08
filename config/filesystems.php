@@ -33,7 +33,9 @@ return [
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'serve' => true,
+            // Disco privado (fotos de reportes): sin ruta /storage/{path}.
+            // Los archivos se sirven solo por controladores con permisos.
+            'serve' => false,
             'throw' => false,
             'report' => false,
         ],

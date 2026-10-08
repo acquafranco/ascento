@@ -96,8 +96,7 @@ class PreProductionAuditTest extends TestCase
         $note1 = DeliveryNote::factory()->create(['building_id' => $b1->id, 'user_id' => $t1->id, 'building_visit_id' => $visit1->id, 'number' => str_pad((string) random_int(1, 99999), 8, '0', STR_PAD_LEFT)]);
         $inspection = DeliveryNote::factory()->create(['building_id' => $b2->id, 'user_id' => $t2->id, 'assignment_type' => 'inspection', 'number' => str_pad((string) random_int(100000, 199999), 8, '0', STR_PAD_LEFT)]);
 
-        Storage::disk('local')->put("reports/{$company->id}/foto-{$t1->id}.jpg", 'jpg');
-        $report1 = Report::factory()->create(['building_id' => $b1->id, 'user_id' => $t1->id, 'photo' => "reports/{$company->id}/foto-{$t1->id}.jpg"]);
+        $report1 = Report::factory()->withPhoto()->create(['building_id' => $b1->id, 'user_id' => $t1->id]);
 
         $quote = Quote::factory()->create(['company_id' => $company->id, 'building_id' => $b1->id, 'client_id' => $client->id, 'created_by' => $admin->id]);
 

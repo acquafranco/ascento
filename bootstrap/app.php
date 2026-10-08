@@ -55,5 +55,15 @@ return Application::configure(basePath: dirname(__DIR__))
             // Técnicos: no pueden cambiar el plan; se les explica a quién avisar.
             return back()->withInput()->with('error', $e->getMessage().' Avisale al administrador de tu empresa.');
         });
+
+        // Envío más grande que el límite del servidor (post_max_size): en vez
+        // de un 413 sin salida, vuelve al formulario con un mensaje claro.
+        $exceptions->render(function (\Illuminate\Http\Exceptions\PostTooLargeException $e, \Illuminate\Http\Request $request) {
+            if ($request->expectsJson() || $request->hasHeader('X-Livewire')) {
+                return null;
+            }
+
+            return back()->withErrors(['photos' => 'Las fotos pesan demasiado para enviarlas juntas. Probá con menos fotos.']);
+        });
     })
     ->create();

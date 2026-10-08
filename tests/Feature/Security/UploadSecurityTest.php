@@ -23,7 +23,7 @@ class UploadSecurityTest extends TestCase
             'elevator_number' => 'Ascensor 1',
             'description' => 'Ruido en la cabina',
             'priority' => 'alta',
-            'photo' => $photo,
+            'photos' => [$photo],
         ];
     }
 
@@ -49,10 +49,11 @@ class UploadSecurityTest extends TestCase
 
         $this->actingAs($a['technician'])
             ->post("/{$a['company']->slug}/reports", $this->reportPayload($a, $file))
-            ->assertSessionHasErrors('photo');
+            ->assertSessionHasErrors('photos.0');
 
         $this->assertSame(0, Report::withoutGlobalScopes()->count());
         $this->assertEmpty(Storage::disk('public')->allFiles());
+        $this->assertEmpty(Storage::disk('local')->allFiles());
     }
 
     public function test_report_photo_is_reencoded_with_random_name_inside_company_folder(): void
@@ -70,11 +71,11 @@ class UploadSecurityTest extends TestCase
             ->assertRedirect()
             ->assertSessionHasNoErrors();
 
-        $report = Report::withoutGlobalScopes()->sole();
+        $path = Report::withoutGlobalScopes()->sole()->photos()->withoutGlobalScopes()->sole()->path;
 
-        $this->assertMatchesRegularExpression('#^reports/'.$a['company']->id.'/[A-Za-z0-9]{40}\.jpg$#', $report->photo);
-        Storage::disk('local')->assertExists($report->photo);
-        Storage::disk('public')->assertMissing($report->photo);
+        $this->assertMatchesRegularExpression('#^reports/'.$a['company']->id.'/[A-Za-z0-9]{40}\.jpg$#', $path);
+        Storage::disk('local')->assertExists($path);
+        Storage::disk('public')->assertMissing($path);
     }
 
     public function test_filament_report_upload_rejects_svg(): void
@@ -88,17 +89,17 @@ class UploadSecurityTest extends TestCase
         Livewire::test(CreateReport::class)
             ->fillForm([
                 'building_id' => $a['building']->id,
-                'elevator_number' => '1',
+                'elevator_number' => 'Ascensor 1',
                 'description' => 'Con svg',
                 'priority' => 'baja',
                 'status' => 'pendiente',
-                'photo' => UploadedFile::fake()->createWithContent(
+                'new_photos' => [UploadedFile::fake()->createWithContent(
                     'evil.svg',
                     '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'
-                )->mimeType('image/svg+xml'),
+                )->mimeType('image/svg+xml')],
             ])
             ->call('create')
-            ->assertHasFormErrors(['photo']);
+            ->assertHasFormErrors(['new_photos']);
 
         $this->assertSame(0, Report::withoutGlobalScopes()->count());
     }
@@ -114,19 +115,26 @@ class UploadSecurityTest extends TestCase
         Livewire::test(CreateReport::class)
             ->fillForm([
                 'building_id' => $a['building']->id,
-                'elevator_number' => '1',
+                'elevator_number' => 'Ascensor 1',
                 'description' => 'Con foto',
                 'priority' => 'baja',
                 'status' => 'pendiente',
-                'photo' => UploadedFile::fake()->image('ok.jpg'),
+                'new_photos' => [UploadedFile::fake()->image('ok.jpg', 800, 600), UploadedFile::fake()->image('ok2.png', 600, 900)],
             ])
             ->call('create')
             ->assertHasNoFormErrors();
 
         $report = Report::withoutGlobalScopes()->sole();
+        $photos = $report->photos()->withoutGlobalScopes()->get();
 
         $this->assertSame($a['company']->id, $report->company_id);
-        Storage::disk('local')->assertExists($report->photo);
-        Storage::disk('public')->assertMissing($report->photo);
+        $this->assertCount(2, $photos);
+
+        foreach ($photos as $photo) {
+            $this->assertSame($a['company']->id, $photo->company_id);
+            $this->assertStringEndsWith('.jpg', $photo->path); // re-codificada, también desde el panel
+            Storage::disk('local')->assertExists($photo->path);
+            Storage::disk('public')->assertMissing($photo->path);
+        }
     }
 }

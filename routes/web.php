@@ -357,10 +357,12 @@ Route::prefix('{company:slug}')
 | acá, con sesión y permisos (ver ReportPhotoController).
 */
 
-Route::get('/files/reports/{report}/photo', ReportPhotoController::class)
-    ->middleware('auth')
-    ->whereNumber('report')
-    ->name('reports.photo');
+Route::middleware('auth')->whereNumber(['report', 'photo'])->group(function () {
+    // Link viejo (una sola foto): la primera.
+    Route::get('/files/reports/{report}/photo', [ReportPhotoController::class, 'first'])->name('reports.photo');
+    Route::get('/files/reports/{report}/photos/{photo}', [ReportPhotoController::class, 'show'])->name('reports.photos.show');
+    Route::get('/files/reports/{report}/pdf', \App\Http\Controllers\ReportPdfController::class)->name('reports.pdf');
+});
 
 Route::get('/whatsapp/callback', [
     WhatsAppController::class,
