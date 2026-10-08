@@ -79,6 +79,18 @@
 
 
         <div>
+            <label class="text-sm font-bold text-gray-700" for="component">
+                ¿Qué parte falla? <span class="font-normal text-gray-500">(opcional)</span>
+            </label>
+            <select id="component" name="component" class="mt-1 w-full rounded-2xl border-slate-200 text-black p-3">
+                <option value="">No sé / no aplica</option>
+                @foreach(\App\Support\ElevatorComponents::LIST as $value => $label)
+                    <option value="{{ $value }}" @selected(old('component') === $value)>{{ $label }}</option>
+                @endforeach
+            </select>
+        </div>
+
+        <div>
             <label class="text-sm font-bold text-gray-700">
                 Descripción
             </label>

@@ -140,6 +140,13 @@ use Illuminate\Database\Eloquent\SoftDeletes;
                 ]);
             });
 
+            // Un legajo técnico por cada equipo (no se borran: quedan inactivos).
+            static::saved(function (Building $building) {
+                if ($building->wasRecentlyCreated || $building->wasChanged(['elevator_count', 'freight_elevator_count'])) {
+                    Elevator::syncForBuilding($building);
+                }
+            });
+
             // Se geocodifica después de responder al usuario (no lo demora)
             // y una sola vez por cambio de dirección.
             static::saved(function (Building $building) {
@@ -222,6 +229,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     {
         return $this->hasMany(Receivable::class);
     }
+
+        public function elevators()
+        {
+            return $this->hasMany(Elevator::class)->orderBy('kind')->orderBy('id');
+        }
 
         public function workOrders()
         {

@@ -23,7 +23,7 @@ class SubscriptionPlanSeeder extends Seeder
             'max_reports_per_month' => 15,
             'is_recommended' => false,
             'sort_order' => 1,
-            'feature_keys' => ['buildings', 'clients', 'technicians', 'maintenances', 'inspections', 'work_orders', 'reports', 'history', 'map'],
+            'feature_keys' => ['buildings', 'clients', 'technicians', 'maintenances', 'inspections', 'work_orders', 'reports', 'history', 'map', 'agenda', 'attention_center', 'elevator_file', 'indicators'],
         ],
         SubscriptionPlan::PROFESIONAL => [
             'name' => 'Ascento Profesional',
@@ -35,7 +35,7 @@ class SubscriptionPlanSeeder extends Seeder
             'max_reports_per_month' => null,
             'is_recommended' => true,
             'sort_order' => 2,
-            'feature_keys' => ['buildings', 'clients', 'technicians', 'maintenances', 'inspections', 'work_orders', 'reports', 'history', 'map', 'quotes', 'digital_delivery_notes'],
+            'feature_keys' => ['buildings', 'clients', 'technicians', 'maintenances', 'inspections', 'work_orders', 'reports', 'history', 'map', 'quotes', 'digital_delivery_notes', 'agenda', 'attention_center', 'elevator_file', 'indicators', 'attention_advanced', 'company_indicators', 'elevator_history_advanced', 'failure_analysis'],
         ],
         SubscriptionPlan::EMPRESA => [
             'name' => 'Ascento Empresa',
@@ -47,7 +47,7 @@ class SubscriptionPlanSeeder extends Seeder
             'max_reports_per_month' => null,
             'is_recommended' => false,
             'sort_order' => 3,
-            'feature_keys' => ['buildings', 'clients', 'technicians', 'maintenances', 'inspections', 'work_orders', 'reports', 'history', 'map', 'quotes', 'digital_delivery_notes'],
+            'feature_keys' => ['buildings', 'clients', 'technicians', 'maintenances', 'inspections', 'work_orders', 'reports', 'history', 'map', 'quotes', 'digital_delivery_notes', 'agenda', 'attention_center', 'elevator_file', 'indicators', 'attention_advanced', 'company_indicators', 'elevator_history_advanced', 'failure_analysis', 'advanced_indicators', 'advanced_alerts'],
         ],
     ];
 

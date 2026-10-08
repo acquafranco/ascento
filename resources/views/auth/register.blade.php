@@ -35,29 +35,37 @@
 
                 <div class="grid sm:grid-cols-2 gap-4">
                     <div>
-                        <x-input-label for="business_name" value="Razón social" />
-                        <x-text-input id="business_name" type="text" name="business_name" :value="old('business_name')" placeholder="Ascensores del Sur S.R.L." />
-                        <x-input-error :messages="$errors->get('business_name')" class="mt-1.5" />
+                        <x-input-label for="cuit" value="CUIT" />
+                        <x-text-input id="cuit" type="text" name="cuit" :value="old('cuit')" required inputmode="numeric" placeholder="30-12345678-9" />
+                        <x-input-error :messages="$errors->get('cuit')" class="mt-1.5" />
                     </div>
                     <div>
-                        <x-input-label for="cuit" value="CUIT" />
-                        <x-text-input id="cuit" type="text" name="cuit" :value="old('cuit')" placeholder="30-12345678-9" />
-                        <x-input-error :messages="$errors->get('cuit')" class="mt-1.5" />
+                        <x-input-label for="phone" value="Teléfono" />
+                        <x-text-input id="phone" type="tel" name="phone" :value="old('phone')" required placeholder="11 2345-6789" />
+                        <x-input-error :messages="$errors->get('phone')" class="mt-1.5" />
                     </div>
                 </div>
 
                 <div class="grid sm:grid-cols-2 gap-4">
                     <div>
-                        <x-input-label for="phone" value="Teléfono" />
-                        <x-text-input id="phone" type="text" name="phone" :value="old('phone')" placeholder="+54 11 0000-0000" />
-                        <x-input-error :messages="$errors->get('phone')" class="mt-1.5" />
+                        <x-input-label for="province" value="Provincia" />
+                        <select id="province" name="province" required
+                            class="w-full rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink shadow-sm outline-none transition focus:border-rail-500 focus:ring-4 focus:ring-rail-100">
+                            <option value="">Elegí la provincia</option>
+                            @foreach(\App\Support\Provinces::LIST as $province)
+                                <option value="{{ $province }}" @selected(old('province') === $province)>{{ $province }}</option>
+                            @endforeach
+                        </select>
+                        <x-input-error :messages="$errors->get('province')" class="mt-1.5" />
                     </div>
                     <div>
-                        <x-input-label for="address" value="Dirección" />
-                        <x-text-input id="address" type="text" name="address" :value="old('address')" placeholder="Av. Siempre Viva 742" />
-                        <x-input-error :messages="$errors->get('address')" class="mt-1.5" />
+                        <x-input-label for="locality" value="Localidad" />
+                        <x-text-input id="locality" type="text" name="locality" :value="old('locality')" required placeholder="Lomas de Zamora" />
+                        <x-input-error :messages="$errors->get('locality')" class="mt-1.5" />
                     </div>
                 </div>
+
+                <p class="text-xs text-ink/40">Razón social, domicilio y demás datos los completás después en "Mi empresa".</p>
             </div>
         </div>
 

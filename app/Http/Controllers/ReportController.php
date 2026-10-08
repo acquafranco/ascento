@@ -124,6 +124,7 @@ class ReportController extends Controller
             'elevator_number' => 'required|string|max:255',
             'description' => 'required|string|min:5|max:5000',
             'priority' => 'required|in:baja,media,alta,critica',
+            'component' => ['nullable', \Illuminate\Validation\Rule::in(array_keys(\App\Support\ElevatorComponents::LIST))],
             // Fotos opcionales (hasta 6). Solo imágenes: se decodifican y se
             // vuelven a codificar (ver ReportPhotoService).
             ...ReportPhotoService::rules(),
@@ -164,6 +165,7 @@ class ReportController extends Controller
                     'elevator_number' => $data['elevator_number'],
                     'description' => $data['description'],
                     'priority' => $data['priority'],
+                    'component' => $data['component'] ?? null,
                     'company_id' => $company->id,
                     'user_id' => Auth::id(),
                 ]);

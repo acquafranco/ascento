@@ -41,6 +41,10 @@ class ReportForm
                     })
                     ->live()
                     ->required(),
+                Select::make('component')
+                    ->label('Componente afectado (opcional)')
+                    ->options(\App\Support\ElevatorComponents::LIST)
+                    ->helperText('Sirve para el análisis de fallas del ascensor.'),
                 // Las fotos NO las guarda Filament: las procesa ReportPhotoService
                 // (re-codifica, achica, disco privado). Las ya cargadas se ven y
                 // se borran en la pestaña "Fotos".

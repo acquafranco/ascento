@@ -21,6 +21,7 @@ class WorkOrder extends Model
         'status',
         'priority',
         'unit',
+        'component',
         'started_at',
         'finished_at',
         'notes',

@@ -149,6 +149,15 @@ return [
         'notes' => 'observaciones',
         'status' => 'estado',
         'visit_date' => 'fecha de visita',
+        'company_name' => 'nombre de empresa',
+        'business_name' => 'razón social',
+        'cuit' => 'CUIT',
+        'province' => 'provincia',
+        'locality' => 'localidad',
+        'city' => 'localidad',
+        'terms' => 'términos y condiciones',
+        'postal_code' => 'código postal',
+        'bank_cbu' => 'CBU',
     ],
 
 ];

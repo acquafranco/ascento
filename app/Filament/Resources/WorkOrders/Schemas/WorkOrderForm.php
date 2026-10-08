@@ -128,6 +128,11 @@ class WorkOrderForm
                     ->required()
                     ->label('Unidad'),
 
+                Forms\Components\Select::make('component')
+                    ->label('Componente afectado (opcional)')
+                    ->options(\App\Support\ElevatorComponents::LIST)
+                    ->helperText('Para reclamos: sirve para detectar fallas que se repiten.'),
+
                 Forms\Components\Select::make('users')
                     ->label('Técnicos asignados')
                     ->multiple()
