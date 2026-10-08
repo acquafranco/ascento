@@ -13,6 +13,7 @@ use App\Models\User;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\ImageManager;
+use Intervention\Image\Drivers\Gd\Driver as GdDriver;
 use Intervention\Image\Drivers\Imagick\Driver as ImagickDriver;
 use Intervention\Image\Encoders\WebpEncoder;
 use Intervention\Image\Encoders\JpegEncoder;
@@ -175,13 +176,19 @@ class ReportController extends Controller
                     mkdir(dirname($fullPath), 0755, true);
                 }
 
-                $manager = ImageManager::usingDriver(ImagickDriver::class);
+                // Imagick si está instalado (lee también HEIC de iPhone); si
+                // no, GD, para que un servidor sin Imagick no deje sin reportes.
+                $manager = ImageManager::usingDriver(
+                    extension_loaded('imagick') ? ImagickDriver::class : GdDriver::class
+                );
 
                 $image = $manager->decode(fopen($request->file('photo')->getRealPath(), 'rb'));
 
-
-                $image->encode(new \Intervention\Image\Encoders\JpegEncoder(quality: 90))
-                ->save($fullPath);
+                // Se orienta sola (fotos verticales) y se achica a 2000 px como
+                // máximo: alcanza para ver el problema y carga rápido en el celular.
+                $image->scaleDown(width: 2000, height: 2000)
+                    ->encode(new JpegEncoder(quality: 85))
+                    ->save($fullPath);
 
 
                 $data['photo'] = $folder.'/'.$filename;

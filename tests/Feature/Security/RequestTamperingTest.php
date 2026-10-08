@@ -72,8 +72,8 @@ class RequestTamperingTest extends TestCase
 
     public function test_report_store_ignores_injected_fields(): void
     {
-        if (! extension_loaded('imagick')) {
-            $this->markTestSkipped('Requiere Imagick (procesa la foto antes de guardar).');
+        if (! extension_loaded('imagick') && ! extension_loaded('gd')) {
+            $this->markTestSkipped('Requiere Imagick o GD (procesa la foto antes de guardar).');
         }
 
         Storage::fake('local');

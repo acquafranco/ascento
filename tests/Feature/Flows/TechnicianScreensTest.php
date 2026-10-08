@@ -57,7 +57,7 @@ class TechnicianScreensTest extends TestCase
             '/work-orders?status=completed',
             '/delivery-notes',
             '/delivery-notes/'.$note->number,
-            '/delivery-notes/create/building/'.$a['building']->id,
+            '/delivery-notes/create/building/'.$a['building']->id.'?assignment_type=maintenance', // como lo abre el botón de la pantalla
             '/delivery-notes/create/work-order/'.$workOrder->id,
             '/reports',
             '/reports/create',

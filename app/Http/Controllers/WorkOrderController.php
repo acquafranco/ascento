@@ -227,6 +227,14 @@ class WorkOrderController extends Controller
 
         }
 
+        // El técnico cierra la orden firmando el remito (queda el registro
+        // firmado del trabajo). Sin remito no se completa.
+        if (! $user->isAdmin() && ! $workOrder->deliveryNote()->exists()) {
+            return redirect()
+                ->route('delivery-notes.work-order', ['company' => $user->company->slug, 'workOrder' => $workOrder->id])
+                ->withErrors(['general' => 'Para terminar la orden, completá y firmá el remito.']);
+        }
+
         $this->workOrderService->finish($workOrder, $user);
 
         return back()

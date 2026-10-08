@@ -19,7 +19,7 @@
     </div>
 
     <div class="bg-blue-50 text-blue-700 px-4 py-2 rounded-2xl font-bold">
-        {{ $deliveryNotes->count() }} remitos
+        {{ $deliveryNotes->total() }} remitos
     </div>
 
 </div>
@@ -212,6 +212,12 @@
         </div>
 
     @endforelse
+
+    @if ($deliveryNotes->hasPages())
+        <div class="pt-2">
+            {{ $deliveryNotes->onEachSide(1)->links() }}
+        </div>
+    @endif
 
 </div>
 </div>

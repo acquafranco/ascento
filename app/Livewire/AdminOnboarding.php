@@ -151,7 +151,7 @@ class AdminOnboarding extends Component
             [
                 'key' => 'technicians',
                 'title' => 'Técnicos',
-                'body' => 'Ahora cargá a las personas que trabajan en la calle: nombre, email, WhatsApp y una contraseña. Con ese email y esa contraseña cada técnico entra a Ascento desde su celular. Si hace mantenimiento o inspección lo definís después, al asignarlo a un edificio.',
+                'body' => 'Ahora cargá a las personas que trabajan en la calle: nombre, email, número de teléfono y una contraseña. Con ese email y esa contraseña cada técnico entra a Ascento desde su celular. Si hace mantenimiento o inspección lo definís después, al asignarlo a un edificio.',
                 'target' => UserResource::getUrl(),
             ],
             [
@@ -222,7 +222,7 @@ class AdminOnboarding extends Component
         return [
             'dashboard' => ['title' => 'Inicio', 'body' => 'Resumen del día que se actualiza solo: órdenes de trabajo pendientes, en proceso y completadas, remitos de hoy, presupuestos pendientes, edificios, máquinas y técnicos ocupados o disponibles.'],
             'company' => ['title' => 'Mi empresa', 'body' => 'Los datos de tu empresa (nombre, razón social, CUIT, contacto), el logo y el color con el que aparece en Ascento. Acordate de tocar "Guardar".'],
-            'technicians' => ['title' => 'Técnicos', 'body' => 'Las personas que trabajan en la calle. Cada una entra a Ascento desde el celular con su email y su contraseña. El WhatsApp se usa para avisarle de las órdenes de trabajo. Si alguien deja la empresa, desactivalo: su historial se conserva.'],
+            'technicians' => ['title' => 'Técnicos', 'body' => 'Las personas que trabajan en la calle. Cada una entra a Ascento desde el celular con su email y su contraseña. Las órdenes de trabajo le llegan como aviso en el celular (notificaciones o Telegram). Si alguien deja la empresa, desactivalo: su historial se conserva.'],
             'clients' => ['title' => 'Clientes', 'body' => 'Consorcios, empresas, hospitales o particulares para los que trabajás. Primero creá el cliente; después vas a poder agregar sus edificios desde Edificios.'],
             'buildings' => ['title' => 'Edificios', 'body' => 'Cada edificio pertenece a un cliente. Cargá la dirección y cuántos ascensores y montacargas tiene. Con "Asignar empleado" elegís quién hace el mantenimiento (hasta dos técnicos) y quién la inspección (uno).'],
             'maintenances' => ['title' => 'Mantenimientos', 'body' => 'Los mantenimientos que hicieron tus técnicos, con su remito. Se generan solos cuando el técnico firma el remito desde el celular.'],
