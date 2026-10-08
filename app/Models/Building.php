@@ -192,6 +192,16 @@ use Illuminate\Database\Eloquent\SoftDeletes;
                 ->withTimestamps();
         }
 
+    public function maintenanceServices()
+    {
+        return $this->hasMany(MaintenanceService::class);
+    }
+
+    public function receivables()
+    {
+        return $this->hasMany(Receivable::class);
+    }
+
         public function workOrders()
         {
             return $this->hasMany(WorkOrder::class);

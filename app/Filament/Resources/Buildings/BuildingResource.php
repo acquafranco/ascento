@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\Buildings;
 
+use App\Filament\RelationManagers\AccountStatementRelationManager;
+use App\Filament\RelationManagers\ServicesRelationManager;
 use App\Filament\Resources\Buildings\Pages\CreateBuilding;
 use App\Filament\Resources\Buildings\Pages\EditBuilding;
 use App\Filament\Resources\Buildings\Pages\ListBuildings;
@@ -45,7 +47,10 @@ class BuildingResource extends Resource
 
     public static function getRelations(): array
     {
-        return [];
+        return [
+            ServicesRelationManager::class,
+            AccountStatementRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

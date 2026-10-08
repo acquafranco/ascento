@@ -55,4 +55,9 @@ class Quote extends Model
     {
         return $this->belongsTo(Company::class)->withTrashed();
     }
+
+    public function receivables()
+    {
+        return $this->hasMany(Receivable::class);
+    }
 }
