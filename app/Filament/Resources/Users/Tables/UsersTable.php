@@ -55,9 +55,12 @@ class UsersTable
                 // ¿Le llegan los avisos de órdenes nuevas al celular?
                 TextColumn::make('push_subscriptions_count')
                     ->label('Avisos al celular')
-                    ->formatStateUsing(fn ($state, $record) => $record->role !== 'technician'
-                        ? '—'
-                        : ($state > 0 ? 'Activados'.($state > 1 ? " ({$state} dispositivos)" : '') : 'Sin activar'))
+                    ->formatStateUsing(fn ($state, $record) => match (true) {
+                        $record->role !== 'technician' => '—',
+                        blank(config('webpush.vapid.public_key')) => 'No disponible',
+                        $state > 0 => 'Activados'.($state > 1 ? " ({$state} dispositivos)" : ''),
+                        default => 'Sin activar',
+                    })
                     ->badge()
                     ->color(fn ($state, $record) => $record->role !== 'technician' ? 'gray' : ($state > 0 ? 'success' : 'warning'))
                     ->tooltip('El técnico los activa desde Ascento en su celular (Inicio o Perfil).'),

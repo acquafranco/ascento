@@ -5,6 +5,7 @@ namespace Tests\Feature\Notifications;
 use App\Models\User;
 use App\Models\WorkOrder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Minishlink\WebPush\VAPID;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -133,7 +134,7 @@ class WorkOrderShowAndPwaTest extends TestCase
             ->assertOk()
             ->assertSee('name="ascento-push"', false)
             ->assertSee('PUBLIC-VAPID-KEY')
-            ->assertSee('Activar notificaciones')
+            ->assertSee('Activá los avisos')
             ->assertSee('rel="manifest"', false)
             ->assertDontSee('PRIVATE-VAPID-KEY');
 
@@ -151,5 +152,46 @@ class WorkOrderShowAndPwaTest extends TestCase
             ->assertSee('Avisos de órdenes nuevas')
             ->assertSee('Agregar a inicio')
             ->assertSee('bloqueadas');
+    }
+
+    public function test_work_order_list_is_paginated_so_phones_do_not_freeze(): void
+    {
+        foreach (range(1, 25) as $i) {
+            $this->order($this->a, [$this->a['technician']], ['unit' => "Unidad {$i}"]);
+        }
+
+        $response = $this->actingAs($this->a['technician'])
+            ->get("/{$this->a['company']->slug}/work-orders")
+            ->assertOk()
+            ->assertSee('page=2', false);
+
+        $this->assertSame(20, preg_match_all('/Unidad \d+/', $response->getContent()));
+    }
+
+    public function test_push_check_explains_missing_vapid_keys(): void
+    {
+        config(['webpush.vapid.public_key' => null, 'webpush.vapid.private_key' => null]);
+
+        $this->artisan('push:check')
+            ->expectsOutputToContain('VAPID_PUBLIC_KEY')
+            ->expectsOutputToContain('webpush:vapid --show')
+            ->assertFailed();
+    }
+
+    public function test_push_check_validates_keys_and_sends_a_test(): void
+    {
+        $keys = VAPID::createVapidKeys();
+        config([
+            'app.url' => 'https://app.ascento.test',
+            'webpush.vapid.public_key' => $keys['publicKey'],
+            'webpush.vapid.private_key' => $keys['privateKey'],
+            'webpush.vapid.subject' => 'mailto:soporte@ascento.test',
+        ]);
+
+        $this->artisan('push:check', ['--send' => $this->a['technician']->email])
+            ->expectsOutputToContain('no activó las notificaciones')
+            ->assertFailed();
+
+        $this->artisan('push:check')->expectsOutputToContain('Todo en orden')->assertSuccessful();
     }
 }
