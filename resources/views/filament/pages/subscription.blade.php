@@ -1,637 +1,162 @@
 <x-filament-panels::page>
-
     @php
         $plan = $this->getPlan();
-        $subscription = $this->getActiveSubscription();
-
-        $status = $subscription?->status;
-
-        $isPending = $this->isPending();
-        $isActive = $this->isActive();
-        $isPaused = $this->isPaused();
-        $isCanceled = $this->isCanceled();
-
-        $statusLabel = match ($status) {
-            'authorized',
-            'active' => 'Activo',
-
-            'trialing' => 'Período de prueba',
-
-            'past_due' => 'Pago pendiente',
-
-            'paused' => 'Pausado',
-
-            'pending' => 'Pago pendiente',
-
-            'cancelled',
-            'canceled' => 'Cancelado',
-
-            default => 'Sin suscripción',
-        };
-
-        $statusColor = match (true) {
-            $isCanceled => 'danger',
-            $isPaused => 'warning',
-            $isPending => 'warning',
-            $isActive => 'success',
-            default => 'gray',
-        };
-
-        // Aviso de "te quedan pocos días", solo cuando todavía tiene
-        // acceso (no si ya está pendiente/pausada/cancelada, esos
-        // estados ya tienen su propio mensaje más abajo).
-        $daysRemaining = \App\Support\ManualSubscriptionActivator::daysRemaining(auth()->user()->company);
-
-        $showRenewalWarning = !$isPending
-            && !$isPaused
-            && !$isCanceled
-            && $daysRemaining !== null
-            && $daysRemaining <= 5;
+        $subscription = $this->getSubscription();
+        [$statusLabel, $statusColor, $statusText] = $this->getStatusInfo();
+        $payments = $this->getPayments();
+        $hasAccess = $this->getCompany()->hasActiveAccess();
+        $daysRemaining = $this->daysRemaining();
+        $price = $plan ? number_format((float) $plan->price, 0, ',', '.') : null;
     @endphp
 
+    <style>
+        .sub-grid { display: grid; gap: 1.5rem; }
+        @media (min-width: 1024px) { .sub-grid { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); } }
+        .sub-status { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
+        .sub-status-text { margin-top: .5rem; color: var(--gray-600); font-size: .9375rem; line-height: 1.5; }
+        .dark .sub-status-text { color: var(--gray-300); }
+        .sub-price { font-size: 2.25rem; font-weight: 700; line-height: 1; color: var(--gray-950); }
+        .dark .sub-price { color: #fff; }
+        .sub-muted { color: var(--gray-500); font-size: .875rem; }
+        .sub-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin-top: 1.25rem; }
+        .sub-features { margin-top: 1rem; display: grid; gap: .5rem; font-size: .875rem; color: var(--gray-600); }
+        .dark .sub-features { color: var(--gray-300); }
+        .sub-features li::before { content: '✓'; color: var(--success-600); font-weight: 700; margin-right: .5rem; }
+        .sub-alert { display: flex; gap: .5rem; padding: .875rem 1rem; border-radius: .75rem; font-size: .875rem;
+            background: color-mix(in oklab, var(--warning-500) 12%, transparent); color: var(--warning-800); }
+        .dark .sub-alert { color: var(--warning-300); }
+        .sub-table { width: 100%; font-size: .875rem; border-collapse: collapse; }
+        .sub-table th { text-align: left; color: var(--gray-500); font-weight: 500; padding: .5rem .5rem .5rem 0; }
+        .sub-table td { padding: .6rem .5rem .6rem 0; border-top: 1px solid var(--gray-100); }
+        .dark .sub-table td { border-color: var(--gray-800); }
+        .sub-secure { margin-top: .75rem; }
+    </style>
 
-    {{-- ========================================================= --}}
-    {{-- AVISO: QUEDAN POCOS DÍAS --}}
-    {{-- ========================================================= --}}
-
-    @if ($showRenewalWarning)
-
-        <div class="mb-4 flex items-center gap-2 rounded-lg border p-4 text-sm
-            {{ $daysRemaining <= 2
-                ? 'border-red-300 bg-red-50 text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200'
-                : 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200' }}">
-
-            <span class="text-lg leading-none">⏰</span>
-
+    @if ($hasAccess && $daysRemaining !== null && $daysRemaining <= 5 && ! $this->canCancel())
+        <div class="sub-alert" role="status">
+            <span aria-hidden="true">⏰</span>
             <span>
-                @if ($daysRemaining === 0)
-                    <strong>Tu acceso vence hoy.</strong>
-                @else
-                    <strong>Te {{ $daysRemaining === 1 ? 'queda 1 día' : "quedan {$daysRemaining} días" }} de acceso.</strong>
-                @endif
-                Hacé la transferencia y avisanos por WhatsApp para no perder el acceso.
+                <strong>{{ $daysRemaining === 0 ? 'Tu acceso vence hoy.' : ($daysRemaining === 1 ? 'Te queda 1 día de acceso.' : "Te quedan {$daysRemaining} días de acceso.") }}</strong>
+                Suscribite para no perder el acceso.
             </span>
-
         </div>
-
     @endif
 
-
-    {{-- ========================================================= --}}
-    {{-- SIN SUSCRIPCIÓN --}}
-    {{-- ========================================================= --}}
-
-    @if (!$subscription)
-
+    <div class="sub-grid">
+        {{-- ESTADO + ACCIONES --}}
         <x-filament::section>
+            <x-slot name="heading">Estado</x-slot>
 
-            <div class="mx-auto max-w-2xl text-center">
+            <div class="sub-status">
+                <x-filament::badge :color="$statusColor" size="lg">{{ $statusLabel }}</x-filament::badge>
+                @if ($subscription?->isMercadoPago() && $subscription->last_synced_at)
+                    <span class="sub-muted">Actualizado {{ $subscription->last_synced_at->diffForHumans() }}</span>
+                @endif
+            </div>
 
-                <h2 class="text-2xl font-bold text-gray-950 dark:text-white">
-                    Ascento
-                </h2>
+            <p class="sub-status-text">{{ $statusText }}</p>
 
-                <p class="mt-2 text-gray-500 dark:text-gray-400">
-                    Todo lo que necesitás para gestionar tu empresa de ascensores.
-                </p>
-
-                @if ($plan)
-
-                    {{-- PRECIO --}}
-                    <div class="mt-8">
-
-                        <div class="text-4xl font-bold text-gray-950 dark:text-white">
-                            ${{ number_format((float) $plan->price, 0, ',', '.') }}
-                        </div>
-
-                        <div class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                            {{ $plan->currency }} / mes
-                        </div>
-
-                    </div>
-
-
-                    {{-- FEATURES --}}
-                    @if (!empty($plan->features))
-
-                        <div class="mt-8 text-left">
-
-                            <ul class="mx-auto max-w-md space-y-3">
-
-                                @foreach ($plan->features as $feature)
-
-                                    <li class="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300">
-
-                                        <span class="font-bold text-success-500">
-                                            ✓
-                                        </span>
-
-                                        <span>
-                                            {{ $feature }}
-                                        </span>
-
-                                    </li>
-
-                                @endforeach
-
-                            </ul>
-
-                        </div>
-
-                    @endif
-
-
-                    {{--
-                    ============================================================
-                    BLOQUE MERCADO PAGO COMENTADO A PROPOSITO (2026-09).
-
-                    Todo lo que dice "MERCADO PAGO COMENTADO" en este
-                    archivo depende de que exista una suscripcion real
-                    creada via MercadoPagoService (checkout, pausar,
-                    cancelar, reactivar). Mientras el pago con Mercado
-                    Pago no este confirmado funcionando en produccion,
-                    estos botones rompen. Se reemplazan por la tarjeta
-                    de transferencia manual.
-
-                    Para reactivar en el futuro: buscar el texto
-                    MERCADO PAGO COMENTADO en este archivo y descomentar
-                    los bloques marcados con ese texto.
-                    ============================================================
-                    --}}
-
-                    {{-- MERCADO PAGO COMENTADO: boton "Contratar Ascento"
-                    <div class="mt-8">
-
-                        <x-filament::button
-                            wire:click="checkout"
-                            wire:loading.attr="disabled"
-                            wire:target="checkout"
-                            size="lg"
-                        >
-
-                            <span
-                                wire:loading.remove
-                                wire:target="checkout"
-                            >
-                                Contratar Ascento
-                            </span>
-
-                            <span
-                                wire:loading
-                                wire:target="checkout"
-                            >
-                                Procesando...
-                            </span>
-
-                        </x-filament::button>
-
-                    </div>
-                    FIN MERCADO PAGO COMENTADO --}}
-
-                    <div class="mt-8 text-left">
-                        @include('filament.pages.partials.transfer-card')
-                    </div>
-
-                @else
-
-                    <div class="mt-6">
-
-                        <x-filament::badge color="danger">
-                            No hay un plan configurado
-                        </x-filament::badge>
-
-                    </div>
-
+            <div class="sub-actions">
+                @if ($this->canStartCheckout())
+                    <x-filament::button
+                        size="lg"
+                        icon="heroicon-m-credit-card"
+                        wire:click="checkout"
+                        wire:loading.attr="disabled"
+                        wire:target="checkout"
+                    >
+                        <span wire:loading.remove wire:target="checkout">
+                            {{ $subscription?->status === \App\Models\Subscription::PENDING ? 'Continuar en Mercado Pago' : 'Suscribirme con Mercado Pago' }}
+                        </span>
+                        <span wire:loading wire:target="checkout">Abriendo Mercado Pago…</span>
+                    </x-filament::button>
                 @endif
 
+                @if ($subscription?->isMercadoPago() && $subscription->provider_subscription_id)
+                    <x-filament::button
+                        color="gray"
+                        icon="heroicon-m-arrow-path"
+                        wire:click="refreshStatus"
+                        wire:loading.attr="disabled"
+                        wire:target="refreshStatus"
+                    >
+                        Actualizar estado
+                    </x-filament::button>
+                @endif
+
+                @if ($this->canCancel())
+                    {{ $this->cancelAction }}
+                @endif
             </div>
 
+            @if ($this->canStartCheckout())
+                <p class="sub-muted sub-secure">
+                    Pagás en Mercado Pago con tarjeta de crédito o débito. Se cobra automáticamente
+                    todos los meses y podés cancelar cuando quieras desde acá.
+                </p>
+            @elseif (! $this->canPayOnline() && $plan)
+                <p class="sub-muted sub-secure">El pago con Mercado Pago no está disponible en este momento. Podés pagar por transferencia.</p>
+            @endif
         </x-filament::section>
 
-
-    {{-- ========================================================= --}}
-    {{-- CON SUSCRIPCIÓN --}}
-    {{-- ========================================================= --}}
-
-    @else
-
+        {{-- PLAN --}}
         <x-filament::section>
-
-            <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-
-
-                {{-- ================================================= --}}
-                {{-- INFORMACIÓN DEL PLAN --}}
-                {{-- ================================================= --}}
-
-                <div>
-
-                    <div class="flex flex-wrap items-center gap-3">
-
-                        <div>
-
-                            <p class="text-sm text-gray-500 dark:text-gray-400">
-                                Tu plan actual
-                            </p>
-
-                            <h2 class="text-3xl font-bold text-gray-950 dark:text-white">
-                                {{ $plan?->name ?? ucfirst($subscription->plan ?? 'Ascento') }}
-                            </h2>
-
-                        </div>
-
-
-                        {{-- ESTADO --}}
-
-                        <x-filament::badge :color="$statusColor">
-                            {{ $statusLabel }}
-                        </x-filament::badge>
-
-                    </div>
-
-
-                    {{-- ================================================= --}}
-                    {{-- PRECIO / FECHAS --}}
-                    {{-- ================================================= --}}
-
-                    <div class="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
-
-                        @if ($subscription->amount)
-
-                            <span class="text-gray-600 dark:text-gray-300">
-
-                                <strong class="text-gray-950 dark:text-white">
-                                    ${{ number_format((float) $subscription->amount, 0, ',', '.') }}
-                                </strong>
-
-                                {{ $subscription->currency }}/mes
-
-                            </span>
-
-                        @endif
-
-
-                        @if ($subscription->current_period_start)
-
-                            <span class="text-gray-500 dark:text-gray-400">
-
-                                Inicio:
-
-                                <strong class="text-gray-700 dark:text-gray-200">
-                                    {{ $subscription->current_period_start->format('d/m/Y') }}
-                                </strong>
-
-                            </span>
-
-                        @endif
-
-
-                        @if ($subscription->current_period_end)
-
-                            <span class="text-gray-500 dark:text-gray-400">
-
-                                Próximo cobro:
-
-                                <strong class="text-gray-700 dark:text-gray-200">
-                                    {{ $subscription->current_period_end->format('d/m/Y') }}
-                                </strong>
-
-                            </span>
-
-                        @endif
-
-
-                        @if ($subscription->trial_ends_at && $status === 'trialing')
-
-                            <span class="text-gray-500 dark:text-gray-400">
-
-                                Prueba hasta:
-
-                                <strong class="text-gray-700 dark:text-gray-200">
-                                    {{ $subscription->trial_ends_at->format('d/m/Y') }}
-                                </strong>
-
-                            </span>
-
-                        @endif
-
-                    </div>
-
-                </div>
-
-
-                {{-- ================================================= --}}
-                {{-- BOTONES --}}
-                {{-- ================================================= --}}
-                {{--
-                    Todo este bloque de botones depende de Mercado Pago
-                    y esta comentado (ver nota grande mas arriba). Hoy
-                    no se muestra ningun boton aca. La unica accion
-                    disponible es la tarjeta de transferencia, mas abajo.
-                --}}
-
-                <div class="flex flex-wrap items-center gap-2">
-
-                    {{-- MERCADO PAGO COMENTADO: botones de checkout, pausar, cancelar y reactivar
-
-                    @if ($isPending)
-
-                        <x-filament::button
-                            wire:click="checkout"
-                            wire:loading.attr="disabled"
-                            wire:target="checkout"
-                            color="warning"
-                        >
-
-                            <span
-                                wire:loading.remove
-                                wire:target="checkout"
-                            >
-                                Continuar contratación
-                            </span>
-
-                            <span
-                                wire:loading
-                                wire:target="checkout"
-                            >
-                                Procesando...
-                            </span>
-
-                        </x-filament::button>
-
-                    @elseif ($isCanceled)
-
-                        <x-filament::button
-                            wire:click="checkout"
-                            wire:loading.attr="disabled"
-                            wire:target="checkout"
-                            color="primary"
-                        >
-
-                            <span
-                                wire:loading.remove
-                                wire:target="checkout"
-                            >
-                                Contratar nuevamente
-                            </span>
-
-                            <span
-                                wire:loading
-                                wire:target="checkout"
-                            >
-                                Procesando...
-                            </span>
-
-                        </x-filament::button>
-
-                    @elseif ($isPaused)
-
-                        <x-filament::button
-                            color="success"
-                            wire:click="resumeSubscription"
-                            wire:loading.attr="disabled"
-                            wire:target="resumeSubscription"
-                        >
-
-                            <span
-                                wire:loading.remove
-                                wire:target="resumeSubscription"
-                            >
-                                Reactivar suscripción
-                            </span>
-
-                            <span
-                                wire:loading
-                                wire:target="resumeSubscription"
-                            >
-                                Reactivando...
-                            </span>
-
-                        </x-filament::button>
-
-                        <x-filament::button
-                            color="danger"
-                            wire:click="cancelSubscription"
-                            wire:loading.attr="disabled"
-                            wire:target="cancelSubscription"
-                            wire:confirm="¿Cancelar tu suscripción? Esta acción es DEFINITIVA: para volver a usar Ascento vas a tener que contratar de nuevo."
-                        >
-
-                            <span
-                                wire:loading.remove
-                                wire:target="cancelSubscription"
-                            >
-                                Cancelar suscripción
-                            </span>
-
-                            <span
-                                wire:loading
-                                wire:target="cancelSubscription"
-                            >
-                                Cancelando...
-                            </span>
-
-                        </x-filament::button>
-
-                    @elseif ($isActive)
-
-                        <x-filament::button
-                            color="warning"
-                            wire:click="pauseSubscription"
-                            wire:loading.attr="disabled"
-                            wire:target="pauseSubscription"
-                            wire:confirm="¿Pausar tu suscripción? Vas a poder reactivarla cuando quieras."
-                        >
-
-                            <span
-                                wire:loading.remove
-                                wire:target="pauseSubscription"
-                            >
-                                Pausar suscripción
-                            </span>
-
-                            <span
-                                wire:loading
-                                wire:target="pauseSubscription"
-                            >
-                                Pausando...
-                            </span>
-
-                        </x-filament::button>
-
-                        <x-filament::button
-                            color="danger"
-                            wire:click="cancelSubscription"
-                            wire:loading.attr="disabled"
-                            wire:target="cancelSubscription"
-                            wire:confirm="¿Cancelar tu suscripción? Esta acción es DEFINITIVA: para volver a usar Ascento vas a tener que contratar de nuevo."
-                        >
-
-                            <span
-                                wire:loading.remove
-                                wire:target="cancelSubscription"
-                            >
-                                Cancelar suscripción
-                            </span>
-
-                            <span
-                                wire:loading
-                                wire:target="cancelSubscription"
-                            >
-                                Cancelando...
-                            </span>
-
-                        </x-filament::button>
-
-                    @else
-
-                        <x-filament::button
-                            wire:click="checkout"
-                            wire:loading.attr="disabled"
-                            wire:target="checkout"
-                            color="primary"
-                        >
-
-                            <span
-                                wire:loading.remove
-                                wire:target="checkout"
-                            >
-                                Contratar Ascento
-                            </span>
-
-                            <span
-                                wire:loading
-                                wire:target="checkout"
-                            >
-                                Procesando...
-                            </span>
-
-                        </x-filament::button>
-
-                    @endif
-
-                    FIN MERCADO PAGO COMENTADO --}}
-
-                </div>
-
-            </div>
-
-
-            {{-- ========================================================= --}}
-            {{-- MENSAJE: PAGO PENDIENTE --}}
-            {{-- ========================================================= --}}
-
-            @if ($isPending)
-
-                <div class="mt-5 rounded-lg border border-warning-300 bg-warning-50 p-4 text-sm text-warning-800 dark:border-warning-700 dark:bg-warning-950 dark:text-warning-200">
-
-                    <strong>Tu contratación está pendiente.</strong>
-
-                    <div class="mt-1">
-                        Continuá con el pago para activar tu suscripción.
-                    </div>
-
-                </div>
-
-                @include('filament.pages.partials.transfer-card')
-
+            <x-slot name="heading">{{ $plan?->name ?? 'Ascento' }}</x-slot>
+
+            @if ($plan)
+                <div class="sub-price">${{ $price }}</div>
+                <div class="sub-muted">{{ $plan->currency }} por mes</div>
+
+                <ul class="sub-features">
+                    <li>Técnicos, clientes y edificios</li>
+                    <li>Órdenes de trabajo con aviso al celular del técnico</li>
+                    <li>Mantenimientos, inspecciones y remitos firmados</li>
+                    <li>Presupuestos y mapa de edificios</li>
+                </ul>
+            @else
+                <x-filament::badge color="danger">No hay un plan configurado</x-filament::badge>
             @endif
-
-
-            {{-- ========================================================= --}}
-            {{-- MENSAJE: CANCELADA --}}
-            {{-- ========================================================= --}}
-
-            @if ($isCanceled)
-
-                <div class="mt-5 rounded-lg border border-danger-300 bg-danger-50 p-4 text-sm text-danger-800 dark:border-danger-700 dark:bg-danger-950 dark:text-danger-200">
-
-                    <strong>Esta suscripción fue cancelada definitivamente.</strong>
-
-                    <div class="mt-1">
-                        La cancelación fue realizada en Mercado Pago.
-                    </div>
-
-                    @if ($subscription->canceled_at)
-
-                        <div class="mt-1">
-
-                            Cancelada el
-
-                            <strong>
-                                {{ $subscription->canceled_at->format('d/m/Y H:i') }}
-                            </strong>.
-
-                        </div>
-
-                    @endif
-
-                    <div class="mt-2">
-                        Podés contratar nuevamente utilizando la opción de abajo.
-                    </div>
-
-                </div>
-
-                @include('filament.pages.partials.transfer-card')
-
-            @endif
-
-
-            {{-- ========================================================= --}}
-            {{-- MENSAJE: PAUSADA --}}
-            {{-- ========================================================= --}}
-
-            @if ($isPaused)
-
-                <div class="mt-5 rounded-lg border border-warning-300 bg-warning-50 p-4 text-sm text-warning-800 dark:border-warning-700 dark:bg-warning-950 dark:text-warning-200">
-
-                    <strong>Tu suscripción está pausada.</strong>
-
-                    <div class="mt-1">
-                        No se realizarán nuevos cobros mientras permanezca pausada.
-                    </div>
-
-                    <div class="mt-1">
-                        Para reactivarla, hacé la transferencia de abajo y avisanos por WhatsApp.
-                    </div>
-
-                </div>
-
-                @include('filament.pages.partials.transfer-card')
-
-            @endif
-
-
-            {{-- ========================================================= --}}
-            {{-- CANCELACIÓN PROGRAMADA --}}
-            {{-- ========================================================= --}}
-            {{--
-                Solo tiene sentido mostrarla cuando la suscripción está
-                activa (no pausada, no cancelada): "paused" ya tiene su
-                propio mensaje arriba, y mostrar ambos era redundante.
-            --}}
-
-            @if (
-                $isActive &&
-                $subscription->cancel_at_period_end
-            )
-
-                <div class="mt-5 rounded-lg border border-warning-300 bg-warning-50 p-4 text-sm text-warning-800 dark:border-warning-700 dark:bg-warning-950 dark:text-warning-200">
-
-                    Tu suscripción seguirá activa hasta
-
-                    <strong>
-                        {{ $subscription->current_period_end?->format('d/m/Y') }}
-                    </strong>.
-
-                    Después de esa fecha no se renovará.
-
-                </div>
-
-            @endif
-
         </x-filament::section>
+    </div>
 
+    {{-- HISTORIAL DE COBROS --}}
+    @if ($payments->isNotEmpty())
+        <x-filament::section>
+            <x-slot name="heading">Cobros</x-slot>
+
+            <table class="sub-table">
+                <thead>
+                    <tr><th>Fecha</th><th>Importe</th><th>Estado</th><th>Cubre</th></tr>
+                </thead>
+                <tbody>
+                    @foreach ($payments as $payment)
+                        <tr>
+                            <td>{{ ($payment->paid_at ?? $payment->created_at)->format('d/m/Y') }}</td>
+                            <td>{{ $payment->amount ? '$'.number_format((float) $payment->amount, 0, ',', '.') : '—' }}</td>
+                            <td>
+                                <x-filament::badge :color="match ($payment->status) { 'approved' => 'success', 'rejected', 'amount_mismatch' => 'danger', default => 'warning' }">
+                                    {{ match ($payment->status) { 'approved' => 'Aprobado', 'rejected' => 'Rechazado', 'amount_mismatch' => 'En revisión', default => 'Pendiente' } }}
+                                </x-filament::badge>
+                            </td>
+                            <td>
+                                @if ($payment->period_start && $payment->period_end)
+                                    {{ $payment->period_start->format('d/m') }} – {{ $payment->period_end->format('d/m/Y') }}
+                                @else
+                                    —
+                                @endif
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </x-filament::section>
     @endif
 
+    {{-- TRANSFERENCIA (alternativa) --}}
+    @if (! $this->canCancel())
+        <x-filament::section collapsible :collapsed="$this->canPayOnline()">
+            <x-slot name="heading">¿Preferís pagar por transferencia?</x-slot>
+            @include('filament.pages.partials.transfer-card', ['plan' => $plan])
+        </x-filament::section>
+    @endif
 </x-filament-panels::page>

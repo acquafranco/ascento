@@ -49,11 +49,17 @@ return [
         'app_secret' => env('WHATSAPP_APP_SECRET', env('FACEBOOK_CLIENT_SECRET')),
     ],
 
-        'mercadopago' => [
+    /*
+    | Mercado Pago: suscripción mensual (preapproval sin plan + redirección).
+    | Todo del lado del servidor; no se usa la public key en el navegador.
+    */
+    'mercadopago' => [
         'access_token' => env('MERCADOPAGO_ACCESS_TOKEN'),
-        'public_key' => env('MERCADOPAGO_PUBLIC_KEY'),
-        'basic_plan_id' => env('MERCADOPAGO_BASIC_PLAN_ID'),
-        'pro_plan_id' => env('MERCADOPAGO_PRO_PLAN_ID'),
+        // Clave secreta del webhook (Tus integraciones → Webhooks). En
+        // producción es obligatoria: sin ella se rechazan los webhooks.
+        'webhook_secret' => env('MERCADOPAGO_WEBHOOK_SECRET'),
+        // Solo en pruebas: email EXACTO del usuario de prueba comprador.
+        'test_payer_email' => env('MERCADOPAGO_TEST_PAYER_EMAIL'),
     ],
 
     /*

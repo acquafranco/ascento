@@ -14,7 +14,6 @@ use App\Http\Controllers\{
     DeliveryNoteController,
     WhatsAppController,
     ReportController,
-    SubscriptionController,
     ReportPhotoController,
     PushSubscriptionController
 };

@@ -143,12 +143,15 @@ class Company extends Model
      * técnicos y botones de WhatsApp). La usa EnsureActiveSubscription.
      *
      * - Empresa desactivada por el SuperAdmin (is_active = false): sin acceso.
-     * - Si alguna vez tuvo suscripción, manda la última:
-     *     authorized / active / trialing → acceso
-     *       (las manuales solo hasta current_period_end, sin esperar al cron);
-     *     canceled con período ya pago vigente → acceso hasta que termine;
-     *     paused / pending / past_due / canceled sin período → sin acceso.
-     * - Si nunca tuvo suscripción: el trial gratuito de la app.
+     * - Si nunca tuvo suscripción, o solo inició el checkout (pending):
+     *   el trial gratuito de la app.
+     * - Si no, manda la última (Subscription::grantsAccess()):
+     *     Mercado Pago authorized → mientras haya un período PAGO vigente
+     *       (o 48 h esperando el primer cobro tras autorizar);
+     *     past_due (cobro rechazado) → período pago + 5 días de tolerancia;
+     *     canceled → hasta que termine el período ya pagado;
+     *     manual active → hasta current_period_end;
+     *     paused → sin acceso.
      */
     public function hasActiveAccess(): bool
     {
@@ -162,17 +165,13 @@ class Company extends Model
             return $this->onTrial();
         }
 
-        $periodIsCurrent = $subscription->current_period_end?->isFuture() ?? false;
-
-        if (in_array($subscription->status, ['authorized', 'active', 'trialing'], true)) {
-            return $subscription->provider !== 'manual' || $periodIsCurrent;
+        // Checkout de Mercado Pago iniciado pero sin terminar: no le quita
+        // a la empresa los días de prueba ni los días ya pagados que le queden.
+        if ($subscription->status === Subscription::PENDING) {
+            return $this->onTrial() || $subscription->hasPaidPeriod();
         }
 
-        if (in_array($subscription->status, ['canceled', 'cancelled'], true)) {
-            return $periodIsCurrent;
-        }
-
-        return false;
+        return $subscription->grantsAccess();
     }
 
     public function onTrial(): bool
