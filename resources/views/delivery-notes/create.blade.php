@@ -280,6 +280,49 @@
                         </div>
                     </div>
 
+                    {{-- Materiales usados (solo órdenes de trabajo con stock cargado). --}}
+                    @if($workOrder && isset($stockItems) && $stockItems->isNotEmpty())
+                        <div id="materialsSection">
+                            <h2 class="font-black text-base text-slate-800">Materiales utilizados</h2>
+                            <p class="text-xs text-slate-500 mb-3">Opcional. Agregá los repuestos que usaste: se descuentan del stock al guardar el remito.</p>
+
+                            @if($workOrder->materials->isNotEmpty())
+                                <div class="mb-3 rounded-xl bg-slate-50 border border-slate-200 p-3 text-sm">
+                                    <div class="text-xs font-bold text-slate-500 uppercase mb-1">Ya cargados por la oficina</div>
+                                    @foreach($workOrder->materials as $material)
+                                        <div class="flex justify-between"><span>{{ $material->stockItem?->name }}</span><span class="font-semibold">{{ $material->stockItem?->formatQuantity($material->quantity) }}</span></div>
+                                    @endforeach
+                                </div>
+                            @endif
+
+                            <div id="materialRows" class="space-y-3"></div>
+
+                            <button type="button" id="addMaterial"
+                                class="mt-3 w-full py-3 rounded-xl border-2 border-dashed border-blue-300 text-blue-700 font-bold text-base">
+                                + Agregar material
+                            </button>
+
+                            <template id="materialTemplate">
+                                <div class="material-row rounded-xl border border-slate-200 p-3 space-y-2">
+                                    <select class="material-item w-full rounded-xl border-slate-300 text-base py-3" required>
+                                        <option value="">Elegí el material…</option>
+                                        @foreach($stockItems as $item)
+                                            <option value="{{ $item->id }}" data-unit="{{ $item->unit }}" data-stock="{{ (float) $item->current_stock }}">
+                                                {{ $item->name }}@if($item->code) ({{ $item->code }})@endif
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    <div class="flex items-center gap-2">
+                                        <input type="number" class="material-qty flex-1 rounded-xl border-slate-300 text-base py-3" min="0.01" max="99999" step="0.01" inputmode="decimal" placeholder="Cantidad" required>
+                                        <span class="material-unit text-sm text-slate-500 w-16"></span>
+                                        <button type="button" class="material-remove px-4 py-3 rounded-xl bg-red-50 text-red-700 font-bold border border-red-200">Quitar</button>
+                                    </div>
+                                    <p class="material-stock text-xs"></p>
+                                </div>
+                            </template>
+                        </div>
+                    @endif
+
                     {{-- 5. Firmas --}}
                     <div>
                         <div class="flex items-baseline gap-2 mb-3">
@@ -640,4 +683,50 @@ window.addEventListener('load', () => {
 @endif
 </script>
 
+
+<script>
+(() => {
+    const rows = document.getElementById('materialRows');
+    if (!rows) return;
+    const template = document.getElementById('materialTemplate');
+    const old = @json(array_values(old('materials', [])));
+    let next = 0;
+
+    function refresh(row) {
+        const option = row.querySelector('.material-item').selectedOptions[0];
+        const qty = parseFloat(row.querySelector('.material-qty').value || '0');
+        const info = row.querySelector('.material-stock');
+        row.querySelector('.material-unit').textContent = option?.dataset.unit || '';
+
+        if (!option || !option.value) { info.textContent = ''; return; }
+
+        const stock = parseFloat(option.dataset.stock);
+        const fmt = (n) => n.toLocaleString('es-AR', { maximumFractionDigits: 2 }) + ' ' + option.dataset.unit;
+        info.className = 'material-stock text-xs ' + (qty > stock ? 'text-orange-700 font-semibold' : 'text-slate-500');
+        info.textContent = qty > stock
+            ? '⚠️ Hay ' + fmt(stock) + '. Se registra igual; avisale a la oficina para reponer.'
+            : 'Hay ' + fmt(stock) + ' en stock.';
+    }
+
+    function add(values = {}) {
+        const row = template.content.firstElementChild.cloneNode(true);
+        const i = next++;
+        const item = row.querySelector('.material-item');
+        const qty = row.querySelector('.material-qty');
+        item.name = `materials[${i}][stock_item_id]`;
+        qty.name = `materials[${i}][quantity]`;
+        item.value = values.stock_item_id || '';
+        qty.value = values.quantity || '';
+        item.addEventListener('change', () => refresh(row));
+        qty.addEventListener('input', () => refresh(row));
+        row.querySelector('.material-remove').addEventListener('click', () => row.remove());
+        rows.append(row);
+        refresh(row);
+        return row;
+    }
+
+    document.getElementById('addMaterial').addEventListener('click', () => add().querySelector('.material-item').focus());
+    old.forEach(add);
+})();
+</script>
 </x-app-layout>

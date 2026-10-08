@@ -2,21 +2,15 @@
 
 namespace App\Services;
 
+use App\Models\Company;
 use App\Models\WorkOrder;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use App\Models\Company;
 
 class WhatsAppService
 {
     public function send(Company $company, string $phone, string $message): bool
     {
-        Log::info('WhatsApp send iniciado', [
-            'company_id' => $company->id,
-            'phone_original' => $phone,
-            'message' => $message,
-        ]);
-
         if (empty($company->whatsapp_access_token) || empty($company->whatsapp_phone_number_id)) {
             Log::warning('WhatsApp no configurado para la empresa.', [
                 'company_id' => $company->id,
@@ -27,29 +21,11 @@ class WhatsAppService
 
         $to = $this->normalizePhone($phone);
 
-        Log::info('WhatsApp telefono normalizado', [
-            'original' => $phone,
-            'normalizado' => $to,
-        ]);
-
         $url = sprintf(
             'https://graph.facebook.com/%s/%s/messages',
             config('services.whatsapp.version'),
             $company->whatsapp_phone_number_id,
         );
-
-        Log::info('WhatsApp request', [
-            'url' => $url,
-            'api_version' => config('services.whatsapp.version'),
-            'payload' => [
-                'messaging_product' => 'whatsapp',
-                'to' => $to,
-                'type' => 'text',
-                'text' => [
-                    'body' => $message,
-                ],
-            ],
-        ]);
 
         try {
 
@@ -64,14 +40,11 @@ class WhatsAppService
                 ],
             ]);
 
+            // Sin teléfono ni texto del mensaje en el log (datos personales).
             Log::info('WhatsApp response', [
                 'status' => $response->status(),
                 'successful' => $response->successful(),
-                'body' => $response->json(),
                 'company_id' => $company->id,
-                'phone_number_id' => $company->whatsapp_phone_number_id,
-                'request_url' => $url,
-                'sent_to' => $to,
             ]);
 
             return $response->successful();
@@ -88,12 +61,11 @@ class WhatsAppService
         }
     }
 
-
     public function sendInteractiveButton(Company $company, string $phone, string $message, string $buttonId, string $buttonText): bool
     {
         Log::info('Phone Number ID utilizado', [
-    'phone_number_id' => $company->whatsapp_phone_number_id,
-]);
+            'phone_number_id' => $company->whatsapp_phone_number_id,
+        ]);
         if (empty($company->whatsapp_access_token) || empty($company->whatsapp_phone_number_id)) {
             return false;
         }
@@ -152,21 +124,22 @@ class WhatsAppService
         }
 
         $message =
-            "🔧 Nueva orden de trabajo\n\n" .
-            "Edificio: {$workOrder->building->name}\n" .
-            "Dirección: {$workOrder->building->address}\n" .
-            "Unidad: {$workOrder->unit}\n" .
-            "Tipo: {$workOrder->type}\n" .
+            "🔧 Nueva orden de trabajo\n\n".
+            "Edificio: {$workOrder->building->name}\n".
+            "Dirección: {$workOrder->building->address}\n".
+            "Unidad: {$workOrder->unit}\n".
+            "Tipo: {$workOrder->type}\n".
             "Notas: {$workOrder->notes}";
 
         return $this->sendInteractiveButton(
             $company,
             $phone,
             $message,
-            'take_work_order_' . $workOrder->id,
+            'take_work_order_'.$workOrder->id,
             'Tomar trabajo'
         );
     }
+
     public function sendFinishWorkOrderButton(WorkOrder $workOrder, string $phone): bool
     {
         $company = $workOrder->company;
@@ -176,20 +149,21 @@ class WhatsAppService
         }
 
         $message =
-            "✅ Trabajo en proceso\n\n" .
-            "Edificio: {$workOrder->building->name}\n" .
-            "Dirección: {$workOrder->building->address}\n" .
-            "Unidad: {$workOrder->unit}\n\n" .
-            "Cuando termines el trabajo presioná el botón.";
+            "✅ Trabajo en proceso\n\n".
+            "Edificio: {$workOrder->building->name}\n".
+            "Dirección: {$workOrder->building->address}\n".
+            "Unidad: {$workOrder->unit}\n\n".
+            'Cuando termines el trabajo presioná el botón.';
 
         return $this->sendInteractiveButton(
             $company,
             $phone,
             $message,
-            'finish_work_order_' . $workOrder->id,
+            'finish_work_order_'.$workOrder->id,
             'Finalizar trabajo'
         );
     }
+
     public function sendFinishWorkOrderLink(WorkOrder $workOrder, string $phone): bool
     {
         $company = $workOrder->company;
@@ -205,8 +179,8 @@ class WhatsAppService
         ));
 
         $message =
-            "✅ Ya podés finalizar el trabajo.\n\n" .
-            "Abrí el siguiente enlace para completar el remito:\n\n" .
+            "✅ Ya podés finalizar el trabajo.\n\n".
+            "Abrí el siguiente enlace para completar el remito:\n\n".
             $url;
 
         return $this->send(
@@ -215,6 +189,7 @@ class WhatsAppService
             $message
         );
     }
+
     public function sendWorkOrder(WorkOrder $workOrder, string $phone): bool
     {
         $company = $workOrder->company;
@@ -238,17 +213,15 @@ class WhatsAppService
         Log::info('Enviando WhatsApp de WorkOrder', [
             'work_order_id' => $workOrder->id,
             'company_id' => $company->id,
-            'technician_phone' => $phone,
         ]);
 
         $message =
-            "🔧 Nueva orden de trabajo\n\n" .
-            "Edificio: {$workOrder->building->name}\n" .
-            "Dirección: {$workOrder->building->address}\n" .
-            "Unidad: {$workOrder->unit}\n" .
-            "Tipo: {$workOrder->type}\n" .
+            "🔧 Nueva orden de trabajo\n\n".
+            "Edificio: {$workOrder->building->name}\n".
+            "Dirección: {$workOrder->building->address}\n".
+            "Unidad: {$workOrder->unit}\n".
+            "Tipo: {$workOrder->type}\n".
             "Notas: {$workOrder->notes}";
-
 
         return $this->send(
             $company,
@@ -256,7 +229,6 @@ class WhatsAppService
             $message
         );
     }
-
 
     private function normalizePhone(string $phone): string
     {

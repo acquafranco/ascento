@@ -68,7 +68,7 @@ class AdminNotificationsTest extends TestCase
                 'elevator_number' => 'Ascensor 1',
                 'description' => 'Ruido fuerte en la cabina',
                 'priority' => $priority,
-                'photo' => UploadedFile::fake()->image('foto.jpg'),
+                'photos' => [UploadedFile::fake()->image('foto.jpg')],
             ])
             ->assertSessionHasNoErrors();
     }

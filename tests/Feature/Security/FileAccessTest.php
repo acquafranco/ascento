@@ -5,6 +5,7 @@ namespace Tests\Feature\Security;
 use App\Filament\Resources\Reports\ReportResource;
 use App\Models\DeliveryNote;
 use App\Models\Report;
+use App\Models\ReportPhoto;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -41,13 +42,12 @@ class FileAccessTest extends TestCase
 
     private function reportWithPhoto(array $tenant, string $disk = 'local'): Report
     {
-        $path = 'reports/'.$tenant['company']->id.'/'.str_repeat('a', 40).'.jpg';
-        Storage::disk($disk)->put($path, UploadedFile::fake()->image('x.jpg')->getContent());
+        $path = 'reports/'.$tenant['company']->id.'/'.str_repeat($disk === 'local' ? 'a' : 'p', 40).'.jpg';
 
-        return Report::factory()->create([
+        // Foto vieja (columna reports.photo, ya copiada a report_photos por la migración).
+        return Report::factory()->withPhoto($disk, $path, legacyColumn: true)->create([
             'building_id' => $tenant['building']->id,
             'user_id' => $tenant['technician']->id,
-            'photo' => $path,
         ]);
     }
 
@@ -103,7 +103,7 @@ class FileAccessTest extends TestCase
         Storage::disk('local')->put('.env', 'APP_KEY=x');
 
         foreach (['reports/'.$this->a['company']->id.'/secreto.jpg', '../../.env', 'reports/'.$this->b['company']->id.'/../../.env'] as $path) {
-            Report::withoutGlobalScopes()->whereKey($this->reportB->id)->update(['photo' => $path]);
+            ReportPhoto::withoutGlobalScopes()->where('report_id', $this->reportB->id)->update(['path' => $path]);
 
             $this->actingAs($this->b['admin'])
                 ->get(route('reports.photo', $this->reportB))
@@ -134,7 +134,7 @@ class FileAccessTest extends TestCase
         $this->actingAs($this->b['technician'])
             ->get("/{$this->b['company']->slug}/reports/{$this->reportB->id}")
             ->assertOk()
-            ->assertSee(route('reports.photo', $this->reportB), false)
+            ->assertSee($this->reportB->photos()->first()->url(), false)
             ->assertDontSee('/storage/reports', false);
 
         $this->actingInPanel($this->b['admin'])

@@ -2,10 +2,13 @@
 
 namespace App\Filament\Resources\Quotes\Schemas;
 
-use Filament\Schemas\Schema;
-use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Grid;
+use App\Models\Quote;
+use Filament\Infolists\Components\RepeatableEntry;
+use Filament\Infolists\Components\RepeatableEntry\TableColumn;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 
 class QuoteInfolist
 {
@@ -32,6 +35,34 @@ class QuoteInfolist
 
                     ]),
 
+                Section::make('Ítems')
+                    ->columnSpanFull()
+                    ->schema([
+                        RepeatableEntry::make('items')
+                            ->hiddenLabel()
+                            ->table([
+                                TableColumn::make('Concepto'),
+                                TableColumn::make('Cantidad'),
+                                TableColumn::make('Precio unitario'),
+                                TableColumn::make('Subtotal'),
+                            ])
+                            ->schema([
+                                TextEntry::make('concept')->label('Concepto')->belowContent(fn ($record) => $record?->description),
+                                TextEntry::make('quantity')->label('Cantidad')->numeric(decimalPlaces: 2, locale: 'es_AR'),
+                                TextEntry::make('unit_price')->label('Precio unitario')->money('ARS', locale: 'es_AR'),
+                                TextEntry::make('subtotal')->label('Subtotal')->money('ARS', locale: 'es_AR'),
+                            ]),
+                    ]),
+
+                Section::make('Condiciones y observaciones')
+                    ->columnSpanFull()
+                    ->columns(2)
+                    ->visible(fn (Quote $record) => filled($record->conditions) || filled($record->notes))
+                    ->schema([
+                        TextEntry::make('conditions')->label('Condiciones')->placeholder('—'),
+                        TextEntry::make('notes')->label('Observaciones')->placeholder('—'),
+                    ]),
+
                 Grid::make(2)
                     ->schema([
 
@@ -40,7 +71,7 @@ class QuoteInfolist
                             ->schema([
 
                                 TextEntry::make('amount')
-                                    ->label('Importe')
+                                    ->label('Total')
                                     ->money('ARS')
                                     ->size('lg')
                                     ->weight('bold')
@@ -49,20 +80,12 @@ class QuoteInfolist
                                 TextEntry::make('status')
                                     ->label('Estado')
                                     ->badge()
-                                    ->formatStateUsing(fn (string $state) => match ($state) {
-                                        'pending' => 'Pendiente',
-                                        'sent' => 'Enviado',
-                                        'approved' => 'Aprobado',
-                                        'rejected' => 'Rechazado',
-                                        default => $state,
-                                    })
-                                    ->color(fn (string $state) => match ($state) {
-                                        'pending' => 'warning',
-                                        'sent' => 'info',
-                                        'approved' => 'success',
-                                        'rejected' => 'danger',
-                                        default => 'gray',
-                                    }),
+                                    ->state(fn (Quote $record) => $record->displayStatus())
+                                    ->formatStateUsing(fn (Quote $record) => $record->displayStatusLabel())
+                                    ->color(fn (string $state) => Quote::STATUS_COLORS[$state] ?? 'gray'),
+
+                                TextEntry::make('issued_at')->label('Fecha')->date('d/m/Y')->placeholder('—'),
+                                TextEntry::make('valid_until')->label('Válido hasta')->date('d/m/Y')->placeholder('Sin vencimiento'),
 
                                 TextEntry::make('priority')
                                     ->label('Prioridad')
@@ -97,8 +120,8 @@ class QuoteInfolist
                                     ->placeholder('Sin edificio'),
 
                                 TextEntry::make('unit')
-                                    ->label('Ascensor a reparar')
-                                    ->placeholder('Sin ascensor seleccionado'),
+                                    ->label('Equipo')
+                                    ->placeholder('Todo el edificio'),
 
                                 TextEntry::make('created_at')
                                     ->label('Fecha de creación')

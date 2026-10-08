@@ -114,59 +114,30 @@
 
         <div>
             <label class="text-sm font-bold text-gray-700">
-                Imagen del problema
+                Fotos del problema <span class="font-normal text-gray-500">(opcional, hasta {{ \App\Services\Reports\ReportPhotoService::MAX_PHOTOS }})</span>
             </label>
 
             <div class="mt-2 space-y-3">
 
-                <label class="flex flex-col items-center justify-center h-28 rounded-3xl bg-blue-50 border border-blue-200 cursor-pointer">
-
+                <label id="photoButton" class="flex flex-col items-center justify-center h-28 rounded-3xl bg-blue-50 border border-blue-200 cursor-pointer active:bg-blue-100">
                     <div class="text-3xl">📷</div>
+                    <div class="text-base font-bold text-blue-700 mt-1">Agregar foto</div>
+                    <div class="text-xs text-gray-500">Sacá una foto o elegí de la galería</div>
 
-                    <div class="text-sm font-bold text-blue-700 mt-1">
-                        Tomar foto o elegir de galería
-                    </div>
-
-                    <div class="text-xs text-gray-500">
-                        JPG, PNG o WEBP
-                    </div>
-
-                    <input
-                        id="photoInput"
-                        type="file"
-                        name="photo"
-                        accept="image/*"
-                        class="hidden"
-                    >
-
-
+                    {{-- Selector: cada vez que se usa, las fotos se SUMAN a la lista. --}}
+                    <input id="photoPicker" type="file" accept="image/*" multiple class="hidden">
                 </label>
 
-                <div id="photoSelected" class="hidden mt-3 rounded-2xl border border-green-200 bg-green-50 px-4 py-3">
-                    <div class="flex items-center gap-3">
-                        <div class="text-2xl">✅</div>
-                        <div>
-                            <div class="font-bold text-green-800">
-                                Imagen seleccionada correctamente
-                            </div>
-                            <div id="photoName" class="text-xs text-green-700 break-all"></div>
-                        </div>
-                    </div>
+                {{-- Lo que se envía (lo arma el script con las fotos elegidas). --}}
+                <input id="photoInput" type="file" name="photos[]" multiple class="hidden">
 
-                    <div class="mt-3 flex justify-center">
-                        <img
-                            id="photoPreview"
-                            class="hidden w-24 h-24 rounded-2xl object-cover border border-slate-200 shadow-sm"
-                            alt="Vista previa de la imagen"
-                        >
-                    </div>
-                </div>
-
+                <div id="photoCount" class="hidden text-sm font-bold text-gray-700"></div>
+                <div id="photoList" class="grid grid-cols-3 gap-3"></div>
             </div>
         </div>
 
 
-        <button class="w-full py-3 rounded-2xl bg-blue-600 text-white font-bold shadow-sm">
+        <button id="submitReport" class="w-full py-4 rounded-2xl bg-blue-600 text-white text-lg font-bold shadow-sm disabled:opacity-60">
             Enviar reporte
         </button>
 
@@ -261,47 +232,105 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    /*
+    | Fotos: se suman de a una o varias, se pueden quitar, y antes de enviar se
+    | achican en el celular (2000 px, JPEG) para que suban rápido con datos
+    | móviles. Si el navegador no puede (p. ej. HEIC fuera de Safari), se manda
+    | la original: el servidor igual la valida y la procesa.
+    */
+    const MAX_PHOTOS = {{ \App\Services\Reports\ReportPhotoService::MAX_PHOTOS }};
+    const MAX_SIDE = 2000;
+    const picker = document.getElementById('photoPicker');
     const photoInput = document.getElementById('photoInput');
-    const photoPreview = document.getElementById('photoPreview');
-    const photoSelected = document.getElementById('photoSelected');
-    const photoName = document.getElementById('photoName');
+    const photoList = document.getElementById('photoList');
+    const photoCount = document.getElementById('photoCount');
+    const photoButton = document.getElementById('photoButton');
+    const form = photoInput.closest('form');
+    const submit = document.getElementById('submitReport');
+    let photos = [];
 
-    function previewPhoto(input) {
-        const file = input.files[0];
-        photoSelected.classList.add('hidden');
-        photoName.textContent = '';
+    function render() {
+        photoList.innerHTML = '';
 
-        photoPreview.classList.add('hidden');
-        photoPreview.removeAttribute('src');
+        photos.forEach((file, index) => {
+            const cell = document.createElement('div');
+            cell.className = 'relative';
 
-        if (!file) {
-            return;
-        }
-        photoSelected.classList.remove('hidden');
-        photoName.textContent = file.name;
+            const img = document.createElement('img');
+            img.className = 'w-full aspect-square rounded-2xl object-cover border border-slate-200 bg-slate-100';
+            img.alt = 'Foto ' + (index + 1);
+            const url = URL.createObjectURL(file);
+            img.onload = img.onerror = () => URL.revokeObjectURL(url);
+            img.src = url;
 
-        // En iPhone (HEIC) muchos navegadores no pueden generar una vista previa.
-        // Para JPG/PNG/WEBP mostramos la miniatura directamente.
-        if (file.type === 'image/heic' || file.type === 'image/heif') {
-            return;
-        }
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'mt-1 w-full py-2 rounded-xl bg-red-50 text-red-700 text-sm font-bold border border-red-200';
+            remove.textContent = 'Quitar';
+            remove.addEventListener('click', () => { photos.splice(index, 1); render(); });
 
-        const url = URL.createObjectURL(file);
+            cell.append(img, remove);
+            photoList.append(cell);
+        });
 
-        photoPreview.onload = function () {
-            URL.revokeObjectURL(url);
-            photoPreview.classList.remove('hidden');
-        };
-
-        photoPreview.onerror = function () {
-            URL.revokeObjectURL(url);
-        };
-
-        photoPreview.src = url;
+        photoCount.textContent = photos.length + ' de ' + MAX_PHOTOS + ' fotos';
+        photoCount.classList.toggle('hidden', photos.length === 0);
+        photoButton.classList.toggle('hidden', photos.length >= MAX_PHOTOS);
     }
 
-    photoInput.addEventListener('change', function(){
-        previewPhoto(this);
+    picker.addEventListener('change', () => {
+        const added = Array.from(picker.files);
+        const room = MAX_PHOTOS - photos.length;
+
+        if (added.length > room) {
+            alert('Podés adjuntar hasta ' + MAX_PHOTOS + ' fotos. Se agregaron las primeras ' + room + '.');
+        }
+
+        photos = photos.concat(added.slice(0, room));
+        picker.value = '';
+        render();
+    });
+
+    async function shrink(file) {
+        try {
+            if (!window.createImageBitmap) return file;
+            const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+            const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(bitmap.width * scale);
+            canvas.height = Math.round(bitmap.height * scale);
+            canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+            if (!blob || blob.size >= file.size) return file;
+            return new File([blob], (file.name || 'foto').replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+        } catch (e) {
+            return file;
+        }
+    }
+
+    form.addEventListener('submit', async (event) => {
+        if (form.dataset.ready === '1') return;
+        event.preventDefault();
+        submit.disabled = true;
+        submit.textContent = photos.length ? 'Preparando fotos…' : 'Enviando…';
+
+        try {
+            const transfer = new DataTransfer();
+            for (const file of photos) transfer.items.add(await shrink(file));
+            photoInput.files = transfer.files;
+        } catch (e) {
+            // Navegador muy viejo, sin DataTransfer: no se pueden adjuntar las
+            // fotos elegidas. Se avisa en vez de mandar el reporte sin ellas.
+            if (photos.length && !confirm('Este navegador no permite adjuntar las fotos. ¿Enviar el reporte sin fotos?')) {
+                submit.disabled = false;
+                submit.textContent = 'Enviar reporte';
+                return;
+            }
+        }
+
+        submit.textContent = 'Enviando…';
+        form.dataset.ready = '1';
+        form.requestSubmit ? form.requestSubmit() : form.submit();
     });
 });
 

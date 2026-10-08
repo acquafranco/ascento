@@ -155,6 +155,27 @@ use Illuminate\Database\Eloquent\SoftDeletes;
             });
         }
 
+        /**
+         * Equipos del edificio tal como se guardan en reportes y órdenes:
+         * "Ascensor 1", …, "Montacargas 1", …
+         *
+         * @return array<int, string>
+         */
+        public function unitLabels(): array
+        {
+            $labels = [];
+
+            for ($i = 1; $i <= (int) $this->elevator_count; $i++) {
+                $labels[] = "Ascensor {$i}";
+            }
+
+            for ($i = 1; $i <= (int) $this->freight_elevator_count; $i++) {
+                $labels[] = "Montacargas {$i}";
+            }
+
+            return $labels;
+        }
+
         public function planLimit(): ?PlanLimit
         {
             return PlanLimit::Buildings;

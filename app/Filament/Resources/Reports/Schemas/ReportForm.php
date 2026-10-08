@@ -7,6 +7,8 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Schemas\Schema;
 use App\Models\Building;
+use App\Models\Report;
+use App\Services\Reports\ReportPhotoService;
 use Filament\Forms\Components\FileUpload;
 
 class ReportForm
@@ -24,41 +26,45 @@ class ReportForm
                     ->required(),
                 Select::make('elevator_number')
                     ->label('Ascensor')
-                    ->options(function (callable $get): array {
+                    // Mismos valores que guarda la app del técnico ("Ascensor 1").
+                    // Si el reporte tiene otro valor (dato viejo), se conserva.
+                    ->options(function (callable $get, ?Report $record): array {
                         $building = Building::find($get('building_id'));
+                        $labels = $building?->unitLabels() ?? [];
+                        $current = $record?->elevator_number;
 
-                        if (! $building) {
-                            return [];
+                        if (filled($current) && ! in_array($current, $labels, true)) {
+                            $labels[] = $current;
                         }
 
-                        $options = [];
-
-                        for ($i = 1; $i <= ($building->elevator_count ?? 0); $i++) {
-                            $options[(string) $i] = 'Ascensor ' . $i;
-                        }
-
-                        for ($i = 1; $i <= ($building->freight_elevator_count ?? 0); $i++) {
-                            $options['M' . $i] = 'Montacargas ' . $i;
-                        }
-
-                        return $options;
+                        return array_combine($labels, $labels) ?: [];
                     })
                     ->live()
                     ->required(),
-                FileUpload::make('photo')
-                    ->label('Foto')
+                // Las fotos NO las guarda Filament: las procesa ReportPhotoService
+                // (re-codifica, achica, disco privado). Las ya cargadas se ven y
+                // se borran en la pestaña "Fotos".
+                FileUpload::make('new_photos')
+                    ->label(fn (?Report $record) => $record ? 'Agregar fotos' : 'Fotos (opcional)')
+                    ->helperText('Hasta '.ReportPhotoService::MAX_PHOTOS.' fotos por reporte. JPG, PNG o WEBP, hasta 10 MB cada una.')
+                    ->multiple()
                     ->image()
-                    // image() acepta image/* (incluye SVG, que ejecuta JS
-                    // si se abre desde /storage). Solo formatos raster.
+                    // image() acepta image/* (incluye SVG). Solo formatos raster.
                     ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
-                    ->maxSize(10240)
-                    // Disco privado: se sirve por la ruta reports.photo.
-                    ->disk('local')
-                    ->visibility('private')
-                    ->directory(fn () => 'reports/' . auth()->user()->company_id),
+                    ->maxSize(ReportPhotoService::MAX_KB)
+                    ->maxFiles(fn (?Report $record) => max(0, ReportPhotoService::MAX_PHOTOS - ($record?->photos()->count() ?? 0)))
+                    ->storeFiles(false)
+                    ->dehydrated(true)
+                    ->columnSpanFull(),
                 Textarea::make('description')
                     ->label('Descripción')
                     ->required()
+                    ->maxLength(5000)
+                    ->columnSpanFull(),
+                Textarea::make('observations')
+                    ->label('Observaciones / seguimiento')
+                    ->helperText('Notas internas de la oficina. Salen en el PDF del reporte.')
+                    ->maxLength(5000)
                     ->columnSpanFull(),
                 Select::make('priority')
                     ->label('Prioridad')

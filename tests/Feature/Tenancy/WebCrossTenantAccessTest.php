@@ -240,7 +240,7 @@ class WebCrossTenantAccessTest extends TestCase
                 'elevator_number' => 'Ascensor 1',
                 'description' => 'Intento cruzado',
                 'priority' => 'alta',
-                'photo' => UploadedFile::fake()->image('foto.jpg'),
+                'photos' => [UploadedFile::fake()->image('foto.jpg')],
             ])
             ->assertSessionHasErrors('building_id');
 

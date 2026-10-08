@@ -15,6 +15,9 @@ class ViewReport extends ViewRecord
 
     protected function getHeaderActions(): array
     {
-        return [];
+        return [
+            ReportPdfAction::make(),
+            \Filament\Actions\EditAction::make(),
+        ];
     }
 }

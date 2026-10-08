@@ -78,6 +78,7 @@ class MaterialsRelationManager extends RelationManager
                 TextColumn::make('stockItem.name')->label('Material'),
                 TextColumn::make('quantity')->label('Cantidad')->formatStateUsing(fn ($state, WorkOrderMaterial $r) => $r->stockItem?->formatQuantity($state)),
                 TextColumn::make('unit_cost')->label('Costo unit.')->money('ARS', locale: 'es_AR')->toggleable(),
+                TextColumn::make('declaredBy.name')->label('Declarado por')->placeholder('Oficina')->toggleable(),
                 IconColumn::make('stock_movement_id')->label('Descontado')->boolean()
                     ->state(fn (WorkOrderMaterial $r) => $r->isConsumed())
                     ->tooltip(fn (WorkOrderMaterial $r) => $r->isConsumed() ? 'Ya se descontó del stock' : 'Se descuenta al completar la orden'),

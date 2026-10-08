@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\Quotes\Tables;
 
+use App\Models\Quote;
+
 use App\Filament\Resources\Quotes\QuoteBillingActions;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -39,34 +41,24 @@ class QuotesTable
                     ->sortable(),
 
                 TextColumn::make('amount')
-                    ->label('Monto')
+                    ->label('Total')
                     ->money('ARS')
                     ->sortable(),
 
                 TextColumn::make('status')
                     ->label('Estado')
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => match ($state) {
+                    // Incluye "Vencido" (calculado con la fecha de validez).
+                    ->state(fn (Quote $record) => $record->displayStatus())
+                    ->formatStateUsing(fn (Quote $record) => $record->displayStatusLabel())
+                    ->color(fn (string $state) => Quote::STATUS_COLORS[$state] ?? 'gray')
+                    ->sortable(query: fn ($query, string $direction) => $query->orderBy('status', $direction)),
 
-                        'pending' => 'Pendiente',
-                        'sent' => 'Enviado',
-                        'approved' => 'Aprobado',
-                        'rejected' => 'Rechazado',
-
-                        default => $state,
-
-                    })
-                    ->color(fn (string $state) => match ($state) {
-
-                        'pending' => 'warning',
-                        'sent' => 'info',
-                        'approved' => 'success',
-                        'rejected' => 'danger',
-
-                        default => 'gray',
-
-                    })
-                    ->sortable(),
+                TextColumn::make('valid_until')
+                    ->label('Válido hasta')
+                    ->date('d/m/Y')
+                    ->placeholder('—')
+                    ->toggleable(),
 
                 TextColumn::make('priority')
                     ->label('Prioridad')
@@ -104,14 +96,14 @@ class QuotesTable
 
                 SelectFilter::make('status')
                     ->label('Estado')
-                    ->options([
-
-                        'pending' => 'Pendiente',
-                        'sent' => 'Enviado',
-                        'approved' => 'Aprobado',
-                        'rejected' => 'Rechazado',
-
-                    ]),
+                    ->options([...Quote::STATUSES, Quote::EXPIRED => 'Vencido'])
+                    ->query(fn ($query, array $data) => match ($data['value'] ?? null) {
+                        null, '' => $query,
+                        Quote::EXPIRED => $query->expired(),
+                        Quote::DRAFT, Quote::SENT => $query->where('status', $data['value'])
+                            ->where(fn ($q) => $q->whereNull('valid_until')->orWhereDate('valid_until', '>=', today())),
+                        default => $query->where('status', $data['value']),
+                    }),
 
                 SelectFilter::make('priority')
                     ->label('Prioridad')

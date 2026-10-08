@@ -6,6 +6,8 @@ use App\Models\Building;
 use App\Models\WorkOrder;
 use App\Models\BuildingVisit;
 use App\Models\DeliveryNote;
+use App\Models\StockItem;
+use App\Models\WorkOrderMaterial;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\Company;
@@ -120,6 +122,7 @@ class DeliveryNoteController extends Controller
             'building',
             'user',
             'workOrder.participants',
+            'workOrder.materials.stockItem',
             'buildingVisit.participants',
         ]);
 
@@ -176,11 +179,18 @@ class DeliveryNoteController extends Controller
             abort(409, 'Esta orden de trabajo ya no está en progreso.');
         }
 
+        $workOrder->load('materials.stockItem');
+
         return view(
             'delivery-notes.create',
             [
                 'building' => $workOrder->building,
                 'workOrder' => $workOrder,
+                // Solo lectura para el técnico: nombre, unidad y stock (sin costos).
+                'stockItems' => StockItem::where('company_id', $user->company_id)
+                    ->active()
+                    ->orderBy('name')
+                    ->get(['id', 'name', 'code', 'unit', 'current_stock']),
                 'month' => $request->month ?? now()->month,
                 'year' => $request->year ?? now()->year,
                 'assignmentType' => $workOrder->type === 'inspection'
@@ -216,6 +226,19 @@ class DeliveryNoteController extends Controller
             'signature' => ['required', 'string', 'min:100', 'max:1000000', $signatureRule],
             'client_signature' => ['nullable', 'string', 'max:1000000', $signatureRule],
             'client_signature_name' => 'nullable|string|max:255',
+            // Materiales que el técnico declara al cerrar una orden. Solo
+            // material activo de SU empresa y cantidades positivas; el costo,
+            // la empresa y el stock nunca salen del request.
+            'materials' => 'nullable|array|max:20',
+            'materials.*.stock_item_id' => [
+                'required',
+                'integer',
+                Rule::exists('stock_items', 'id')
+                    ->where('company_id', $companyId)
+                    ->where('is_active', true)
+                    ->whereNull('deleted_at'),
+            ],
+            'materials.*.quantity' => 'required|numeric|gt:0|max:99999|decimal:0,2',
             'participants' => 'nullable|array|max:20',
             // Los participantes tienen que ser de la MISMA empresa.
             'participants.*' => [
@@ -233,6 +256,14 @@ class DeliveryNoteController extends Controller
             'assignment_type.required' => 'No se pudo identificar el tipo de trabajo.',
             'assignment_type.in' => 'El tipo de trabajo no es válido.',
             'participants.*.exists' => 'Uno de los participantes no pertenece a tu empresa.',
+            'materials.max' => 'Podés declarar hasta 20 materiales.',
+            'materials.*.stock_item_id.required' => 'Elegí el material.',
+            'materials.*.stock_item_id.exists' => 'Uno de los materiales no existe o no está disponible.',
+            'materials.*.quantity.required' => 'Indicá la cantidad de cada material.',
+            'materials.*.quantity.gt' => 'La cantidad tiene que ser mayor que cero.',
+            'materials.*.quantity.numeric' => 'La cantidad tiene que ser un número.',
+            'materials.*.quantity.decimal' => 'La cantidad admite hasta 2 decimales.',
+            'materials.*.quantity.max' => 'La cantidad es demasiado grande.',
         ]
     );
 
@@ -430,7 +461,7 @@ class DeliveryNoteController extends Controller
         'building_id' => $building->id,
         'building_visit_id' => $visit?->id,
         'user_id' => auth()->id(),
-        'work_order_id' => $request->work_order_id,
+        'work_order_id' => $workOrder?->id, // la orden ya validada (empresa + asignación)
         'assignment_type' => $request->filled('work_order_id') ? 'work_order' : $request->assignment_type,
         'description' => $request->description,
         'elevator_quantity' => $request->elevator_quantity,
@@ -475,6 +506,21 @@ class DeliveryNoteController extends Controller
             auth()->id(),
             ['role' => 'creator']
         );
+        // Materiales declarados por el técnico: se registran ANTES de
+        // completar la orden, así el descuento de stock (al completarse) los
+        // incluye. Mismo material repetido → una sola línea con la suma.
+        collect($request->input('materials', []))
+            ->groupBy(fn ($row) => (int) $row['stock_item_id'])
+            ->each(function ($rows, int $stockItemId) use ($workOrder) {
+                $material = new WorkOrderMaterial([
+                    'work_order_id' => $workOrder->id,
+                    'stock_item_id' => $stockItemId,
+                    'quantity' => round($rows->sum(fn ($row) => (float) $row['quantity']), 2),
+                ]);
+                $material->declared_by = auth()->id();
+                $material->save();
+            });
+
         // No completar la orden automáticamente si hay participantes pendientes.
         // La orden debe quedar en progreso hasta que todos confirmen.
         $workOrder->update([
@@ -602,6 +648,7 @@ class DeliveryNoteController extends Controller
         'building',
         'user',
         'workOrder.participants',
+        'workOrder.materials.stockItem',
         'buildingVisit.participants',
     ]);
 
@@ -615,7 +662,9 @@ public function showPublic(
 )
 {
 
-    $deliveryNote = DeliveryNote::where(
+    // Link público: empresa + token, sin el scope de la sesión (otra cuenta
+    // logueada en el mismo navegador no debe romper el link del cliente).
+    $deliveryNote = DeliveryNote::withoutGlobalScopes()->where(
         'public_token',
         $token
     )
@@ -626,10 +675,16 @@ public function showPublic(
     ->firstOrFail();
 
 
+    $unscoped = fn ($q) => $q->withoutGlobalScopes();
+
     $deliveryNote->load([
-        'building',
+        'building' => $unscoped,
         'user',
+        'workOrder' => $unscoped,
         'workOrder.participants',
+        'workOrder.materials' => $unscoped,
+        'workOrder.materials.stockItem' => $unscoped,
+        'buildingVisit' => $unscoped,
         'buildingVisit.participants',
     ]);
 

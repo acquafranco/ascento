@@ -129,7 +129,7 @@ class CrossTenantSecondPassTest extends TestCase
             'elevator_number' => 'Ascensor 1',
             'description' => 'Falla',
             'priority' => 'alta',
-            'photo' => UploadedFile::fake()->image('x.jpg'),
+            'photos' => [UploadedFile::fake()->image('x.jpg')],
         ]);
 
         Notification::assertSentTo($this->a['admin'], NewReportNotification::class);

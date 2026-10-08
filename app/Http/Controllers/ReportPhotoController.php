@@ -3,49 +3,51 @@
 namespace App\Http\Controllers;
 
 use App\Models\Report;
+use App\Models\ReportPhoto;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
+/**
+ * Las fotos de reportes viven en el disco privado: solo se descargan por
+ * acá, con sesión y permisos. Nunca hay una URL pública al archivo.
+ *
+ * - El binding de {report} usa el scope de empresa: otra empresa → 404.
+ * - Admins de la empresa (y el SuperAdmin en la empresa elegida) ven todas;
+ *   un técnico, solo las de sus propios reportes. Si no → 404.
+ */
 class ReportPhotoController extends Controller
 {
-    /**
-     * Sirve la foto de un reporte solo a quien puede ver el reporte:
-     * - el binding usa el scope de empresa: un reporte de otra empresa es 404;
-     * - admins (y el SuperAdmin dentro de la empresa elegida) ven todas;
-     * - un técnico solo las de sus propios reportes.
-     */
-    public function __invoke(Request $request, Report $report): StreamedResponse
+    public function show(Request $request, Report $report, ReportPhoto $photo): StreamedResponse
     {
-        $user = $request->user();
+        abort_unless($report->canBeViewedBy($request->user()), 404);
+        abort_unless((int) $photo->report_id === (int) $report->id, 404);
 
-        abort_unless(
-            $user->isAdmin() || $user->isSuperAdmin() || $report->user_id === $user->id,
-            404
-        );
+        return $this->stream($photo);
+    }
 
-        $path = (string) $report->photo;
+    /** Link viejo (una foto por reporte): sirve la primera foto. */
+    public function first(Request $request, Report $report): StreamedResponse
+    {
+        abort_unless($report->canBeViewedBy($request->user()), 404);
 
-        // El path lo genera el servidor, pero igual se valida: dentro de la
-        // carpeta de la empresa del reporte y sin saltos de directorio.
-        abort_unless(
-            $path !== ''
-                && str_starts_with($path, 'reports/'.$report->company_id.'/')
-                && ! str_contains($path, '..'),
-            404
-        );
+        $photo = $report->photos()->first();
 
-        // Fotos nuevas: disco privado. Fotos anteriores: disco público,
-        // hasta que se migren con `php artisan reports:move-photos-private`.
-        foreach (['local', 'public'] as $disk) {
-            if (Storage::disk($disk)->exists($path)) {
-                return Storage::disk($disk)->response($path, null, [
-                    'Cache-Control' => 'private, max-age=3600',
-                    'X-Content-Type-Options' => 'nosniff',
-                ]);
-            }
-        }
+        abort_unless($photo, 404);
 
-        abort(404);
+        return $this->stream($photo);
+    }
+
+    private function stream(ReportPhoto $photo): StreamedResponse
+    {
+        $disk = $photo->disk();
+
+        abort_unless($disk, 404);
+
+        return Storage::disk($disk)->response($photo->path, null, [
+            'Cache-Control' => 'private, max-age=3600',
+            'X-Content-Type-Options' => 'nosniff',
+            'Content-Security-Policy' => "default-src 'none'",
+        ]);
     }
 }

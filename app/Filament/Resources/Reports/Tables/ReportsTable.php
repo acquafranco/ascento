@@ -16,6 +16,8 @@ class ReportsTable
     public static function configure(Table $table): Table
     {
         return $table
+            // Eager loading de lo que usan las columnas (evita N+1).
+            ->modifyQueryUsing(fn ($query) => $query->with(['building', 'user', 'photos']))
             ->columns([
                 TextColumn::make('building.name')
                     ->label('Edificio')
@@ -30,9 +32,9 @@ class ReportsTable
                     ->label('Ascensor')
                     ->searchable(),
 
-                ImageColumn::make('photo')
+                ImageColumn::make('first_photo')
                     ->label('Foto')
-                    ->state(fn ($record) => $record->photo ? route('reports.photo', $record) : null)
+                    ->state(fn ($record) => $record->photos->first()?->url())
                     ->size(60)
                     ->square(),
 
