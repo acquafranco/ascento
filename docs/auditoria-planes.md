@@ -84,5 +84,5 @@ Dependencias importantes encontradas:
 
 - Fuente de verdad: `subscription_plans` (+ `PlanLimit` / `PlanFeature`, `PlanGuard`, `Company::plan()`).
 - Validación: pantallas (mensaje + upgrade), reactivar (individual y masivo), app del técnico y eventos del modelo (última línea).
-- Prueba gratis = Profesional. Empresas con el plan de $149.000 → Empresa, mismo importe (`legacy_plan` guarda el anterior).
+- Prueba gratis = Profesional. Empresas con el plan de $149.000 → Profesional ($119.000) por la migración 2026_10_14 (antes se habían pasado a Empresa); `legacy_plan` guarda el plan anterior. Si Mercado Pago estuviera cobrando alguna, conserva su importe hasta "Cambiar de plan". Plan de respaldo para datos viejos: Profesional.
 - Cambio de plan con suscripción activa: `PUT /preapproval/{id}`; el cobro del ciclo en curso con el importe anterior se acepta hasta 35 días.
