@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
@@ -67,6 +68,12 @@ class MercadoPagoService
         ]);
     }
 
+    /** Cuenta dueña del access token (para el diagnóstico). */
+    public function me(): array
+    {
+        return $this->request('get', '/users/me');
+    }
+
     /** El pago real detrás de una cuota: estado e importe definitivos. */
     public function getPayment(string $paymentId): array
     {
@@ -101,7 +108,7 @@ class MercadoPagoService
         }
 
         if ($response->failed()) {
-            throw new RuntimeException($this->extractErrorMessage($response));
+            throw new MercadoPagoApiException($response->status(), $this->extractErrorDetail($response));
         }
 
         $json = $response->json();
@@ -121,9 +128,16 @@ class MercadoPagoService
             ->connectTimeout(10)
             ->timeout(15);
 
-        // Solo las lecturas son seguras de reintentar automáticamente.
+        // Solo las lecturas se reintentan, y solo ante errores transitorios
+        // (red o 5xx). Sin "throw": el error lo maneja request().
         if ($method === 'get') {
-            $request = $request->retry(2, 300);
+            $request = $request->retry(
+                2,
+                300,
+                fn ($e) => $e instanceof ConnectionException
+                    || ($e instanceof RequestException && $e->response->serverError()),
+                throw: false,
+            );
         }
 
         return $request;
@@ -132,17 +146,14 @@ class MercadoPagoService
     /**
      * Mercado Pago normalmente devuelve algo como:
      * { "message": "...", "error": "...", "status": 400, "cause": [...] }
-     * Intentamos mostrar ese mensaje en vez del body crudo.
      */
-    private function extractErrorMessage(Response $response): string
+    private function extractErrorDetail(Response $response): string
     {
         $json = $response->json();
 
-        $detail = $json['message']
-            ?? $json['error']
-            ?? (isset($json['cause'][0]['description']) ? $json['cause'][0]['description'] : null)
+        $detail = (is_array($json) ? ($json['message'] ?? $json['error'] ?? data_get($json, 'cause.0.description')) : null)
             ?? $response->body();
 
-        return 'Mercado Pago respondió con error: '.$response->status().' - '.$detail;
+        return mb_substr((string) $detail, 0, 300);
     }
 }

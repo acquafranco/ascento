@@ -2,8 +2,8 @@
  * Mapa de edificios (Filament: App\Filament\Pages\BuildingsMap).
  *
  * - Lee los puntos del JSON embebido por el servidor: no llama a ninguna API
- *   de geocodificación y no conoce la API key (los mosaicos pasan por el
- *   proxy /map-tiles del servidor).
+ *   de geocodificación. Los mosaicos se piden directo al CDN (Geoapify con
+ *   la key pública restringida por dominio, u OpenStreetMap).
  * - Todo texto que viene de la base se inserta con textContent (nunca
  *   innerHTML) para evitar XSS desde nombres de calles/clientes.
  */
@@ -62,6 +62,9 @@ function initMap(container) {
     L.tileLayer(config.tileUrl, {
         maxZoom: config.maxZoom,
         attribution: config.attribution,
+        // {r} = "@2x" en pantallas de alta densidad (Geoapify lo soporta).
+        r: config.retina && window.devicePixelRatio > 1 ? '@2x' : '',
+        crossOrigin: true,
     }).addTo(map);
 
     const cluster = L.markerClusterGroup({
@@ -264,6 +267,17 @@ function initMap(container) {
             console.error('[buildings-map] No se pudo guardar la ubicación', error);
             saveButton.disabled = false;
         }
+    });
+
+    // Puntos nuevos que se ubicaron en segundo plano (wire:poll del servidor).
+    window.addEventListener('buildings-map-markers', (event) => {
+        const markers = event.detail?.markers ?? [];
+        if (!markers.length) return;
+
+        const firstTime = markersById.size === 0;
+        cluster.addLayers(markers.map(addMarker));
+        shell.querySelector('[data-map-empty]')?.remove();
+        if (firstTime) fitVisible();
     });
 
     // Botones "Marcar en el mapa" de la lista (Livewire la re-renderiza:

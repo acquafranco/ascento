@@ -65,6 +65,47 @@ class GeoapifyClient
         return is_array($result) ? $result : null;
     }
 
+    /**
+     * Sugerencias de direcciones mientras el admin escribe (Address
+     * Autocomplete). Mismo control de créditos que la geocodificación.
+     *
+     * @param  array{0: float, 1: float}|null  $near  [lat, lon] para priorizar la zona de la empresa.
+     * @return list<array>
+     *
+     * @throws GeocodingUnavailableException
+     */
+    public function autocomplete(string $text, ?array $near = null): array
+    {
+        if (! $this->isConfigured()) {
+            throw new GeocodingUnavailableException('GEOAPIFY_API_KEY no está configurada.');
+        }
+
+        $this->consumeDailyBudget();
+
+        try {
+            $response = Http::acceptJson()
+                ->connectTimeout(3)
+                ->timeout(6)
+                ->get('https://api.geoapify.com/v1/geocode/autocomplete', array_filter([
+                    'text' => $text,
+                    'filter' => 'countrycode:'.config('services.geoapify.country_code', 'ar'),
+                    'bias' => $near ? 'proximity:'.$near[1].','.$near[0] : null,
+                    'lang' => 'es',
+                    'limit' => 6,
+                    'format' => 'json',
+                    'apiKey' => config('services.geoapify.api_key'),
+                ]));
+        } catch (ConnectionException $e) {
+            throw new GeocodingUnavailableException('No se pudo conectar con Geoapify.', previous: $e);
+        }
+
+        if ($response->failed()) {
+            throw new GeocodingUnavailableException('Geoapify respondió '.$response->status().'.');
+        }
+
+        return array_values(array_filter((array) $response->json('results', []), 'is_array'));
+    }
+
     public function remainingToday(): int
     {
         return max(0, $this->dailyLimit() - (int) Cache::get($this->budgetKey(), 0));

@@ -9,25 +9,33 @@
         @php
             $markers = $this->getMarkers();
             $unlocated = $this->unlocated;
+            $unlocatedCount = $this->unlocatedCount();
             $clients = $this->clients();
-            $pendingCount = $this->pendingCount();
+            $inProgress = $this->isGeocodingInProgress();
         @endphp
 
         {{-- RESUMEN + FILTROS --}}
         <div class="bm-toolbar">
             <div class="bm-stats">
                 <span class="bm-stat">
-                    <strong>{{ count($markers) }}</strong> en el mapa
+                    <strong>{{ $this->markerCount() }}</strong> en el mapa
                 </span>
 
-                @if ($unlocated->isNotEmpty())
+                @if ($unlocatedCount > 0)
                     <a href="#sin-ubicar" class="bm-stat bm-stat--warning">
-                        <strong>{{ $unlocated->count() }}</strong> sin ubicar
+                        <strong>{{ $unlocatedCount }}</strong> sin ubicar
                     </a>
+                @endif
+
+                @if ($inProgress)
+                    {{-- Mientras se ubican en segundo plano, trae los puntos nuevos. --}}
+                    <span class="bm-stat bm-stat--progress" wire:poll.4s="pollNewMarkers" role="status">
+                        <span class="bm-spinner" aria-hidden="true"></span> Ubicando edificios…
+                    </span>
                 @endif
             </div>
 
-            @if (count($markers) > 0)
+            @if (count($markers) > 0 || $inProgress)
                 <div class="bm-filters">
                     <label class="bm-sr-only" for="bm-search">Buscar edificio</label>
                     <x-filament::input.wrapper prefix-icon="heroicon-m-magnifying-glass">
@@ -69,7 +77,9 @@
                 <div class="bm-map-empty" data-map-empty>
                     <strong>Todavía no hay edificios en el mapa.</strong>
                     <span>
-                        @if ($unlocated->isEmpty())
+                        @if ($inProgress)
+                            Estamos ubicando tus edificios; van a ir apareciendo solos.
+                        @elseif ($unlocated->isEmpty())
                             Cuando cargues edificios con su dirección, aparecen acá solos.
                         @else
                             Revisá la lista de abajo para ubicarlos.
@@ -90,65 +100,37 @@
 
         <p class="bm-hint">Naranja: ubicado por dirección · Azul: marcado a mano · Gris: inactivo. Para corregir un punto, tocalo y elegí "Corregir ubicación".</p>
 
-        {{-- SIN UBICAR --}}
-        @if ($unlocated->isNotEmpty())
+        {{-- SIN UBICAR (lista liviana: HTML simple, máximo LIST_LIMIT) --}}
+        @if ($unlocatedCount > 0)
             <x-filament::section id="sin-ubicar" icon="heroicon-o-map-pin" icon-color="warning">
-                <x-slot name="heading">Edificios sin ubicar ({{ $unlocated->count() }})</x-slot>
+                <x-slot name="heading">Edificios sin ubicar ({{ $unlocatedCount }})</x-slot>
                 <x-slot name="description">
-                    No los ubicamos automáticamente para no mostrar un punto equivocado.
-                    Corregí la dirección o marcalos a mano en el mapa.
+                    Los que dicen "Ubicando…" se ubican solos. Los demás necesitan que corrijas
+                    la dirección o los marques a mano en el mapa.
                 </x-slot>
-
-                @if ($pendingCount > 0 && $this->canGeocode())
-                    <x-slot name="afterHeader">
-                        <x-filament::button
-                            size="sm"
-                            icon="heroicon-m-sparkles"
-                            wire:click="geocodePending"
-                            wire:loading.attr="disabled"
-                            wire:target="geocodePending"
-                        >
-                            <span wire:loading.remove wire:target="geocodePending">
-                                Ubicar {{ min($pendingCount, \App\Filament\Pages\BuildingsMap::BATCH_SIZE) }} pendientes
-                            </span>
-                            <span wire:loading wire:target="geocodePending">Ubicando…</span>
-                        </x-filament::button>
-                    </x-slot>
-                @endif
 
                 <ul class="bm-list" role="list">
                     @foreach ($unlocated as $item)
                         <li class="bm-list-item" wire:key="unlocated-{{ $item['id'] }}">
                             <div class="bm-list-main">
                                 <span class="bm-list-title">{{ $item['title'] }}</span>
-                                <span class="bm-list-meta">
-                                    {{ collect([$item['client'], $item['area']])->filter()->implode(' · ') }}
-                                </span>
-                                <span class="bm-list-reason {{ $item['needsReview'] ? 'is-warning' : '' }}">
-                                    {{ $item['reason'] }}
-                                </span>
+                                <span class="bm-list-meta">{{ collect([$item['client'], $item['area']])->filter()->implode(' · ') }}</span>
+                                <span class="bm-list-reason {{ $item['needsReview'] ? 'is-warning' : '' }}">{{ $item['reason'] }}</span>
                             </div>
                             <div class="bm-list-actions">
-                                <x-filament::button
-                                    size="sm"
-                                    icon="heroicon-m-map-pin"
-                                    data-map-place="{{ $item['id'] }}"
-                                    data-map-place-title="{{ $item['title'] }}"
-                                >
+                                <button type="button" class="bm-btn bm-btn--primary"
+                                    data-map-place="{{ $item['id'] }}" data-map-place-title="{{ $item['title'] }}">
                                     Marcar en el mapa
-                                </x-filament::button>
-                                <x-filament::button
-                                    size="sm"
-                                    color="gray"
-                                    tag="a"
-                                    :href="$item['editUrl']"
-                                >
-                                    Editar dirección
-                                </x-filament::button>
+                                </button>
+                                <a class="bm-btn" href="{{ $item['editUrl'] }}">Editar dirección</a>
                             </div>
                         </li>
                     @endforeach
                 </ul>
+
+                @if ($unlocatedCount > $unlocated->count())
+                    <p class="bm-hint">Y {{ $unlocatedCount - $unlocated->count() }} más. Se muestran los primeros {{ $unlocated->count() }}.</p>
+                @endif
             </x-filament::section>
         @endif
     @endif

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\WebhookEvent;
+use App\Services\MercadoPagoApiException;
 use App\Services\MercadoPagoService;
 use App\Services\MercadoPagoSubscriptionSync;
 use Illuminate\Http\JsonResponse;
@@ -63,6 +64,16 @@ class MercadoPagoWebhookController extends Controller
                 in_array($topic, self::PAYMENT_TOPICS, true) => $sync->syncAuthorizedPayment($dataId),
                 default => 'ignored',
             };
+        } catch (MercadoPagoApiException $e) {
+            // Id que Mercado Pago no conoce (p. ej. "Simular notificación" del
+            // panel de MP, que usa ids de ejemplo): no hay nada que reintentar.
+            if ($e->isNotFound()) {
+                return $this->finish($event, 'not_found');
+            }
+
+            Log::error('Webhook de Mercado Pago: error de la API', ['status' => $e->status, 'detail' => $e->detail]);
+
+            return $this->finish($event, 'error', 500);
         } catch (Throwable $e) {
             report($e);
 

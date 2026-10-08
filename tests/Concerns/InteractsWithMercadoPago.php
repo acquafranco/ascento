@@ -46,7 +46,11 @@ trait InteractsWithMercadoPago
             }
 
             if ($request->method() === 'POST' && $path === '/preapproval') {
-                return Http::response($this->mpApi['POST /preapproval'] ?? [], isset($this->mpApi['POST /preapproval']) ? 201 : 500);
+                $body = $this->mpApi['POST /preapproval'] ?? ['__status' => 500];
+                $status = $body['__status'] ?? 201;
+                unset($body['__status']);
+
+                return Http::response($body, $status);
             }
 
             return isset($this->mpApi[$path])

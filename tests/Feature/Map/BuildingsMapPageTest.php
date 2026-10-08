@@ -3,10 +3,11 @@
 namespace Tests\Feature\Map;
 
 use App\Filament\Pages\BuildingsMap;
+use App\Jobs\GeocodePendingBuildings;
 use App\Models\Building;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 use Tests\Concerns\InteractsWithTenants;
@@ -120,16 +121,28 @@ class BuildingsMapPageTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_api_key_never_reaches_the_browser(): void
+    public function test_secret_api_key_never_reaches_the_browser(): void
     {
+        // Sin key de mapa: mosaicos de OpenStreetMap, ninguna key en la página.
         $response = $this->actingInPanel($this->a['admin'])->get(BuildingsMap::getUrl());
 
         $response->assertOk()
             ->assertDontSee(self::API_KEY)
-            ->assertSee('map-tiles', false);
+            ->assertSee('tile.openstreetmap.org', false);
 
-        // Ni en el estado de Livewire.
         $this->assertStringNotContainsString(self::API_KEY, json_encode(Livewire::test(BuildingsMap::class)->snapshot));
+    }
+
+    public function test_tiles_come_straight_from_the_cdn_with_the_public_map_key(): void
+    {
+        config(['services.geoapify.map_key' => 'public-map-key-restringida']);
+
+        $this->actingInPanel($this->a['admin'])
+            ->get(BuildingsMap::getUrl())
+            ->assertOk()
+            ->assertSee('maps.geoapify.com', false)
+            ->assertSee('public-map-key-restringida')
+            ->assertDontSee(self::API_KEY);
     }
 
     public function test_admin_can_place_a_building_manually(): void
@@ -170,7 +183,7 @@ class BuildingsMapPageTest extends TestCase
         $this->assertSame(Building::GEO_GEOCODED, $building->geocoding_status);
     }
 
-    public function test_geocode_pending_only_touches_the_current_company(): void
+    public function test_opening_the_map_locates_pending_buildings_of_this_company_in_the_background(): void
     {
         [$ownPending, $otherPending] = $this->withoutAutoGeocoding(fn () => [
             Building::factory()->create(['company_id' => $this->a['company']->id, 'name' => 'Mitre', 'address' => '1234', 'locality' => 'Rosario']),
@@ -182,13 +195,61 @@ class BuildingsMapPageTest extends TestCase
             'rank' => ['confidence' => 0.97, 'confidence_city_level' => 1],
         ]]])]);
 
-        $this->actingInPanel($this->a['admin']);
-        Livewire::test(BuildingsMap::class)->call('geocodePending');
+        // La página se arma sin esperar a Geoapify (avisa que está ubicando)
+        // y DESPUÉS de responder ubica solo los de SU empresa.
+        $this->actingInPanel($this->a['admin'])->get(BuildingsMap::getUrl())->assertOk()->assertSee('Ubicando edificios');
 
         $this->assertSame(Building::GEO_GEOCODED, $ownPending->fresh()->geocoding_status);
         $this->assertSame(Building::GEO_PENDING, $otherPending->fresh()->geocoding_status);
         Http::assertSentCount(1);
-        Http::assertSent(fn (Request $request) => $request['city'] === 'Rosario');
+        $this->assertFalse(GeocodePendingBuildings::isRunning($this->a['company']->id));
+    }
+
+    public function test_only_one_background_batch_per_company_at_a_time(): void
+    {
+        $this->withoutAutoGeocoding(fn () => Building::factory()->create(['company_id' => $this->a['company']->id, 'locality' => 'Rosario']));
+        Bus::fake([GeocodePendingBuildings::class]);
+
+        $this->actingInPanel($this->a['admin']);
+        Livewire::test(BuildingsMap::class);
+        Livewire::test(BuildingsMap::class);
+
+        Bus::assertDispatchedTimes(GeocodePendingBuildings::class, 1);
+    }
+
+    public function test_new_markers_reach_the_open_map_without_reloading(): void
+    {
+        $this->actingInPanel($this->a['admin']);
+        $page = Livewire::test(BuildingsMap::class);
+
+        $this->travel(2)->seconds();
+
+        // Se crean como lo haría el job en segundo plano (sin sesión): así el
+        // de la empresa B queda realmente en B.
+        auth()->logout();
+        [$new, $theirs] = $this->withoutAutoGeocoding(fn () => [
+            Building::factory()->create(['company_id' => $this->a['company']->id, 'name' => 'Nuevo Punto']),
+            Building::factory()->create(['company_id' => $this->b['company']->id]),
+        ]);
+        foreach ([$new, $theirs] as $building) {
+            $building->forceFill(['latitude' => -34.7, 'longitude' => -58.5, 'geocoding_status' => Building::GEO_GEOCODED, 'geocoded_at' => now()])->saveQuietly();
+        }
+        $this->assertSame($this->b['company']->id, (int) $theirs->fresh()->company_id);
+        $this->actingInPanel($this->a['admin']);
+
+        $page->call('pollNewMarkers');
+        $page->assertDispatched('buildings-map-markers', fn ($name, $params) => array_column($params['markers'], 'id') === [$new->id]);
+    }
+
+    public function test_the_unlocated_list_is_capped(): void
+    {
+        $this->withoutAutoGeocoding(fn () => Building::factory()->count(BuildingsMap::LIST_LIMIT + 5)->create(['company_id' => $this->a['company']->id, 'locality' => null]));
+
+        $this->actingInPanel($this->a['admin']);
+        $page = Livewire::test(BuildingsMap::class);
+
+        $this->assertCount(BuildingsMap::LIST_LIMIT, $page->instance()->unlocated);
+        $page->assertSee('Edificios sin ubicar ('.(BuildingsMap::LIST_LIMIT + 5).')')->assertSee('Y 5 más');
     }
 
     public function test_technicians_cannot_open_the_map(): void
