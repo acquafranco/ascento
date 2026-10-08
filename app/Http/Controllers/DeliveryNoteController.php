@@ -461,7 +461,7 @@ class DeliveryNoteController extends Controller
         'building_id' => $building->id,
         'building_visit_id' => $visit?->id,
         'user_id' => auth()->id(),
-        'work_order_id' => $request->work_order_id,
+        'work_order_id' => $workOrder?->id, // la orden ya validada (empresa + asignación)
         'assignment_type' => $request->filled('work_order_id') ? 'work_order' : $request->assignment_type,
         'description' => $request->description,
         'elevator_quantity' => $request->elevator_quantity,

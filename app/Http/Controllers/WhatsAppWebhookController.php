@@ -92,7 +92,7 @@ class WhatsAppWebhookController extends Controller
 
             if (! $technician || ! $workOrder) {
                 Log::warning('No se encontró técnico o trabajo', [
-                    'phone' => $phone,
+                    'phone' => '…'.substr((string) $phone, -4), // solo los últimos 4 dígitos
                     'work_order_id' => $workOrderId,
                     'technician_found' => (bool) $technician,
                     'work_order_found' => (bool) $workOrder,
@@ -146,7 +146,7 @@ class WhatsAppWebhookController extends Controller
 
             if (! $technician || ! $workOrder) {
                 Log::warning('No se encontró técnico o trabajo al finalizar', [
-                    'phone' => $phone,
+                    'phone' => '…'.substr((string) $phone, -4), // solo los últimos 4 dígitos
                     'work_order_id' => $workOrderId,
                 ]);
 

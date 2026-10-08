@@ -357,7 +357,9 @@ Route::prefix('{company:slug}')
 | acá, con sesión y permisos (ver ReportPhotoController).
 */
 
-Route::middleware('auth')->whereNumber(['report', 'photo'])->group(function () {
+// Con la suscripción/prueba vencida, igual que el resto de la app: el admin
+// va a la pantalla de suscripción y el técnico ve el aviso.
+Route::middleware(['auth', 'subscription'])->whereNumber(['report', 'photo'])->group(function () {
     // Link viejo (una sola foto): la primera.
     Route::get('/files/reports/{report}/photo', [ReportPhotoController::class, 'first'])->name('reports.photo');
     Route::get('/files/reports/{report}/photos/{photo}', [ReportPhotoController::class, 'show'])->name('reports.photos.show');

@@ -29,3 +29,37 @@ Fecha: 2026-10-08. Base: `main` @ 3084a8a (incluye Stock, Servicios y Cobranzas)
 - Presupuestos: un solo importe, sin ítems, vigencia ni condiciones.
 - El técnico ve "Todos los edificios" de su empresa con contacto y teléfono (útil para urgencias; decidir si se quiere).
 - Materiales de una orden: los carga el admin; el técnico no puede declararlos desde el remito.
+
+---
+
+# Segunda etapa (rama `auditoria-pre-produccion-2`)
+
+## Cambios
+
+| Área | Cambio |
+|---|---|
+| Fotos | Tabla `report_photos`: hasta 6 fotos por reporte, opcionales. Un solo servicio (`ReportPhotoService`) para la app y el panel: re-codifica a JPEG, orienta, achica a 2000 px, disco privado, todo o nada (sin archivos sueltos). Se sirven por `/files/reports/{id}/photos/{foto}` con permisos y suscripción vigente. Borrar una foto borra el archivo; el borrado definitivo del reporte borra todo. El disco privado ya no expone `/storage/{path}` (`serve => false`). En el celular las fotos se achican antes de subir. |
+| PDF | PDF real de reportes (dompdf ya instalado): empresa, cliente, edificio, equipo, técnico, fecha, prioridad, estado, descripción, observaciones y fotos incrustadas (sin URLs ni paths). Mismos permisos que el reporte. Nuevo campo `observations` (lo carga el admin). |
+| Bug | El panel no dejaba guardar reportes hechos por la app ("El ascensor seleccionado no es válido"): mismos valores de equipo en los dos lados y validación backend del equipo. |
+| Bug | Links públicos de presupuesto y remito daban 404 (o salían incompletos) si en el navegador había otra cuenta logueada. |
+| Materiales | El técnico declara los materiales al firmar el remito de la orden (material activo de su empresa, cantidad > 0, máx. 2 decimales, máx. 20). Se descuentan al completarse, una vez. Costo, empresa y stock nunca salen del request. `declared_by` registra quién los declaró. El remito muestra los materiales. |
+| Servicios | `building_visits.maintenance_service_id`: cada mantenimiento/inspección se vincula al contrato activo que cubre ese edificio y fecha (las visitas existentes, por migración). Guardia en el modelo: nunca una visita de otra empresa o de otro edificio. Página "Ver servicio": último mantenimiento, última inspección, cantidades, mes pendiente/próximo y la lista de visitas. Equipos del contrato (`units`). |
+| Presupuestos | Ítems (concepto, detalle, cantidad, precio, subtotal); total calculado en el servidor; fecha, validez, condiciones, observaciones; estados borrador/enviado/aprobado/rechazado/anulado y "vencido" calculado. Con un cobro activo el presupuesto no se edita ni se borra. |
+| Suscripción | Fotos y PDF también se cortan con la prueba/suscripción vencida (antes quedaban fuera). |
+| Logs | Sin teléfonos ni texto de mensajes de WhatsApp. |
+| Traducciones | Faltaban mensajes de validación en español (se veía "validation.mimetypes"). |
+
+## Migraciones (todas no destructivas, probadas up/down/up en MySQL)
+
+- `2026_10_16_100000_create_report_photos_table`: copia cada `reports.photo` como primera foto; la columna vieja queda. Rollback: la primera foto vuelve a `reports.photo`; ningún archivo se borra.
+- `2026_10_16_100100_add_observations_to_reports_table`.
+- `2026_10_16_100200_add_declared_by_to_work_order_materials_table` (nullable).
+- `2026_10_16_100300_link_visits_to_maintenance_services`: columna nullable + vinculación de visitas existentes; `maintenance_services.units`.
+- `2026_10_16_100400_add_items_and_terms_to_quotes`: un ítem por presupuesto existente (título + importe, mismo total), `pending` → `draft`, cliente completado desde el edificio si faltaba. `amount` se conserva. Rollback: `draft` → `pending`, `void` → `rejected`.
+
+## Decisiones de producto pendientes
+
+- Frecuencia de visitas por contrato (hoy las visitas son mensuales; la frecuencia del servicio es la de cobro).
+- "Tipo de reporte": los reportes no tienen tipo (el PDF dice "Reporte de problema" + prioridad).
+- PDF del reporte disponible en todos los planes (los reportes son de todos los planes).
+- Stock insuficiente al cerrar una orden: se permite y queda en negativo con alerta (decisión documentada en `stock-servicios-cobranzas.md`).

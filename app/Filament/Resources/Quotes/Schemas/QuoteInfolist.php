@@ -5,10 +5,10 @@ namespace App\Filament\Resources\Quotes\Schemas;
 use App\Models\Quote;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\RepeatableEntry\TableColumn;
-use Filament\Schemas\Schema;
-use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Grid;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 
 class QuoteInfolist
 {
@@ -36,6 +36,7 @@ class QuoteInfolist
                     ]),
 
                 Section::make('Ítems')
+                    ->columnSpanFull()
                     ->schema([
                         RepeatableEntry::make('items')
                             ->hiddenLabel()
@@ -46,14 +47,15 @@ class QuoteInfolist
                                 TableColumn::make('Subtotal'),
                             ])
                             ->schema([
-                                TextEntry::make('concept')->belowContent(fn ($record) => $record?->description),
-                                TextEntry::make('quantity')->numeric(decimalPlaces: 2, locale: 'es_AR'),
-                                TextEntry::make('unit_price')->money('ARS', locale: 'es_AR'),
-                                TextEntry::make('subtotal')->money('ARS', locale: 'es_AR'),
+                                TextEntry::make('concept')->label('Concepto')->belowContent(fn ($record) => $record?->description),
+                                TextEntry::make('quantity')->label('Cantidad')->numeric(decimalPlaces: 2, locale: 'es_AR'),
+                                TextEntry::make('unit_price')->label('Precio unitario')->money('ARS', locale: 'es_AR'),
+                                TextEntry::make('subtotal')->label('Subtotal')->money('ARS', locale: 'es_AR'),
                             ]),
                     ]),
 
                 Section::make('Condiciones y observaciones')
+                    ->columnSpanFull()
                     ->columns(2)
                     ->visible(fn (Quote $record) => filled($record->conditions) || filled($record->notes))
                     ->schema([

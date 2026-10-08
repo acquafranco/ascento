@@ -31,6 +31,7 @@ class QuoteForm
         return $schema
             ->components([
                 Section::make('Cliente')
+                    ->columnSpanFull()
                     ->columns(3)
                     ->schema([
                         Select::make('client_id')
@@ -70,6 +71,7 @@ class QuoteForm
                     ]),
 
                 Section::make('Presupuesto')
+                    ->columnSpanFull()
                     ->columns(4)
                     ->schema([
                         TextInput::make('title')
@@ -114,6 +116,7 @@ class QuoteForm
                     ]),
 
                 Section::make('Ítems')
+                    ->columnSpanFull()
                     ->schema([
                         Repeater::make('items')
                             ->hiddenLabel()
@@ -127,12 +130,13 @@ class QuoteForm
                                 TableColumn::make('Subtotal'),
                             ])
                             ->schema([
-                                TextInput::make('concept')->required()->maxLength(255)->placeholder('Cambio de contactor'),
-                                TextInput::make('description')->maxLength(1000)->placeholder('Opcional'),
-                                TextInput::make('quantity')->numeric()->required()->minValue(0.01)->maxValue(99999)->default(1)->live(onBlur: true),
-                                TextInput::make('unit_price')->numeric()->required()->minValue(0)->maxValue(999999999)->prefix('$')->live(onBlur: true),
+                                TextInput::make('concept')->label('Concepto')->required()->maxLength(255)->placeholder('Cambio de contactor'),
+                                TextInput::make('description')->label('Detalle')->maxLength(1000)->placeholder('Opcional'),
+                                TextInput::make('quantity')->label('Cantidad')->numeric()->required()->minValue(0.01)->maxValue(99999)->default(1)->live(onBlur: true),
+                                TextInput::make('unit_price')->label('Precio unitario')->numeric()->required()->minValue(0)->maxValue(999999999)->prefix('$')->live(onBlur: true),
                                 // Solo para ver: no se envía (lo calcula el servidor).
                                 TextInput::make('subtotal_preview')
+                                    ->label('Subtotal')
                                     ->disabled()
                                     ->dehydrated(false)
                                     ->formatStateUsing(fn (Get $get) => $money(round((float) $get('quantity') * (float) $get('unit_price'), 2)))
@@ -149,6 +153,7 @@ class QuoteForm
                     ]),
 
                 Section::make('Detalles')
+                    ->columnSpanFull()
                     ->collapsible()
                     ->collapsed(fn (?Quote $record) => blank($record?->description) && blank($record?->conditions) && blank($record?->notes))
                     ->schema([
