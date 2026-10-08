@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\MercadoPagoWebhookController;
+use App\Http\Controllers\TelegramWebhookController;
 use App\Http\Controllers\WhatsAppWebhookController;
 use Illuminate\Support\Facades\Route;
 
@@ -12,3 +13,8 @@ Route::post('/whatsapp/webhook', [WhatsAppWebhookController::class, 'handle']);
 Route::post('/mercadopago/webhook', MercadoPagoWebhookController::class)
     ->middleware('throttle:120,1')
     ->name('mercadopago.webhook');
+
+// Bot de Telegram (avisos). Se registra con: php artisan telegram:setup
+Route::post('/telegram/webhook', TelegramWebhookController::class)
+    ->middleware('throttle:120,1')
+    ->name('telegram.webhook');

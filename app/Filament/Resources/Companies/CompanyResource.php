@@ -13,13 +13,20 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use Filament\Actions\Action;
 
 class CompanyResource extends Resource
 {
     protected static ?string $model = Company::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingOffice2;
+
+    protected static ?string $navigationLabel = 'Empresas';
+
+    protected static ?string $modelLabel = 'Empresa';
+
+    protected static ?string $pluralModelLabel = 'Empresas';
+
+    protected static ?int $navigationSort = 1;
 
     protected static ?string $recordTitleAttribute = 'name';
 
@@ -55,7 +62,6 @@ class CompanyResource extends Resource
             && auth()->user()->isSuperAdmin();
     }
 
-
     public static function canAccess(): bool
     {
         if (! auth()->user()?->isSuperAdmin()) {
@@ -64,5 +70,4 @@ class CompanyResource extends Resource
 
         return true;
     }
-
 }

@@ -135,6 +135,9 @@
                     <li>Elegí <strong>Agregar a inicio</strong> y confirmá.</li>
                     <li>Abrí Ascento desde el ícono nuevo y activá las notificaciones desde ahí.</li>
                 </ol>
+                @if (\App\Services\Telegram\TelegramService::isConfigured())
+                    <p class="mt-2 text-sm text-slate-600">¿Más fácil? Conectá <strong>Telegram</strong> acá abajo y te llegan ahí, sin instalar nada.</p>
+                @endif
             </div>
 
             {{-- iPhone/iPad en Chrome, app de Google, etc. --}}
@@ -144,6 +147,9 @@
                     Abrí Ascento en <strong>Safari</strong>, agregalo a la pantalla de inicio
                     (Compartir → Agregar a inicio) y activalas desde el ícono nuevo.
                 </p>
+                @if (\App\Services\Telegram\TelegramService::isConfigured())
+                    <p class="mt-2 text-sm text-slate-600">¿Más fácil? Conectá <strong>Telegram</strong> acá abajo y te llegan ahí, sin instalar nada.</p>
+                @endif
             </div>
 
             {{-- No soportado --}}

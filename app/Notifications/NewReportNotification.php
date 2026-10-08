@@ -85,4 +85,13 @@ class NewReportNotification extends Notification
             ->requireInteraction($this->report->priority === 'critica')
             ->options(['TTL' => 24 * 3600, 'urgency' => $this->isCritical() ? 'high' : 'normal']);
     }
+
+    /** @return array{text: string, button: array{0: string, 1: string}} */
+    public function toTelegram(object $notifiable): array
+    {
+        return [
+            'text' => '<b>'.e($this->title()).'</b>'."\n".e($this->body()),
+            'button' => ['Ver reporte', $this->url()],
+        ];
+    }
 }

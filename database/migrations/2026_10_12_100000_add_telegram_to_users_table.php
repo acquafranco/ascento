@@ -1,0 +1,28 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+/**
+ * Canal adicional de avisos: Telegram. Se completa cuando el usuario abre el
+ * link de vinculación del bot (ver TelegramWebhookController).
+ */
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table->string('telegram_chat_id', 32)->nullable()->index();
+            $table->timestamp('telegram_linked_at')->nullable();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropIndex(['telegram_chat_id']);
+            $table->dropColumn(['telegram_chat_id', 'telegram_linked_at']);
+        });
+    }
+};

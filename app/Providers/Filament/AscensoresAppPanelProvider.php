@@ -112,6 +112,13 @@ class AscensoresAppPanelProvider extends PanelProvider
                     : '',
                 scopes: \App\Filament\Pages\CompanySettings::class,
             )
+            ->renderHook(
+                PanelsRenderHook::PAGE_END,
+                fn (): string => auth()->user()?->canReceiveAdminPush() && \App\Services\Telegram\TelegramService::isConfigured()
+                    ? view('filament.partials.admin-telegram')->render()
+                    : '',
+                scopes: \App\Filament\Pages\CompanySettings::class,
+            )
 
             ->globalSearch(false)
 

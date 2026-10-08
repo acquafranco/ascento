@@ -40,6 +40,7 @@ class User extends Authenticatable implements FilamentUser
         'is_super_admin' => 'boolean',
         'onboarding_completed_at' => 'datetime',
         'onboarding_skipped_at' => 'datetime',
+        'telegram_linked_at' => 'datetime',
     ];
 
     /*
@@ -137,6 +138,11 @@ class User extends Authenticatable implements FilamentUser
             && $this->isAdmin()
             && ! $this->isSuperAdmin()
             && $this->company_id !== null;
+    }
+
+    public function hasTelegram(): bool
+    {
+        return filled($this->telegram_chat_id);
     }
 
     /** ¿Puede registrar dispositivos para recibir push? */
