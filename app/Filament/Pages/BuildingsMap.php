@@ -105,7 +105,7 @@ class BuildingsMap extends Page
             ->select([
                 'buildings.id', 'client_id', 'name', 'address', 'locality', 'municipality', 'neighborhood',
                 'elevator_count', 'freight_elevator_count', 'is_active',
-                'latitude', 'longitude', 'geocoding_status', 'geocoded_at',
+                'latitude', 'longitude', 'geocoding_status', 'geocoded_at', 'map_color',
             ]);
     }
 
@@ -123,7 +123,33 @@ class BuildingsMap extends Page
             'freight' => (int) $building->freight_elevator_count,
             'active' => (bool) $building->is_active,
             'manual' => $building->geocoding_status === Building::GEO_MANUAL,
+            'color' => $building->mapColorHex(),
+            'colorKey' => $building->mapColorKey(),
         ];
+    }
+
+    /**
+     * Colores en uso (para el filtro), con su cantidad de edificios.
+     *
+     * @return array<string, array{label: string, hex: string, count: int}>
+     */
+    public function colorsInUse(): array
+    {
+        $counts = $this->buildingsQuery()
+            ->whereNotNull('latitude')
+            ->selectRaw('map_color, COUNT(*) as total')
+            ->groupBy('map_color')
+            ->pluck('total', 'map_color');
+
+        $result = [];
+
+        foreach ($counts as $key => $total) {
+            $key = isset(Building::MAP_COLORS[$key]) ? $key : Building::DEFAULT_MAP_COLOR;
+            $result[$key] ??= ['label' => Building::MAP_COLORS[$key][0], 'hex' => Building::MAP_COLORS[$key][1], 'count' => 0];
+            $result[$key]['count'] += $total;
+        }
+
+        return $result;
     }
 
     public function markerCount(): int

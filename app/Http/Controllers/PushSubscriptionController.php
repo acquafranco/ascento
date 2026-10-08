@@ -22,7 +22,7 @@ class PushSubscriptionController extends Controller
     {
         $user = $request->user();
 
-        abort_unless($user->canReceiveWorkOrderPush(), 403, 'Las notificaciones de órdenes son para técnicos.');
+        abort_unless($user->canReceivePush(), 403, 'Esta cuenta no recibe notificaciones.');
 
         $data = $request->validate([
             'endpoint' => ['required', 'string', 'max:1024', 'url:https', $this->allowedHostRule()],
@@ -72,7 +72,7 @@ class PushSubscriptionController extends Controller
     {
         $user = $request->user();
 
-        abort_unless($user->canReceiveWorkOrderPush(), 403);
+        abort_unless($user->canReceivePush(), 403);
 
         $devices = $user->pushSubscriptions()->count();
 

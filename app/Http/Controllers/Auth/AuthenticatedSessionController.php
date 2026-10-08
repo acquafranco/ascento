@@ -37,11 +37,6 @@ class AuthenticatedSessionController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
-        // Este dispositivo deja de recibir los avisos de esta cuenta.
-        if ($endpoint = $request->session()->get(\App\Http\Controllers\PushSubscriptionController::SESSION_KEY)) {
-            $request->user()?->deletePushSubscription($endpoint);
-        }
-
         Auth::guard('web')->logout();
 
         $request->session()->invalidate();

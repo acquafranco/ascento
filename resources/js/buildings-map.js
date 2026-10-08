@@ -30,14 +30,18 @@ function normalize(value) {
         .toLowerCase();
 }
 
+const SAFE_COLOR = /^#[0-9a-fA-F]{6}$/;
+
 function pinIcon(marker) {
     const classes = ['bm-pin'];
     if (!marker.active) classes.push('is-inactive');
-    if (marker.manual) classes.push('is-manual');
+
+    // El color viene de la paleta del servidor; igual se valida el formato.
+    const color = SAFE_COLOR.test(marker.color ?? '') ? marker.color : '';
 
     return L.divIcon({
         className: '',
-        html: `<span class="${classes.join(' ')}"></span>`,
+        html: `<span class="${classes.join(' ')}"${color ? ` style="background:${color}"` : ''}></span>`,
         iconSize: [26, 26],
         iconAnchor: [13, 26],
         popupAnchor: [0, -24],
@@ -163,14 +167,17 @@ function initMap(container) {
 
     const searchInput = document.querySelector('[data-map-search]');
     const clientSelect = document.querySelector('[data-map-client]');
+    const colorSelect = document.querySelector('[data-map-color]');
 
     function applyFilters() {
         const term = normalize(searchInput?.value).trim();
         const clientId = clientSelect?.value ?? '';
+        const colorKey = colorSelect?.value ?? '';
 
         const visible = [];
         for (const { data, layer } of markersById.values()) {
-            const matchesClient = !clientId || String(data.clientId) === clientId;
+            const matchesClient = (!clientId || String(data.clientId) === clientId)
+                && (!colorKey || data.colorKey === colorKey);
             const matchesTerm = !term || normalize(`${data.title} ${data.client} ${data.area}`).includes(term);
             if (matchesClient && matchesTerm) visible.push(layer);
         }
@@ -186,6 +193,7 @@ function initMap(container) {
         searchTimer = setTimeout(applyFilters, 200);
     });
     clientSelect?.addEventListener('change', applyFilters);
+    colorSelect?.addEventListener('change', applyFilters);
     document.querySelector('[data-map-fit]')?.addEventListener('click', fitVisible);
 
     /* ---------------------------------------------------------------

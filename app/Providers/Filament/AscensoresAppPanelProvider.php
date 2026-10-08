@@ -88,6 +88,31 @@ class AscensoresAppPanelProvider extends PanelProvider
                     : '',
             )
 
+            // Avisos push del admin (trabajo terminado, reportes nuevos).
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn (): string => auth()->user()?->canReceiveAdminPush() && filled(config('webpush.vapid.public_key'))
+                    ? view('filament.partials.admin-push-head')->render()
+                    : '',
+            )
+            ->renderHook(
+                PanelsRenderHook::PAGE_START,
+                // En todas las páginas (salvo "Mi empresa", que tiene la tarjeta
+                // completa) hasta que los active o elija "Ahora no".
+                fn (): string => auth()->user()?->canReceiveAdminPush()
+                    && filled(config('webpush.vapid.public_key'))
+                    && ! request()->routeIs('filament.ascensores_app.pages.company-settings')
+                    ? view('filament.partials.admin-push', ['compact' => true])->render()
+                    : '',
+            )
+            ->renderHook(
+                PanelsRenderHook::PAGE_END,
+                fn (): string => auth()->user()?->canReceiveAdminPush() && filled(config('webpush.vapid.public_key'))
+                    ? view('filament.partials.admin-push')->render()
+                    : '',
+                scopes: \App\Filament\Pages\CompanySettings::class,
+            )
+
             ->globalSearch(false)
 
             ->databaseNotifications()

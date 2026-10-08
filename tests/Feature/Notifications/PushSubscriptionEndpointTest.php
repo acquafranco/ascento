@@ -79,14 +79,17 @@ class PushSubscriptionEndpointTest extends TestCase
         $this->assertSame(0, PushSubscription::count());
     }
 
-    public function test_admins_and_super_admins_cannot_register_devices(): void
+    public function test_company_admins_can_register_devices_but_super_admin_cannot(): void
     {
-        $this->actingAs($this->a['admin'])->postJson($this->url($this->a), $this->payload())->assertForbidden();
-
+        // Se crea antes de loguear al admin (un admin no puede crear SuperAdmins).
         $super = User::factory()->superAdmin()->create();
-        $this->actingAs($super)->postJson($this->url($this->a), $this->payload())->assertForbidden();
 
-        $this->assertSame(0, PushSubscription::count());
+        $this->actingAs($this->a['admin'])->postJson($this->url($this->a), $this->payload())->assertOk();
+        $this->assertSame($this->a['admin']->id, (int) PushSubscription::sole()->subscribable_id);
+
+        $this->actingAs($super)->postJson($this->url($this->a), $this->payload('https://fcm.googleapis.com/fcm/send/super'))->assertForbidden();
+
+        $this->assertSame(1, PushSubscription::count());
     }
 
     public function test_cannot_register_through_another_company_url(): void

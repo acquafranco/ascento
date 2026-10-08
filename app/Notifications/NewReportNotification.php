@@ -2,33 +2,87 @@
 
 namespace App\Notifications;
 
-use Illuminate\Bus\Queueable;
-use Illuminate\Notifications\Notification;
+use App\Filament\Resources\Reports\ReportResource;
 use App\Models\Report;
-
+use App\Notifications\Concerns\SendsAdminPush;
+use Filament\Actions\Action;
 use Filament\Notifications\Notification as FilamentNotification;
+use Illuminate\Notifications\Notification;
+use Illuminate\Support\Str;
+use NotificationChannels\WebPush\WebPushMessage;
 
+/**
+ * Aviso al admin: un técnico cargó un reporte (problema en un ascensor).
+ */
 class NewReportNotification extends Notification
 {
-    use Queueable;
+    use SendsAdminPush;
 
-    public function __construct(
-        public Report $report
-    ) {}
+    public function __construct(public Report $report) {}
 
-    public function via($notifiable)
+    private function url(): string
     {
-        return ['database'];
+        return ReportResource::getUrl('view', ['record' => $this->report->id], panel: 'ascensores_app');
     }
 
-    public function toDatabase($notifiable)
+    /** Los reportes usan prioridades propias: baja | media | alta | critica. */
+    private function isCritical(): bool
     {
-        return [
-            'format' => 'filament',
-            'title' => 'Nuevo reporte creado',
-            'body' => 'Se creó un reporte para ' . $this->report->building->name,
-            'report_id' => $this->report->id,
-            'priority' => $this->report->priority,
-        ];
+        return in_array($this->report->priority, ['critica', 'alta'], true);
+    }
+
+    private function priorityLabel(): ?string
+    {
+        return match ($this->report->priority) {
+            'baja' => 'Baja',
+            'media' => 'Media',
+            'alta' => 'Alta',
+            'critica' => 'Crítica',
+            default => null,
+        };
+    }
+
+    private function title(): string
+    {
+        return $this->report->priority === 'critica' ? '🚨 Reporte crítico' : '⚠️ Nuevo reporte';
+    }
+
+    private function body(): string
+    {
+        $building = $this->report->building;
+
+        return implode("\n", array_filter([
+            $building ? trim("{$building->name} {$building->address}") : null,
+            $this->report->user?->name ? 'Por '.$this->report->user->name : null,
+            $this->priorityLabel() ? 'Prioridad: '.$this->priorityLabel() : null,
+            $this->report->description ? Str::limit(Str::squish($this->report->description), 100) : null,
+        ]));
+    }
+
+    public function toDatabase(object $notifiable): array
+    {
+        return FilamentNotification::make()
+            ->title($this->title())
+            ->body($this->body())
+            ->icon('heroicon-o-exclamation-triangle')
+            ->iconColor($this->isCritical() ? 'danger' : 'warning')
+            ->actions([
+                Action::make('view')->label('Ver reporte')->url($this->url())->markAsRead(),
+            ])
+            ->getDatabaseMessage();
+    }
+
+    public function toWebPush(object $notifiable, Notification $notification): WebPushMessage
+    {
+        return (new WebPushMessage)
+            ->title($this->title())
+            ->body($this->body())
+            ->icon('/images/pwa/icon-192.png')
+            ->badge('/images/pwa/badge-96.png')
+            ->tag('report-'.$this->report->id)
+            ->action('Ver reporte', 'open')
+            ->data(['url' => parse_url($this->url(), PHP_URL_PATH)])
+            ->requireInteraction($this->report->priority === 'critica')
+            ->options(['TTL' => 24 * 3600, 'urgency' => $this->isCritical() ? 'high' : 'normal']);
     }
 }

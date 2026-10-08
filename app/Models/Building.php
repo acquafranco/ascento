@@ -26,6 +26,35 @@ use Illuminate\Database\Eloquent\SoftDeletes;
         public const GEO_ERROR = 'error';
 
         /**
+         * Paleta de colores del mapa: clave => [nombre, hex]. Paleta fija
+         * (no un selector libre) para que los puntos se distingan bien.
+         */
+        public const MAP_COLORS = [
+            'naranja' => ['Naranja', '#F97316'],
+            'rojo' => ['Rojo', '#DC2626'],
+            'amarillo' => ['Amarillo', '#EAB308'],
+            'verde' => ['Verde', '#16A34A'],
+            'celeste' => ['Celeste', '#0891B2'],
+            'azul' => ['Azul', '#2563EB'],
+            'violeta' => ['Violeta', '#7C3AED'],
+            'rosa' => ['Rosa', '#DB2777'],
+            'marron' => ['Marrón', '#92400E'],
+            'negro' => ['Negro', '#1F2937'],
+        ];
+
+        public const DEFAULT_MAP_COLOR = 'naranja';
+
+        public function mapColorKey(): string
+        {
+            return isset(self::MAP_COLORS[$this->map_color]) ? $this->map_color : self::DEFAULT_MAP_COLOR;
+        }
+
+        public function mapColorHex(): string
+        {
+            return self::MAP_COLORS[$this->mapColorKey()][1];
+        }
+
+        /**
          * Campos que forman la dirección: si cambia alguno, la ubicación
          * guardada deja de valer.
          */
@@ -63,6 +92,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
             'locality',
 
             'neighborhood',
+
+            'map_color',
         ];
 
         protected $attributes = [

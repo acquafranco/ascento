@@ -60,6 +60,19 @@
                         </x-filament::input.wrapper>
                     @endif
 
+                    @php($colors = $this->colorsInUse())
+                    @if (count($colors) > 1)
+                        <label class="bm-sr-only" for="bm-color">Filtrar por color</label>
+                        <x-filament::input.wrapper>
+                            <x-filament::input.select id="bm-color" data-map-color>
+                                <option value="">Todos los colores</option>
+                                @foreach ($colors as $key => $color)
+                                    <option value="{{ $key }}">{{ $color['label'] }} ({{ $color['count'] }})</option>
+                                @endforeach
+                            </x-filament::input.select>
+                        </x-filament::input.wrapper>
+                    @endif
+
                     <x-filament::button color="gray" icon="heroicon-m-arrows-pointing-out" data-map-fit>
                         Ver todos
                     </x-filament::button>
@@ -98,7 +111,7 @@
             </div>
         </div>
 
-        <p class="bm-hint">Naranja: ubicado por dirección · Azul: marcado a mano · Gris: inactivo. Para corregir un punto, tocalo y elegí "Corregir ubicación".</p>
+        <p class="bm-hint">Cada edificio usa el color que le elegiste al cargarlo (los inactivos se ven transparentes). Para corregir un punto, tocalo y elegí "Corregir ubicación".</p>
 
         {{-- SIN UBICAR (lista liviana: HTML simple, máximo LIST_LIMIT) --}}
         @if ($unlocatedCount > 0)

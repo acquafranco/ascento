@@ -8,6 +8,7 @@ use App\Jobs\SendWorkOrderAssignedNotification;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Notifications\WorkOrderAssignedNotification;
+use App\Notifications\WorkOrderUpdatedNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
@@ -241,14 +242,80 @@ class WorkOrderPushTest extends TestCase
         $this->assertNoPushDeliveredTo($oldDevice);
     }
 
-    public function test_editing_without_changing_technicians_does_not_notify_again(): void
+    public function test_editing_an_order_notifies_the_technicians_already_assigned(): void
+    {
+        $second = $this->technician($this->a);
+        $device = $this->subscribeDevice($this->a['technician']);
+        $secondDevice = $this->subscribeDevice($second);
+        $workOrder = $this->orderFor($this->a, [$this->a['technician'], $second]);
+
+        $this->actingInPanel($this->a['admin']);
+        Livewire::test(EditWorkOrder::class, ['record' => $workOrder->getRouteKey()])
+            ->fillForm(['notes' => 'Cambio de detalle', 'priority' => 'urgent'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+        $this->runAfterResponseJobs();
+
+        $this->assertPushDeliveredTo($device);
+        $this->assertPushDeliveredTo($secondDevice);
+    }
+
+    public function test_the_edit_message_says_what_changed(): void
+    {
+        $workOrder = $this->orderFor($this->a, [$this->a['technician']], ['priority' => 'urgent']);
+        $workOrder->load('building.client', 'company');
+
+        $message = (new WorkOrderUpdatedNotification($workOrder, ['prioridad (Urgente)', 'detalle del trabajo']))
+            ->toWebPush($this->a['technician'], new WorkOrderAssignedNotification($workOrder))
+            ->toArray();
+
+        $this->assertSame('✏️ Orden de trabajo modificada', $message['title']);
+        $this->assertStringContainsString('Cambió: prioridad (Urgente), detalle del trabajo', $message['body']);
+        $this->assertSame('work-order-'.$workOrder->id, $message['tag']); // reemplaza la anterior
+        $this->assertSame("/{$this->a['company']->slug}/work-orders/{$workOrder->id}", $message['data']['url']);
+    }
+
+    public function test_saving_without_relevant_changes_does_not_notify(): void
     {
         $device = $this->subscribeDevice($this->a['technician']);
         $workOrder = $this->orderFor($this->a, [$this->a['technician']]);
 
         $this->actingInPanel($this->a['admin']);
         Livewire::test(EditWorkOrder::class, ['record' => $workOrder->getRouteKey()])
-            ->fillForm(['notes' => 'Cambio de detalle', 'priority' => 'urgent'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+        $this->runAfterResponseJobs();
+
+        $this->assertNoPushDeliveredTo($device);
+    }
+
+    public function test_removed_technicians_get_no_edit_notification_and_new_ones_get_new_order(): void
+    {
+        $newTech = $this->technician($this->a);
+        $oldDevice = $this->subscribeDevice($this->a['technician']);
+        $newDevice = $this->subscribeDevice($newTech);
+        $workOrder = $this->orderFor($this->a, [$this->a['technician']]);
+
+        $this->actingInPanel($this->a['admin']);
+        Livewire::test(EditWorkOrder::class, ['record' => $workOrder->getRouteKey()])
+            ->fillForm(['users' => [$newTech->id], 'notes' => 'Nuevo detalle'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+        $this->runAfterResponseJobs();
+
+        $this->assertNoPushDeliveredTo($oldDevice);
+        $this->assertPushDeliveredTo($newDevice);
+        $this->assertCount(1, $this->deliveredEndpoints());
+    }
+
+    public function test_closing_an_order_from_the_panel_does_not_send_an_edit_push(): void
+    {
+        $device = $this->subscribeDevice($this->a['technician']);
+        $workOrder = $this->orderFor($this->a, [$this->a['technician']]);
+
+        $this->actingInPanel($this->a['admin']);
+        Livewire::test(EditWorkOrder::class, ['record' => $workOrder->getRouteKey()])
+            ->fillForm(['status' => 'failed'])
             ->call('save')
             ->assertHasNoFormErrors();
         $this->runAfterResponseJobs();

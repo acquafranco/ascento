@@ -106,14 +106,14 @@ class Subscription extends Page
 
         if (! $subscription) {
             return $company->onTrial()
-                ? ['Período de prueba', 'info', 'Tu prueba gratis termina el '.$date($company->trial_ends_at).'. Suscribite antes para no perder el acceso.']
-                : ['Sin suscripción', 'danger', 'Tu prueba gratis terminó. Suscribite para seguir usando Ascento.'];
+                ? ['Prueba gratis', 'info', 'Estás usando Ascento gratis hasta el '.$date($company->trial_ends_at).'. Ese día vas a poder suscribirte con Mercado Pago para seguir usándolo.']
+                : ['Prueba terminada', 'danger', 'Tu prueba gratis de 30 días terminó. Suscribite con Mercado Pago para seguir usando Ascento.'];
         }
 
         if ($subscription->provider === 'manual') {
             return $subscription->grantsAccess()
-                ? ['Activa (transferencia)', 'success', 'Acceso pago hasta el '.$date($subscription->current_period_end).'.']
-                : ['Vencida', 'danger', 'El período pagado por transferencia terminó.'];
+                ? ['Activa', 'success', 'Acceso pago hasta el '.$date($subscription->current_period_end).'. Desde ese día la suscripción sigue con Mercado Pago.']
+                : ['Vencida', 'danger', 'El período pago terminó. Suscribite con Mercado Pago para seguir usando Ascento.'];
         }
 
         return match (true) {
@@ -128,12 +128,29 @@ class Subscription extends Page
         };
     }
 
+    /**
+     * Durante los 30 días gratis no se cobra nada: la suscripción se habilita
+     * cuando termina la prueba (y mientras queden días pagos, tampoco).
+     */
+    public function isInFreePeriod(): bool
+    {
+        $company = $this->company();
+        $subscription = $this->getSubscription();
+
+        if ($subscription && ! ($subscription->isMercadoPago() && $subscription->status === SubscriptionModel::PENDING)) {
+            return false;
+        }
+
+        return $company->onTrial();
+    }
+
     /** ¿Mostrar "Suscribirme con Mercado Pago"? */
     public function canStartCheckout(): bool
     {
         $subscription = $this->getSubscription();
 
         return $this->canPayOnline()
+            && ! $this->isInFreePeriod()
             && ! ($subscription?->isMercadoPago() && in_array($subscription->status, [SubscriptionModel::AUTHORIZED, SubscriptionModel::PAST_DUE], true));
     }
 
@@ -183,7 +200,7 @@ class Subscription extends Page
                 ->title('No se pudo iniciar el pago')
                 ->body($e instanceof MercadoPagoApiException
                     ? $e->hint()
-                    : 'Intentá de nuevo en unos minutos. Si sigue fallando, podés pagar por transferencia.')
+                    : 'Intentá de nuevo en unos minutos.')
                 ->danger()
                 ->persistent()
                 ->send();

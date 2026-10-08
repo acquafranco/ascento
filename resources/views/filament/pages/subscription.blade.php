@@ -36,8 +36,13 @@
         <div class="sub-alert" role="status">
             <span aria-hidden="true">⏰</span>
             <span>
-                <strong>{{ $daysRemaining === 0 ? 'Tu acceso vence hoy.' : ($daysRemaining === 1 ? 'Te queda 1 día de acceso.' : "Te quedan {$daysRemaining} días de acceso.") }}</strong>
-                Suscribite para no perder el acceso.
+                @if ($this->isInFreePeriod())
+                    <strong>{{ $daysRemaining === 0 ? 'Tu prueba gratis termina hoy.' : ($daysRemaining === 1 ? 'Te queda 1 día de prueba gratis.' : "Te quedan {$daysRemaining} días de prueba gratis.") }}</strong>
+                    Cuando termine, suscribite desde esta pantalla para seguir usando Ascento.
+                @else
+                    <strong>{{ $daysRemaining === 0 ? 'Tu acceso vence hoy.' : ($daysRemaining === 1 ? 'Te queda 1 día de acceso.' : "Te quedan {$daysRemaining} días de acceso.") }}</strong>
+                    Suscribite con Mercado Pago para no perder el acceso.
+                @endif
             </span>
         </div>
     @endif
@@ -94,8 +99,13 @@
                     Pagás en Mercado Pago con tarjeta de crédito o débito. Se cobra automáticamente
                     todos los meses y podés cancelar cuando quieras desde acá.
                 </p>
+            @elseif ($this->isInFreePeriod() && $plan)
+                <p class="sub-muted sub-secure">
+                    Durante la prueba gratis no se cobra nada ni hace falta cargar una tarjeta.
+                    El {{ $this->getCompany()->trial_ends_at?->format('d/m/Y') }} vas a ver acá el botón para suscribirte por ${{ $price }}/mes.
+                </p>
             @elseif (! $this->canPayOnline() && $plan)
-                <p class="sub-muted sub-secure">El pago con Mercado Pago no está disponible en este momento. Podés pagar por transferencia.</p>
+                <p class="sub-muted sub-secure">El pago con Mercado Pago no está disponible en este momento. Probá de nuevo más tarde.</p>
             @endif
         </x-filament::section>
 
@@ -152,11 +162,4 @@
         </x-filament::section>
     @endif
 
-    {{-- TRANSFERENCIA (alternativa) --}}
-    @if (! $this->canCancel())
-        <x-filament::section collapsible :collapsed="$this->canPayOnline()">
-            <x-slot name="heading">¿Preferís pagar por transferencia?</x-slot>
-            @include('filament.pages.partials.transfer-card', ['plan' => $plan])
-        </x-filament::section>
-    @endif
 </x-filament-panels::page>

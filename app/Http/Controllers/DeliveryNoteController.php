@@ -519,6 +519,9 @@ class DeliveryNoteController extends Controller
         ]);
     }
 
+    // "Trabajo terminado" a los admins (después de responder).
+    \App\Jobs\NotifyCompanyAdmins::workCompleted($deliveryNote);
+
     return redirect()
         ->route('delivery-notes.index', [
             'company' => auth()->user()->company->slug,

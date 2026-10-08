@@ -58,8 +58,8 @@ class CheckPushNotifications extends Command
         if ($email = $this->option('send')) {
             $user = User::where('email', $email)->first();
 
-            if (! $user || ! $user->canReceiveWorkOrderPush()) {
-                $this->error("✗ {$email} no es un técnico activo.");
+            if (! $user || ! $user->canReceivePush()) {
+                $this->error("✗ {$email} no es un técnico ni un administrador activo.");
 
                 return self::FAILURE;
             }

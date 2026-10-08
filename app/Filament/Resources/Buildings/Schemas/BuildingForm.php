@@ -302,6 +302,21 @@ class BuildingForm
 
 
 
+            // Color del punto en el mapa (paleta fija; ver Building::MAP_COLORS).
+            Select::make('map_color')
+                ->label('Color en el mapa')
+                ->placeholder('Naranja (por defecto)')
+                ->helperText('Usalo para agrupar a simple vista: por zona, por técnico, por tipo de cliente…')
+                ->options(collect(Building::MAP_COLORS)->mapWithKeys(fn (array $color, string $key) => [
+                    $key => '<span style="display:inline-flex;align-items:center;gap:.5rem">'
+                        .'<span style="width:.9rem;height:.9rem;border-radius:999px;background:'.$color[1].';display:inline-block"></span>'
+                        .e($color[0]).'</span>',
+                ])->all())
+                ->allowHtml()
+                ->native(false)
+                ->in(array_keys(Building::MAP_COLORS))
+                ->columnSpanFull(),
+
             Textarea::make('notes')
                 ->columnSpanFull()
                 ->label('Observaciones'),
