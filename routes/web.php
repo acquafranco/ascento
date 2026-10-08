@@ -238,6 +238,14 @@ Route::prefix('{company:slug}')
         ->middleware('throttle:3,1')
         ->name('push-subscriptions.test');
 
+    // Telegram: canal adicional de avisos.
+    Route::get('/telegram/connect', [\App\Http\Controllers\TelegramLinkController::class, 'connect'])
+        ->middleware('throttle:10,1')
+        ->name('telegram.connect');
+
+    Route::delete('/telegram', [\App\Http\Controllers\TelegramLinkController::class, 'disconnect'])
+        ->name('telegram.disconnect');
+
 
     Route::post('/work-orders/{workOrder}/start',[
         WorkOrderController::class,

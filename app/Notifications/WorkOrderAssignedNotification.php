@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\WorkOrder;
+use App\Notifications\Channels\TelegramChannel;
 use App\Support\WorkOrderLabels;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Str;
@@ -22,7 +23,10 @@ class WorkOrderAssignedNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return [WebPushChannel::class];
+        return array_values(array_filter([
+            WebPushChannel::class,
+            TelegramChannel::enabledFor($notifiable) ? TelegramChannel::class : null,
+        ]));
     }
 
     public function toWebPush(object $notifiable, Notification $notification): WebPushMessage
@@ -62,5 +66,25 @@ class WorkOrderAssignedNotification extends Notification
                 'TTL' => 12 * 3600,
                 'urgency' => $urgent ? 'high' : 'normal',
             ]);
+    }
+
+    /** @return array{text: string, button: array{0: string, 1: string}} */
+    public function toTelegram(object $notifiable): array
+    {
+        $workOrder = $this->workOrder;
+        $building = $workOrder->building;
+
+        $lines = array_filter([
+            '<b>'.($workOrder->priority === 'urgent' ? '🚨' : '🔧').' Nueva orden de trabajo</b>',
+            $building ? '🏢 '.e(trim("{$building->name} {$building->address}")) : null,
+            $building?->client?->name ? '👤 '.e($building->client->name) : null,
+            '⚡ Prioridad: '.e(WorkOrderLabels::priority((string) $workOrder->priority)).($workOrder->unit ? ' · '.e($workOrder->unit) : ''),
+            $workOrder->notes ? "\n".e(Str::limit(Str::squish($workOrder->notes), 300)) : null,
+        ]);
+
+        return [
+            'text' => implode("\n", $lines),
+            'button' => ['Abrir orden', route('work-orders.show', ['company' => $this->workOrder->company->slug, 'workOrder' => $this->workOrder->id])],
+        ];
     }
 }

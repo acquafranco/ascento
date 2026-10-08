@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\WorkOrder;
+use App\Notifications\Channels\TelegramChannel;
 use Illuminate\Notifications\Notification;
 use NotificationChannels\WebPush\WebPushChannel;
 use NotificationChannels\WebPush\WebPushMessage;
@@ -19,7 +20,10 @@ class WorkOrderUpdatedNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return [WebPushChannel::class];
+        return array_values(array_filter([
+            WebPushChannel::class,
+            TelegramChannel::enabledFor($notifiable) ? TelegramChannel::class : null,
+        ]));
     }
 
     public function toWebPush(object $notifiable, Notification $notification): WebPushMessage
@@ -51,5 +55,22 @@ class WorkOrderUpdatedNotification extends Notification
                 'TTL' => 12 * 3600,
                 'urgency' => $workOrder->priority === 'urgent' ? 'high' : 'normal',
             ]);
+    }
+
+    /** @return array{text: string, button: array{0: string, 1: string}} */
+    public function toTelegram(object $notifiable): array
+    {
+        $building = $this->workOrder->building;
+
+        $lines = array_filter([
+            '<b>✏️ Orden de trabajo modificada</b>',
+            $building ? '🏢 '.e(trim("{$building->name} {$building->address}")) : null,
+            $this->changes ? 'Cambió: '.e(implode(', ', $this->changes)) : null,
+        ]);
+
+        return [
+            'text' => implode("\n", $lines),
+            'button' => ['Ver orden', route('work-orders.show', ['company' => $this->workOrder->company->slug, 'workOrder' => $this->workOrder->id])],
+        ];
     }
 }

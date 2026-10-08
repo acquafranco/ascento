@@ -74,4 +74,13 @@ class WorkCompletedNotification extends Notification
             ->data(['url' => parse_url($this->url(), PHP_URL_PATH)])
             ->options(['TTL' => 24 * 3600]);
     }
+
+    /** @return array{text: string, button: array{0: string, 1: string}} */
+    public function toTelegram(object $notifiable): array
+    {
+        return [
+            'text' => '<b>✅ Trabajo terminado</b>'."\n".e($this->body()),
+            'button' => ['Ver remito', $this->url()],
+        ];
+    }
 }

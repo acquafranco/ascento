@@ -63,6 +63,16 @@ return [
     ],
 
     /*
+    | Telegram: canal adicional de avisos (órdenes para técnicos; trabajos
+    | terminados y reportes para admins). Bot creado con @BotFather.
+    */
+    'telegram' => [
+        'bot_token' => env('TELEGRAM_BOT_TOKEN'),
+        // Clave que Telegram manda en cada webhook (A-Z a-z 0-9 _ -).
+        'webhook_secret' => env('TELEGRAM_WEBHOOK_SECRET'),
+    ],
+
+    /*
     | Geoapify: geocodificación de edificios y mosaicos del mapa.
     | La API key SOLO se usa del lado del servidor (los mosaicos pasan por
     | MapTileController); nunca se manda al navegador.

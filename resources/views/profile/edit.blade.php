@@ -8,8 +8,9 @@
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
             @if (auth()->user()->canReceiveWorkOrderPush())
-                <div class="max-w-xl" id="notificaciones">
+                <div class="max-w-xl space-y-4" id="notificaciones">
                     @include('push-notifications.card')
+                    @include('push-notifications.telegram')
                 </div>
             @endif
 
