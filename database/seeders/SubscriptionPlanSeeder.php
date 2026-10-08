@@ -15,7 +15,9 @@ class SubscriptionPlanSeeder extends Seeder
                 'name' => 'Ascento',
                 'price' => 149000,
                 'currency' => 'ARS',
-                'mercadopago_plan_id' => 'd9756cbef3474fb6b09ddd83917473e2',
+                // Sin plan de Mercado Pago: la suscripción se crea por API
+                // con el precio de acá (ver MercadoPagoSubscriptionSync).
+                'mercadopago_plan_id' => null,
                 'features' => [
                     'Prueba gratis de 30 días',
                 ],

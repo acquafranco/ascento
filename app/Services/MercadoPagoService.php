@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
@@ -22,166 +23,54 @@ class MercadoPagoService
         }
     }
 
+    public static function isConfigured(): bool
+    {
+        return filled(config('services.mercadopago.access_token'));
+    }
+
     /**
-     * Crea una suscripción individual en Mercado Pago.
-     *
-     * Endpoint: POST /preapproval
+     * Crea la suscripción (preapproval) SIN plan asociado y en estado
+     * "pending": Mercado Pago devuelve un init_point donde el cliente carga
+     * su medio de pago. Con plan asociado la API exige card_token_id
+     * (tokenizar la tarjeta de nuestro lado), que no usamos.
      */
-    public function createSubscription(array $data): array
+    public function createPreapproval(array $data): array
     {
         return $this->request('post', '/preapproval', $data);
     }
 
-    public function createSubscriptionPlan(array $data): array
+    public function getPreapproval(string $preapprovalId): array
     {
-        return $this->request('post', '/preapproval_plan', $data);
+        return $this->request('get', '/preapproval/'.rawurlencode($preapprovalId));
     }
 
-    public function updateSubscriptionPlan(string $planId, array $data): array
+    /** Cancela definitivamente (Mercado Pago no permite reactivar una cancelada). */
+    public function cancelPreapproval(string $preapprovalId): array
     {
-        return $this->request('put', '/preapproval_plan/' . $planId, $data);
-    }
-
-    public function getUser(): array
-    {
-        return $this->request('get', '/users/me');
-    }
-
-    public function getSubscription(string $subscriptionId): array
-    {
-        return $this->request('get', '/preapproval/' . $subscriptionId);
-    }
-
-    /**
-     * Alias de getSubscription().
-     */
-    public function syncSubscription(string $subscriptionId): array
-    {
-        return $this->getSubscription($subscriptionId);
-    }
-
-    public function getAuthorizedPayment(string $paymentId): array
-    {
-        return $this->request('get', '/authorized_payments/' . $paymentId);
-    }
-
-    public function getSubscriptionPlan(string $planId): array
-    {
-        return $this->request('get', '/preapproval_plan/' . $planId);
-    }
-
-    public function searchSubscriptionPlans(array $params = []): array
-    {
-        return $this->request('get', '/preapproval_plan/search', $params);
-    }
-
-    public function searchSubscriptions(array $params = []): array
-    {
-        return $this->request('get', '/preapproval/search', $params);
-    }
-
-    /**
-     * Alias para buscar suscripciones.
-     */
-    public function findSubscriptions(array $params = []): array
-    {
-        return $this->searchSubscriptions($params);
-    }
-
-    /**
-     * Cancela definitivamente una suscripción.
-     *
-     * IMPORTANTE: paused != canceled. Una suscripción cancelada
-     * definitivamente no se reutiliza.
-     */
-    public function cancelSubscription(string $subscriptionId): array
-    {
-        $subscription = $this->getSubscription($subscriptionId);
-
-        $status = $subscription['status'] ?? null;
-
-        if (in_array($status, ['cancelled', 'canceled'], true)) {
-            return $subscription;
-        }
-
-        if ($status === 'paused') {
-            // Mercado Pago sí permite cancelar desde "paused"; lo
-            // dejamos pasar en vez de bloquearlo artificialmente.
-            return $this->request('put', '/preapproval/' . $subscriptionId, [
-                'status' => 'cancelled',
-            ]);
-        }
-
-        if (!in_array($status, ['authorized', 'active', 'trialing', 'past_due'], true)) {
-            throw new RuntimeException(
-                'No se puede cancelar la suscripción. Estado actual de Mercado Pago: '
-                . ($status ?? 'desconocido')
-            );
-        }
-
-        return $this->request('put', '/preapproval/' . $subscriptionId, [
+        return $this->request('put', '/preapproval/'.rawurlencode($preapprovalId), [
             'status' => 'cancelled',
         ]);
     }
 
-    /**
-     * Pausa una suscripción. Puede reanudarse luego con el mismo ID.
-     */
-    public function pauseSubscription(string $subscriptionId): array
+    /** Una cuota de la suscripción (topic subscription_authorized_payment). */
+    public function getAuthorizedPayment(string $authorizedPaymentId): array
     {
-        $subscription = $this->getSubscription($subscriptionId);
+        return $this->request('get', '/authorized_payments/'.rawurlencode($authorizedPaymentId));
+    }
 
-        $status = $subscription['status'] ?? null;
-
-        if ($status === 'paused') {
-            return $subscription;
-        }
-
-        if (in_array($status, ['cancelled', 'canceled'], true)) {
-            throw new RuntimeException('Una suscripción cancelada no puede pausarse.');
-        }
-
-        if (!in_array($status, ['authorized', 'active', 'trialing', 'past_due'], true)) {
-            throw new RuntimeException(
-                'No se puede pausar la suscripción. Estado actual de Mercado Pago: '
-                . ($status ?? 'desconocido')
-            );
-        }
-
-        return $this->request('put', '/preapproval/' . $subscriptionId, [
-            'status' => 'paused',
+    /** Cuotas de una suscripción (para reconciliar si se perdió un webhook). */
+    public function searchAuthorizedPayments(string $preapprovalId): array
+    {
+        return $this->request('get', '/authorized_payments/search', [
+            'preapproval_id' => $preapprovalId,
+            'limit' => 50,
         ]);
     }
 
-    /**
-     * Reactiva una suscripción pausada. NO sirve para canceladas.
-     */
-    public function resumeSubscription(string $subscriptionId): array
+    /** El pago real detrás de una cuota: estado e importe definitivos. */
+    public function getPayment(string $paymentId): array
     {
-        $subscription = $this->getSubscription($subscriptionId);
-
-        $status = $subscription['status'] ?? null;
-
-        if (in_array($status, ['cancelled', 'canceled'], true)) {
-            throw new RuntimeException(
-                'La suscripción está cancelada en Mercado Pago y no puede reanudarse. Debe crearse una nueva.'
-            );
-        }
-
-        if (in_array($status, ['authorized', 'active'], true)) {
-            return $subscription;
-        }
-
-        if ($status !== 'paused') {
-            throw new RuntimeException(
-                'No se puede reanudar la suscripción. Estado actual de Mercado Pago: '
-                . ($status ?? 'desconocido')
-            );
-        }
-
-        return $this->request('put', '/preapproval/' . $subscriptionId, [
-            'status' => 'authorized',
-        ]);
+        return $this->request('get', '/v1/payments/'.rawurlencode($paymentId));
     }
 
     /**
@@ -199,9 +88,9 @@ class MercadoPagoService
             $request = $this->buildRequest($method);
 
             $response = match ($method) {
-                'get' => $request->get($this->baseUrl . $endpoint, $data),
-                'post' => $request->post($this->baseUrl . $endpoint, $data),
-                'put' => $request->put($this->baseUrl . $endpoint, $data),
+                'get' => $request->get($this->baseUrl.$endpoint, $data),
+                'post' => $request->post($this->baseUrl.$endpoint, $data),
+                'put' => $request->put($this->baseUrl.$endpoint, $data),
                 default => throw new RuntimeException("Método HTTP no soportado: {$method}"),
             };
         } catch (ConnectionException $e) {
@@ -217,7 +106,7 @@ class MercadoPagoService
 
         $json = $response->json();
 
-        if (!is_array($json)) {
+        if (! is_array($json)) {
             throw new RuntimeException('Mercado Pago devolvió una respuesta inválida.');
         }
 
@@ -245,7 +134,7 @@ class MercadoPagoService
      * { "message": "...", "error": "...", "status": 400, "cause": [...] }
      * Intentamos mostrar ese mensaje en vez del body crudo.
      */
-    private function extractErrorMessage(\Illuminate\Http\Client\Response $response): string
+    private function extractErrorMessage(Response $response): string
     {
         $json = $response->json();
 
@@ -254,6 +143,6 @@ class MercadoPagoService
             ?? (isset($json['cause'][0]['description']) ? $json['cause'][0]['description'] : null)
             ?? $response->body();
 
-        return 'Mercado Pago respondió con error: ' . $response->status() . ' - ' . $detail;
+        return 'Mercado Pago respondió con error: '.$response->status().' - '.$detail;
     }
 }

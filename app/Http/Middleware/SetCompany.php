@@ -30,7 +30,14 @@ class SetCompany
         }
 
 
+        // URL de otra empresa (link viejo, sesión de otra cuenta en el mismo
+        // navegador): se lo lleva a SU pantalla. Nunca se muestra nada de la
+        // otra empresa. En POST/PUT/etc. se rechaza sin redirigir.
         if (auth()->user()->company_id !== $company->id) {
+            if ($request->isMethod('GET') && ! $request->expectsJson()) {
+                return \App\Support\HomeRedirect::to();
+            }
+
             abort(403);
         }
 

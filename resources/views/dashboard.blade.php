@@ -36,6 +36,9 @@
 </div>
         </div>
 
+        {{-- Activar avisos push (se oculta sola cuando ya están activos). --}}
+        @include('push-notifications.card', ['compact' => true])
+
         <div class="grid grid-cols-2 grid-rows-3 flex-1 gap-1">
             {{-- PENDIENTES --}}
             <a href="{{ route('work-orders.index', [

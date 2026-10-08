@@ -1,9 +1,14 @@
 <?php
 
+use App\Http\Controllers\MercadoPagoWebhookController;
 use App\Http\Controllers\WhatsAppWebhookController;
-use App\Http\Controllers\SubscriptionController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/whatsapp/webhook', [WhatsAppWebhookController::class, 'verify']);
 Route::post('/whatsapp/webhook', [WhatsAppWebhookController::class, 'handle']);
-Route::post('/mercadopago/webhook', [SubscriptionController::class, 'webhook']);
+
+// Notificaciones de Mercado Pago (configurar esta URL en la app de MP,
+// eventos "Planes y suscripciones"). Ver MercadoPagoWebhookController.
+Route::post('/mercadopago/webhook', MercadoPagoWebhookController::class)
+    ->middleware('throttle:120,1')
+    ->name('mercadopago.webhook');

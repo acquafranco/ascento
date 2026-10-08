@@ -32,5 +32,7 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- Los tests nunca usan la key real de Geoapify (ver tests/Feature/Map). -->
+        <env name="GEOAPIFY_API_KEY" value=""/>
     </php>
 </phpunit>

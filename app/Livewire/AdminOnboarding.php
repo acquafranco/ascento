@@ -231,6 +231,7 @@ class AdminOnboarding extends Component
             'delivery_notes' => ['title' => 'Remitos', 'body' => 'El historial de todo el trabajo realizado (mantenimientos, inspecciones y órdenes de trabajo), con las firmas. Podés verlos y descargarlos; no se pueden borrar.'],
             'work_orders' => ['title' => 'Órdenes de trabajo', 'body' => 'Trabajos puntuales: elegí edificio, ascensor, técnicos, tipo de trabajo, prioridad y detalle. El técnico la toma desde el celular y la cierra con el remito.'],
             'quotes' => ['title' => 'Presupuestos', 'body' => 'Presupuestos para tus clientes con importe y estado (pendiente, enviado, aprobado o rechazado). Desde cada presupuesto lo podés enviar por WhatsApp o por mail.'],
+            'map' => ['title' => 'Mapa', 'body' => 'Todos tus edificios en el mapa. Se ubican solos con la dirección que cargaste; si alguno no se pudo ubicar con precisión, aparece en "Edificios sin ubicar" para que corrijas la dirección o lo marques a mano. Tocá un punto para ver el cliente y abrir el edificio.'],
             'subscription' => ['title' => 'Mi suscripción', 'body' => 'El estado de tu plan, cuántos días de acceso te quedan y cómo renovarlo.'],
         ];
     }
@@ -243,6 +244,7 @@ class AdminOnboarding extends Component
         $map = [
             'pages.company-settings' => 'company',
             'pages.subscription' => 'subscription',
+            'pages.mapa' => 'map',
             'resources.users.' => 'technicians',
             'resources.clients.' => 'clients',
             'resources.buildings.' => 'buildings',

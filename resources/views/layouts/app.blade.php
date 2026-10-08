@@ -7,6 +7,27 @@
 
         <title>{{ config('app.name', 'Laravel') }}</title>
 
+        {{-- PWA: permite instalar Ascento en la pantalla de inicio (en iPhone es
+             requisito para recibir notificaciones). --}}
+        <link rel="manifest" href="/manifest.webmanifest">
+        <meta name="theme-color" content="#12151C">
+        <link rel="apple-touch-icon" href="/images/pwa/apple-touch-icon.png">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-title" content="Ascento">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+        @if (auth()->user()?->canReceiveWorkOrderPush() && auth()->user()->company)
+            {{-- Clave PÚBLICA VAPID (pública por diseño) y URLs del técnico. --}}
+            <meta name="ascento-push" content="{{ json_encode([
+                'userId' => auth()->id(),
+                'vapidPublicKey' => config('webpush.vapid.public_key'),
+                'storeUrl' => route('push-subscriptions.store', ['company' => auth()->user()->company->slug]),
+                'destroyUrl' => route('push-subscriptions.destroy', ['company' => auth()->user()->company->slug]),
+                'testUrl' => route('push-subscriptions.test', ['company' => auth()->user()->company->slug]),
+            ]) }}">
+        @endif
+
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
@@ -15,6 +36,8 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
         <!-- Espacio para barra mobile -->
         <style>
+            [x-cloak] { display: none !important; }
+
             @media (min-width: 1023px) {
                 .menu { margin-top: 64px; }
             }

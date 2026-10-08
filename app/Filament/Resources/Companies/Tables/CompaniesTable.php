@@ -76,6 +76,8 @@ class CompaniesTable
 
                         'pending' => 'Pendiente',
 
+                        'past_due' => 'Pago rechazado',
+
                         'paused' => 'Pausada',
 
                         'canceled',

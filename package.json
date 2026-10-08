@@ -18,7 +18,9 @@
         "vite": "^8.0.0"
     },
     "dependencies": {
-        "axios": "^1.16.1"
+        "axios": "^1.16.1",
+        "leaflet": "^1.9.4",
+        "leaflet.markercluster": "^1.5.3"
     },
     "overrides": {
         "shell-quote": "^1.12.0"

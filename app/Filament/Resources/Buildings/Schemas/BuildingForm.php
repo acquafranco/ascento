@@ -8,6 +8,9 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
+use Filament\Infolists\Components\TextEntry;
+use App\Filament\Pages\BuildingsMap;
+use App\Models\Building;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 
@@ -90,6 +93,27 @@ class BuildingForm
                     ->placeholder('Ej: Nordelta'),
 
             ]),
+
+
+            // Estado de la ubicación en el mapa (solo al editar).
+            TextEntry::make('geocoding_status')
+                ->label('Ubicación en el mapa')
+                ->visibleOn('edit')
+                ->badge()
+                ->formatStateUsing(fn (?string $state) => match ($state) {
+                    Building::GEO_GEOCODED => 'Ubicado',
+                    Building::GEO_MANUAL => 'Marcado a mano',
+                    Building::GEO_NEEDS_REVIEW => 'No se pudo ubicar: revisá la dirección',
+                    Building::GEO_ERROR => 'Se reintenta en unos minutos',
+                    default => 'Pendiente (se ubica al guardar)',
+                })
+                ->color(fn (?string $state) => match ($state) {
+                    Building::GEO_GEOCODED, Building::GEO_MANUAL => 'success',
+                    Building::GEO_NEEDS_REVIEW => 'warning',
+                    default => 'gray',
+                })
+                ->url(fn () => BuildingsMap::getUrl())
+                ->columnSpanFull(),
 
 
 

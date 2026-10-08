@@ -49,11 +49,34 @@ return [
         'app_secret' => env('WHATSAPP_APP_SECRET', env('FACEBOOK_CLIENT_SECRET')),
     ],
 
-        'mercadopago' => [
+    /*
+    | Mercado Pago: suscripción mensual (preapproval sin plan + redirección).
+    | Todo del lado del servidor; no se usa la public key en el navegador.
+    */
+    'mercadopago' => [
         'access_token' => env('MERCADOPAGO_ACCESS_TOKEN'),
-        'public_key' => env('MERCADOPAGO_PUBLIC_KEY'),
-        'basic_plan_id' => env('MERCADOPAGO_BASIC_PLAN_ID'),
-        'pro_plan_id' => env('MERCADOPAGO_PRO_PLAN_ID'),
+        // Clave secreta del webhook (Tus integraciones → Webhooks). En
+        // producción es obligatoria: sin ella se rechazan los webhooks.
+        'webhook_secret' => env('MERCADOPAGO_WEBHOOK_SECRET'),
+        // Solo en pruebas: email EXACTO del usuario de prueba comprador.
+        'test_payer_email' => env('MERCADOPAGO_TEST_PAYER_EMAIL'),
+    ],
+
+    /*
+    | Geoapify: geocodificación de edificios y mosaicos del mapa.
+    | La API key SOLO se usa del lado del servidor (los mosaicos pasan por
+    | MapTileController); nunca se manda al navegador.
+    */
+    'geoapify' => [
+        'api_key' => env('GEOAPIFY_API_KEY'),
+        'country_code' => env('GEOAPIFY_COUNTRY_CODE', 'ar'),
+        // Confianza mínima (0-1) para aceptar un resultado. Por debajo,
+        // el edificio queda "a revisar" en vez de guardar un punto dudoso.
+        'min_confidence' => (float) env('GEOAPIFY_MIN_CONFIDENCE', 0.8),
+        // Tope diario de geocodificaciones (el plan gratis da 3000 créditos/día,
+        // compartidos con los mosaicos del mapa: 4 mosaicos = 1 crédito).
+        'daily_limit' => (int) env('GEOAPIFY_DAILY_LIMIT', 1500),
+        'map_style' => env('GEOAPIFY_MAP_STYLE', 'osm-bright'),
     ],
 
 ];

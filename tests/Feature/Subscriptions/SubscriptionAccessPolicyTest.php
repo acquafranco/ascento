@@ -38,7 +38,10 @@ class SubscriptionAccessPolicyTest extends TestCase
             'manual vencida aunque el cron no corrió' => [-1, ['status' => 'active', 'provider' => 'manual', 'current_period_end' => -1], false],
             'pausada (aunque quede trial)' => [10, ['status' => 'paused', 'current_period_end' => 30], false],
             'pendiente de pago' => [-1, ['status' => 'pending'], false],
-            'pago atrasado (past_due)' => [-1, ['status' => 'past_due', 'current_period_end' => -1], false],
+            'pago rechazado, dentro de la tolerancia' => [-1, ['status' => 'past_due', 'current_period_end' => -1], true],
+            'pago rechazado, tolerancia vencida' => [-1, ['status' => 'past_due', 'current_period_end' => -6], false],
+            'checkout sin terminar con trial vigente' => [10, ['status' => 'pending'], true],
+            'autorizada sin período pago (vieja)' => [-1, ['status' => 'authorized'], false],
             'cancelada con período pago vigente' => [-1, ['status' => 'canceled', 'current_period_end' => 5], true],
             'cancelada sin período' => [-1, ['status' => 'canceled', 'current_period_end' => -1], false],
         ];

@@ -28,14 +28,20 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->to($request->user()->homeUrl());
+        // Sin destino válido (ej. empresa eliminada) no se lo deja entrar.
+        return \App\Support\HomeRedirect::to();
     }
 
-    /**q
+    /**
      * Destroy an authenticated session.
      */
     public function destroy(Request $request): RedirectResponse
     {
+        // Este dispositivo deja de recibir los avisos de esta cuenta.
+        if ($endpoint = $request->session()->get(\App\Http\Controllers\PushSubscriptionController::SESSION_KEY)) {
+            $request->user()?->deletePushSubscription($endpoint);
+        }
+
         Auth::guard('web')->logout();
 
         $request->session()->invalidate();
