@@ -48,6 +48,42 @@ class BuildingVisit extends Model
     ];
 
 
+    protected static function booted(): void
+    {
+        // Mantenimiento / inspección: se vincula solo al contrato que lo cubre.
+        static::creating(function (BuildingVisit $visit) {
+            if ($visit->maintenance_service_id === null && in_array($visit->assignment_type, ['maintenance', 'inspection'], true)) {
+                $visit->maintenance_service_id = MaintenanceService::covering(
+                    (int) $visit->company_id,
+                    (int) $visit->building_id,
+                    $visit->visited_at ?? now(),
+                )?->id;
+            }
+        });
+
+        // Un contrato solo tiene visitas de su empresa y de su edificio/cliente.
+        static::saving(function (BuildingVisit $visit) {
+            if ($visit->maintenance_service_id === null || ! $visit->isDirty(['maintenance_service_id', 'building_id', 'company_id'])) {
+                return;
+            }
+
+            $service = MaintenanceService::withoutGlobalScopes()->withTrashed()->find($visit->maintenance_service_id);
+            $building = Building::withoutGlobalScopes()->withTrashed()->find($visit->building_id);
+
+            if (! $service || ! $building
+                || (int) $service->company_id !== (int) $visit->company_id
+                || ! $service->coversBuilding($building)
+                || ! in_array($visit->assignment_type, ['maintenance', 'inspection'], true)) {
+                throw new \DomainException('La visita no corresponde a ese servicio.');
+            }
+        });
+    }
+
+    public function maintenanceService()
+    {
+        return $this->belongsTo(MaintenanceService::class)->withTrashed();
+    }
+
     public function building()
     {
         return $this->belongsTo(Building::class)->withTrashed();

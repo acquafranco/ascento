@@ -69,6 +69,12 @@ class WorkOrderMaterial extends Model
         return $this->belongsTo(StockItem::class)->withTrashed();
     }
 
+    /** Quién lo declaró: la oficina o el técnico al firmar el remito. */
+    public function declaredBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'declared_by')->withTrashed();
+    }
+
     public function movement(): BelongsTo
     {
         return $this->belongsTo(StockMovement::class, 'stock_movement_id');

@@ -168,6 +168,21 @@
                         {{ $deliveryNote->description }}
                     </div>
                 </div>
+
+                {{-- Materiales usados en la orden (cantidades, sin costos: el remito lo ve el cliente). --}}
+                @if($deliveryNote->workOrder?->materials?->isNotEmpty())
+                    <div>
+                        <label class="block text-xs text-slate-500 uppercase tracking-wider mb-1.5">Materiales utilizados</label>
+                        <ul class="bg-slate-50 rounded-xl p-3 md:p-4 text-xs md:text-sm text-slate-800 space-y-1">
+                            @foreach($deliveryNote->workOrder->materials as $material)
+                                <li class="flex justify-between gap-3">
+                                    <span>{{ $material->stockItem?->name ?? 'Material' }}</span>
+                                    <span class="font-semibold whitespace-nowrap">{{ $material->stockItem?->formatQuantity($material->quantity) ?? $material->quantity }}</span>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
               @php
     $participants = collect();
 

@@ -11,7 +11,11 @@ use App\Models\MaintenanceService;
 use App\Support\CompanyContext;
 use BackedEnum;
 use Filament\Actions\Action;
+use App\Filament\Resources\MaintenanceServices\Pages\ViewMaintenanceService;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -67,9 +71,17 @@ class MaintenanceServiceResource extends Resource
                         ->where('company_id', $companyId())
                         ->where('client_id', $get('client_id')))
                     ->getOptionLabelFromRecordUsing(fn (Building $record) => trim("{$record->name} {$record->address}"))
-                    ->searchable()->preload()
+                    ->searchable()->preload()->live()
+                    ->afterStateUpdated(fn (Set $set) => $set('units', []))
                     ->helperText('Opcional: si el servicio cubre un edificio puntual del cliente.'),
             ]),
+            Select::make('units')
+                ->label('Equipos del contrato (opcional)')
+                ->multiple()
+                ->options(fn (Get $get) => collect(Building::find($get('building_id'))?->unitLabels() ?? [])->mapWithKeys(fn ($u) => [$u => $u]))
+                ->visible(fn (Get $get) => filled($get('building_id')))
+                ->helperText('Vacío = todos los equipos del edificio.')
+                ->columnSpanFull(),
             TextInput::make('description')->label('Servicio')->required()->maxLength(255)->default('Mantenimiento mensual de ascensores')->columnSpanFull(),
             Grid::make(3)->schema([
                 TextInput::make('amount')->label('Importe por período')->numeric()->minValue(1)->prefix('$')->required(),
@@ -83,6 +95,43 @@ class MaintenanceServiceResource extends Resource
                 Select::make('status')->label('Estado')->options(MaintenanceService::STATUSES)->default(MaintenanceService::ACTIVE)->required()->native(false),
             ]),
             Textarea::make('notes')->label('Observaciones')->rows(2)->columnSpanFull(),
+        ]);
+    }
+
+    public static function infolist(Schema $schema): Schema
+    {
+        $visit = function (MaintenanceService $record, string $type): string {
+            $status = $record->visitStatus($type);
+            $last = $status['last'];
+            $text = $last ? 'Última: '.$last->visited_at?->format('d/m/Y').' ('.($last->user?->name ?? '—').')' : 'Todavía no hay';
+
+            if ($status['next']) {
+                $month = ucfirst($status['next']->locale('es')->translatedFormat('F Y'));
+                $text .= $status['done_this_month'] ? " · Este mes: hecho · Próximo: {$month}" : " · Pendiente: {$month}";
+            }
+
+            return $text;
+        };
+
+        return $schema->components([
+            Section::make('Contrato')->columns(3)->schema([
+                TextEntry::make('client.name')->label('Cliente'),
+                TextEntry::make('building.name')->label('Edificio')->placeholder('Todos los edificios del cliente'),
+                TextEntry::make('units')->label('Equipos')->badge()->placeholder('Todos'),
+                TextEntry::make('description')->label('Servicio'),
+                TextEntry::make('amount')->label('Importe')->formatStateUsing(fn ($state, MaintenanceService $record) => $record->amountLabel()),
+                TextEntry::make('frequency')->label('Frecuencia de cobro')->formatStateUsing(fn ($state, MaintenanceService $record) => $record->frequencyLabel()),
+                TextEntry::make('status')->label('Estado')->badge()->formatStateUsing(fn ($state) => MaintenanceService::STATUSES[$state] ?? $state)
+                    ->color(fn ($state) => match ($state) { 'active' => 'success', 'paused' => 'warning', default => 'gray' }),
+                TextEntry::make('start_date')->label('Inicio')->date('d/m/Y'),
+                TextEntry::make('end_date')->label('Finalización')->date('d/m/Y')->placeholder('Sin fecha de fin'),
+            ]),
+            Section::make('Visitas realizadas')->columns(2)->schema([
+                TextEntry::make('maintenance_summary')->label('Mantenimientos')
+                    ->state(fn (MaintenanceService $record) => $record->maintenanceVisits()->count().' realizados · '.$visit($record, 'maintenance')),
+                TextEntry::make('inspection_summary')->label('Inspecciones')
+                    ->state(fn (MaintenanceService $record) => $record->inspectionVisits()->count().' realizadas · '.$visit($record, 'inspection')),
+            ]),
         ]);
     }
 
@@ -114,6 +163,7 @@ class MaintenanceServiceResource extends Resource
                     ->visible(fn (MaintenanceService $r) => $r->status === MaintenanceService::ACTIVE),
                 static::statusAction(MaintenanceService::ACTIVE, 'Activar', 'heroicon-o-play', 'success')
                     ->visible(fn (MaintenanceService $r) => $r->status !== MaintenanceService::ACTIVE),
+                ViewAction::make(),
                 EditAction::make(),
             ]);
     }
@@ -140,7 +190,15 @@ class MaintenanceServiceResource extends Resource
         return [
             'index' => ListMaintenanceServices::route('/'),
             'create' => CreateMaintenanceService::route('/create'),
+            'view' => ViewMaintenanceService::route('/{record}'),
             'edit' => EditMaintenanceService::route('/{record}/edit'),
+        ];
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            RelationManagers\VisitsRelationManager::class,
         ];
     }
 }
