@@ -135,7 +135,7 @@ class AttentionCenter
         if ($recurrent->isNotEmpty()) {
             $first = $recurrent->first();
             $items->push($this->item('danger', 'Ascensores con fallas que se repiten',
-                FailureAnalysis::THRESHOLD.' o más reportes o reclamos en '.FailureAnalysis::DAYS.' días.',
+                FailureAnalysis::THRESHOLD.' o más avisos de falla (reportes de técnicos o reclamos) en '.FailureAnalysis::DAYS.' días.',
                 $recurrent->count(),
                 $first['elevator'] ? ElevatorResource::getUrl('view', ['record' => $first['elevator']]) : ElevatorResource::getUrl(),
                 $recurrent->take(3)->pluck('message')->all()));
@@ -183,10 +183,10 @@ class AttentionCenter
         // Fallas en aumento: últimos 90 días contra los 90 anteriores.
         $now = $this->failures->recurrent(90, 1)->keyBy(fn ($r) => $r['building_id'].'|'.$r['label']);
         $before = $this->failures->recurrent(90, 1, now()->subDays(90))->keyBy(fn ($r) => $r['building_id'].'|'.$r['label']);
-        $rising = $now->filter(fn ($r, $key) => $r['total'] >= 2 && $r['total'] >= 1.5 * ($before->get($key)['total'] ?? 0) + 1);
+        $rising = $now->filter(fn ($r, $key) => $r['signals'] >= 2 && $r['signals'] >= 1.5 * ($before->get($key)['signals'] ?? 0) + 1);
         if ($rising->isNotEmpty()) {
-            $items->push($this->item('warning', 'Ascensores con fallas en aumento', 'Tuvieron más intervenciones que en los 90 días anteriores.', $rising->count(), ElevatorResource::getUrl(),
-                $rising->take(3)->map(fn ($r) => $r['label'].' ('.$r['total'].' vs '.($before->get($r['building_id'].'|'.$r['label'])['total'] ?? 0).')')->values()->all()));
+            $items->push($this->item('warning', 'Ascensores con fallas en aumento', 'Tuvieron más avisos de falla (reportes y reclamos) que en los 90 días anteriores.', $rising->count(), ElevatorResource::getUrl(),
+                $rising->take(3)->map(fn ($r) => $r['label'].' ('.$r['signals'].' vs '.($before->get($r['building_id'].'|'.$r['label'])['signals'] ?? 0).')')->values()->all()));
         }
 
         $ending = MaintenanceService::active()->whereNotNull('end_date')->whereBetween('end_date', [today(), today()->addDays(30)])->with('client:id,name')->get();

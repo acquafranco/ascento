@@ -10,6 +10,7 @@ use App\Models\HelpDismissal;
 use App\Models\User;
 use App\Support\Help\HelpTopics;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -36,6 +37,9 @@ class HelpAndCompanyDataTest extends TestCase
 
     private const AGENDA_TEXT = 'Ascento arma solo la lista de mantenimientos';
 
+    /** La tarjeta de ayuda (su botón). El texto solo no alcanza: el botón "?" lo repite. */
+    private const TIP = 'wire:click="dismiss"';
+
     public function test_a_help_shows_until_dismissed_and_never_comes_back_by_itself(): void
     {
         $this->actingInPanel($this->a['admin']);
@@ -50,7 +54,7 @@ class HelpAndCompanyDataTest extends TestCase
         $this->actingInPanel($this->a['admin']->fresh())->get(Agenda::getUrl())->assertDontSee(self::AGENDA_TEXT);
 
         // Las demás ayudas siguen pendientes (estado propio de cada una).
-        $this->get(ClientResource::getUrl())->assertSee(HelpTopics::get('clients_intro')['body']);
+        $this->get(ClientResource::getUrl())->assertSee(self::TIP, false);
         $this->assertSame(['agenda_intro'], HelpDismissal::where('user_id', $this->a['admin']->id)->pluck('key')->all());
     }
 
@@ -134,5 +138,50 @@ class HelpAndCompanyDataTest extends TestCase
             ->fillForm(['cuit' => '', 'province' => null, 'city' => '', 'bank_cbu' => '', 'bank_alias' => ''])
             ->call('save')
             ->assertHasNoFormErrors();
+    }
+
+    public function test_seeing_a_page_never_marks_its_help_as_seen(): void
+    {
+        $this->actingInPanel($this->a['admin']);
+
+        foreach ([Agenda::getUrl(), ClientResource::getUrl(), Agenda::getUrl(), CompanySettings::getUrl()] as $url) {
+            $this->get($url)->assertOk();
+        }
+        Livewire::test(HelpTip::class, ['key' => 'agenda_intro'])->assertSee(self::AGENDA_TEXT);
+
+        $this->assertSame(0, HelpDismissal::count()); // solo "Entendido" la marca
+    }
+
+    public function test_reset_all_really_shows_every_help_again(): void
+    {
+        foreach (array_keys(HelpTopics::all()) as $key) {
+            $this->a['admin']->dismissHelp($key);
+        }
+        $this->actingInPanel($this->a['admin']);
+        $this->get(Agenda::getUrl())->assertDontSee(self::AGENDA_TEXT);
+        $this->get(ClientResource::getUrl())->assertDontSee(self::TIP, false);
+
+        Livewire::test(CompanySettings::class)->call('resetAllHelp');
+
+        $this->get(Agenda::getUrl())->assertSee(self::AGENDA_TEXT);
+        $this->get(ClientResource::getUrl())->assertSee(self::TIP, false);
+    }
+
+    public function test_the_help_key_cannot_be_tampered_and_super_admins_store_nothing(): void
+    {
+        $this->actingInPanel($this->a['admin']);
+
+        $this->expectException(CannotUpdateLockedPropertyException::class);
+        Livewire::test(HelpTip::class, ['key' => 'agenda_intro'])->set('key', 'clients_intro');
+    }
+
+    public function test_super_admin_does_not_see_or_store_company_helps(): void
+    {
+        $super = User::factory()->superAdmin()->create();
+        $this->actingAs($super)->withSession(['selected_company_id' => $this->a['company']->id]);
+
+        Livewire::test(HelpTip::class, ['key' => 'agenda_intro'])->assertDontSee(self::AGENDA_TEXT)->call('dismiss');
+        $this->assertSame(0, HelpDismissal::count());
+        $this->get(CompanySettings::getUrl())->assertForbidden();
     }
 }

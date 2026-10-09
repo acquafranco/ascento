@@ -4,8 +4,10 @@ namespace Tests\Feature\Auth;
 
 use App\Models\Company;
 use App\Models\User;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Routing\Middleware\ThrottleRequests;
+use Illuminate\Support\Facades\DB;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -148,5 +150,101 @@ class RegistrationTest extends TestCase
         $this->register(['email' => 'otra@sur.test', 'cuit' => '30712345671'])->assertSessionHasErrors('cuit');
 
         $this->assertSame(1, Company::count());
+    }
+
+    public function test_cuit_is_normalized_with_or_without_dashes_and_unique_in_the_database(): void
+    {
+        $this->withoutMiddleware(ThrottleRequests::class);
+
+        // Empresa vieja con el CUIT guardado sin guiones (antes del cambio).
+        $old = Company::factory()->create();
+        DB::table('companies')->where('id', $old->id)->update(['cuit' => '30 71234567 1']);
+        $migration = require database_path('migrations/2026_10_20_100500_add_unique_index_to_companies_cuit.php');
+        $migration->down();
+        $migration->up(); // normaliza lo existente
+        $this->assertSame('30-71234567-1', $old->fresh()->cuit);
+
+        foreach (['30-71234567-1', '30712345671', '30 71234567 1'] as $variant) {
+            $this->register(['cuit' => $variant, 'email' => uniqid().'@sur.test'])->assertSessionHasErrors('cuit');
+        }
+        $this->assertSame(1, Company::count());
+
+        // La base también lo impide (por cualquier camino, con cualquier formato).
+        $this->expectException(UniqueConstraintViolationException::class);
+        Company::factory()->create(['cuit' => '30712345671']);
+    }
+
+    public function test_two_simultaneous_registrations_with_the_same_cuit_leave_a_single_company(): void
+    {
+        // Simula la carrera: otra empresa con el mismo CUIT entra justo
+        // después de la validación y antes de crear la nuestra.
+        Company::creating(function (Company $company) {
+            if ($company->name === 'Ascensores del Sur') {
+                DB::table('companies')->insert(['name' => 'La otra', 'slug' => 'la-otra', 'cuit' => '30-71234567-1', 'is_active' => true, 'created_at' => now(), 'updated_at' => now()]);
+            }
+        });
+
+        $response = $this->register();
+
+        $response->assertSessionHasErrors('cuit');
+        $this->assertGuest();
+        // (La "otra" la inserta el test dentro de nuestra transacción, así que se
+        // revierte con ella; en una carrera real viene de otra conexión y queda.)
+        $this->assertSame(0, Company::where('name', 'Ascensores del Sur')->count());
+        $this->assertSame(0, User::where('email', 'duena@sur.test')->count()); // y ningún usuario huérfano
+        $this->assertStringNotContainsString('La otra', session('errors')->first('cuit')); // no revela la empresa
+        $this->assertStringContainsString(config('app.support_email'), session('errors')->first('cuit'));
+    }
+
+    public function test_if_the_admin_cannot_be_created_the_company_is_not_left_behind(): void
+    {
+        User::creating(function (User $user) {
+            if ($user->email === 'duena@sur.test') {
+                DB::table('users')->insert(['name' => 'Otro', 'email' => 'duena@sur.test', 'password' => 'x', 'role' => 'admin', 'created_at' => now(), 'updated_at' => now()]);
+            }
+        });
+
+        $this->register()->assertSessionHasErrors('email');
+
+        $this->assertSame(0, Company::count()); // el CUIT no queda "tomado"
+        $this->register(['email' => 'otra@sur.test'])->assertSessionHasNoErrors();
+    }
+
+    public function test_terms_acceptance_is_recorded_and_the_cuit_message_reveals_nothing(): void
+    {
+        $this->register()->assertSessionHasNoErrors();
+        $this->assertNotNull(User::where('email', 'duena@sur.test')->sole()->terms_accepted_at);
+        auth()->logout();
+
+        $this->register(['email' => 'otra@sur.test'])->assertSessionHasErrors('cuit');
+        $message = session('errors')->first('cuit');
+        $this->assertStringNotContainsString('Ascensores del Sur', $message);
+        $this->assertStringNotContainsString('duena@sur.test', $message);
+        $this->assertStringContainsString('recuperá tu contraseña', $message);
+    }
+
+    public function test_the_cuit_migration_stops_without_touching_data_if_there_are_duplicates(): void
+    {
+        $migration = require database_path('migrations/2026_10_20_100500_add_unique_index_to_companies_cuit.php');
+        $migration->down();
+
+        $a = Company::factory()->create();
+        $b = Company::factory()->create();
+        DB::table('companies')->where('id', $a->id)->update(['cuit' => '30-71234567-1']);
+        DB::table('companies')->where('id', $b->id)->update(['cuit' => '30712345671']);
+
+        try {
+            $migration->up();
+            $this->fail('La migración siguió con CUIT repetidos.');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('30-71234567-1', $e->getMessage());
+        }
+
+        $this->assertSame('30712345671', DB::table('companies')->where('id', $b->id)->value('cuit')); // sin cambios
+
+        // Resuelto el duplicado, migra normal.
+        DB::table('companies')->where('id', $b->id)->update(['cuit' => '']);
+        $migration->up();
+        $this->assertNull(DB::table('companies')->where('id', $b->id)->value('cuit'));
     }
 }

@@ -22,6 +22,7 @@ use App\Services\Insights\FailureAnalysis;
 use App\Services\Insights\Indicators;
 use App\Services\Insights\MaintenanceAgenda;
 use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\Concerns\InteractsWithTenants;
@@ -205,6 +206,47 @@ class InsightsTest extends TestCase
         $this->assertFalse($agenda->rows(10, 2026)->contains(fn ($r) => $r['building']->id === $this->b['building']->id));
     }
 
+    public function test_visits_are_monthly_whatever_the_billing_frequency_of_the_contract(): void
+    {
+        $this->actingInPanel($this->a['admin']);
+        $agenda = app(MaintenanceAgenda::class);
+        $this->a['building']->users()->detach(); // sin técnico: la fila sale del contrato
+
+        foreach (array_keys(MaintenanceService::FREQUENCIES) as $frequency) {
+            MaintenanceService::query()->delete();
+            $service = MaintenanceService::create(['client_id' => $this->a['building']->client_id, 'building_id' => $this->a['building']->id, 'description' => "Abono {$frequency}", 'amount' => 120000, 'frequency' => $frequency, 'start_date' => '2026-01-01', 'payment_due_day' => 10, 'status' => 'active']);
+
+            // La agenda pide la visita TODOS los meses del contrato (nunca saltea por la frecuencia de cobro).
+            foreach ([7, 8, 9, 10, 11] as $month) {
+                $this->assertTrue($agenda->rows($month, 2026, 'maintenance')->contains(fn ($r) => $r['building']->id === $this->a['building']->id), "{$frequency}: mes {$month}");
+            }
+
+            // Hecho este mes → la próxima visita es el mes que viene.
+            $visit = $this->visit($this->a, 'maintenance', 10);
+            $this->assertSame('2026-11-01', $service->fresh()->visitStatus('maintenance')['next']->toDateString(), $frequency);
+            $visit->delete();
+
+            // El cobro sí sigue la frecuencia del contrato (períodos de N meses).
+            $this->assertSame(MaintenanceService::FREQUENCIES[$frequency][1], $service->monthsPerPeriod());
+        }
+
+        $this->assertSame(1, MaintenanceAgenda::VISIT_EVERY_MONTHS);
+    }
+
+    public function test_contract_dates_bound_the_agenda(): void
+    {
+        $this->actingInPanel($this->a['admin']);
+        $this->a['building']->users()->detach();
+        MaintenanceService::create(['client_id' => $this->a['building']->client_id, 'building_id' => $this->a['building']->id, 'description' => 'Abono', 'amount' => 1, 'frequency' => 'quarterly', 'start_date' => '2026-09-01', 'end_date' => '2026-10-31', 'payment_due_day' => 10, 'status' => 'active']);
+        $agenda = app(MaintenanceAgenda::class);
+        $has = fn (int $m) => $agenda->rows($m, 2026, 'maintenance')->contains(fn ($r) => $r['building']->id === $this->a['building']->id);
+
+        $this->assertFalse($has(8));   // antes del inicio
+        $this->assertTrue($has(9));
+        $this->assertTrue($has(10));
+        $this->assertFalse($has(11));  // después del fin
+    }
+
     public function test_agenda_page_ignores_tampered_filters(): void
     {
         $this->actingInPanel($this->a['admin']);
@@ -225,37 +267,52 @@ class InsightsTest extends TestCase
     |--------------------------------------------------------------------------
     */
 
-    public function test_failure_analysis_counts_interventions_by_component(): void
+    public function test_failure_analysis_separates_reports_claims_and_resolved_claims(): void
     {
         $this->actingInPanel($this->a['admin']);
+        // 4 reportes (pares) y 3 reclamos completados (impares) → 7 avisos.
         $this->interventions($this->a, 'Ascensor 1', ['doors', 'doors', 'doors', 'doors', 'controller', 'controller', 'controller']);
-        $this->interventions($this->a, 'Ascensor 1', ['doors', 'doors'], daysAgo: 120);       // fuera de los 90 días
-        $this->interventions($this->a, 'Ascensor 2', ['motor']);                               // otro equipo
-        $this->asGuest(fn () => $this->interventions($this->b, 'Ascensor 1', ['doors', 'doors', 'doors', 'doors'])); // otra empresa
+        // Un reclamo abierto (no resuelto): cuenta como aviso, NO como intervención hecha.
+        WorkOrder::factory()->create(['building_id' => $this->a['building']->id, 'unit' => 'Ascensor 1', 'type' => 'claim', 'status' => 'pending', 'component' => 'doors']);
+        // No cuentan: fuera de los 90 días, otro equipo, otra empresa, órdenes que no son reclamo, órdenes eliminadas.
+        $this->interventions($this->a, 'Ascensor 1', ['doors', 'doors'], daysAgo: 120);
+        $this->interventions($this->a, 'Ascensor 2', ['motor']);
+        $this->asGuest(fn () => $this->interventions($this->b, 'Ascensor 1', ['doors', 'doors', 'doors', 'doors']));
+        WorkOrder::factory()->create(['building_id' => $this->a['building']->id, 'unit' => 'Ascensor 1', 'type' => 'installation', 'status' => 'completed']);
+        WorkOrder::factory()->create(['building_id' => $this->a['building']->id, 'unit' => 'Ascensor 1', 'type' => 'claim', 'status' => 'pending'])->delete();
 
         $elevator = Elevator::where('building_id', $this->a['building']->id)->where('label', 'Ascensor 1')->sole();
-        $result = app(FailureAnalysis::class)->forElevator($elevator);
+        $r = app(FailureAnalysis::class)->forElevator($elevator);
 
-        $this->assertSame(7, $result['total']);
-        $this->assertSame(['Puertas y operador' => 4, 'Maniobra / controlador' => 3], $result['by_component']);
-        $this->assertTrue($result['recurrent']);
-        $this->assertSame("Ascensor 1 ({$this->a['building']->name}) tuvo 7 intervenciones en los últimos 90 días: 4 de puertas y operador, 3 de maniobra / controlador.", $result['message']);
+        $this->assertSame(4, $r['reports']);
+        $this->assertSame(4, $r['claims']);   // 3 completados + 1 abierto
+        $this->assertSame(3, $r['done']);     // solo los completados son intervenciones hechas
+        $this->assertSame(8, $r['signals']);
+        $this->assertSame(['Puertas y operador' => 5, 'Maniobra / controlador' => 3], $r['by_component']);
+        $this->assertTrue($r['recurrent']);
+        $this->assertSame("Ascensor 1 ({$this->a['building']->name}): 8 avisos de falla en los últimos 90 días (4 reportes y 4 reclamos; 3 reclamos resueltos). Por componente: 5 de puertas y operador, 3 de maniobra / controlador.", $r['message']);
 
+        // A nivel empresa: un solo equipo reincidente, con los mismos números (sin duplicar).
         $recurrent = app(FailureAnalysis::class)->recurrent();
-        $this->assertCount(1, $recurrent); // ni el otro equipo (1) ni la otra empresa
+        $this->assertCount(1, $recurrent);
         $this->assertSame($elevator->id, $recurrent->first()['elevator']->id);
+        $this->assertSame([8, 4, 4, 3], [$recurrent->first()['signals'], $recurrent->first()['reports'], $recurrent->first()['claims'], $recurrent->first()['done']]);
     }
 
-    public function test_unclassified_interventions_are_reported_not_guessed(): void
+    public function test_the_90_day_window_is_exact_and_windows_do_not_overlap(): void
     {
         $this->actingInPanel($this->a['admin']);
-        $this->interventions($this->a, 'Ascensor 1', [null, null, 'doors']);
+        $elevator = Elevator::where('building_id', $this->a['building']->id)->where('label', 'Ascensor 1')->sole();
+        $make = fn (CarbonInterface $at) => Report::factory()->create(['building_id' => $this->a['building']->id, 'user_id' => $this->a['technician']->id, 'elevator_number' => 'Ascensor 1', 'created_at' => $at]);
 
-        $result = app(FailureAnalysis::class)->forElevator(Elevator::where('building_id', $this->a['building']->id)->where('label', 'Ascensor 1')->sole());
+        $make(now()->subDays(90)->addMinute());   // adentro
+        $make(now()->subDays(90));                // justo en el borde: ventana (desde, hasta] → afuera
+        $make(now()->subDays(91));                // afuera (cae en la ventana anterior)
 
-        $this->assertSame(3, $result['total']);
-        $this->assertSame(2, $result['unclassified']);
-        $this->assertSame(['Puertas y operador' => 1], $result['by_component']);
+        $this->assertSame(1, app(FailureAnalysis::class)->forElevator($elevator)['reports']);
+        $this->assertSame(2, app(FailureAnalysis::class)->forElevator($elevator, until: now()->subDays(90))['reports']); // ventana anterior
+        // Cada reporte cae en una sola ventana.
+        $this->assertSame(3, app(FailureAnalysis::class)->forElevator($elevator)['reports'] + app(FailureAnalysis::class)->forElevator($elevator, until: now()->subDays(90))['reports']);
     }
 
     /*

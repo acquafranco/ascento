@@ -88,6 +88,17 @@ class ElevatorFileTest extends TestCase
         $this->assertSame(['Ascensor 1', 'Ascensor 2', 'Ascensor 3', 'Montacargas 1'], Elevator::withoutGlobalScopes()->where('building_id', $building->id)->orderBy('id')->pluck('label')->all());
     }
 
+    public function test_a_restored_building_gets_its_files(): void
+    {
+        $building = Building::factory()->create(['company_id' => $this->a['company']->id, 'elevator_count' => 2]);
+        $building->delete();
+        DB::table('elevators')->where('building_id', $building->id)->delete(); // como un eliminado antes de la migración
+
+        $building->restore();
+
+        $this->assertSame(['Ascensor 1', 'Ascensor 2'], Elevator::withoutGlobalScopes()->where('building_id', $building->id)->orderBy('id')->pluck('label')->all());
+    }
+
     public function test_admin_completes_the_technical_sheet_and_cannot_move_it(): void
     {
         $this->actingInPanel($this->a['admin']);

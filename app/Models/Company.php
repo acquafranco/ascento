@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
-use App\Models\Report;
+use App\Enums\PlanFeature;
+use App\Rules\Cuit;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Company extends Model
 {
@@ -49,6 +50,21 @@ class Company extends Model
         'activity_started_at' => 'date',
     ];
 
+    /**
+     * CUIT siempre con el mismo formato (30-71234567-1), venga de donde venga
+     * (registro, Mi empresa, panel del SuperAdmin), para que la unicidad
+     * funcione. Vacío → null. Lo que no tiene 11 dígitos (dato viejo) se guarda tal
+     * cual. El dígito verificador lo validan el registro y "Mi empresa".
+     */
+    public function setCuitAttribute(?string $value): void
+    {
+        $value = trim((string) $value);
+
+        $this->attributes['cuit'] = $value === ''
+            ? null
+            : (strlen(Cuit::normalize($value)) === 11 ? Cuit::format($value) : $value);
+    }
+
     public function users()
     {
         return $this->hasMany(User::class);
@@ -84,7 +100,7 @@ class Company extends Model
         return $this->hasMany(Report::class);
     }
 
-   public function subscriptions(): HasMany
+    public function subscriptions(): HasMany
     {
         return $this->hasMany(Subscription::class);
     }
@@ -210,7 +226,7 @@ class Company extends Model
                 // Sin planes en la base (instalación nueva sin migrar): sin límites.
                 'name' => 'Ascento',
                 'slug' => SubscriptionPlan::EMPRESA,
-                'feature_keys' => array_map(fn ($f) => $f->value, \App\Enums\PlanFeature::cases()),
+                'feature_keys' => array_map(fn ($f) => $f->value, PlanFeature::cases()),
             ]);
     }
 

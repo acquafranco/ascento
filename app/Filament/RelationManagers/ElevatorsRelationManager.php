@@ -2,6 +2,7 @@
 
 namespace App\Filament\RelationManagers;
 
+use App\Filament\Concerns\OwnerRecordOfCurrentCompany;
 use App\Filament\Resources\Elevators\ElevatorResource;
 use App\Models\Elevator;
 use Filament\Actions\Action;
@@ -12,6 +13,8 @@ use Filament\Tables\Table;
 /** Equipos del edificio con acceso a su legajo. */
 class ElevatorsRelationManager extends RelationManager
 {
+    use OwnerRecordOfCurrentCompany;
+
     protected static string $relationship = 'elevators';
 
     protected static ?string $title = 'Ascensores';

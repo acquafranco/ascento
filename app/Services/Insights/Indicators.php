@@ -193,7 +193,7 @@ class Indicators
                 ['question' => '¿Cuánto factura la cartera por mes?', 'value' => '$'.number_format($total, 0, ',', '.'), 'context' => $services->count().' contratos activos (mensualizados)'],
                 ['question' => '¿Dependemos de pocos clientes?', 'value' => $total > 0 ? $this->pct($byClient->take(5)->sum(), $total).'%' : '—', 'context' => 'de los ingresos vienen de los 5 clientes principales'],
                 ['question' => '¿Cuántos edificios no tienen contrato?', 'value' => (string) max(0, $buildings - $withContract), 'context' => "de {$buildings} edificios · ".Client::count().' clientes'],
-                ['question' => '¿Qué parte de los ascensores falla seguido?', 'value' => $elevators > 0 ? $this->pct($recurrent, $elevators).'%' : '—', 'context' => "{$recurrent} de {$elevators} con ".FailureAnalysis::THRESHOLD.'+ intervenciones en '.FailureAnalysis::DAYS.' días'],
+                ['question' => '¿Qué parte de los ascensores falla seguido?', 'value' => $elevators > 0 ? $this->pct($recurrent, $elevators).'%' : '—', 'context' => "{$recurrent} de {$elevators} con ".FailureAnalysis::THRESHOLD.'+ avisos de falla en '.FailureAnalysis::DAYS.' días'],
             ],
             'top_clients' => $byClient->take(5)->map(fn ($amount, $client) => ['client' => $client, 'monthly' => $amount, 'share' => $total > 0 ? $this->pct($amount, $total) : null])->values(),
             'quarters' => $quarters,

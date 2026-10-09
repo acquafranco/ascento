@@ -147,6 +147,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
                 }
             });
 
+            // Un edificio restaurado (la migración no crea legajos para los
+            // eliminados) recupera los suyos.
+            static::restored(fn (Building $building) => Elevator::syncForBuilding($building));
+
             // Se geocodifica después de responder al usuario (no lo demora)
             // y una sola vez por cambio de dirección.
             static::saved(function (Building $building) {

@@ -551,7 +551,7 @@
                 <div>
                     <div class="text-xs font-semibold text-white/40 uppercase tracking-wide">Contacto</div>
                     <ul class="mt-4 space-y-2.5 text-sm">
-                        <li><a href="mailto:hola@ascento.com" class="hover:text-white transition-colors">contacto@ascento.online</a></li>
+                        <li><a href="mailto:{{ config('app.support_email') }}" class="hover:text-white transition-colors">{{ config('app.support_email') }}</a></li>
                         <li><a href="tel:+541100000000" class="hover:text-white transition-colors">+54 11 0000-0000</a></li>
                         <li>Buenos Aires, Argentina</li>
                     </ul>

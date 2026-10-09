@@ -12,6 +12,8 @@ use Filament\Tables\Table;
 /** Servicios de un cliente o edificio (se gestionan en "Servicios"). */
 class ServicesRelationManager extends RelationManager
 {
+    use \App\Filament\Concerns\OwnerRecordOfCurrentCompany;
+
     protected static string $relationship = 'maintenanceServices';
 
     protected static ?string $title = 'Servicios';

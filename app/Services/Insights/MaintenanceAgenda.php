@@ -23,6 +23,18 @@ use Illuminate\Support\Collection;
  */
 class MaintenanceAgenda
 {
+    /**
+     * Cada cuántos meses se visita un edificio. En Ascento la visita es
+     * MENSUAL en todo el sistema: una visita fija por edificio, tipo y mes
+     * (building_visits.month/year), un remito por mes y la app del técnico
+     * cuenta los pendientes del mes. La frecuencia del servicio
+     * (maintenance_services.frequency) es la de COBRO, no la de visitas: un
+     * contrato cobrado por trimestre igual se mantiene todos los meses.
+     * Si algún día se necesitan visitas no mensuales, falta un dato propio
+     * (p. ej. visit_every_months en el servicio) que hoy no existe.
+     */
+    public const VISIT_EVERY_MONTHS = 1;
+
     public const TYPES = ['maintenance' => 'Mantenimiento', 'inspection' => 'Inspección'];
 
     public const STATUSES = [

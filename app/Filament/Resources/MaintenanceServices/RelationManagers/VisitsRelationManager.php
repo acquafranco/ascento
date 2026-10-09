@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\MaintenanceServices\RelationManagers;
 
+use App\Filament\Concerns\OwnerRecordOfCurrentCompany;
 use App\Models\BuildingVisit;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
@@ -14,6 +15,8 @@ use Filament\Tables\Table;
  */
 class VisitsRelationManager extends RelationManager
 {
+    use OwnerRecordOfCurrentCompany;
+
     protected static string $relationship = 'visits';
 
     protected static ?string $title = 'Visitas realizadas';
