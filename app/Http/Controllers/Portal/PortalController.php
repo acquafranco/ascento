@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Portal;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\ReportVideoController;
 use App\Models\Building;
 use App\Models\BuildingVisit;
 use App\Models\DeliveryNote;
@@ -11,11 +12,13 @@ use App\Models\ElevatorDocument;
 use App\Models\Quote;
 use App\Models\Report;
 use App\Models\ReportPhoto;
+use App\Services\Reports\ReportPhotoService;
 use App\Support\Portal\PortalAccess;
 use App\Support\Portal\PortalDocuments;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -190,7 +193,7 @@ class PortalController extends Controller
         PortalAccess::ensureShared($request->user(), $report, (int) $report->building_id);
         $this->markSeen($request, $report);
 
-        $report->load(['building', 'photos']);
+        $report->load(['building', 'photos', 'video']);
 
         return view('portal.report', ['report' => $report]);
     }
@@ -203,11 +206,23 @@ class PortalController extends Controller
         $disk = $photo->disk();
         abort_unless($disk, 404);
 
+        if ($request->boolean('thumb') && ($thumb = app(ReportPhotoService::class)->thumbnail($photo))) {
+            return Storage::disk('local')->response($thumb, null, ['Content-Type' => 'image/jpeg', 'Cache-Control' => 'private, max-age=86400', 'X-Content-Type-Options' => 'nosniff']);
+        }
+
         return Storage::disk($disk)->response($photo->path, null, [
             'Cache-Control' => 'private, max-age=3600',
             'X-Content-Type-Options' => 'nosniff',
             'Content-Security-Policy' => "default-src 'none'",
         ]);
+    }
+
+    /** Video de un reporte compartido (con soporte de rangos: necesario para Safari/iPhone). */
+    public function reportVideo(Request $request, Report $report): BinaryFileResponse
+    {
+        PortalAccess::ensureShared($request->user(), $report, (int) $report->building_id);
+
+        return ReportVideoController::serve($report);
     }
 
     public function quote(Request $request, Quote $quote)

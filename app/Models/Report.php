@@ -48,6 +48,12 @@ class Report extends Model
     }
 
     /** Fotos del reporte, en orden. */
+    /** Video del reporte (uno como máximo). */
+    public function video()
+    {
+        return $this->hasOne(ReportVideo::class);
+    }
+
     public function photos()
     {
         return $this->hasMany(ReportPhoto::class)->orderBy('position')->orderBy('id');

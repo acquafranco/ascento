@@ -148,6 +148,19 @@
             </div>
         </div>
 
+        @if(\App\Services\Reports\ReportVideoService::allowedFor(auth()->user()->company))
+            {{-- Un video por reporte (Profesional y Empresa). Se valida también en el servidor. --}}
+            <div>
+                <label for="videoInput" class="text-sm font-bold text-gray-700">
+                    Video del problema <span class="font-normal text-gray-500">(opcional, hasta {{ config('media.video_max_seconds') }} s y {{ config('media.video_max_mb') }} MB)</span>
+                </label>
+                <input id="videoInput" type="file" name="video" accept="video/mp4,video/quicktime,video/webm"
+                       class="mt-2 block w-full text-sm text-gray-700 file:mr-3 file:rounded-xl file:border-0 file:bg-blue-50 file:px-4 file:py-3 file:font-bold file:text-blue-700">
+                <p id="videoHint" class="mt-1 text-xs text-gray-500">Grabá un video corto donde se vea la falla. Con señal débil puede tardar en subir.</p>
+                @error('video')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+            </div>
+        @endif
+
 
         <button id="submitReport" class="w-full py-4 rounded-2xl bg-blue-600 text-white text-lg font-bold shadow-sm disabled:opacity-60">
             Enviar reporte
@@ -328,8 +341,30 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('No hay conexión a internet. El reporte NO se envió, pero no se perdió nada: esperá a tener señal y tocá "Enviar reporte" de nuevo.');
             return;
         }
+        // Video: tamaño y duración antes de subir (el servidor lo vuelve a validar).
+        const video = document.getElementById('videoInput')?.files?.[0];
+        if (video) {
+            const maxMb = {{ (int) config('media.video_max_mb') }}, maxSeconds = {{ (int) config('media.video_max_seconds') }};
+            if (video.size > maxMb * 1024 * 1024) {
+                alert('El video pesa ' + (video.size / 1048576).toFixed(1) + ' MB. El máximo es ' + maxMb + ' MB: grabá uno más corto.');
+                return;
+            }
+            const seconds = await new Promise((resolve) => {
+                const probe = document.createElement('video');
+                probe.preload = 'metadata';
+                probe.onloadedmetadata = () => { URL.revokeObjectURL(probe.src); resolve(probe.duration); };
+                probe.onerror = () => resolve(0);
+                probe.src = URL.createObjectURL(video);
+                setTimeout(() => resolve(0), 4000);
+            });
+            if (seconds > maxSeconds + 1) {
+                alert('El video dura ' + Math.round(seconds) + ' segundos. El máximo es ' + maxSeconds + ' segundos.');
+                return;
+            }
+        }
+
         submit.disabled = true;
-        submit.textContent = photos.length ? 'Preparando fotos…' : 'Enviando…';
+        submit.textContent = photos.length ? 'Preparando fotos…' : (video ? 'Subiendo video…' : 'Enviando…');
 
         try {
             const transfer = new DataTransfer();

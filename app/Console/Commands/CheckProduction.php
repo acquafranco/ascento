@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Notifications\MailOnlyNotification;
+use App\Services\Reports\ReportVideoService;
 use Illuminate\Console\Command;
 use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -92,6 +93,15 @@ class CheckProduction extends Command
             $origins = (array) config('reverb.apps.apps.0.allowed_origins');
             $this->check($origins !== ['*'], 'REVERB_ALLOWED_ORIGINS='.implode(',', $origins), 'REVERB_ALLOWED_ORIGINS=* (cualquier sitio puede conectarse). Poné REVERB_ALLOWED_ORIGINS=ascento.online');
         }
+
+        $this->line('<options=bold>Fotos y videos</>');
+        $toMb = fn (string $v) => (int) $v * (str_ends_with(strtoupper($v), 'G') ? 1024 : (str_ends_with(strtoupper($v), 'K') ? 1 / 1024 : 1));
+        $upload = $toMb((string) ini_get('upload_max_filesize'));
+        $post = $toMb((string) ini_get('post_max_size'));
+        $need = (int) config('media.video_max_mb') + 10;
+        $this->check($upload >= $need && $post >= $need, "Límite de subida de PHP: {$upload} MB (post {$post} MB)",
+            "PHP acepta {$upload} MB por archivo / {$post} MB por envío: los videos de hasta ".config('media.video_max_mb')." MB fallan. En Forge: PHP → upload_max_filesize y post_max_size ≥ {$need}M (y client_max_body_size en Nginx). Este chequeo lee la configuración de la CLI; confirmá también la de PHP-FPM");
+        $this->info('  · FFmpeg: '.(ReportVideoService::ffmpegAvailable() ? 'disponible (los videos se comprimen)' : 'no disponible (los videos se guardan sin comprimir; opcional: apt install ffmpeg)'));
 
         $this->line('<options=bold>Push y Telegram (opcionales)</>');
         $this->info('  · Push (VAPID): '.(filled(config('webpush.vapid.public_key')) && filled(config('webpush.vapid.private_key')) ? 'configurado' : 'NO configurado (VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY)'));

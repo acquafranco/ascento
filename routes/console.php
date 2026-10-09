@@ -32,3 +32,6 @@ Schedule::command('exports:prune')->dailyAt('03:30');
 // Recordatorios de la agenda (pendientes desde el día 20, vencidos del mes
 // anterior los días 1 a 5). Cada aviso sale una sola vez por mes.
 Schedule::command('notifications:visits')->dailyAt('08:00')->withoutOverlapping();
+
+// Videos de reportes: compresión en segundo plano (solo si hay FFmpeg).
+Schedule::command('media:process-videos')->everyMinute()->withoutOverlapping(15);

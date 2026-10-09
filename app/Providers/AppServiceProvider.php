@@ -28,6 +28,10 @@ class AppServiceProvider extends ServiceProvider
     {
         Carbon::setLocale('es');
 
+        // Subidas temporales de Livewire (panel): alcanza para el video de un
+        // reporte (por defecto Livewire corta en 12 MB).
+        config(['livewire.temporary_file_upload.rules' => ['required', 'file', 'max:'.max(12288, (int) config('media.video_max_mb') * 1024)]]);
+
         // Tiempo real: la campanita de Filament usa Echo con la configuración
         // de Reverb, y los avisos guardados por el canal "database" (los que no
         // pasan por Notifier) también se emiten al instante.

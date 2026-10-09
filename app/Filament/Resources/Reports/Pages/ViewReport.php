@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Reports\Pages;
 
 use App\Filament\Resources\Reports\ReportResource;
+use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
 
 class ViewReport extends ViewRecord
@@ -17,7 +18,8 @@ class ViewReport extends ViewRecord
     {
         return [
             ReportPdfAction::make(),
-            \Filament\Actions\EditAction::make(),
+            ...ReportVideoActions::make(),
+            EditAction::make(),
         ];
     }
 }

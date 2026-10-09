@@ -44,6 +44,16 @@ class ReportPhotoController extends Controller
 
         abort_unless($disk, 404);
 
+        // ?thumb=1 → miniatura (listas, conexiones lentas).
+        if (request()->boolean('thumb') && ($thumb = app(\App\Services\Reports\ReportPhotoService::class)->thumbnail($photo))) {
+            return Storage::disk('local')->response($thumb, null, [
+                'Content-Type' => 'image/jpeg',
+                'Cache-Control' => 'private, max-age=86400',
+                'X-Content-Type-Options' => 'nosniff',
+                'Content-Security-Policy' => "default-src 'none'",
+            ]);
+        }
+
         return Storage::disk($disk)->response($photo->path, null, [
             'Cache-Control' => 'private, max-age=3600',
             'X-Content-Type-Options' => 'nosniff',

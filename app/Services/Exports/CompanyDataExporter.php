@@ -18,6 +18,7 @@ use App\Models\Receivable;
 use App\Models\ReceivablePayment;
 use App\Models\Report;
 use App\Models\ReportPhoto;
+use App\Models\ReportVideo;
 use App\Models\StockItem;
 use App\Models\StockMovement;
 use App\Models\User;
@@ -346,6 +347,14 @@ class CompanyDataExporter
             }
         });
 
+        // Videos de reportes → adjuntos/videos (mismas validaciones de ruta).
+        $this->scoped(ReportVideo::class)->orderBy('report_id')->chunkById(self::CHUNK, function ($videos) {
+            foreach ($videos as $video) {
+                $building = Str::slug($this->name('buildings', $this->names['report_building'][$video->report_id] ?? null) ?? 'edificio');
+                $this->attach((string) $video->path, 'reports/', 'adjuntos/videos/'.$building.'/reporte-'.$video->report_id.'.'.(ReportVideo::MIMES[$video->mime] ?? 'mp4'), "Reporte #{$video->report_id} (video)");
+            }
+        });
+
         $types = ['maintenance' => 'Mantenimiento', 'inspection' => 'Inspección', 'work_order' => 'Orden de trabajo'];
         $this->sheet('Remitos', ['ID', 'Número', 'Fecha', 'Tipo', 'Edificio ID', 'Edificio', 'Técnico', 'Período', 'Orden ID', 'Realizado', 'Trabajo realizado', 'Firmó (técnico)', 'Firmó (cliente)', 'Compartido con el cliente'],
             $this->scoped(DeliveryNote::class), fn ($n) => [$n->id, $n->number, $n->created_at, $types[$n->assignment_type] ?? $n->assignment_type, $n->building_id, $this->name('buildings', $n->building_id), $this->name('users', $n->user_id),
@@ -404,7 +413,7 @@ class CompanyDataExporter
             '',
             'Contenido:',
             '- datos-*.xlsx: una hoja por tipo de dato. Los ID permiten relacionar hojas (por ejemplo, "Edificio ID").',
-            '- adjuntos/reportes: fotos de los reportes. adjuntos/documentos: planos, manuales, certificados y fotos de los ascensores.',
+            '- adjuntos/reportes: fotos de los reportes. adjuntos/videos: videos de los reportes. adjuntos/documentos: planos, manuales, certificados y fotos de los ascensores.',
             '- La hoja "Archivos" indica a qué registro corresponde cada archivo y cuáles no se pudieron incluir.',
             '',
             'No incluye: contraseñas, tokens de acceso, firmas dibujadas, datos de pago de la suscripción ni datos de otras empresas.',

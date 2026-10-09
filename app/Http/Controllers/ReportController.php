@@ -95,6 +95,7 @@ class ReportController extends Controller
             'building',
             'user',
             'photos',
+            'video',
         ]);
 
         return view('reports.show', compact('report', 'company'));
@@ -128,6 +129,7 @@ class ReportController extends Controller
             // Fotos opcionales (hasta 6). Solo imágenes: se decodifican y se
             // vuelven a codificar (ver ReportPhotoService).
             ...ReportPhotoService::rules(),
+            ...\App\Services\Reports\ReportVideoService::rules(),
         ], [
             'building_id.required' => 'Tenés que seleccionar un edificio.',
             'elevator_number.required' => 'Tenés que seleccionar un equipo.',
@@ -135,6 +137,7 @@ class ReportController extends Controller
             'description.min' => 'La descripción debe tener al menos 5 caracteres.',
             'priority.required' => 'Seleccioná una prioridad.',
             ...ReportPhotoService::messages(),
+            ...\App\Services\Reports\ReportVideoService::messages(),
         ]);
 
         $building = Building::where('id', $data['building_id'])
@@ -157,8 +160,12 @@ class ReportController extends Controller
         }
 
         // Reporte y fotos juntos: si una foto no se puede procesar, no se
-        // crea nada (ni quedan archivos sueltos).
+        // crea nada (ni quedan archivos sueltos). El video se valida antes.
         try {
+            if ($request->hasFile('video')) {
+                app(\App\Services\Reports\ReportVideoService::class)->check($company, $request->file('video'));
+            }
+
             $report = DB::transaction(function () use ($data, $company, $request) {
                 $report = Report::create([
                     'building_id' => $data['building_id'],
@@ -171,6 +178,11 @@ class ReportController extends Controller
                 ]);
 
                 app(ReportPhotoService::class)->add($report, $request->file('photos', []));
+
+                // Video (opcional): plan, cantidad, tamaño y formato se validan en el servicio.
+                if ($request->hasFile('video')) {
+                    app(\App\Services\Reports\ReportVideoService::class)->store($report, $request->file('video'), Auth::user());
+                }
 
                 return $report;
             });

@@ -366,6 +366,9 @@ Route::middleware(['auth', 'subscription'])->whereNumber(['report', 'photo'])->g
     Route::get('/files/reports/{report}/photo', [ReportPhotoController::class, 'first'])->name('reports.photo');
     Route::get('/files/reports/{report}/photos/{photo}', [ReportPhotoController::class, 'show'])->name('reports.photos.show');
     Route::get('/files/reports/{report}/pdf', \App\Http\Controllers\ReportPdfController::class)->name('reports.pdf');
+    Route::get('/files/reports/{report}/video', [\App\Http\Controllers\ReportVideoController::class, 'show'])->name('reports.video');
+    Route::post('/files/reports/{report}/video', [\App\Http\Controllers\ReportVideoController::class, 'store'])->middleware('throttle:10,1')->name('reports.video.store');
+    Route::delete('/files/reports/{report}/video', [\App\Http\Controllers\ReportVideoController::class, 'destroy'])->name('reports.video.destroy');
 });
 
 // Exportación de datos de la empresa (ZIP privado): solo admins de la
@@ -402,6 +405,7 @@ Route::prefix('portal')->name('portal.')->middleware(['auth', 'portal'])->group(
     Route::get('/remitos/{deliveryNote}', [\App\Http\Controllers\Portal\PortalController::class, 'deliveryNote'])->name('delivery-note');
     Route::get('/reportes/{report}', [\App\Http\Controllers\Portal\PortalController::class, 'report'])->whereNumber('report')->name('report');
     Route::get('/reportes/{report}/fotos/{photo}', [\App\Http\Controllers\Portal\PortalController::class, 'reportPhoto'])->whereNumber(['report', 'photo'])->name('report-photo');
+    Route::get('/reportes/{report}/video', [\App\Http\Controllers\Portal\PortalController::class, 'reportVideo'])->whereNumber('report')->name('report-video');
     Route::get('/presupuestos/{quote}', [\App\Http\Controllers\Portal\PortalController::class, 'quote'])->whereNumber('quote')->name('quote');
     Route::get('/documentos/{elevatorDocument}', [\App\Http\Controllers\Portal\PortalController::class, 'document'])->whereNumber('elevatorDocument')->name('document');
     Route::get('/notificaciones', [\App\Http\Controllers\NotificationInboxController::class, 'index'])->name('notifications');
