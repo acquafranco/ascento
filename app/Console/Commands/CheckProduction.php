@@ -42,6 +42,8 @@ class CheckProduction extends Command
             $this->check(filled($smtp['host'] ?? null) && ! in_array($smtp['host'], ['127.0.0.1', 'localhost', 'mailpit'], true), 'MAIL_HOST cargado', 'MAIL_HOST vacío o local');
             $this->check(filled($smtp['username'] ?? null) && filled($smtp['password'] ?? null), 'MAIL_USERNAME y MAIL_PASSWORD cargados (no se muestran)', 'Faltan MAIL_USERNAME / MAIL_PASSWORD');
         }
+        $this->check(config('app.name') !== 'Laravel', 'APP_NAME='.config('app.name'), 'APP_NAME es "Laravel": poné APP_NAME=Ascento (aparece en títulos y como remitente)');
+        $this->check(! in_array(config('mail.from.name'), ['Laravel', 'Example', null, ''], true), 'MAIL_FROM_NAME='.config('mail.from.name'), 'MAIL_FROM_NAME es "'.config('mail.from.name').'": los correos llegan con ese remitente. Poné MAIL_FROM_NAME=Ascento');
         $from = (string) config('mail.from.address');
         $this->check(filled($from) && ! str_ends_with($from, 'example.com'), "MAIL_FROM_ADDRESS={$from}", 'MAIL_FROM_ADDRESS es el de ejemplo: usá una dirección de un dominio verificado en tu proveedor');
 

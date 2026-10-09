@@ -4,7 +4,7 @@
 
             <div class="flex items-center gap-8">
                 <a href="{{ route('dashboard', ['company' => auth()->user()->company->slug]) }}" class="flex items-center gap-2.5 shrink-0">
-                        <img src="{{ asset('images/logo.png') }}" alt="Ascento" class="rounded-md h-7 w-7 object-contain">
+                        <img src="{{ asset('images/brand/logo-128.png') }}" alt="Ascento" class="rounded-md h-7 w-7 object-contain">
                     <span class="font-semibold text-[17px] tracking-tight text-[#14171C]">Ascento</span>
                 </a>
 

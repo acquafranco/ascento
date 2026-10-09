@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    @include('partials.brand-head')
 
     <title>Eliminación de Datos — Ascento</title>
     <meta name="description" content="Instrucciones para solicitar la eliminación de datos personales y cuentas de usuario en Ascento.">
@@ -46,7 +47,7 @@
 
         <a href="/" class="flex items-center gap-2.5 shrink-0">
             <img
-                src="{{ asset('images/logo.png') }}"
+                src="{{ asset('images/brand/logo-128.png') }}"
                 alt="Ascento"
                 class="h-8 w-8 rounded-md object-contain"
             >

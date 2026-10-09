@@ -7,17 +7,16 @@
 
         <title>Ascento — Software de gestión para empresas de mantenimiento de ascensores</title>
         <meta name="description" content="Ascento es la plataforma para administrar clientes, edificios, técnicos, órdenes de trabajo, mantenimientos e inspecciones de tu empresa de ascensores, todo en un solo lugar.">
-        <meta name="theme-color" content="#12151C">
 
         {{-- Favicon (ícono de la pestaña) --}}
-        <link rel="icon" type="image/png" href="{{ asset('images/logo.png') }}">
+        @include('partials.brand-head')
 
         {{-- WhatsApp / redes sociales --}}
         <meta property="og:title" content="Ascento | Gestión para empresas de ascensores">
         <meta property="og:description" content="Toda la gestión de tu empresa de ascensores, en un solo lugar.">
-        <meta property="og:image" content="https://ascento.online/images/ascento-preview.png">
-        <meta property="og:image:secure_url" content="https://ascento.online/images/ascento-preview.png">
-        <meta property="og:image:type" content="image/png">
+        <meta property="og:image" content="https://ascento.online/images/brand/og-1200x630.jpg">
+        <meta property="og:image:secure_url" content="https://ascento.online/images/brand/og-1200x630.jpg">
+        <meta property="og:image:type" content="image/jpeg">
         <meta property="og:image:width" content="1200">
         <meta property="og:image:height" content="630">
         <meta property="og:image:alt" content="Ascento">
@@ -27,7 +26,7 @@
         <meta name="twitter:card" content="summary_large_image">
         <meta name="twitter:title" content="Ascento | Gestión para empresas de ascensores">
         <meta name="twitter:description" content="Toda la gestión de tu empresa de ascensores, en un solo lugar.">
-        <meta name="twitter:image" content="https://ascento.online/images/ascento-preview.png">
+        <meta name="twitter:image" content="https://ascento.online/images/brand/og-1200x630.jpg">
 
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -91,7 +90,7 @@
             :class="scrolled ? 'bg-paper/90 backdrop-blur border-b border-ink/10' : 'bg-transparent border-b border-transparent'">
         <nav class="mx-auto max-w-7xl px-5 sm:px-8 h-16 flex items-center justify-between">
             <a href="/" class="flex items-center gap-2.5 shrink-0">
-               <img src="{{ asset('images/logo.png') }}" alt="Ascento" class="rounded-md h-8 w-8 object-contain">
+               <img src="{{ asset('images/brand/logo-128.png') }}" alt="Ascento" class="rounded-md h-8 w-8 object-contain">
                 <span class="font-display font-semibold text-[17px] tracking-tight">Ascento</span>
             </a>
 
@@ -527,7 +526,7 @@
             <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-10">
                 <div class="lg:col-span-2">
                     <div class="flex items-center gap-2.5">
-                        <img src="{{ asset('images/logo.png') }}" alt="Ascento" class="rounded-md h-7 w-7 object-contain">
+                        <img src="{{ asset('images/brand/logo-128.png') }}" alt="Ascento" class="rounded-md h-7 w-7 object-contain">
                     </div>
                     <p class="mt-4 text-sm leading-relaxed max-w-xs">El sistema de gestión para empresas de mantenimiento de ascensores.</p>
                 </div>

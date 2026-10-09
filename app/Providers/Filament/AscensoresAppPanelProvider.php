@@ -40,19 +40,14 @@ class AscensoresAppPanelProvider extends PanelProvider
                 'primary' => Color::Amber,
             ])
 
-            ->brandLogo(function () {
-
-                $company = auth()->user()?->company;
-
-                if (! $company?->logo) {
-                    return null;
-                }
-
-                return asset('storage/'.$company->logo);
-
-            })
-            ->brandLogoHeight('60px')
-            ->brandName('ASCENTO')
+            // Logo de la empresa si lo cargó; si no, el de Ascento (nunca el de Laravel).
+            ->brandLogo(fn () => new \Illuminate\Support\HtmlString(view('filament.partials.brand', [
+                'logo' => ($company = auth()->user()?->company)?->logo ? asset('storage/'.$company->logo) : null,
+                'name' => $company?->name ?? 'Ascento',
+            ])->render()))
+            ->brandLogoHeight('2.5rem')
+            ->brandName('Ascento')
+            ->favicon(asset('images/brand/favicon-32.png'))
 
             ->discoverResources(
                 in: app_path('Filament/Resources'),

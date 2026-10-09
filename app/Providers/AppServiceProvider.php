@@ -23,6 +23,15 @@ class AppServiceProvider extends ServiceProvider
     {
         Carbon::setLocale('es');
 
+        // Verificación de email (rutas de Breeze): en español y con el diseño de Ascento.
+        \Illuminate\Auth\Notifications\VerifyEmail::toMailUsing(fn (object $notifiable, string $url) => (new \Illuminate\Notifications\Messages\MailMessage)
+            ->subject('Confirmá tu email - Ascento')
+            ->greeting('Confirmá tu email')
+            ->line('Tocá el botón para confirmar que este email es tuyo.')
+            ->action('Confirmar email', $url)
+            ->line('Si no creaste una cuenta en Ascento, ignorá este correo.')
+            ->salutation('Ascento'));
+
         // Un usuario del portal que elige su contraseña (invitación o
         // recuperación) queda activado y se avisa a los admins de su empresa.
         Event::listen(PasswordReset::class,

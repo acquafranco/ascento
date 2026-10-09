@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    @include('partials.brand-head')
     <title>Términos y Condiciones — Ascento</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>
@@ -70,7 +71,7 @@
             :class="scrolled ? 'bg-paper/90 backdrop-blur border-b border-ink/10' : 'bg-transparent border-b border-transparent'">
         <nav class="mx-auto max-w-7xl px-5 sm:px-8 h-16 flex items-center justify-between">
             <a href="/" class="flex items-center gap-2.5 shrink-0">
-               <img src="{{ asset('images/logo.png') }}" alt="Ascento" class="rounded-md h-8 w-8 object-contain">
+               <img src="{{ asset('images/brand/logo-128.png') }}" alt="Ascento" class="rounded-md h-8 w-8 object-contain">
                 <span class="font-display font-semibold text-[17px] tracking-tight">Ascento</span>
             </a>
 

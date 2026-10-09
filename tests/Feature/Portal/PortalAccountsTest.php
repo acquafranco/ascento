@@ -98,7 +98,7 @@ class PortalAccountsTest extends TestCase
     /** El token tal como llega en el enlace del correo. */
     private function tokenFrom(ResetPasswordNotification $notification, User $user): string
     {
-        return basename(parse_url($notification->toMail($user)->viewData['url'], PHP_URL_PATH));
+        return basename(parse_url($notification->toMail($user)->actionUrl, PHP_URL_PATH));
     }
 
     private function activate(User $user, string $token, string $password = 'una-clave-larga-1')
