@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\WorkOrder;
 use App\Notifications\Channels\TelegramChannel;
+use Filament\Actions\Action;
 use Illuminate\Notifications\Notification;
 use NotificationChannels\WebPush\WebPushChannel;
 use NotificationChannels\WebPush\WebPushMessage;
@@ -21,9 +22,22 @@ class WorkOrderUpdatedNotification extends Notification
     public function via(object $notifiable): array
     {
         return array_values(array_filter([
+            'database', // bandeja del técnico: queda aunque el push falle
             WebPushChannel::class,
             TelegramChannel::enabledFor($notifiable) ? TelegramChannel::class : null,
         ]));
+    }
+
+    public function toDatabase(object $notifiable): array
+    {
+        $path = route('work-orders.show', ['company' => $this->workOrder->company->slug, 'workOrder' => $this->workOrder->id], absolute: false);
+
+        return \Filament\Notifications\Notification::make()
+            ->title('✏️ Orden de trabajo modificada')
+            ->body(trim(($this->workOrder->building?->name ?? '').' '.($this->workOrder->building?->address ?? '')).($this->changes ? ' · Cambió: '.implode(', ', $this->changes) : ''))
+            ->icon('heroicon-o-wrench-screwdriver')
+            ->actions([Action::make('view')->label('Ver orden')->url(url($path))->markAsRead()])
+            ->getDatabaseMessage() + ['path' => $path];
     }
 
     public function toWebPush(object $notifiable, Notification $notification): WebPushMessage

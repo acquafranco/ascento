@@ -48,7 +48,7 @@ class SendWorkOrderAssignedNotification
             Log::warning('No se pudo enviar el push de orden de trabajo', [
                 'work_order_id' => $workOrder->id,
                 'user_id' => $user->id,
-                'error' => $e->getMessage(),
+                'exception' => $e::class,
             ]);
         }
     }

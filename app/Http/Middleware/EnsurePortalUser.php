@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Enums\PlanFeature;
 use App\Support\HomeRedirect;
 use Closure;
 use Illuminate\Http\Request;
@@ -29,7 +30,9 @@ class EnsurePortalUser
             return HomeRedirect::to(); // cuenta sin destino válido: cierra sesión
         }
 
-        if (! $company->hasActiveAccess()) {
+        // Suscripción vencida o plan sin portal (Inicial, o tras bajar de
+        // plan): ninguna pantalla ni descarga del portal, aunque la cuenta exista.
+        if (! $company->hasActiveAccess() || ! $company->plan()->allows(PlanFeature::ClientPortal)) {
             return response()->view('portal.unavailable', ['company' => $company], 403);
         }
 

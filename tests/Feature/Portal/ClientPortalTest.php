@@ -20,6 +20,7 @@ use App\Services\Reports\ReportPhotoService;
 use App\Support\Plans\PlanGuard;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use PHPUnit\Framework\AssertionFailedError;
@@ -58,6 +59,7 @@ class ClientPortalTest extends TestCase
 
         $this->withoutVite();
         Storage::fake('local');
+        Notification::fake();
         $this->a = $this->makeTenant();
         $this->b = $this->makeTenant();
 
@@ -228,7 +230,7 @@ class ClientPortalTest extends TestCase
         // Edificios de otro cliente o de otra empresa inyectados: rechazados.
         Livewire::test(PortalUsersRelationManager::class, ['ownerRecord' => $this->c1, 'pageClass' => EditClient::class])
             ->callTableAction('createPortalUser', data: [
-                'name' => 'Intruso', 'email' => 'intruso@consorcio.test', 'password' => 'clave-segura-1',
+                'name' => 'Intruso', 'email' => 'intruso@consorcio.test',
                 'building_ids' => [$this->b1->id, $this->b3->id, $this->b['building']->id],
             ])
             ->assertHasTableActionErrors();
@@ -236,7 +238,7 @@ class ClientPortalTest extends TestCase
 
         Livewire::test(PortalUsersRelationManager::class, ['ownerRecord' => $this->c1, 'pageClass' => EditClient::class])
             ->callTableAction('createPortalUser', data: [
-                'name' => 'Administración Uno', 'email' => 'admin@consorcio.test', 'password' => 'clave-segura-1',
+                'name' => 'Administración Uno', 'email' => 'admin@consorcio.test',
                 'building_ids' => [$this->b1->id, $this->b2->id],
             ])
             ->assertHasNoTableActionErrors();
@@ -246,7 +248,8 @@ class ClientPortalTest extends TestCase
         $this->assertSame([$this->c1->id, $this->a['company']->id], [$user->client_id, $user->company_id]);
         $this->assertEqualsCanonicalizing([$this->b1->id, $this->b2->id], $user->portalBuildings()->pluck('buildings.id')->all());
 
-        // Desactivado: no entra más.
+        // Desactivado: no entra más (aunque tenga contraseña).
+        $user->forceFill(['password' => 'clave-segura-1'])->save();
         Livewire::test(PortalUsersRelationManager::class, ['ownerRecord' => $this->c1, 'pageClass' => EditClient::class])->callTableAction('deactivate', $user);
         auth()->logout();
         $this->post('/login', ['email' => 'admin@consorcio.test', 'password' => 'clave-segura-1']);

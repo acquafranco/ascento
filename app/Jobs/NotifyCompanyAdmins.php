@@ -79,7 +79,7 @@ class NotifyCompanyAdmins
             try {
                 $admin->notify($notification);
             } catch (Throwable $e) {
-                Log::warning('No se pudo avisar al admin', ['event' => $this->event, 'user_id' => $admin->id, 'error' => $e->getMessage()]);
+                Log::warning('No se pudo avisar al admin', ['event' => $this->event, 'user_id' => $admin->id, 'exception' => $e::class]);
             }
         }
     }

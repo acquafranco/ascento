@@ -26,6 +26,17 @@ class WorkCompletedNotification extends Notification
         return DeliveryNoteResource::getUrl('view', ['record' => $this->deliveryNote->id], panel: 'ascensores_app');
     }
 
+    /** Remito firmado como "no realizado": requiere seguimiento del admin. */
+    private function notDone(): bool
+    {
+        return $this->deliveryNote->performed === false;
+    }
+
+    private function title(): string
+    {
+        return $this->notDone() ? '⚠️ Trabajo NO realizado' : '✅ Trabajo terminado';
+    }
+
     private function kind(): string
     {
         return match ($this->deliveryNote->assignment_type) {
@@ -52,10 +63,10 @@ class WorkCompletedNotification extends Notification
     public function toDatabase(object $notifiable): array
     {
         return FilamentNotification::make()
-            ->title('✅ Trabajo terminado')
+            ->title($this->title())
             ->body($this->body())
-            ->icon('heroicon-o-check-circle')
-            ->iconColor('success')
+            ->icon($this->notDone() ? 'heroicon-o-exclamation-triangle' : 'heroicon-o-check-circle')
+            ->iconColor($this->notDone() ? 'danger' : 'success')
             ->actions([
                 Action::make('view')->label('Ver remito')->url($this->url())->markAsRead(),
             ])
@@ -65,7 +76,7 @@ class WorkCompletedNotification extends Notification
     public function toWebPush(object $notifiable, Notification $notification): WebPushMessage
     {
         return (new WebPushMessage)
-            ->title('✅ Trabajo terminado')
+            ->title($this->title())
             ->body($this->body())
             ->icon('/images/pwa/icon-192.png')
             ->badge('/images/pwa/badge-96.png')
@@ -79,7 +90,7 @@ class WorkCompletedNotification extends Notification
     public function toTelegram(object $notifiable): array
     {
         return [
-            'text' => '<b>✅ Trabajo terminado</b>'."\n".e($this->body()),
+            'text' => '<b>'.e($this->title()).'</b>'."\n".e($this->body()),
             'button' => ['Ver remito', $this->url()],
         ];
     }

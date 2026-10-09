@@ -417,7 +417,7 @@ class PlanLimitsTest extends TestCase
 
         $this->assertSame('Alcanzaste el límite de 20 edificios de tu plan Inicial.', $this->guard()->limitReachedMessage(PlanLimit::Buildings));
         $this->assertSame(
-            'Con Profesional podés administrar hasta 70 edificios y además obtenés hasta 150 clientes, hasta 10 técnicos, reportes sin límite mensual, presupuestos y remitos digitales para el cliente.',
+            'Con Profesional podés administrar hasta 70 edificios y además obtenés hasta 150 clientes, hasta 10 técnicos, reportes sin límite mensual, presupuestos, remitos digitales para el cliente y portal para clientes.',
             $this->guard()->upgradePitch(PlanLimit::Buildings),
         );
 

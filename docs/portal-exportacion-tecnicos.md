@@ -22,7 +22,19 @@ El modelo de trabajo no cambió: **una visita fija por edificio, tipo y mes**, q
 
 ## 2. Portal del cliente
 
-- **Usuarios:** son `users` con `role = client` y `client_id`. No se duplicó la entidad cliente, y un cliente puede tener varios usuarios. Se crean desde Clientes → editar → "Usuarios del portal" (el admin define la contraseña inicial).
+- **Usuarios:** son `users` con `role = client` y `client_id`. No se duplicó la entidad cliente (el cliente comercial y la persona que inicia sesión son entidades distintas), y un cliente puede tener varios usuarios.
+- **Plan:** solo Profesional y Empresa (`PlanFeature::ClientPortal`). Ver la sección 4.
+- **Alta por invitación** (Clientes → editar → pestaña "Acceso al portal" → "Invitar al portal"):
+  1. El admin carga nombre, email y los edificios de ese cliente que la persona puede ver.
+  2. La cuenta se crea con una contraseña aleatoria que nadie conoce.
+  3. Ascento manda un correo con un enlace `/portal/activar/{token}`. Usa el mecanismo de "olvidé mi contraseña" de Laravel con un broker propio (`portal_invitations`): token aleatorio guardado con hash, de un solo uso, que vence a las 72 h.
+  4. La persona elige su contraseña, la cuenta queda "Activa" y los admins reciben un aviso.
+  5. Entra por `/portal/ingresar`.
+  - Nunca se envía una contraseña. Un token de recuperación de un admin o técnico no sirve como invitación.
+  - El estado aparece en la tabla: Invitación sin enviar / enviada / vencida, Activo, Desactivado.
+  - "Reenviar invitación" invalida el enlace anterior.
+- **Recuperación de contraseña:** la estándar (`/forgot-password`). Sirve para clientes, técnicos y admins. El cliente vuelve al login del portal. El admin también puede "Enviar cambio de contraseña"; nunca la ve.
+- **Desactivar** (soft delete) corta el acceso de inmediato, incluso con una sesión abierta: el usuario deja de resolverse en el siguiente request.
 - **Edificios:** autorización explícita por usuario (`client_portal_buildings`). Solo se pueden elegir edificios de ese cliente, y el servidor lo vuelve a filtrar.
 - **Qué ve:** solo lo marcado **"En portal"** (`shared_with_client`, privado por defecto) en remitos, reportes con sus fotos, presupuestos y documentos del legajo. Se comparte uno por uno o en lote, y queda `shared_at`. Lo histórico no se comparte.
 - **Autorización en backend:**
@@ -83,7 +95,90 @@ El modelo de trabajo no cambió: **una visita fija por edificio, tipo y mes**, q
   - se puede reintentar.
 - Tests: `tests/Feature/Exports/CompanyExportTest.php` y el escenario de validación.
 
-## 4. Datos de validación
+## 4. Planes (cómo se aplican)
+
+| | Inicial | Profesional | Empresa |
+|---|---|---|---|
+| Edificios / clientes / técnicos | 20 / 50 / 3 | 70 / 150 / 10 | 300 / 420 / 25 |
+| Reportes por mes | 15 | sin límite | sin límite |
+| Operación, mapa, agenda, legajo, stock, servicios, cobranzas | ✓ | ✓ | ✓ |
+| Exportación de datos | ✓ | ✓ | ✓ |
+| Presupuestos, remitos digitales | — | ✓ | ✓ |
+| **Portal para clientes** | — | ✓ | ✓ |
+| Funciones avanzadas (indicadores, alertas) | — | parcial | ✓ |
+
+- **Prueba gratis:** 30 días con Profesional. `companies.trial_ends_at` se fija al registrarse y no se reinicia al contratar (`TrialTimelineTest`).
+- **Cambio de criterio respecto de la versión anterior:** antes el portal estaba en todos los planes. Ahora no está en Inicial (migración `2026_10_26_100000`, que solo suma la clave a Profesional y Empresa).
+- **Dónde se valida** (no alcanza con ocultar botones):
+  - **Portal (pantallas, descargas, avisos):** middleware `portal`. Sin portal en el plan, o con la suscripción vencida, responde 403 "no disponible", aunque la cuenta exista.
+  - **Compartir:** `SharesWithClient::shareWithClient(true)` lanza `PlanFeatureUnavailableException`. La columna y las acciones se ocultan. "Dejar de compartir" siempre se puede.
+  - **Invitar, reenviar, reactivar o cambiar edificios:** las acciones se ocultan y además se valida en el servidor. Desactivar siempre se puede.
+  - **Avisos a clientes:** `Notifier` no los entrega sin el plan.
+  - **Exportación:** todos los planes (solo admins).
+- **Bajar de plan o vencer la suscripción:** lo ya compartido queda marcado pero inaccesible. Al volver a un plan con portal, vuelve a verse.
+- Los usuarios del portal no ocupan cupos de técnicos.
+
+## 5. Notificaciones
+
+**Canales:**
+- **Dentro de Ascento:**
+  - admins: campanita del panel (Filament, se actualiza cada 10 s);
+  - técnicos: `/notificaciones`, con contador en la barra y en el menú del celular;
+  - clientes: `/portal/notificaciones`, con contador en el encabezado;
+  - técnicos y clientes: contador por consulta cada 60 s (sin WebSockets);
+  - todos: marcar leído al abrir y "Marcar todos como leídos".
+- **Correo:** solo para lo que hay que saber fuera de la plataforma (ver la matriz).
+- **Push / Telegram:** los existentes para admins y técnicos, si el usuario los activó.
+
+| Evento | Quién lo recibe | Interno | Correo | Push |
+|---|---|---|---|---|
+| Invitación al portal | la persona invitada | — | ✓ | — |
+| Recuperación de contraseña | quien la pide | — | ✓ | — |
+| Cuenta del portal activada | admins de la empresa | ✓ | — | — |
+| Reporte nuevo de un técnico | admins | ✓ (existente) | — | ✓ |
+| Trabajo terminado / **NO realizado** | admins | ✓ (existente, ahora distingue "NO realizado") | — | ✓ |
+| Límite de reportes del plan | admins | ✓ (existente) | — | ✓ |
+| Exportación lista / fallida / interrumpida | el admin que la pidió | ✓ | ✓ | — |
+| Visitas vencidas del mes anterior (días 1 a 5) | admins | ✓ | ✓ | — |
+| Orden asignada / modificada | técnicos asignados | ✓ (nuevo: antes solo push) | — | ✓ |
+| Quitado de una orden / orden cancelada | ese técnico (sin detalles de la orden) | ✓ | — | ✓ |
+| Edificio asignado / quitado | ese técnico | ✓ | — | ✓ |
+| Visitas pendientes del mes (desde el día 20) / vencidas (días 1 a 5) | cada técnico, solo sus asignaciones vigentes | ✓ | — | ✓ |
+| Remito / reporte / presupuesto / documento **compartido** | usuarios del portal con ese edificio autorizado | ✓ (uno por registro) | ✓ (uno por acción) | — |
+
+**Criterio para el correo:** solo si hay que actuar fuera de Ascento (activar la cuenta, recuperar el acceso, descargar antes de que venza, algo vencido) o si el destinatario no entra todos los días (el cliente). Lo rutinario del día a día queda dentro de la app y en push.
+
+**Garantías (`App\Services\Notifications\Notifier`):**
+- **Destinatarios:** misma empresa, cuenta no desactivada, nunca el SuperAdmin, empresa con acceso vigente. Clientes: plan con portal y el edificio autorizado en ese momento.
+- **Sin duplicados:** `dedupe_key`, única por destinatario. Repetir el proceso o correrlo dos veces a la vez no duplica, y volver a compartir no reenvía.
+- **Fallas de correo:**
+  - el aviso interno queda;
+  - `mailed_at` se marca solo si el proveedor aceptó el envío; si no, `mail_failed_at` y un log sin datos personales (clase de la excepción e IDs).
+- **Enlaces:** relativos. Al abrirlos, la pantalla destino vuelve a comprobar los permisos. La bandeja solo busca entre los avisos del propio usuario (de otro: 404).
+- **Contenido:** sin tokens, contraseñas ni datos de lo que el destinatario no puede ver. A un técnico quitado no se le manda el detalle.
+- **Sin colas:** el correo sale después de responder (`dispatch()->afterResponse()`) o dentro del scheduler. No hace falta un worker.
+- **No hay avisos automáticos al cliente cuando termina una intervención.** Terminar un trabajo y compartirlo son acciones distintas: el cliente se entera cuando la empresa comparte.
+
+## 6. Producción (Forge)
+
+`php artisan ascento:check-production` (solo lectura) revisa todo esto y no muestra secretos. Con `--mail-to=vos@dominio` manda un correo de prueba.
+
+- **Correo** (imprescindible para las invitaciones y la recuperación):
+  - `MAIL_MAILER` (smtp / ses / postmark / resend; **no** `log`);
+  - `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SCHEME` (tls/ssl), o la API key del proveedor;
+  - `MAIL_FROM_ADDRESS` de un dominio verificado (SPF/DKIM), `MAIL_FROM_NAME`;
+  - `APP_URL` con https: de ahí salen los enlaces.
+- **Scheduler:** `schedule:run` cada minuto. Mueve:
+  - `exports:process` (cada minuto; también deja la señal que lee el chequeo);
+  - `exports:prune` (03:30);
+  - `notifications:visits` (08:00);
+  - `billing:generate`, etc.
+- **Colas:** no se usan para esto; `QUEUE_CONNECTION` puede quedar como está.
+- **Push:** `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`. Sin ellas, el push no sale y el resto funciona.
+- **Archivos:** escritura en `storage/app/private` y espacio libre (el chequeo avisa por debajo de 2 GB).
+- **`APP_DEBUG=false`** y `APP_ENV=production`.
+
+## 7. Datos de validación
 
 `php artisan db:seed --class=DemoValidationSeeder`:
 - **No corre en producción.**
@@ -95,22 +190,23 @@ El modelo de trabajo no cambió: **una visita fija por edificio, tipo y mes**, q
   - exportación de cada empresa, abriendo el Excel y contando filas;
   - todo con `preventLazyLoading` (sin N+1).
 
-## 5. Migraciones (no destructivas)
+## 8. Migraciones (no destructivas)
 
 | Migración | Qué hace |
 |---|---|
 | `2026_10_25_100000_create_client_portal` | Agrega `users.client_id` (nullable), la tabla `client_portal_buildings` y `shared_with_client` (default false) + `shared_at` en `reports`, `delivery_notes`, `quotes` y `elevator_documents`. |
 | `2026_10_25_100100_create_company_exports_tables` | Agrega las tablas nuevas `company_exports` y `company_export_downloads`. |
+| `2026_10_26_100000_add_client_portal_to_plans` | Suma `client_portal` a `feature_keys` de Profesional, Empresa y el plan histórico. No cambia precios ni límites. |
+| `2026_10_26_100100_add_portal_invitations_and_notification_tracking` | Agrega `users.portal_invited_at` y `users.portal_activated_at`; en `notifications`: `company_id`, `dedupe_key` (única por destinatario), `mailed_at` y `mail_failed_at`. Todo nullable. |
 
 No modifican ni borran datos existentes. Todo lo histórico queda privado.
 
-## 6. Deploy (cuando se autorice)
+## 9. Deploy (cuando se autorice)
 
 1. Backup de la base de producción y de `storage/app/private`.
 2. Merge del PR y deploy normal de Forge (`composer install --no-dev`, que incluye `openspout/openspout`, ya presente como dependencia transitiva y ahora declarada).
 3. `php artisan migrate --force`.
-4. Verificar que el scheduler de Forge siga activo (`schedule:run` cada minuto). Sin él, las exportaciones quedan en "Solicitada".
-5. Verificar que `APP_DEBUG=false` en el `.env` de producción.
+4. `php artisan ascento:check-production` y corregir lo que marque en el `.env` de Forge (correo, `APP_URL`, `APP_DEBUG`, scheduler). Probar el correo con `--mail-to=`.
 6. Prueba manual en producción con la cuenta propia:
    - pedir una exportación, descargarla y abrirla;
    - crear un usuario de portal de prueba para un cliente propio, compartir un remito y verlo.

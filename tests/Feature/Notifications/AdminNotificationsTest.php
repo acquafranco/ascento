@@ -73,7 +73,7 @@ class AdminNotificationsTest extends TestCase
             ->assertSessionHasNoErrors();
     }
 
-    private function signWorkOrder(array $tenant): void
+    private function signWorkOrder(array $tenant, bool $performed = true): void
     {
         $workOrder = WorkOrder::factory()->inProgress()->create(['building_id' => $tenant['building']->id]);
         $workOrder->users()->attach($tenant['technician']->id);
@@ -89,6 +89,7 @@ class AdminNotificationsTest extends TestCase
                 'year' => now()->year,
                 'elevator_quantity' => 1,
                 'freight_elevator_quantity' => 0,
+                'performed' => $performed ? '1' : '0',
                 'signature_name' => 'Técnico',
                 'signature' => $this->validSignature(),
             ])
@@ -127,6 +128,15 @@ class AdminNotificationsTest extends TestCase
 
         $this->assertSame(1, $this->a['admin']->notifications()->count());
         $this->assertSame(0, $this->b['admin']->notifications()->count());
+    }
+
+    public function test_work_signed_as_not_done_is_flagged_for_follow_up(): void
+    {
+        $this->signWorkOrder($this->a, performed: false);
+
+        $notification = $this->a['admin']->notifications()->sole();
+        $this->assertSame('⚠️ Trabajo NO realizado', $notification->data['title']);
+        $this->assertStringContainsString('Marcado como NO realizado', $notification->data['body']);
     }
 
     public function test_signed_work_reaches_the_admins_as_work_completed(): void

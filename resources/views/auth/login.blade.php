@@ -1,7 +1,13 @@
 <x-guest-layout>
-    <span class="font-mono text-xs tracking-widest text-amber-600 uppercase">Acceso</span>
-    <h1 class="mt-2 font-display font-semibold text-2xl tracking-tight text-ink">Iniciá sesión</h1>
-    <p class="mt-1.5 text-sm text-ink/50">Entrá a tu cuenta para administrar tu empresa.</p>
+    @if(! empty($portal))
+        <span class="font-mono text-xs tracking-widest text-amber-600 uppercase">Portal de clientes</span>
+        <h1 class="mt-2 font-display font-semibold text-2xl tracking-tight text-ink">Ingresá al portal</h1>
+        <p class="mt-1.5 text-sm text-ink/50">Consultá los remitos, reportes, presupuestos y documentos que tu empresa de mantenimiento comparte de tus edificios.</p>
+    @else
+        <span class="font-mono text-xs tracking-widest text-amber-600 uppercase">Acceso</span>
+        <h1 class="mt-2 font-display font-semibold text-2xl tracking-tight text-ink">Iniciá sesión</h1>
+        <p class="mt-1.5 text-sm text-ink/50">Entrá a tu cuenta para administrar tu empresa.</p>
+    @endif
 
     <x-auth-session-status class="mt-6" :status="session('status')" />
 
@@ -34,7 +40,8 @@
         </div>
 
         <div class="flex items-center justify-between gap-4 pt-2">
-            @if (Route::has('register'))
+            {{-- El registro crea una empresa de mantenimiento; los clientes entran solo por invitación. --}}
+            @if (Route::has('register') && empty($portal))
                 <a href="{{ route('register') }}" class="text-sm font-medium text-ink/50 hover:text-ink transition-colors">
                     Crear cuenta
                 </a>

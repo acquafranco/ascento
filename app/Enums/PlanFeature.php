@@ -34,6 +34,8 @@ enum PlanFeature: string
     case ElevatorHistoryAdvanced = 'elevator_history_advanced';
     case FailureAnalysis = 'failure_analysis';
 
+    case ClientPortal = 'client_portal';
+
     // Empresa ("Gestionar toda la empresa").
     case AdvancedIndicators = 'advanced_indicators';
     case AdvancedAlerts = 'advanced_alerts';
@@ -60,6 +62,7 @@ enum PlanFeature: string
             self::CompanyIndicators => 'Indicadores de empresa',
             self::ElevatorHistoryAdvanced => 'Historial avanzado del ascensor',
             self::FailureAnalysis => 'Análisis de fallas y reincidencias',
+            self::ClientPortal => 'Portal para clientes',
             self::AdvancedIndicators => 'Indicadores avanzados y cartera',
             self::AdvancedAlerts => 'Alertas avanzadas',
         };
@@ -77,6 +80,7 @@ enum PlanFeature: string
             self::FailureAnalysis => 'análisis de fallas: qué ascensores se rompen seguido y por qué',
             self::AdvancedIndicators => 'comparativas año contra año, análisis de cartera y tendencias',
             self::AdvancedAlerts => 'alertas de tendencias, contratos por vencer y deudas viejas',
+            self::ClientPortal => 'portal para que cada consorcio o administración vea lo que le compartís de sus edificios',
             default => mb_strtolower($this->label()),
         };
     }

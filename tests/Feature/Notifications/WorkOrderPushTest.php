@@ -239,7 +239,20 @@ class WorkOrderPushTest extends TestCase
         $this->runAfterResponseJobs();
 
         $this->assertPushDeliveredTo($newDevice);
-        $this->assertNoPushDeliveredTo($oldDevice);
+
+        // El anterior solo recibe "ya no la tenés", sin datos de la orden.
+        $this->assertRemovedNoticeOnly($this->a['technician'], $workOrder);
+    }
+
+    /** Un solo aviso de que se la quitaron, sin edificio ni detalle (ya no tiene acceso). */
+    private function assertRemovedNoticeOnly($technician, $workOrder, string $title = 'Ya no tenés asignada una orden'): void
+    {
+        $notices = $technician->notifications()->get();
+        $this->assertSame([$title], $notices->pluck('data.title')->all());
+        $this->assertSame(0, $technician->notifications()->where('type', WorkOrderAssignedNotification::class)->count());
+        $this->assertStringNotContainsString($this->a['building']->name, json_encode($notices->first()->data));
+        $this->assertStringNotContainsString((string) $workOrder->notes ?: '§', json_encode($notices->first()->data));
+        $this->assertNull($notices->first()->data['path']);
     }
 
     public function test_editing_an_order_notifies_the_technicians_already_assigned(): void
@@ -303,9 +316,9 @@ class WorkOrderPushTest extends TestCase
             ->assertHasNoFormErrors();
         $this->runAfterResponseJobs();
 
-        $this->assertNoPushDeliveredTo($oldDevice);
         $this->assertPushDeliveredTo($newDevice);
-        $this->assertCount(1, $this->deliveredEndpoints());
+        $this->assertCount(2, $this->deliveredEndpoints()); // la orden nueva + el aviso de que se la quitaron
+        $this->assertRemovedNoticeOnly($this->a['technician'], $workOrder);
     }
 
     public function test_closing_an_order_from_the_panel_does_not_send_an_edit_push(): void
@@ -338,7 +351,8 @@ class WorkOrderPushTest extends TestCase
             SendWorkOrderAssignedNotification::dispatchSync($this->orderFor($this->a, [$this->a['technician']], ['status' => $status])->id, $techId);
         }
 
-        $this->assertNoPushDeliveredTo($device);
+        // Nunca "Nueva orden"; la eliminada solo genera el aviso de cancelación.
+        $this->assertRemovedNoticeOnly($this->a['technician'], $deleted, 'Orden de trabajo cancelada');
     }
 
     public function test_unassigned_before_sending_is_not_notified(): void

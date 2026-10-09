@@ -49,14 +49,14 @@ Fuente: `database/seeders/SubscriptionPlanSeeder.php` y `app/Enums/PlanFeature.p
 | Clientes, edificios, técnicos, mantenimientos, inspecciones, órdenes, remitos firmados, reportes, mapa | ✓ | ✓ | ✓ |
 | Stock, servicios y cobranzas | ✓ | ✓ | ✓ |
 | Agenda, centro de atención básico, legajo del ascensor, indicadores básicos | ✓ | ✓ | ✓ |
-| Portal del cliente | ✓ | ✓ | ✓ |
 | Exportación de datos | ✓ | ✓ | ✓ |
 | Presupuestos con link; remitos digitales (PDF y link para WhatsApp o email) | — | ✓ | ✓ |
+| Portal para clientes (con invitación por correo y avisos al cliente) | — | ✓ | ✓ |
 | Centro de atención avanzado, historial avanzado, análisis de fallas, indicadores de empresa | — | ✓ | ✓ |
 | Indicadores avanzados (año contra año, cartera), alertas avanzadas | — | — | ✓ |
 
 - **Prueba gratis:** 30 días con las funciones del plan **Profesional**.
-- **Decisión comercial pendiente:** el portal del cliente está en todos los planes. En Inicial permite compartir remitos por el portal, lo que se superpone en parte con "remitos digitales" (Profesional). No se cambió nada; queda para que lo decida el dueño del producto.
+- El portal para clientes es de Profesional y Empresa. En una demo con una empresa que evalúa el plan Inicial, aclararlo antes de mostrarlo.
 
 ---
 
@@ -71,7 +71,7 @@ Fuente: `database/seeders/SubscriptionPlanSeeder.php` y `app/Enums/PlanFeature.p
 - Facturación electrónica (AFIP/ARCA) e integración con sistemas contables.
 - Modo sin conexión: la app instalable no guarda páginas. Si se corta la señal, el formulario avisa y no se pierde lo escrito, pero hay que enviarlo con conexión.
 - Seguimiento GPS de técnicos.
-- Avisos automáticos al cliente por email o WhatsApp cuando se comparte algo. El cliente lo ve al entrar al portal.
+- Avisos automáticos al cliente cuando termina una intervención. El cliente recibe un aviso (en el portal y por correo) solo cuando la empresa le comparte algo. No hay avisos por WhatsApp.
 - Restaurar la cuenta desde la exportación. La exportación es una copia de los datos de negocio, no un backup del servidor.
 
 **Frases seguras:**
