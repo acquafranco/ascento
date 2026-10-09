@@ -80,7 +80,7 @@ enum PlanLimit: string
             self::Technicians => User::withoutGlobalScopes()
                 ->where('company_id', $company->id)
                 ->whereNull('deleted_at')
-                ->where('role', '!=', 'admin')
+                ->whereNotIn('role', ['admin', 'client']) // ni admins ni usuarios del portal
                 ->where('is_super_admin', false)
                 ->count(),
             // Incluye los eliminados: borrar un reporte no devuelve cupo.

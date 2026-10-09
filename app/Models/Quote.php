@@ -11,6 +11,8 @@ use Illuminate\Support\Str;
 
 class Quote extends Model
 {
+    use \App\Models\Concerns\SharesWithClient;
+
 
     use HasFactory, SoftDeletes;
     use BelongsToCompany;

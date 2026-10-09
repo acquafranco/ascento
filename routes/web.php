@@ -378,6 +378,24 @@ Route::get('/whatsapp/callback', [
 
 /*
 |--------------------------------------------------------------------------
+| PORTAL DEL CLIENTE (consorcios / administraciones)
+|--------------------------------------------------------------------------
+| Solo lectura de lo que la empresa compartió, de los edificios autorizados
+| (ver PortalAccess). Login con la pantalla común.
+*/
+
+Route::prefix('portal')->name('portal.')->middleware(['auth', 'portal'])->group(function () {
+    Route::get('/', [\App\Http\Controllers\Portal\PortalController::class, 'home'])->name('home');
+    Route::get('/edificios/{building}', [\App\Http\Controllers\Portal\PortalController::class, 'building'])->whereNumber('building')->name('building');
+    Route::get('/remitos/{deliveryNote}', [\App\Http\Controllers\Portal\PortalController::class, 'deliveryNote'])->name('delivery-note');
+    Route::get('/reportes/{report}', [\App\Http\Controllers\Portal\PortalController::class, 'report'])->whereNumber('report')->name('report');
+    Route::get('/reportes/{report}/fotos/{photo}', [\App\Http\Controllers\Portal\PortalController::class, 'reportPhoto'])->whereNumber(['report', 'photo'])->name('report-photo');
+    Route::get('/presupuestos/{quote}', [\App\Http\Controllers\Portal\PortalController::class, 'quote'])->whereNumber('quote')->name('quote');
+    Route::get('/documentos/{elevatorDocument}', [\App\Http\Controllers\Portal\PortalController::class, 'document'])->whereNumber('elevatorDocument')->name('document');
+});
+
+/*
+|--------------------------------------------------------------------------
 | PUBLIC QUOTES
 |--------------------------------------------------------------------------
 */

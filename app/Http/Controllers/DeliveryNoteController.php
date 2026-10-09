@@ -243,7 +243,7 @@ class DeliveryNoteController extends Controller
             // Los participantes tienen que ser de la MISMA empresa.
             'participants.*' => [
                 'integer',
-                Rule::exists('users', 'id')->where('company_id', $companyId),
+                Rule::exists('users', 'id')->where('company_id', $companyId)->whereIn('role', ['admin', 'technician']),
             ],
         ],
         [

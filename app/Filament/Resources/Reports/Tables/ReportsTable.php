@@ -83,6 +83,9 @@ class ReportsTable
                     DeleteBulkAction::make(),
                 ]),
             ])
-            ->defaultSort('created_at', 'desc');
+            ->defaultSort('created_at', 'desc')
+            // Compartir con el portal del cliente (privado por defecto).
+            ->pushColumns([\App\Filament\Support\ClientSharing::column()])
+            ->pushToolbarActions([\Filament\Actions\BulkActionGroup::make(\App\Filament\Support\ClientSharing::bulkActions())->label('Portal del cliente')]);
     }
 }

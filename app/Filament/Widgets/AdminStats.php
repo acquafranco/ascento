@@ -45,7 +45,7 @@ class AdminStats extends StatsOverviewWidget
         ->count();
 
        $totalTecnicos = \App\Models\User::where('company_id', \App\Support\CompanyContext::currentId())
-        ->where('role', '!=', 'admin')
+        ->whereNotIn('role', ['admin', 'client'])
         ->count();
 
         $tecnicosDisponibles = max(0, $totalTecnicos - $tecnicosOcupados);

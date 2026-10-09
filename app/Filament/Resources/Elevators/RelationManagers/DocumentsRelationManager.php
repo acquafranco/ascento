@@ -39,6 +39,7 @@ class DocumentsRelationManager extends RelationManager
                     ->color(fn (ElevatorDocument $record) => $record->isExpired() ? 'danger' : ($record->expiresSoon() ? 'warning' : null))
                     ->description(fn (ElevatorDocument $record) => $record->isExpired() ? 'Vencido' : ($record->expiresSoon() ? 'Vence pronto' : null)),
                 TextColumn::make('created_at')->label('Subido')->date('d/m/Y'),
+                \App\Filament\Support\ClientSharing::column(),
             ])
             ->emptyStateHeading('Sin documentación')
             ->emptyStateDescription('Subí planos, manuales, certificados o fotos del equipo. Los certificados con fecha de vencimiento avisan en el Centro de atención.')

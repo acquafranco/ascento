@@ -27,6 +27,12 @@ class Client extends Model
     ];
 
 
+    /** Usuarios del portal del cliente (pueden ser varios). */
+    public function portalUsers()
+    {
+        return $this->hasMany(User::class)->where('role', User::ROLE_CLIENT);
+    }
+
     public function buildings(): HasMany
     {
         return $this->hasMany(Building::class);

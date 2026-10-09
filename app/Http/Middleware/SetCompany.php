@@ -42,6 +42,16 @@ class SetCompany
         }
 
 
+        // La app de la empresa es para su personal (admins y técnicos). Un
+        // usuario del portal del cliente va a su portal, nunca acá.
+        if (auth()->user()->isClientUser()) {
+            if ($request->isMethod('GET') && ! $request->expectsJson()) {
+                return redirect()->route('portal.home');
+            }
+
+            abort(403);
+        }
+
         app()->instance('company', $company);
 
 

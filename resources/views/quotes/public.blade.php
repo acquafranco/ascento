@@ -214,6 +214,7 @@
                     ]);
             @endphp
 
+            @if (empty($portal))
             <a
                 href="https://wa.me/{{ $telefono }}?text={{ urlencode($mensaje) }}"
                 target="_blank"
@@ -221,6 +222,7 @@
             >
                 Enviar por WhatsApp
             </a>
+            @endif
 
         </div>
 
