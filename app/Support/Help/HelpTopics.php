@@ -3,6 +3,8 @@
 namespace App\Support\Help;
 
 use App\Livewire\AdminOnboarding;
+use Illuminate\Http\Request;
+use Livewire\Livewire;
 
 /**
  * Ayudas contextuales del panel. Cada una tiene su propio estado por usuario
@@ -59,6 +61,29 @@ class HelpTopics
     public static function get(string $key): ?array
     {
         return self::all()[$key] ?? null;
+    }
+
+    /**
+     * Ruta de la pantalla actual, también durante una acción de Livewire
+     * (donde la ruta del request es "livewire.update" y la ayuda desaparecía
+     * al tocar un botón o un filtro). La ruta original sale del snapshot del
+     * componente, que Livewire firma: solo sirve para elegir el texto.
+     */
+    public static function currentRouteName(): string
+    {
+        $name = (string) request()->route()?->getName();
+
+        if (! Livewire::isLivewireRequest()) {
+            return $name;
+        }
+
+        try {
+            return (string) app('router')->getRoutes()
+                ->match(Request::create(Livewire::originalUrl()))
+                ->getName();
+        } catch (\Throwable) {
+            return $name;
+        }
     }
 
     /** Ayuda de cada pantalla (nombre de ruta de Filament → clave). */
