@@ -11,6 +11,11 @@ use App\Models\Concerns\BelongsToCompany;
 
 class Report extends Model
 {
+    /** Estados del reporte (mismos textos en panel, portal y PDF). */
+    public const STATUS_LABELS = ['pendiente' => 'Pendiente', 'en_revision' => 'En revisión', 'resuelto' => 'Resuelto'];
+
+    public const PRIORITY_LABELS = ['baja' => 'Baja', 'media' => 'Media', 'alta' => 'Alta', 'critica' => 'Crítica'];
+
     use \App\Models\Concerns\SharesWithClient;
 
 

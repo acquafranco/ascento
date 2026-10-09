@@ -66,6 +66,8 @@ Route::get(
 */
 
 Route::prefix('{company:slug}')
+    // Nunca captura rutas del sistema (/portal, /notificaciones, ...).
+    ->where(['company' => '(?!(?:'.implode('|', array_map('preg_quote', \App\Models\Company::RESERVED_SLUGS)).')(?![A-Za-z0-9_.-]))[A-Za-z0-9_-]+'])
     ->middleware([
         'auth',
         'company',
@@ -393,6 +395,9 @@ Route::get('/whatsapp/callback', [
 
 Route::prefix('portal')->name('portal.')->middleware(['auth', 'portal'])->group(function () {
     Route::get('/', [\App\Http\Controllers\Portal\PortalController::class, 'home'])->name('home');
+    Route::get('/documentos', [\App\Http\Controllers\Portal\PortalController::class, 'documents'])->name('documents');
+    Route::get('/servicio/{type}', [\App\Http\Controllers\Portal\PortalController::class, 'visits'])->whereIn('type', ['maintenance', 'inspection'])->name('visits');
+    Route::post('/empresa', [\App\Http\Controllers\Portal\PortalController::class, 'switchCompany'])->name('switch-company');
     Route::get('/edificios/{building}', [\App\Http\Controllers\Portal\PortalController::class, 'building'])->whereNumber('building')->name('building');
     Route::get('/remitos/{deliveryNote}', [\App\Http\Controllers\Portal\PortalController::class, 'deliveryNote'])->name('delivery-note');
     Route::get('/reportes/{report}', [\App\Http\Controllers\Portal\PortalController::class, 'report'])->whereNumber('report')->name('report');
@@ -403,6 +408,10 @@ Route::prefix('portal')->name('portal.')->middleware(['auth', 'portal'])->group(
     Route::get('/notificaciones/contador', [\App\Http\Controllers\NotificationInboxController::class, 'count'])->middleware('throttle:60,1')->name('notifications.count');
     Route::get('/notificaciones/{notification}', [\App\Http\Controllers\NotificationInboxController::class, 'open'])->whereUuid('notification')->name('notifications.open');
     Route::post('/notificaciones/leidas', [\App\Http\Controllers\NotificationInboxController::class, 'readAll'])->name('notifications.read-all');
+    // Push en el celular del cliente (la suscripción queda a nombre del usuario autenticado).
+    Route::post('/push-subscriptions', [\App\Http\Controllers\PushSubscriptionController::class, 'store'])->middleware('throttle:20,1')->name('push.store');
+    Route::delete('/push-subscriptions', [\App\Http\Controllers\PushSubscriptionController::class, 'destroy'])->middleware('throttle:20,1')->name('push.destroy');
+    Route::post('/push-subscriptions/test', [\App\Http\Controllers\PushSubscriptionController::class, 'test'])->middleware('throttle:3,1')->name('push.test');
 });
 
 // Bandeja de avisos de los técnicos (los admins usan la campanita del panel).

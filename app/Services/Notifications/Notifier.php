@@ -4,6 +4,7 @@ namespace App\Services\Notifications;
 
 use App\Enums\PlanFeature;
 use App\Models\Company;
+use App\Models\PortalMembership;
 use App\Models\User;
 use App\Notifications\AppNotification;
 use App\Notifications\MailOnlyNotification;
@@ -88,7 +89,16 @@ class Notifier
 
     public function mayReceive(User $user, AppNotification $notification, int $companyId): bool
     {
-        if ($user->trashed() || $user->isSuperAdmin() || (int) $user->company_id !== $companyId) {
+        if ($user->trashed() || $user->isSuperAdmin()) {
+            return false;
+        }
+
+        // Personal: de esa empresa. Cliente del portal: con acceso activo en esa empresa.
+        $belongs = $user->isClientUser()
+            ? PortalMembership::where('user_id', $user->id)->where('company_id', $companyId)->active()->exists()
+            : (int) $user->company_id === $companyId;
+
+        if (! $belongs) {
             return false;
         }
 
@@ -103,7 +113,7 @@ class Notifier
 
             return $buildingId !== null
                 && $company->plan()->allows(PlanFeature::ClientPortal)
-                && PortalAccess::canSeeBuilding($user, $buildingId);
+                && PortalAccess::buildingIds($user, $companyId)->contains($buildingId);
         }
 
         return true;

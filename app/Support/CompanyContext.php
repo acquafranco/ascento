@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use App\Support\Portal\PortalAccess;
+
 class CompanyContext
 {
     public static function set($companyId): void
@@ -28,9 +30,11 @@ class CompanyContext
             return null;
         }
 
-        $companyId = $user->isSuperAdmin()
-            ? static::get()
-            : $user->company_id;
+        $companyId = match (true) {
+            $user->isSuperAdmin() => static::get(),
+            $user->isClientUser() => PortalAccess::currentCompanyId($user),
+            default => $user->company_id,
+        };
 
         return $companyId ? (int) $companyId : null;
     }

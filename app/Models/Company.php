@@ -12,6 +12,17 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Company extends Model
 {
+    /**
+     * Slugs que no puede usar una empresa: chocarían con rutas del sistema
+     * (la app del técnico vive en /{empresa}/...). Ver routes/web.php.
+     */
+    public const RESERVED_SLUGS = [
+        'admin', 'api', 'broadcasting', 'build', 'confirm-password', 'css', 'dashboard', 'email', 'files', 'filament',
+        'forgot-password', 'images', 'js', 'legal', 'livewire', 'login', 'logout', 'manifest.webmanifest', 'mercadopago',
+        'notificaciones', 'password', 'portal', 'register', 'reset-password', 'storage', 'sw.js', 'telegram', 'up',
+        'verify-email', 'whatsapp',
+    ];
+
     use HasFactory, SoftDeletes;
 
     protected $fillable = [

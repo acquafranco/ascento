@@ -17,7 +17,11 @@ class CompanyForm
                     ->required(),
                 TextInput::make('business_name'),
                 TextInput::make('slug')
-                    ->required(),
+                    ->required()
+                    ->regex('/^[a-z0-9]+(?:-[a-z0-9]+)*$/')
+                    ->notIn(\App\Models\Company::RESERVED_SLUGS)
+                    ->unique(ignoreRecord: true)
+                    ->helperText('Minúsculas, números y guiones. Es parte de la dirección de la app de los técnicos.'),
                 TextInput::make('cuit'),
                 TextInput::make('tax_condition'),
                 TextInput::make('email')

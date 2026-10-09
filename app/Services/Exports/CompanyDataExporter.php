@@ -11,6 +11,7 @@ use App\Models\DeliveryNote;
 use App\Models\Elevator;
 use App\Models\ElevatorDocument;
 use App\Models\MaintenanceService;
+use App\Models\PortalMembership;
 use App\Models\Quote;
 use App\Models\QuoteItem;
 use App\Models\Receivable;
@@ -293,13 +294,21 @@ class CompanyDataExporter
             $this->scoped(MaintenanceService::class, true), fn ($s) => [$s->id, $s->client_id, $this->name('clients', $s->client_id), $s->building_id, $this->name('buildings', $s->building_id), $s->description, $this->money($s->amount),
                 MaintenanceService::FREQUENCIES[$s->frequency][0] ?? $s->frequency, $s->start_date, $s->end_date, MaintenanceService::STATUSES[$s->status] ?? $s->status, $s->payment_due_day, $s->notes, $s->deleted_at !== null]);
 
-        // Usuarios: solo datos operativos (nunca contraseña, tokens ni chats).
+        // Usuarios: personal de la empresa, solo datos operativos (nunca contraseña, tokens ni chats).
         $this->sheet('Usuarios', ['ID', 'Nombre', 'Email', 'Rol', 'Cliente (portal)', 'Teléfono', 'Estado', 'Alta'],
-            User::withTrashed()->where('company_id', $this->companyId)->where('is_super_admin', false),
+            User::withTrashed()->where('company_id', $this->companyId)->where('is_super_admin', false)->where('role', '!=', User::ROLE_CLIENT),
             fn ($u) => [$u->id, $u->name, $u->email, match ($u->role) {
                 'admin' => 'Administrador', User::ROLE_CLIENT => 'Portal del cliente', default => 'Técnico'
             },
                 $this->name('clients', $u->client_id), $u->phone, $u->deleted_at ? 'Desactivado' : 'Activo', $u->created_at]);
+
+        // Accesos al portal que dio ESTA empresa (la persona puede tener otros
+        // accesos en otras empresas: esos no se exportan).
+        $this->sheet('Accesos al portal', ['ID', 'Persona', 'Email', 'Cliente ID', 'Cliente', 'Edificios autorizados', 'Invitación', 'Activado', 'Estado'],
+            PortalMembership::where('company_id', $this->companyId)->with('user:id,name,email,deleted_at'),
+            fn ($m) => [$m->id, $m->user?->name, $m->user?->email, $m->client_id, $this->name('clients', $m->client_id),
+                collect($m->buildingIds())->map(fn ($id) => $this->name('buildings', $id))->implode(', '),
+                $m->invited_at, $m->activated_at, $m->deactivated_at ? 'Desactivado' : 'Activo']);
 
         $this->sheet('Asignaciones', ['Edificio ID', 'Edificio', 'Técnico ID', 'Técnico', 'Trabajo', 'Desde'],
             Building::withoutGlobalScopes()->withTrashed()->where('buildings.company_id', $this->companyId)

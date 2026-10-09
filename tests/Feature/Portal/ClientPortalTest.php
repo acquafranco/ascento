@@ -12,6 +12,7 @@ use App\Models\Client;
 use App\Models\DeliveryNote;
 use App\Models\Elevator;
 use App\Models\ElevatorDocument;
+use App\Models\PortalMembership;
 use App\Models\Quote;
 use App\Models\Report;
 use App\Models\User;
@@ -250,7 +251,7 @@ class ClientPortalTest extends TestCase
 
         // Desactivado: no entra más (aunque tenga contraseña).
         $user->forceFill(['password' => 'clave-segura-1'])->save();
-        Livewire::test(PortalUsersRelationManager::class, ['ownerRecord' => $this->c1, 'pageClass' => EditClient::class])->callTableAction('deactivate', $user);
+        Livewire::test(PortalUsersRelationManager::class, ['ownerRecord' => $this->c1, 'pageClass' => EditClient::class])->callTableAction('deactivate', PortalMembership::where('user_id', $user->id)->sole());
         auth()->logout();
         $this->post('/login', ['email' => 'admin@consorcio.test', 'password' => 'clave-segura-1']);
         $this->assertGuest();
@@ -293,8 +294,7 @@ class ClientPortalTest extends TestCase
     public function test_empty_states_and_inactive_company(): void
     {
         $this->actingAs($this->u1)->get(route('portal.building', $this->b1))->assertOk()
-            ->assertSee('Todavía no hay remitos compartidos')
-            ->assertSee('No hay documentación compartida');
+            ->assertSee('Todavía no hay documentos compartidos de este edificio');
 
         $this->u1->portalBuildings()->detach();
         $this->get(route('portal.home'))->assertOk()->assertSee('Todavía no tenés edificios habilitados');

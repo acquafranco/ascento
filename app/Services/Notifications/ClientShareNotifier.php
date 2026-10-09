@@ -4,6 +4,7 @@ namespace App\Services\Notifications;
 
 use App\Models\Building;
 use App\Models\Company;
+use App\Models\PortalMembership;
 use App\Models\User;
 use App\Notifications\App\SharedWithClientNotification;
 use Illuminate\Database\Eloquent\Model;
@@ -56,10 +57,11 @@ class ClientShareNotifier
     {
         $clientId = Building::withoutGlobalScopes()->where('company_id', $companyId)->whereKey($buildingId)->value('client_id');
 
-        return User::where('role', User::ROLE_CLIENT)
-            ->where('company_id', $companyId)
-            ->where('client_id', $clientId)
-            ->whereHas('portalBuildings', fn ($q) => $q->whereKey($buildingId))
+        // Personas con acceso activo a ESE cliente de ESA empresa (pueden ser de
+        // cuentas creadas por otra empresa) y el edificio autorizado.
+        return User::withoutGlobalScopes()->where('role', User::ROLE_CLIENT)->whereNull('deleted_at')
+            ->whereIn('id', PortalMembership::where('company_id', $companyId)->where('client_id', $clientId)->active()->select('user_id'))
+            ->whereIn('id', fn ($q) => $q->select('user_id')->from('client_portal_buildings')->where('building_id', $buildingId))
             ->get();
     }
 

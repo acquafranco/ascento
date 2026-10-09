@@ -2,19 +2,20 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Enums\PlanLimit;
 use App\Models\Concerns\BelongsToCompany;
 use App\Models\Concerns\ConsumesPlanLimit;
-use App\Enums\PlanLimit;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Client extends Model
 {
-    use HasFactory, SoftDeletes;
     use BelongsToCompany;
     use ConsumesPlanLimit;
+    use HasFactory, SoftDeletes;
+
     protected $fillable = [
         'company_id',
         'name',
@@ -23,11 +24,16 @@ class Client extends Model
         'phone',
         'email',
         'notes',
-        'is_active'
+        'is_active',
     ];
 
-
     /** Usuarios del portal del cliente (pueden ser varios). */
+    /** Accesos al portal de este cliente (personas autorizadas). */
+    public function portalMemberships()
+    {
+        return $this->hasMany(PortalMembership::class);
+    }
+
     public function portalUsers()
     {
         return $this->hasMany(User::class)->where('role', User::ROLE_CLIENT);

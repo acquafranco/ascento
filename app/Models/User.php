@@ -62,6 +62,18 @@ class User extends Authenticatable implements FilamentUser
     */
     protected static function booted(): void
     {
+        // Usuario del portal con empresa y cliente "de origen": ese es su
+        // primer acceso (membresía). Los demás accesos los suma cada empresa.
+        static::saved(function (User $user) {
+            if ($user->role === self::ROLE_CLIENT && $user->company_id && $user->client_id) {
+                $membership = PortalMembership::firstOrNew(['user_id' => $user->id, 'client_id' => $user->client_id]);
+
+                if (! $membership->exists) {
+                    $membership->forceFill(['company_id' => $user->company_id, 'invited_at' => $user->portal_invited_at, 'activated_at' => $user->portal_activated_at])->save();
+                }
+            }
+        });
+
         static::creating(function (User $user) {
             $actor = auth()->user();
 
@@ -107,6 +119,12 @@ class User extends Authenticatable implements FilamentUser
     }
 
     /** Edificios que el usuario del portal está autorizado a ver. */
+    /** Accesos al portal (uno por cliente/empresa que lo autorizó). */
+    public function portalMemberships()
+    {
+        return $this->hasMany(PortalMembership::class);
+    }
+
     public function portalBuildings()
     {
         return $this->belongsToMany(Building::class, 'client_portal_buildings')->withTimestamps();
@@ -142,16 +160,18 @@ class User extends Authenticatable implements FilamentUser
             return url('/admin');
         }
 
+        // Cliente del portal: si le queda algún acceso activo (en cualquier
+        // empresa). Si no, ningún destino: se cierra la sesión.
+        if ($this->isClientUser()) {
+            return \App\Support\Portal\PortalAccess::currentCompanyId($this) !== null ? route('portal.home') : null;
+        }
+
         if (! $this->company) {
             return null;
         }
 
         if ($this->isAdmin()) {
             return url('/admin');
-        }
-
-        if ($this->isClientUser()) {
-            return route('portal.home');
         }
 
         return route('dashboard', ['company' => $this->company->slug]);
@@ -177,7 +197,17 @@ class User extends Authenticatable implements FilamentUser
     /** ¿Puede registrar dispositivos para recibir push? */
     public function canReceivePush(): bool
     {
-        return $this->canReceiveWorkOrderPush() || $this->canReceiveAdminPush();
+        return $this->canReceiveWorkOrderPush() || $this->canReceiveAdminPush() || $this->canReceivePortalPush();
+    }
+
+    /**
+     * Clientes del portal: push de lo que la empresa les comparte. Que el
+     * plan incluya el portal y el edificio esté autorizado lo valida el
+     * middleware del portal (alta) y Notifier (cada envío).
+     */
+    public function canReceivePortalPush(): bool
+    {
+        return ! $this->trashed() && $this->isClientUser() && $this->company_id !== null && $this->client_id !== null;
     }
 
     /**

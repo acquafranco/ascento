@@ -1,23 +1,52 @@
 @php
-    $types = ['maintenance' => 'Mantenimiento', 'inspection' => 'Inspección', 'work_order' => 'Trabajo'];
-    $docTypes = \App\Models\ElevatorDocument::TYPES;
-    $priorities = ['baja' => 'Baja', 'media' => 'Media', 'alta' => 'Alta', 'critica' => 'Crítica'];
+    $months = [1 => 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 @endphp
-<x-portal-layout :company="$company" :title="$building->name">
+<x-portal-layout :title="$building->name">
     <a class="p-back" href="{{ route('portal.home') }}">← Mis edificios</a>
     <h1 class="p-h1">{{ $building->name }}</h1>
     <p class="p-sub">{{ trim($building->address.' '.$building->locality) }}</p>
 
+    <div class="p-stats">
+        @foreach(\App\Support\Portal\PortalDocuments::TYPES as $key => $label)
+            <a class="p-stat" href="{{ route('portal.documents', ['type' => $key, 'building' => $building->id]) }}"><b>{{ $counts[$key] ?? 0 }}</b><span class="p-muted">{{ $label }}</span></a>
+        @endforeach
+    </div>
+
     <section class="p-sec">
-        <h2>Equipos</h2>
-        @if($elevators->isEmpty())
-            <div class="p-empty">No hay equipos cargados para este edificio.</div>
+        <div class="p-sec-head">
+            <h2>Últimos documentos</h2>
+            @if($recent->total() > $recent->count())<a class="p-link" href="{{ route('portal.documents', ['building' => $building->id]) }}">Ver los {{ $recent->total() }} →</a>@endif
+        </div>
+        @if($recent->isEmpty())
+            <div class="p-empty">Todavía no hay documentos compartidos de este edificio.</div>
         @else
             <ul class="p-list">
-                @foreach($elevators as $elevator)
-                    <li>
-                        <span>{{ $elevator->label }}</span>
-                        <span class="p-muted">{{ trim($elevator->manufacturer.' '.$elevator->model) ?: '—' }}{{ $elevator->year ? ' · '.$elevator->year : '' }}</span>
+                @foreach($recent as $d)
+                    @include('portal.partials.doc-row', ['d' => $d])
+                @endforeach
+            </ul>
+        @endif
+    </section>
+
+    <section class="p-sec">
+        <div class="p-sec-head">
+            <h2>Servicio</h2>
+            <span>
+                <a class="p-link" href="{{ route('portal.visits', ['type' => 'maintenance', 'building' => $building->id]) }}">Mantenimientos →</a>
+                &nbsp;<a class="p-link" href="{{ route('portal.visits', ['type' => 'inspection', 'building' => $building->id]) }}">Inspecciones →</a>
+            </span>
+        </div>
+        @if($lastVisits->isEmpty())
+            <div class="p-empty">Todavía no hay visitas registradas.</div>
+        @else
+            <ul class="p-list">
+                @foreach($lastVisits as $visit)
+                    @php
+                        $done = $visit->deliveryNote?->performed !== false;
+                    @endphp
+                    <li class="p-row">
+                        <span>{{ $visit->assignment_type === 'inspection' ? 'Inspección' : 'Mantenimiento' }} · {{ $months[$visit->month] ?? $visit->month }} {{ $visit->year }}</span>
+                        <span class="p-tag {{ $done ? 'ok' : 'bad' }}">{{ $done ? 'Realizado' : 'No realizado' }}</span>
                     </li>
                 @endforeach
             </ul>
@@ -25,58 +54,20 @@
     </section>
 
     <section class="p-sec">
-        <h2>Mantenimientos, inspecciones y trabajos</h2>
-        @forelse($deliveryNotes as $note)
-            @if($loop->first)<ul class="p-list">@endif
-            <li>
-                <a href="{{ route('portal.delivery-note', $note) }}">Remito {{ $note->number }}</a>
-                <span><span class="p-tag">{{ $types[$note->assignment_type] ?? 'Trabajo' }}</span> <span class="p-muted">{{ $note->created_at?->format('d/m/Y') }}</span></span>
-            </li>
-            @if($loop->last)</ul>@endif
-        @empty
-            <div class="p-empty">Todavía no hay remitos compartidos. Cuando {{ $company->name }} comparta uno, lo vas a ver acá.</div>
-        @endforelse
-    </section>
-
-    <section class="p-sec">
-        <h2>Reportes</h2>
-        @forelse($reports as $report)
-            @if($loop->first)<ul class="p-list">@endif
-            <li>
-                <a href="{{ route('portal.report', $report) }}">{{ \Illuminate\Support\Str::limit($report->description, 70) }}</a>
-                <span><span class="p-tag {{ in_array($report->priority, ['alta', 'critica']) ? 'warn' : '' }}">{{ $priorities[$report->priority] ?? $report->priority }}</span> <span class="p-muted">{{ $report->created_at?->format('d/m/Y') }}</span></span>
-            </li>
-            @if($loop->last)</ul>@endif
-        @empty
-            <div class="p-empty">No hay reportes compartidos.</div>
-        @endforelse
-    </section>
-
-    <section class="p-sec">
-        <h2>Presupuestos</h2>
-        @forelse($quotes as $quote)
-            @if($loop->first)<ul class="p-list">@endif
-            <li>
-                <a href="{{ route('portal.quote', $quote) }}">{{ $quote->title }}</a>
-                <span><span class="p-tag">{{ $quote->displayStatusLabel() }}</span> <span class="p-muted">${{ number_format((float) $quote->amount, 0, ',', '.') }}</span></span>
-            </li>
-            @if($loop->last)</ul>@endif
-        @empty
-            <div class="p-empty">No hay presupuestos compartidos.</div>
-        @endforelse
-    </section>
-
-    <section class="p-sec">
-        <h2>Documentación técnica</h2>
-        @forelse($documents as $document)
-            @if($loop->first)<ul class="p-list">@endif
-            <li>
-                <a href="{{ route('portal.document', $document) }}" target="_blank" rel="noopener">{{ $document->title }}</a>
-                <span><span class="p-tag">{{ $docTypes[$document->type] ?? $document->type }}</span> <span class="p-muted">{{ $document->elevator?->label }}{{ $document->expires_at ? ' · vence '.$document->expires_at->format('d/m/Y') : '' }}</span></span>
-            </li>
-            @if($loop->last)</ul>@endif
-        @empty
-            <div class="p-empty">No hay documentación compartida (planos, manuales o certificados).</div>
-        @endforelse
+        <details class="p-acc">
+            <summary>Equipos ({{ $elevators->count() }}) <span class="p-muted">ver</span></summary>
+            @if($elevators->isEmpty())
+                <div class="p-row p-muted">No hay equipos cargados para este edificio.</div>
+            @else
+                <ul class="p-list" style="border:0;border-radius:0">
+                    @foreach($elevators as $elevator)
+                        <li class="p-row">
+                            <span>{{ $elevator->label }}</span>
+                            <span class="p-muted">{{ trim($elevator->manufacturer.' '.$elevator->model) ?: '—' }}{{ $elevator->year ? ' · '.$elevator->year : '' }}</span>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+        </details>
     </section>
 </x-portal-layout>
