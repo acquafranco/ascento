@@ -47,6 +47,9 @@ class WorkOrder extends Model
             }
         });
 
+        // Eliminar una orden abierta es cancelarla: se avisa a sus técnicos.
+        static::deleted(fn (WorkOrder $workOrder) => app(\App\Services\Notifications\AssignmentNotifier::class)->workOrderCancelled($workOrder));
+
         static::creating(function (WorkOrder $workOrder) {
 
             if (Auth::check() && empty($workOrder->company_id)) {

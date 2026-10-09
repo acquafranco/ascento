@@ -233,7 +233,8 @@ class DemoValidationSeeder extends Seeder
     private function portalUser(Company $company, Client $client, string $name, string $email, array $buildings): User
     {
         $user = new User(['name' => $name, 'email' => $email, 'password' => Hash::make(self::PASSWORD)]);
-        $user->forceFill(['role' => User::ROLE_CLIENT, 'company_id' => $company->id, 'client_id' => $client->id, 'email_verified_at' => now()])->save();
+        // Cuenta demo ya activada (en producción se crea por invitación).
+        $user->forceFill(['role' => User::ROLE_CLIENT, 'company_id' => $company->id, 'client_id' => $client->id, 'email_verified_at' => now(), 'portal_invited_at' => now(), 'portal_activated_at' => now()])->save();
         $user->portalBuildings()->sync(collect($buildings)->pluck('id'));
 
         return $user;

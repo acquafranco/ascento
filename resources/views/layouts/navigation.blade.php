@@ -15,7 +15,14 @@
                 </div>
             </div>
 
-            <div class="flex items-center">
+            <div class="flex items-center gap-3">
+                @if(auth()->user()->role === 'technician')
+                    @php($unreadCount = auth()->user()->unreadNotifications()->count())
+                    <a href="{{ route('notifications.index') }}" aria-label="Avisos" style="position:relative; display:inline-flex; width:40px; height:40px; align-items:center; justify-content:center; border-radius:999px; border:1px solid rgba(20,23,28,0.1);">
+                        <svg style="width:20px; height:20px; color:rgba(20,23,28,0.7)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+                        <span data-unread-count @if($unreadCount === 0) hidden @endif style="position:absolute; top:-4px; right:-6px; min-width:18px; height:18px; padding:0 5px; border-radius:999px; background:#dc2626; color:#fff; font-size:11px; font-weight:700; line-height:18px; text-align:center;">{{ $unreadCount > 99 ? '99+' : $unreadCount }}</span>
+                    </a>
+                @endif
                 <x-dropdown align="right" width="56">
                     <x-slot name="trigger">
                         <button class="flex items-center gap-2.5 pl-1.5 pr-3 py-1.5 rounded-full border border-[#14171C]/10 hover:border-[#14171C]/20 hover:bg-[#14171C]/[0.02] transition-colors">

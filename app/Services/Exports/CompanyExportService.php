@@ -5,6 +5,8 @@ namespace App\Services\Exports;
 use App\Models\Company;
 use App\Models\CompanyExport;
 use App\Models\User;
+use App\Notifications\App\ExportFinishedNotification;
+use App\Services\Notifications\Notifier;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -84,14 +86,39 @@ class CompanyExportService
             ])->save();
         }
 
+        $this->notifyRequester($export->fresh());
+
         return $export->fresh();
+    }
+
+    /**
+     * Aviso (interno + correo) al admin que la pidió, si sigue siendo admin
+     * de esa empresa. Un aviso por exportación y estado. Si el aviso falla, la
+     * exportación igual queda bien registrada.
+     */
+    private function notifyRequester(CompanyExport $export): void
+    {
+        $requester = $export->requested_by ? User::find($export->requested_by) : null;
+
+        if (! $requester || ! $requester->isAdmin()) {
+            return;
+        }
+
+        try {
+            app(Notifier::class)->sendTo($requester, new ExportFinishedNotification($export), (int) $export->company_id);
+        } catch (\Throwable $e) {
+            Log::warning('No se pudo avisar el fin de una exportación', ['export_id' => $export->id, 'exception' => $e::class]);
+        }
     }
 
     /** Pendientes (las más viejas primero) y las que quedaron colgadas. */
     public function processPending(int $max = 3): int
     {
-        CompanyExport::withoutGlobalScopes()->where('status', CompanyExport::GENERATING)->where('started_at', '<', now()->subMinutes(30))
-            ->update(['status' => CompanyExport::FAILED, 'error' => 'La exportación se interrumpió. Probá de nuevo.', 'completed_at' => now()]);
+        CompanyExport::withoutGlobalScopes()->where('status', CompanyExport::GENERATING)->where('started_at', '<', now()->subMinutes(30))->get()
+            ->each(function (CompanyExport $stuck) {
+                $stuck->forceFill(['status' => CompanyExport::FAILED, 'error' => 'La exportación se interrumpió. Probá de nuevo.', 'completed_at' => now()])->save();
+                $this->notifyRequester($stuck);
+            });
 
         $done = 0;
 

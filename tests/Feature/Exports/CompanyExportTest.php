@@ -14,9 +14,12 @@ use App\Models\Quote;
 use App\Models\Report;
 use App\Models\ReportPhoto;
 use App\Models\StockItem;
+use App\Models\Subscription;
+use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderMaterial;
+use App\Notifications\App\ExportFinishedNotification;
 use App\Services\Elevators\ElevatorDocumentService;
 use App\Services\Exports\CompanyDataExporter;
 use App\Services\Exports\CompanyExportService;
@@ -338,5 +341,49 @@ class CompanyExportTest extends TestCase
         $opened = $this->open($export);
         $this->assertFalse(collect(range(0, $opened['zip']->numFiles - 1))->contains(fn ($i) => str_contains($opened['zip']->getNameIndex($i), '.env')));
         $this->assertCount(2, array_filter($opened['sheets']['Archivos'], fn ($r) => ($r[2] ?? null) === 'No incluido'));
+    }
+
+    public function test_portal_clients_cannot_request_exports_and_files_live_outside_public(): void
+    {
+        $portal = User::factory()->create();
+        $portal->forceFill(['role' => User::ROLE_CLIENT, 'company_id' => $this->a['company']->id, 'client_id' => $this->a['building']->client_id])->save();
+
+        $this->actingAs($portal)->get(CompanyExports::getUrl())->assertRedirect(route('portal.home'));
+        try {
+            app(CompanyExportService::class)->request($portal);
+            $this->fail('Un cliente del portal pidió una exportación.');
+        } catch (HttpException) {
+        }
+
+        auth()->logout();
+        $export = $this->generate();
+        // Disco privado (storage/app/private), nunca bajo public/ ni servido por /storage.
+        $this->assertSame(storage_path('app/private'), config('filesystems.disks.local.root'));
+        $this->assertFalse(str_starts_with(config('filesystems.disks.local.root'), public_path()));
+        $this->get('/storage/'.$export->path)->assertNotFound();
+    }
+
+    public function test_exports_work_on_every_plan_including_initial(): void
+    {
+        $plan = SubscriptionPlan::findBySlug('inicial');
+        Subscription::create(['company_id' => $this->a['company']->id, 'provider' => 'mercadopago', 'provider_subscription_id' => 'PRE-X', 'plan' => 'inicial',
+            'status' => Subscription::AUTHORIZED, 'amount' => $plan->price, 'currency' => 'ARS', 'current_period_end' => now()->addMonth()]);
+
+        $this->actingInPanel($this->a['admin'])->get(CompanyExports::getUrl())->assertOk()->assertSee('Generar exportación');
+        auth()->logout();
+        $this->assertSame(CompanyExport::COMPLETED, $this->generate()->status);
+    }
+
+    public function test_an_interrupted_export_is_marked_failed_notified_and_can_be_requested_again(): void
+    {
+        $service = app(CompanyExportService::class);
+        $stuck = $service->request($this->a['admin']);
+        $stuck->forceFill(['status' => CompanyExport::GENERATING, 'started_at' => now()->subHour()])->save();
+
+        $this->artisan('exports:process')->assertSuccessful();
+
+        $this->assertSame(CompanyExport::FAILED, $stuck->fresh()->status);
+        $this->assertSame('No se pudo generar la exportación', $this->a['admin']->notifications()->where('type', ExportFinishedNotification::class)->sole()->data['title']);
+        $this->assertSame(CompanyExport::REQUESTED, $service->request($this->a['admin'])->status);
     }
 }

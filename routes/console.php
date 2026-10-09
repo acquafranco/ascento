@@ -28,3 +28,7 @@ Schedule::command('billing:generate')->dailyAt('06:00')->withoutOverlapping();
 // tiempo de PHP-FPM) y los archivos vencidos se borran (queda el historial).
 Schedule::command('exports:process')->everyMinute()->withoutOverlapping(30);
 Schedule::command('exports:prune')->dailyAt('03:30');
+
+// Recordatorios de la agenda (pendientes desde el día 20, vencidos del mes
+// anterior los días 1 a 5). Cada aviso sale una sola vez por mes.
+Schedule::command('notifications:visits')->dailyAt('08:00')->withoutOverlapping();

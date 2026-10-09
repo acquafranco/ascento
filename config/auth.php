@@ -99,6 +99,16 @@ return [
             'expire' => 60,
             'throttle' => 60,
         ],
+
+        // Invitaciones al portal del cliente: mismo mecanismo que "olvidé mi
+        // contraseña" (token aleatorio guardado con hash, de un solo uso),
+        // con más tiempo para activarla. Ver PortalInvitations.
+        'portal_invitations' => [
+            'provider' => 'users',
+            'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
+            'expire' => 72 * 60,
+            'throttle' => 0,
+        ],
     ],
 
     /*

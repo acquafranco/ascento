@@ -1,4 +1,5 @@
-@props(['company' => null, 'title' => 'Portal de clientes'])
+@props(['company' => null, 'title' => 'Portal de clientes', 'bell' => true])
+@php($showBell = $bell && auth()->user()?->isClientUser())
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -38,6 +39,9 @@
         .p-photos { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
         .p-photos img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; border: 1px solid #e5e7eb; }
         .p-text { white-space: pre-line; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px 16px; }
+        .p-actions { display: flex; align-items: center; gap: 8px; }
+        .p-bell { position: relative; display: inline-flex; align-items: center; gap: 6px; border: 1px solid #d1d5db; border-radius: 8px; padding: 6px 10px; font-size: 13px; text-decoration: none; }
+        .p-count { background: #dc2626; color: #fff; border-radius: 999px; font-size: 11px; font-weight: 700; padding: 0 6px; min-width: 18px; text-align: center; }
         .p-foot { text-align: center; font-size: 12px; color: #9ca3af; margin-top: 32px; }
     </style>
 </head>
@@ -48,15 +52,27 @@
                 @if($company?->logo)<img src="{{ asset('storage/'.$company->logo) }}" alt="">@endif
                 <span>{{ $company?->name }}<small>Portal de clientes</small></span>
             </div>
-            <form method="POST" action="{{ route('logout') }}">
-                @csrf
-                <button class="p-out" type="submit">Salir</button>
-            </form>
+            <div class="p-actions">
+                @if($showBell)
+                    @php($unreadCount = auth()->user()->unreadNotifications()->count())
+                    <a class="p-bell" href="{{ route('portal.notifications') }}" aria-label="Avisos">
+                        <span aria-hidden="true">🔔</span> Avisos
+                        <span class="p-count" data-unread-count @if($unreadCount === 0) hidden @endif>{{ $unreadCount > 99 ? '99+' : $unreadCount }}</span>
+                    </a>
+                @endif
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button class="p-out" type="submit">Salir</button>
+                </form>
+            </div>
         </div>
     </header>
     <main class="p-main">
         {{ $slot }}
         <p class="p-foot">Información compartida por {{ $company?->name }} mediante Ascento.</p>
     </main>
+    @if($showBell)
+        @include('partials.notification-poll', ['url' => route('portal.notifications.count')])
+    @endif
 </body>
 </html>

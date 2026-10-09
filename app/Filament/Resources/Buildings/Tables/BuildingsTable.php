@@ -236,6 +236,8 @@ class BuildingsTable
                                         ]
                                     );
 
+                                    app(\App\Services\Notifications\AssignmentNotifier::class)->building($record, (int) $userId, $data['type'], true);
+
                                 }
 
                             }
@@ -292,9 +294,13 @@ class BuildingsTable
 
                             [$userId, $type] = explode('-', $data['assignment']);
 
-                            $record->users()
+                            $removed = $record->users()
                                 ->wherePivot('type', $type)
                                 ->detach($userId);
+
+                            if ($removed) {
+                                app(\App\Services\Notifications\AssignmentNotifier::class)->building($record, (int) $userId, $type, false);
+                            }
 
                         })
 

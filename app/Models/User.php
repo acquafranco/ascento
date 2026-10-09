@@ -44,6 +44,8 @@ class User extends Authenticatable implements FilamentUser
         'onboarding_completed_at' => 'datetime',
         'onboarding_skipped_at' => 'datetime',
         'telegram_linked_at' => 'datetime',
+        'portal_invited_at' => 'datetime',
+        'portal_activated_at' => 'datetime',
     ];
 
     /*

@@ -40,7 +40,7 @@ class TelegramChannel
         } catch (TelegramChatGoneException) {
             $notifiable->forceFill(['telegram_chat_id' => null, 'telegram_linked_at' => null])->saveQuietly();
         } catch (Throwable $e) {
-            Log::warning('No se pudo enviar el aviso por Telegram', ['user_id' => $notifiable->id, 'error' => $e->getMessage()]);
+            Log::warning('No se pudo enviar el aviso por Telegram', ['user_id' => $notifiable->id, 'exception' => $e::class]);
         }
     }
 }

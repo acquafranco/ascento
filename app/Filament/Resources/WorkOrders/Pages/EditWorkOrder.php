@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\WorkOrders\Pages;
 
 use App\Filament\Resources\WorkOrders\WorkOrderResource;
+use App\Services\Notifications\AssignmentNotifier;
 use App\Services\WorkOrderAssignmentNotifier;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
@@ -33,6 +34,13 @@ class EditWorkOrder extends EditRecord
 
         // Los que ya estaban: "Orden modificada", solo si cambió algo que les importa.
         $notifier->notifyChanges($this->record, $this->previousSnapshot, $this->previousTechnicianIds);
+
+        // Los que se quitaron: "Ya no tenés asignada la orden" (sin detalle).
+        $removed = array_diff($this->previousTechnicianIds, $notifier->currentAssigneeIds($this->record));
+
+        if ($removed !== []) {
+            app(AssignmentNotifier::class)->removedFromWorkOrder($this->record, $removed);
+        }
     }
 
     protected function getHeaderActions(): array

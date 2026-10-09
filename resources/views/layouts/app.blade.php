@@ -63,6 +63,11 @@
                 @include('layouts.mobile-nav')
             @endif
 
+            @if(auth()->check() && auth()->user()->role === 'technician')
+                {{-- Contadores de avisos (barra de arriba y menú del celular): se actualizan solos. --}}
+                @include('partials.notification-poll', ['url' => route('notifications.count')])
+            @endif
+
             <!-- Page Heading -->
             @isset($header)
                 <header class="bg-white shadow">

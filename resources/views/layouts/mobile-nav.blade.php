@@ -119,7 +119,12 @@
                     d="M4 6h16M4 12h16M4 18h16"
                 />
             </svg>
-            <div class="text-[11px] font-medium text-[#14171C]/70 whitespace-nowrap">Menú</div>
+            <div class="text-[11px] font-medium text-[#14171C]/70 whitespace-nowrap" style="position:relative">Menú
+                @if(auth()->user()->role === 'technician')
+                    @php($menuUnread = auth()->user()->unreadNotifications()->count())
+                    <span data-unread-count @if($menuUnread === 0) hidden @endif style="position:absolute; top:-30px; right:-14px; min-width:18px; height:18px; padding:0 5px; border-radius:999px; background:#dc2626; color:#fff; font-size:11px; font-weight:700; line-height:18px; text-align:center;">{{ $menuUnread > 99 ? '99+' : $menuUnread }}</span>
+                @endif
+            </div>
         </button>
 
     </div>
@@ -146,6 +151,14 @@
                 {{ auth()->user()->name }}
             </span>
         </div>
+
+        @if(auth()->user()->role === 'technician')
+            <a href="{{ route('notifications.index') }}" class="flex items-center gap-3 py-2.5 px-2 rounded-xl text-sm text-[#14171C]/75 hover:bg-black/[0.05] hover:text-[#14171C] transition-colors duration-150">
+                <svg class="w-[18px] h-[18px] text-[#14171C]/50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+                Avisos
+                <span data-unread-count @if($menuUnread === 0) hidden @endif style="margin-left:auto; min-width:18px; height:18px; padding:0 5px; border-radius:999px; background:#dc2626; color:#fff; font-size:11px; font-weight:700; line-height:18px; text-align:center;">{{ $menuUnread > 99 ? '99+' : $menuUnread }}</span>
+            </a>
+        @endif
 
         <a href="{{ route('profile.edit', [
             'company' => auth()->user()->company->slug,

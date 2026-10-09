@@ -35,7 +35,7 @@ class SubscriptionPlanSeeder extends Seeder
             'max_reports_per_month' => null,
             'is_recommended' => true,
             'sort_order' => 2,
-            'feature_keys' => ['buildings', 'clients', 'technicians', 'maintenances', 'inspections', 'work_orders', 'reports', 'history', 'map', 'quotes', 'digital_delivery_notes', 'agenda', 'attention_center', 'elevator_file', 'indicators', 'attention_advanced', 'company_indicators', 'elevator_history_advanced', 'failure_analysis'],
+            'feature_keys' => ['buildings', 'clients', 'technicians', 'maintenances', 'inspections', 'work_orders', 'reports', 'history', 'map', 'quotes', 'digital_delivery_notes', 'agenda', 'attention_center', 'elevator_file', 'indicators', 'attention_advanced', 'company_indicators', 'elevator_history_advanced', 'failure_analysis', 'client_portal'],
         ],
         SubscriptionPlan::EMPRESA => [
             'name' => 'Ascento Empresa',
@@ -47,7 +47,7 @@ class SubscriptionPlanSeeder extends Seeder
             'max_reports_per_month' => null,
             'is_recommended' => false,
             'sort_order' => 3,
-            'feature_keys' => ['buildings', 'clients', 'technicians', 'maintenances', 'inspections', 'work_orders', 'reports', 'history', 'map', 'quotes', 'digital_delivery_notes', 'agenda', 'attention_center', 'elevator_file', 'indicators', 'attention_advanced', 'company_indicators', 'elevator_history_advanced', 'failure_analysis', 'advanced_indicators', 'advanced_alerts'],
+            'feature_keys' => ['buildings', 'clients', 'technicians', 'maintenances', 'inspections', 'work_orders', 'reports', 'history', 'map', 'quotes', 'digital_delivery_notes', 'agenda', 'attention_center', 'elevator_file', 'indicators', 'attention_advanced', 'company_indicators', 'elevator_history_advanced', 'failure_analysis', 'client_portal', 'advanced_indicators', 'advanced_alerts'],
         ],
     ];
 

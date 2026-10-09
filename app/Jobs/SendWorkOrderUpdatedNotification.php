@@ -42,7 +42,7 @@ class SendWorkOrderUpdatedNotification
             Log::warning('No se pudo enviar el push de orden modificada', [
                 'work_order_id' => $workOrder->id,
                 'user_id' => $user->id,
-                'error' => $e->getMessage(),
+                'exception' => $e::class,
             ]);
         }
     }

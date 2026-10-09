@@ -399,6 +399,26 @@ Route::prefix('portal')->name('portal.')->middleware(['auth', 'portal'])->group(
     Route::get('/reportes/{report}/fotos/{photo}', [\App\Http\Controllers\Portal\PortalController::class, 'reportPhoto'])->whereNumber(['report', 'photo'])->name('report-photo');
     Route::get('/presupuestos/{quote}', [\App\Http\Controllers\Portal\PortalController::class, 'quote'])->whereNumber('quote')->name('quote');
     Route::get('/documentos/{elevatorDocument}', [\App\Http\Controllers\Portal\PortalController::class, 'document'])->whereNumber('elevatorDocument')->name('document');
+    Route::get('/notificaciones', [\App\Http\Controllers\NotificationInboxController::class, 'index'])->name('notifications');
+    Route::get('/notificaciones/contador', [\App\Http\Controllers\NotificationInboxController::class, 'count'])->middleware('throttle:60,1')->name('notifications.count');
+    Route::get('/notificaciones/{notification}', [\App\Http\Controllers\NotificationInboxController::class, 'open'])->whereUuid('notification')->name('notifications.open');
+    Route::post('/notificaciones/leidas', [\App\Http\Controllers\NotificationInboxController::class, 'readAll'])->name('notifications.read-all');
+});
+
+// Bandeja de avisos de los técnicos (los admins usan la campanita del panel).
+Route::middleware(['auth', 'subscription'])->prefix('notificaciones')->name('notifications.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\NotificationInboxController::class, 'index'])->name('index');
+    Route::get('/contador', [\App\Http\Controllers\NotificationInboxController::class, 'count'])->middleware('throttle:60,1')->name('count');
+    Route::get('/{notification}', [\App\Http\Controllers\NotificationInboxController::class, 'open'])->whereUuid('notification')->name('open');
+    Route::post('/leidas', [\App\Http\Controllers\NotificationInboxController::class, 'readAll'])->name('read-all');
+});
+
+// Ingreso y activación del portal (sin sesión). La activación usa el token
+// de la invitación: de un solo uso, vence a las 72 h.
+Route::middleware('guest')->prefix('portal')->name('portal.')->group(function () {
+    Route::get('/ingresar', fn () => view('auth.login', ['portal' => true]))->name('login');
+    Route::get('/activar/{token}', [\App\Http\Controllers\Portal\PortalInvitationController::class, 'show'])->middleware('throttle:20,1')->name('invitation');
+    Route::post('/activar', [\App\Http\Controllers\Portal\PortalInvitationController::class, 'store'])->middleware('throttle:6,1')->name('invitation.store');
 });
 
 /*
