@@ -24,6 +24,7 @@ use App\Services\Reports\ReportPhotoService;
 use App\Services\Stock\StockService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
@@ -282,8 +283,10 @@ class CompanyExportTest extends TestCase
             }
         });
 
+        Log::spy();
         $export = $this->generate();
 
+        Log::shouldHaveReceived('error')->withArgs(fn ($message, $context) => ! str_contains(json_encode($context), 'supersecreta'));
         $this->assertSame(CompanyExport::FAILED, $export->status);
         $this->assertStringContainsString('No se pudo generar la exportación', $export->error);
         $this->assertStringNotContainsString('supersecreta', $export->error);

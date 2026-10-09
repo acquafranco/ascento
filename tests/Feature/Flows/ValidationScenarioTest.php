@@ -18,6 +18,7 @@ use App\Models\User;
 use App\Services\Insights\MaintenanceAgenda;
 use Carbon\Carbon;
 use Database\Seeders\DemoValidationSeeder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
@@ -46,6 +47,12 @@ class ValidationScenarioTest extends TestCase
         Storage::fake('public');
         $this->travelTo(Carbon::parse('2026-10-14 09:00'));
         $this->seed(DemoValidationSeeder::class);
+    }
+
+    protected function tearDown(): void
+    {
+        Model::preventLazyLoading(false);
+        parent::tearDown();
     }
 
     private function user(string $email): User
@@ -130,6 +137,7 @@ class ValidationScenarioTest extends TestCase
 
     public function test_each_portal_user_sees_only_what_was_shared_for_their_buildings(): void
     {
+        Model::preventLazyLoading(); // N+1 = excepción
         $torre = $this->building('Torre Libertador');
         $juncal = $this->building('Edificio Juncal');
         $belgrano = $this->building('Plaza Belgrano');
@@ -183,6 +191,7 @@ class ValidationScenarioTest extends TestCase
 
     public function test_each_company_exports_its_own_complete_data(): void
     {
+        Model::preventLazyLoading();
         $sheets = $this->exportFor('admin@demo-norte.test', $zipNames, $text);
 
         $rows = fn (string $sheet) => count($sheets[$sheet]) - 1;

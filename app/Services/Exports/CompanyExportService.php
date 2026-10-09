@@ -72,8 +72,10 @@ class CompanyExportService
                 'expires_at' => now()->addDays(CompanyExport::KEEP_DAYS),
             ])->save();
         } catch (\Throwable $e) {
-            // Al usuario, un motivo entendible; el detalle técnico va al log (sin datos).
-            Log::error('Falló una exportación de empresa', ['export_id' => $export->id, 'company_id' => $export->company_id, 'error' => $e->getMessage()]);
+            // Al usuario, un motivo entendible. Al log, dónde falló pero no el
+            // mensaje: el de un error SQL incluye los valores (datos personales).
+            Log::error('Falló una exportación de empresa', ['export_id' => $export->id, 'company_id' => $export->company_id,
+                'exception' => $e::class, 'at' => basename($e->getFile()).':'.$e->getLine()]);
 
             $export->forceFill([
                 'status' => CompanyExport::FAILED,
