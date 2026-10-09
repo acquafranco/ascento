@@ -64,7 +64,7 @@
 
             @if(auth()->check() && auth()->user()->role === 'technician')
                 {{-- Contadores de avisos (barra de arriba y menú del celular): se actualizan solos. --}}
-                @include('partials.notification-poll', ['url' => route('notifications.count')])
+                @include('partials.realtime-inbox', ['countUrl' => route('notifications.count'), 'inboxUrl' => route('notifications.index')])
             @endif
 
             <!-- Page Heading -->

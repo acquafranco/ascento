@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Notifications\AppNotification;
 use App\Notifications\MailOnlyNotification;
 use App\Support\Portal\PortalAccess;
+use App\Support\Realtime;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -66,6 +67,9 @@ class Notifier
         if (! $row) {
             return null; // ya avisado
         }
+
+        // En pantalla al instante (campanita / bandeja), si hay tiempo real.
+        Realtime::notificationsChanged($user, $row);
 
         if ($notification->wantsPush() && $user->canReceivePush() && filled(config('webpush.vapid.public_key'))) {
             try {

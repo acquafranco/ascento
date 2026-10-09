@@ -8,6 +8,7 @@ use App\Http\Middleware\AuthenticatePanel;
 use App\Http\Middleware\EnsureActiveSubscription;
 use App\Services\Telegram\TelegramService;
 use App\Support\Help\HelpTopics;
+use App\Support\Realtime;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -21,6 +22,7 @@ use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\HtmlString;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 class AscensoresAppPanelProvider extends PanelProvider
@@ -41,7 +43,7 @@ class AscensoresAppPanelProvider extends PanelProvider
             ])
 
             // Logo de la empresa si lo cargó; si no, el de Ascento (nunca el de Laravel).
-            ->brandLogo(fn () => new \Illuminate\Support\HtmlString(view('filament.partials.brand', [
+            ->brandLogo(fn () => new HtmlString(view('filament.partials.brand', [
                 'logo' => ($company = auth()->user()?->company)?->logo ? asset('storage/'.$company->logo) : null,
                 'name' => $company?->name ?? 'Ascento',
             ])->render()))
@@ -136,7 +138,9 @@ class AscensoresAppPanelProvider extends PanelProvider
             ->globalSearch(false)
 
             ->databaseNotifications()
-            ->databaseNotificationsPolling('10s')
+            // Con tiempo real (Reverb) la campanita se actualiza al instante; la
+            // consulta periódica queda solo como respaldo si se corta la conexión.
+            ->databaseNotificationsPolling(Realtime::enabled() ? '120s' : '30s')
 
             ->middleware([
                 EncryptCookies::class,

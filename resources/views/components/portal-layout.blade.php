@@ -73,7 +73,7 @@
         <p class="p-foot">Información compartida por {{ $company?->name }} mediante Ascento.</p>
     </main>
     @if($showBell)
-        @include('partials.notification-poll', ['url' => route('portal.notifications.count')])
+        @include('partials.realtime-inbox', ['countUrl' => route('portal.notifications.count'), 'inboxUrl' => route('portal.notifications')])
     @endif
 </body>
 </html>

@@ -7,6 +7,7 @@ use Illuminate\Console\Command;
 use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
@@ -71,6 +72,26 @@ class CheckProduction extends Command
         $this->check(is_dir($private) && is_writable($private), "Escritura en {$private}", "No se puede escribir en {$private}");
         $free = @disk_free_space($private ?: storage_path());
         $this->check($free !== false && $free > 2 * 1024 ** 3, 'Espacio libre: '.round(($free ?: 0) / 1024 ** 3, 1).' GB', 'Poco espacio libre: '.round(($free ?: 0) / 1024 ** 3, 1).' GB (las exportaciones con fotos pueden pesar)');
+
+        $this->line('<options=bold>Tiempo real (Reverb)</>');
+        if (config('broadcasting.default') !== 'reverb') {
+            $this->check(false, '', 'BROADCAST_CONNECTION='.config('broadcasting.default').': los avisos no llegan en tiempo real (solo al recargar o cada 2 min). Configurá Reverb (ver docs/operacion-produccion.md)');
+        } else {
+            $this->check(filled(config('broadcasting.connections.reverb.key')) && filled(config('broadcasting.connections.reverb.secret')), 'REVERB_APP_KEY y REVERB_APP_SECRET cargados (no se muestran)', 'Faltan REVERB_APP_KEY / REVERB_APP_SECRET');
+            $this->check((config('broadcasting.connections.reverb.options.scheme') ?? 'https') === 'https', 'REVERB_SCHEME=https', 'REVERB_SCHEME no es https: el navegador no puede abrir wss desde una página https');
+            $port = (int) config('reverb.servers.reverb.port', 8080);
+            $socket = @fsockopen('127.0.0.1', $port, $errno, $errstr, 2);
+            $this->check((bool) $socket, "Proceso de Reverb escuchando en el puerto {$port}", "No hay un proceso de Reverb en el puerto {$port}. En Forge: Application → Laravel Reverb (daemon)");
+            $socket && fclose($socket);
+            try {
+                Broadcast::connection('reverb')->getPusher()->getChannels();
+                $this->info('  ✓ La app puede publicar en Reverb por '.config('broadcasting.connections.reverb.options.host'));
+            } catch (Throwable $e) {
+                $this->check(false, '', 'La app no puede publicar en Reverb ('.$e::class.'). Revisá REVERB_HOST/REVERB_PORT y el proxy de Nginx');
+            }
+            $origins = (array) config('reverb.apps.apps.0.allowed_origins');
+            $this->check($origins !== ['*'], 'REVERB_ALLOWED_ORIGINS='.implode(',', $origins), 'REVERB_ALLOWED_ORIGINS=* (cualquier sitio puede conectarse). Poné REVERB_ALLOWED_ORIGINS=ascento.online');
+        }
 
         $this->line('<options=bold>Push y Telegram (opcionales)</>');
         $this->info('  · Push (VAPID): '.(filled(config('webpush.vapid.public_key')) && filled(config('webpush.vapid.private_key')) ? 'configurado' : 'NO configurado (VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY)'));
