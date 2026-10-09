@@ -24,6 +24,8 @@ use Filament\Tables\Table;
  */
 class MaterialsRelationManager extends RelationManager
 {
+    use \App\Filament\Concerns\OwnerRecordOfCurrentCompany;
+
     protected static string $relationship = 'materials';
 
     protected static ?string $title = 'Materiales utilizados';

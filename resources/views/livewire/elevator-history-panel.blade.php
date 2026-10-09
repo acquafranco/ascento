@@ -19,6 +19,9 @@
             <div class="asc-alert {{ $analysis['recurrent'] ? 'is-danger' : '' }}">
                 <strong>{{ $analysis['recurrent'] ? '🔴 Falla que se repite' : 'Fallas en los últimos '.$days.' días' }}</strong>
                 <p style="margin: .2rem 0 0">{{ $analysis['message'] ?? 'Sin reportes ni reclamos en los últimos '.$days.' días.' }}</p>
+                @if($analysis['signals'] > 0)
+                    <p class="asc-small asc-muted" style="margin: .25rem 0 0">Se cuentan los reportes de los técnicos y los reclamos (órdenes de tipo reclamo) de este equipo; "resueltos" son los reclamos con la orden completada. Un mismo problema puede figurar como reporte y como reclamo.</p>
+                @endif
                 @if($analysis['unclassified'] > 0)
                     <p class="asc-small asc-muted" style="margin: .25rem 0 0">{{ $analysis['unclassified'] }} sin componente indicado: elegilo al cargar reportes y órdenes para que el análisis sea más preciso.</p>
                 @endif

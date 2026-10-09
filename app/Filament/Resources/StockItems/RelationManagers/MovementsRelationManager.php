@@ -9,6 +9,8 @@ use Filament\Tables\Table;
 /** Historial de un material (solo lectura). */
 class MovementsRelationManager extends RelationManager
 {
+    use \App\Filament\Concerns\OwnerRecordOfCurrentCompany;
+
     protected static string $relationship = 'movements';
 
     protected static ?string $title = 'Historial de movimientos';

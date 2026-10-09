@@ -14,6 +14,8 @@ use Filament\Tables\Table;
 /** Cuenta corriente / estado de cuenta de un cliente o edificio. */
 class AccountStatementRelationManager extends RelationManager
 {
+    use \App\Filament\Concerns\OwnerRecordOfCurrentCompany;
+
     protected static string $relationship = 'receivables';
 
     protected static ?string $title = 'Cuenta corriente';

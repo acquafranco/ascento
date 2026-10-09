@@ -173,7 +173,9 @@ class MaintenanceService extends Model
         $next = null;
 
         if ($this->status === self::ACTIVE) {
-            $next = $doneThisMonth ? now()->addMonthNoOverflow()->startOfMonth() : now()->startOfMonth();
+            $next = $doneThisMonth
+                ? now()->addMonthsNoOverflow(\App\Services\Insights\MaintenanceAgenda::VISIT_EVERY_MONTHS)->startOfMonth()
+                : now()->startOfMonth();
 
             if ($this->end_date && $next->gt($this->end_date)) {
                 $next = null;

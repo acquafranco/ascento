@@ -83,6 +83,9 @@ return [
 
     'locale' => env('APP_LOCALE', 'es'),
 
+    // Contacto de soporte que se muestra a los usuarios (registro, landing).
+    'support_email' => env('SUPPORT_EMAIL', 'contacto@ascento.online'),
+
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 
     'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),

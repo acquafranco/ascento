@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Elevators\RelationManagers;
 
+use App\Filament\Concerns\OwnerRecordOfCurrentCompany;
 use App\Models\ElevatorDocument;
 use App\Services\Elevators\ElevatorDocumentService;
 use Filament\Actions\Action;
@@ -17,6 +18,8 @@ use Filament\Tables\Table;
 /** Planos, manuales, certificados y fotos del legajo (disco privado). */
 class DocumentsRelationManager extends RelationManager
 {
+    use OwnerRecordOfCurrentCompany;
+
     protected static string $relationship = 'documents';
 
     protected static ?string $title = 'Documentación';

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Reports\RelationManagers;
 
+use App\Filament\Concerns\OwnerRecordOfCurrentCompany;
 use App\Models\ReportPhoto;
 use App\Services\Reports\ReportPhotoService;
 use Filament\Actions\Action;
@@ -13,6 +14,8 @@ use Filament\Tables\Table;
 /** Fotos del reporte: se ven en grande y se borran (con su archivo). */
 class PhotosRelationManager extends RelationManager
 {
+    use OwnerRecordOfCurrentCompany;
+
     protected static string $relationship = 'photos';
 
     protected static ?string $title = 'Fotos';

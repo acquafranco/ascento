@@ -5,6 +5,7 @@ namespace App\Services\Elevators;
 use App\Models\Elevator;
 use App\Models\ElevatorDocument;
 use App\Models\User;
+use App\Support\CompanyContext;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -28,6 +29,10 @@ class ElevatorDocumentService
 
     public function store(Elevator $elevator, UploadedFile $file, string $type, string $title, ?string $expiresAt, ?User $user): ElevatorDocument
     {
+        // Con sesión, solo en equipos de la empresa actual.
+        $companyId = CompanyContext::currentId();
+        abort_if($companyId !== null && $companyId !== (int) $elevator->company_id, 404);
+
         // Tipo por CONTENIDO (magic bytes), nunca por la extensión del nombre.
         $mime = (string) (new \finfo(FILEINFO_MIME_TYPE))->file($file->getRealPath());
 

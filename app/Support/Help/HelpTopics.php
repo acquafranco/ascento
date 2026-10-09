@@ -23,7 +23,7 @@ class HelpTopics
         'elevators_intro' => ['Ascensores', 'Cada equipo de tus edificios tiene su legajo: ficha técnica, documentación (planos, manuales, certificados) e historial. Se crean solos con la cantidad de ascensores y montacargas que cargás en el edificio.', null],
         'technical_file' => ['Legajo técnico', 'Arriba está la ficha técnica del equipo (fabricante, modelo, serie, capacidad…). Completala de a poco: con fabricante, modelo, número de serie, año, capacidad y paradas ya queda completa. Abajo, la documentación y el historial.', null],
         'elevator_history' => ['Historial del ascensor', 'Todo lo que pasó con este equipo, del más nuevo al más viejo: reportes, órdenes, presupuestos y los mantenimientos del edificio. No hay que cargar nada: sale solo de lo que ya registran.', null],
-        'failure_analysis' => ['Análisis de fallas', 'Cuenta los reportes y reclamos de este equipo en los últimos 90 días y los agrupa por componente. Para que el análisis sea más preciso, elegí el componente afectado al cargar reportes y órdenes.', null],
+        'failure_analysis' => ['Análisis de fallas', 'Cuenta los avisos de falla de este equipo en los últimos 90 días: reportes de los técnicos y reclamos (y cuántos reclamos ya se resolvieron), agrupados por componente. Para que el análisis sea más preciso, elegí el componente afectado al cargar reportes y órdenes.', null],
         'maintenance_intro' => ['Mantenimientos', null, 'maintenances'],
         'inspections_intro' => ['Inspecciones', null, 'inspections'],
         'agenda_intro' => ['Agenda', 'Cada mes Ascento arma solo la lista de mantenimientos e inspecciones según los técnicos asignados a cada edificio. Arriba de todo aparece lo vencido y lo que no tiene técnico.', null],

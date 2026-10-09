@@ -9,6 +9,8 @@ use Filament\Tables\Table;
 
 class PaymentsRelationManager extends RelationManager
 {
+    use \App\Filament\Concerns\OwnerRecordOfCurrentCompany;
+
     protected static string $relationship = 'payments';
 
     protected static ?string $title = 'Pagos';

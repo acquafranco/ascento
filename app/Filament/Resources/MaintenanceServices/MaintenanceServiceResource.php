@@ -85,7 +85,8 @@ class MaintenanceServiceResource extends Resource
             TextInput::make('description')->label('Servicio')->required()->maxLength(255)->default('Mantenimiento mensual de ascensores')->columnSpanFull(),
             Grid::make(3)->schema([
                 TextInput::make('amount')->label('Importe por período')->numeric()->minValue(1)->prefix('$')->required(),
-                Select::make('frequency')->label('Frecuencia')->options(collect(MaintenanceService::FREQUENCIES)->map(fn ($f) => $f[0]))->default('monthly')->required()->native(false),
+                Select::make('frequency')->label('Frecuencia de cobro')->options(collect(MaintenanceService::FREQUENCIES)->map(fn ($f) => $f[0]))->default('monthly')->required()->native(false)
+                    ->helperText('Cada cuánto se le cobra al cliente. Los mantenimientos e inspecciones se programan todos los meses.'),
                 TextInput::make('payment_due_day')->label('Día de vencimiento')->numeric()->minValue(1)->maxValue(28)->default(10)->required()
                     ->helperText('Del 1 al 28 de cada período.'),
             ]),
