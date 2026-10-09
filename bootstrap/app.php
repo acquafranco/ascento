@@ -19,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'company' => \App\Http\Middleware\SetCompany::class,
             'company.defaults' => SetCompanyRouteDefaults::class,
             'subscription' => \App\Http\Middleware\EnsureActiveSubscription::class,
+            'portal' => \App\Http\Middleware\EnsurePortalUser::class,
         ]);
 
         $middleware->redirectUsersTo(function () {

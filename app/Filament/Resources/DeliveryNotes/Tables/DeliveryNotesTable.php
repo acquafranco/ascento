@@ -146,7 +146,10 @@ class DeliveryNotesTable
                         : \App\Support\Plans\PlanUpsell::url(feature: \App\Enums\PlanFeature::DigitalDeliveryNotes))
                     ->tooltip(fn ($record) => self::canSharePdf() ? null : 'Disponible desde el plan Profesional')
                     ->openUrlInNewTab(fn ($record) => (bool) self::canSharePdf()),
-            ]);
+            ])
+            // Compartir con el portal del cliente (privado por defecto).
+            ->pushColumns([\App\Filament\Support\ClientSharing::column()])
+            ->pushToolbarActions([\Filament\Actions\BulkActionGroup::make(\App\Filament\Support\ClientSharing::bulkActions())->label('Portal del cliente')]);
 
     }
 

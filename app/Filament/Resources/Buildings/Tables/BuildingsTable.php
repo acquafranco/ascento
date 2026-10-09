@@ -128,7 +128,7 @@ class BuildingsTable
 
                                 return User::query()
                                     ->where('company_id', $companyId)
-                                    ->where('role', '!=', 'admin')
+                                    ->whereNotIn('role', ['admin', 'client']) // solo técnicos
                                     ->pluck('name', 'id')
                                     ->toArray();
                             }),

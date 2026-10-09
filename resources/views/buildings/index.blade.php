@@ -239,13 +239,19 @@
 
                     @else
 
-                        <div class="flex items-center justify-between bg-green-50 border border-green-200 rounded-2xl p-4">
+                        @php
+                            $maintenanceNotDone = $maintenanceVisit->deliveryNote?->performed === false;
+                        @endphp
+                        <div class="flex items-center justify-between {{ $maintenanceNotDone ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200' }} border rounded-2xl p-4">
 
                             <div>
 
-                                <div class="font-bold text-green-700">
-                                    🔧 Mantenimiento realizado
+                                <div class="font-bold {{ $maintenanceNotDone ? 'text-amber-700' : 'text-green-700' }}">
+                                    {{ $maintenanceNotDone ? '⚠️ Remito firmado: no se pudo realizar' : '🔧 Mantenimiento realizado' }}
                                 </div>
+                                @if($maintenanceNotDone)
+                                    <div class="text-sm text-amber-700">La oficina lo ve y coordina la nueva visita.</div>
+                                @endif
 
                                 @if($maintenanceVisit->delivery_note)
                                     <div class="text-sm text-slate-500">
@@ -285,13 +291,19 @@
 
                     @else
 
-                        <div class="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-2xl p-4">
+                        @php
+                            $inspectionNotDone = $inspectionVisit->deliveryNote?->performed === false;
+                        @endphp
+                        <div class="flex items-center justify-between {{ $inspectionNotDone ? 'bg-amber-50 border-amber-200' : 'bg-blue-50 border-blue-200' }} border rounded-2xl p-4">
 
                             <div>
 
-                                <div class="font-bold text-blue-700">
-                                    🔎 Inspección realizada
+                                <div class="font-bold {{ $inspectionNotDone ? 'text-amber-700' : 'text-blue-700' }}">
+                                    {{ $inspectionNotDone ? '⚠️ Remito firmado: no se pudo realizar' : '🔎 Inspección realizada' }}
                                 </div>
+                                @if($inspectionNotDone)
+                                    <div class="text-sm text-amber-700">La oficina lo ve y coordina la nueva visita.</div>
+                                @endif
 
                                 @if($inspectionVisit->delivery_note)
                                     <div class="text-sm text-slate-500">

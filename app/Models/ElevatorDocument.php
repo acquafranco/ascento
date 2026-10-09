@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\Storage;
  */
 class ElevatorDocument extends Model
 {
+    use \App\Models\Concerns\SharesWithClient;
+
     use BelongsToCompany;
 
     public const TYPES = [

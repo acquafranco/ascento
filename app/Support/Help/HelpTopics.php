@@ -3,6 +3,8 @@
 namespace App\Support\Help;
 
 use App\Livewire\AdminOnboarding;
+use Illuminate\Http\Request;
+use Livewire\Livewire;
 
 /**
  * Ayudas contextuales del panel. Cada una tiene su propio estado por usuario
@@ -36,6 +38,7 @@ class HelpTopics
         'receivables_intro' => ['Cobranzas', 'Lo que te deben tus clientes: cobros de servicios, de presupuestos aprobados y manuales. Registrá los pagos (también parciales) a medida que entran.', null],
         'map_intro' => ['Mapa', null, 'map'],
         'attention_center' => ['Centro de atención', 'Solo lo que necesita que hagas algo hoy: mantenimientos vencidos, trabajos trabados, reportes graves, presupuestos por vencer. Si está vacío, está todo en orden.', null],
+        'exports_intro' => ['Exportar datos', 'Generá un ZIP con un Excel y los adjuntos de tu empresa para tener tus datos. Se prepara en uno o dos minutos y queda disponible unos días; acá ves quién lo pidió y quién lo descargó.', null],
         'indicators' => ['Indicadores', 'Cada número responde una pregunta sobre tu empresa (¿cumplimos los mantenimientos?, ¿entran más reclamos?). Sirven para mirar la tendencia, no para controlar el día a día.', null],
     ];
 
@@ -60,6 +63,29 @@ class HelpTopics
         return self::all()[$key] ?? null;
     }
 
+    /**
+     * Ruta de la pantalla actual, también durante una acción de Livewire
+     * (donde la ruta del request es "livewire.update" y la ayuda desaparecía
+     * al tocar un botón o un filtro). La ruta original sale del snapshot del
+     * componente, que Livewire firma: solo sirve para elegir el texto.
+     */
+    public static function currentRouteName(): string
+    {
+        $name = (string) request()->route()?->getName();
+
+        if (! Livewire::isLivewireRequest()) {
+            return $name;
+        }
+
+        try {
+            return (string) app('router')->getRoutes()
+                ->match(Request::create(Livewire::originalUrl()))
+                ->getName();
+        } catch (\Throwable) {
+            return $name;
+        }
+    }
+
     /** Ayuda de cada pantalla (nombre de ruta de Filament → clave). */
     public static function forRoute(string $routeName): ?string
     {
@@ -68,6 +94,7 @@ class HelpTopics
             'pages.agenda' => 'agenda_intro',
             'pages.atencion' => 'attention_center',
             'pages.indicadores' => 'indicators',
+            'pages.exportaciones' => 'exports_intro',
             'pages.mapa' => 'map_intro',
             'resources.users.' => 'technicians_intro',
             'resources.clients.' => 'clients_intro',

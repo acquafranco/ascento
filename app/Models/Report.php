@@ -11,6 +11,8 @@ use App\Models\Concerns\BelongsToCompany;
 
 class Report extends Model
 {
+    use \App\Models\Concerns\SharesWithClient;
+
 
     use HasFactory, SoftDeletes;
     use ConsumesPlanLimit;

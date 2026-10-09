@@ -2,23 +2,26 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Pages\CompanySettings;
 use App\Filament\Pages\Dashboard;
-use Filament\Http\Middleware\Authenticate;
+use App\Http\Middleware\AuthenticatePanel;
+use App\Http\Middleware\EnsureActiveSubscription;
+use App\Services\Telegram\TelegramService;
+use App\Support\Help\HelpTopics;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\View\PanelsRenderHook;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
-use Illuminate\View\Middleware\ShareErrorsFromSession;
-use App\Http\Middleware\SetCompanyTheme;
-use Filament\View\PanelsRenderHook;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 class AscensoresAppPanelProvider extends PanelProvider
 {
@@ -41,11 +44,11 @@ class AscensoresAppPanelProvider extends PanelProvider
 
                 $company = auth()->user()?->company;
 
-                if (!$company?->logo) {
+                if (! $company?->logo) {
                     return null;
                 }
 
-                return asset('storage/' . $company->logo);
+                return asset('storage/'.$company->logo);
 
             })
             ->brandLogoHeight('60px')
@@ -83,7 +86,7 @@ class AscensoresAppPanelProvider extends PanelProvider
                 PanelsRenderHook::BODY_END,
                 fn (): string => auth()->user()?->canUseOnboarding()
                     ? Blade::render('@livewire(\App\Livewire\AdminOnboarding::class, [\'routeName\' => $routeName])', [
-                        'routeName' => (string) request()->route()?->getName(),
+                        'routeName' => HelpTopics::currentRouteName(),
                     ])
                     : '',
             )
@@ -94,7 +97,7 @@ class AscensoresAppPanelProvider extends PanelProvider
                 PanelsRenderHook::PAGE_START,
                 function (): string {
                     $key = auth()->user()?->canUseOnboarding()
-                        ? \App\Support\Help\HelpTopics::forRoute((string) request()->route()?->getName())
+                        ? HelpTopics::forRoute(HelpTopics::currentRouteName())
                         : null;
 
                     return $key
@@ -116,7 +119,7 @@ class AscensoresAppPanelProvider extends PanelProvider
                 // completa) hasta que los active o elija "Ahora no".
                 fn (): string => auth()->user()?->canReceiveAdminPush()
                     && filled(config('webpush.vapid.public_key'))
-                    && ! request()->routeIs('filament.ascensores_app.pages.company-settings')
+                    && HelpTopics::currentRouteName() !== 'filament.ascensores_app.pages.company-settings'
                     ? view('filament.partials.admin-push', ['compact' => true])->render()
                     : '',
             )
@@ -125,14 +128,14 @@ class AscensoresAppPanelProvider extends PanelProvider
                 fn (): string => auth()->user()?->canReceiveAdminPush() && filled(config('webpush.vapid.public_key'))
                     ? view('filament.partials.admin-push')->render()
                     : '',
-                scopes: \App\Filament\Pages\CompanySettings::class,
+                scopes: CompanySettings::class,
             )
             ->renderHook(
                 PanelsRenderHook::PAGE_END,
-                fn (): string => auth()->user()?->canReceiveAdminPush() && \App\Services\Telegram\TelegramService::isConfigured()
+                fn (): string => auth()->user()?->canReceiveAdminPush() && TelegramService::isConfigured()
                     ? view('filament.partials.admin-telegram')->render()
                     : '',
-                scopes: \App\Filament\Pages\CompanySettings::class,
+                scopes: CompanySettings::class,
             )
 
             ->globalSearch(false)
@@ -150,11 +153,11 @@ class AscensoresAppPanelProvider extends PanelProvider
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
-                \App\Http\Middleware\EnsureActiveSubscription::class,
+                EnsureActiveSubscription::class,
             ])
 
             ->authMiddleware([
-                \App\Http\Middleware\AuthenticatePanel::class,
+                AuthenticatePanel::class,
             ]);
     }
 }

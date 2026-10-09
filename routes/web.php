@@ -366,6 +366,13 @@ Route::middleware(['auth', 'subscription'])->whereNumber(['report', 'photo'])->g
     Route::get('/files/reports/{report}/pdf', \App\Http\Controllers\ReportPdfController::class)->name('reports.pdf');
 });
 
+// Exportación de datos de la empresa (ZIP privado): solo admins de la
+// empresa; cada descarga queda registrada (ver CompanyExportDownloadController).
+Route::get('/files/exports/{companyExport}', \App\Http\Controllers\CompanyExportDownloadController::class)
+    ->middleware(['auth', 'subscription', 'throttle:20,1'])
+    ->whereNumber('companyExport')
+    ->name('company-exports.download');
+
 Route::get('/files/elevator-documents/{elevatorDocument}', \App\Http\Controllers\ElevatorDocumentController::class)
     ->middleware(['auth', 'subscription'])
     ->whereNumber('elevatorDocument')
@@ -375,6 +382,24 @@ Route::get('/whatsapp/callback', [
     WhatsAppController::class,
     'callback'
 ])->middleware('auth')->name('whatsapp.callback');
+
+/*
+|--------------------------------------------------------------------------
+| PORTAL DEL CLIENTE (consorcios / administraciones)
+|--------------------------------------------------------------------------
+| Solo lectura de lo que la empresa compartió, de los edificios autorizados
+| (ver PortalAccess). Login con la pantalla común.
+*/
+
+Route::prefix('portal')->name('portal.')->middleware(['auth', 'portal'])->group(function () {
+    Route::get('/', [\App\Http\Controllers\Portal\PortalController::class, 'home'])->name('home');
+    Route::get('/edificios/{building}', [\App\Http\Controllers\Portal\PortalController::class, 'building'])->whereNumber('building')->name('building');
+    Route::get('/remitos/{deliveryNote}', [\App\Http\Controllers\Portal\PortalController::class, 'deliveryNote'])->name('delivery-note');
+    Route::get('/reportes/{report}', [\App\Http\Controllers\Portal\PortalController::class, 'report'])->whereNumber('report')->name('report');
+    Route::get('/reportes/{report}/fotos/{photo}', [\App\Http\Controllers\Portal\PortalController::class, 'reportPhoto'])->whereNumber(['report', 'photo'])->name('report-photo');
+    Route::get('/presupuestos/{quote}', [\App\Http\Controllers\Portal\PortalController::class, 'quote'])->whereNumber('quote')->name('quote');
+    Route::get('/documentos/{elevatorDocument}', [\App\Http\Controllers\Portal\PortalController::class, 'document'])->whereNumber('elevatorDocument')->name('document');
+});
 
 /*
 |--------------------------------------------------------------------------

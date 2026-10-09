@@ -9,6 +9,8 @@ use Illuminate\Support\Str;
 
 class DeliveryNote extends Model
 {
+    use \App\Models\Concerns\SharesWithClient;
+
 
     use HasFactory;
     use BelongsToCompany;

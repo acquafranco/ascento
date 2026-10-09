@@ -90,6 +90,26 @@ class User extends Authenticatable implements FilamentUser
         });
     }
 
+    /** Usuario del portal del cliente (consorcio / administración). */
+    public const ROLE_CLIENT = 'client';
+
+    public function isClientUser(): bool
+    {
+        return $this->role === self::ROLE_CLIENT;
+    }
+
+    /** Cliente al que pertenece un usuario del portal. */
+    public function client()
+    {
+        return $this->belongsTo(Client::class)->withTrashed();
+    }
+
+    /** Edificios que el usuario del portal está autorizado a ver. */
+    public function portalBuildings()
+    {
+        return $this->belongsToMany(Building::class, 'client_portal_buildings')->withTimestamps();
+    }
+
     public function canAccessPanel(Panel $panel): bool
     {
         if ($panel->getId() !== 'ascensores_app') {
@@ -126,6 +146,10 @@ class User extends Authenticatable implements FilamentUser
 
         if ($this->isAdmin()) {
             return url('/admin');
+        }
+
+        if ($this->isClientUser()) {
+            return route('portal.home');
         }
 
         return route('dashboard', ['company' => $this->company->slug]);
@@ -283,10 +307,10 @@ class User extends Authenticatable implements FilamentUser
     $this->notify(new ResetPasswordNotification($token));
 }
 
-    /** Solo los usuarios operativos ocupan cupo; admins y SuperAdmin no. */
+    /** Solo los usuarios operativos ocupan cupo; admins, portal y SuperAdmin no. */
     public function planLimit(): ?PlanLimit
     {
-        return ($this->role ?? 'technician') !== 'admin' && ! $this->is_super_admin
+        return ! in_array($this->role ?? 'technician', ['admin', self::ROLE_CLIENT], true) && ! $this->is_super_admin
             ? PlanLimit::Technicians
             : null;
     }

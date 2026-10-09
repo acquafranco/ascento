@@ -285,7 +285,8 @@
 
             @php
                 // Remito digital para el cliente (PDF, link, WhatsApp, email): desde Profesional.
-                $canShareDigitally = $deliveryNote->company?->plan()->allows(\App\Enums\PlanFeature::DigitalDeliveryNotes) ?? false;
+                // En el portal del cliente no hay acciones de la empresa.
+                $canShareDigitally = empty($portal) && ($deliveryNote->company?->plan()->allows(\App\Enums\PlanFeature::DigitalDeliveryNotes) ?? false);
             @endphp
 
             @if ($canShareDigitally)
@@ -399,7 +400,7 @@
         </div>
     </div>
 </div>
-            @elseif (auth()->check())
+            @elseif (auth()->check() && empty($portal))
         <div class="border-t border-slate-100 bg-slate-50 px-4 py-3 md:px-7 md:py-4 text-sm text-slate-600" data-plan-locked="digital_delivery_notes">
             📄 Compartir el remito con el cliente (PDF, WhatsApp o email) está disponible desde el plan <strong>Profesional</strong>.
             @if (auth()->user()->isAdmin())

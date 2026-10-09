@@ -94,7 +94,7 @@ class AdminOnboarding extends Component
             ],
             [
                 'label' => 'Agregá tus técnicos',
-                'done' => User::where('company_id', $company->id)->where('role', '!=', 'admin')->exists(),
+                'done' => User::where('company_id', $company->id)->whereNotIn('role', ['admin', 'client'])->exists(),
                 'url' => UserResource::getUrl('create'),
             ],
             [
@@ -223,7 +223,7 @@ class AdminOnboarding extends Component
             'dashboard' => ['title' => 'Inicio', 'body' => 'Resumen del día que se actualiza solo: órdenes de trabajo pendientes, en proceso y completadas, remitos de hoy, presupuestos pendientes, edificios, máquinas y técnicos ocupados o disponibles.'],
             'company' => ['title' => 'Mi empresa', 'body' => 'Los datos de tu empresa (nombre, razón social, CUIT, contacto), el logo y el color con el que aparece en Ascento. Acordate de tocar "Guardar".'],
             'technicians' => ['title' => 'Técnicos', 'body' => 'Las personas que trabajan en la calle. Cada una entra a Ascento desde el celular con su email y su contraseña. Las órdenes de trabajo le llegan como aviso en el celular (notificaciones o Telegram). Si alguien deja la empresa, desactivalo: su historial se conserva.'],
-            'clients' => ['title' => 'Clientes', 'body' => 'Consorcios, empresas, hospitales o particulares para los que trabajás. Primero creá el cliente; después vas a poder agregar sus edificios desde Edificios.'],
+            'clients' => ['title' => 'Clientes', 'body' => 'Consorcios, empresas, hospitales o particulares para los que trabajás. Primero creá el cliente; después vas a poder agregar sus edificios desde Edificios. En "Acceso al portal" le creás usuarios para que vea lo que compartas (remitos, reportes, presupuestos y documentos marcados "En portal").'],
             'buildings' => ['title' => 'Edificios', 'body' => 'Cada edificio pertenece a un cliente. Cargá la dirección y cuántos ascensores y montacargas tiene. Con "Asignar empleado" elegís quién hace el mantenimiento (hasta dos técnicos) y quién la inspección (uno).'],
             'maintenances' => ['title' => 'Mantenimientos', 'body' => 'Los mantenimientos que hicieron tus técnicos, con su remito. Se generan solos cuando el técnico firma el remito desde el celular.'],
             'inspections' => ['title' => 'Inspecciones', 'body' => 'Las inspecciones realizadas, con su remito. Las carga el inspector asignado a cada edificio desde su celular.'],

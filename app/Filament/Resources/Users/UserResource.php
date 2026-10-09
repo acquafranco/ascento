@@ -107,7 +107,9 @@ class UserResource extends Resource
 
  public static function getEloquentQuery(): Builder
 {
-    $query = parent::getEloquentQuery();
+    // Los usuarios del portal del cliente se administran desde el cliente,
+    // no son técnicos.
+    $query = parent::getEloquentQuery()->where('role', '!=', \App\Models\User::ROLE_CLIENT);
 
     $user = auth()->user();
 

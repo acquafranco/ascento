@@ -54,6 +54,7 @@ class ClientResource extends Resource
         return [
             ServicesRelationManager::class,
             AccountStatementRelationManager::class,
+            \App\Filament\RelationManagers\PortalUsersRelationManager::class,
         ];
     }
 

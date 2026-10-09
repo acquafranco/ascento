@@ -72,7 +72,7 @@ class Indicators
     {
         $now = now();
         $summary = $this->agenda->summary($now->month, $now->year, 'maintenance');
-        $due = $summary['done'] + $summary['pending'] + $summary['overdue'] + $summary['unassigned'];
+        $due = $summary['done'] + $summary['not_done'] + $summary['pending'] + $summary['overdue'] + $summary['unassigned'];
 
         $open = WorkOrder::whereIn('status', ['pending', 'in_progress'])->get(['created_at']);
         $thisMonth = $this->claims($now->copy()->startOfMonth(), $now);
@@ -82,7 +82,7 @@ class Indicators
             [
                 'question' => '¿Estamos cumpliendo los mantenimientos de este mes?',
                 'value' => $due > 0 ? $this->pct($summary['done'], $due).'%' : '—',
-                'context' => "{$summary['done']} de {$due} hechos".($summary['unassigned'] ? " · {$summary['unassigned']} sin técnico" : ''),
+                'context' => "{$summary['done']} de {$due} hechos".($summary['not_done'] ? " · {$summary['not_done']} no realizados" : '').($summary['unassigned'] ? " · {$summary['unassigned']} sin técnico" : ''),
             ],
             [
                 'question' => '¿Cuánto trabajo tenemos abierto?',

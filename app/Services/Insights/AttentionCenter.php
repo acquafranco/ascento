@@ -84,6 +84,14 @@ class AttentionCenter
             }
         }
 
+        // Remitos firmados como "no realizado" (este mes y el anterior): hay que volver.
+        $notDone = $this->agenda->rows($now->month, $now->year, status: 'not_done')
+            ->concat($this->agenda->rows($previous->month, $previous->year, status: 'not_done'));
+        if ($notDone->isNotEmpty()) {
+            $items->push($this->item('danger', 'Visitas marcadas como no realizadas', 'El técnico firmó el remito pero indicó que el trabajo no se pudo hacer. Para volver, creá una orden de trabajo.', $notDone->count(),
+                Agenda::getUrl(['status' => 'not_done']), $notDone->take(3)->map(fn ($r) => $r['building']->name.' ('.MaintenanceAgenda::TYPES[$r['type']].')')->all()));
+        }
+
         $unassigned = $this->agenda->rows($now->month, $now->year, status: 'unassigned');
         if ($unassigned->isNotEmpty()) {
             $items->push($this->item('danger', 'Edificios con contrato sin técnico asignado', 'Nadie tiene asignado su mantenimiento.', $unassigned->count(),
