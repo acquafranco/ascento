@@ -39,6 +39,10 @@ class MaintenanceAgenda
 
     public const STATUSES = [
         'done' => 'Hecho',
+        // Remito firmado pero marcado "Trabajo NO realizado correctamente":
+        // la visita existe, el mantenimiento no se cumplió. La segunda visita
+        // se resuelve con una orden de trabajo (proceso existente).
+        'not_done' => 'No realizado',
         'overdue' => 'Vencido',
         'pending' => 'Pendiente',
         'upcoming' => 'Próximo',
@@ -59,7 +63,7 @@ class MaintenanceAgenda
             ->get();
 
         $visits = BuildingVisit::query()
-            ->with('user:id,name')
+            ->with(['user:id,name', 'deliveryNote:id,building_visit_id,performed,number'])
             ->where('visit_type', 'fixed')
             ->where('month', $month)
             ->where('year', $year)
@@ -95,6 +99,7 @@ class MaintenanceAgenda
                 }
 
                 $rowStatus = match (true) {
+                    $visit !== null && $visit->deliveryNote?->performed === false => 'not_done',
                     $visit !== null => 'done',
                     $technicians->isEmpty() => 'unassigned',
                     $period->lt($current) => 'overdue',
@@ -122,7 +127,7 @@ class MaintenanceAgenda
         }
 
         // Primero lo que requiere acción.
-        $order = ['overdue' => 0, 'unassigned' => 1, 'pending' => 2, 'upcoming' => 3, 'done' => 4];
+        $order = ['overdue' => 0, 'not_done' => 1, 'unassigned' => 2, 'pending' => 3, 'upcoming' => 4, 'done' => 5];
 
         return $rows->sortBy(fn ($row) => $order[$row['status']].'|'.$row['building']->name)->values();
     }

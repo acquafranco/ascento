@@ -70,6 +70,7 @@ class ServiceVisitsTest extends TestCase
             'elevator_quantity' => 2,
             'freight_elevator_quantity' => 0,
             'assignment_type' => $type,
+            'performed' => '1', // el formulario real lo trae marcado
             'signature_name' => 'Técnico',
             'signature' => $this->validSignature(),
         ])->assertSessionHasNoErrors();

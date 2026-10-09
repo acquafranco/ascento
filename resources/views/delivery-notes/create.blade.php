@@ -657,6 +657,14 @@ form.addEventListener('submit', function (e) {
         return;
     }
 
+    // Sin señal: no se envía (se perderían las firmas en la página de error
+    // del navegador). Todo queda cargado; se manda cuando vuelva la conexión.
+    if (navigator.onLine === false) {
+        e.preventDefault();
+        alert('No hay conexión a internet. El remito NO se envió, pero no se perdió nada: esperá a tener señal y tocá "Generar remito" de nuevo.');
+        return;
+    }
+
     sending = true;
 
     const btn = document.getElementById('submit-remito');

@@ -63,11 +63,11 @@
     .asc-scroll { overflow-x: auto; }
     .asc-pill { display: inline-block; padding: .1rem .55rem; border-radius: 999px; font-size: .75rem; font-weight: 600; background: #f3f4f6; color: #374151; border: 0; }
     .asc-pill.is-done { background: #dcfce7; color: #166534; }
-    .asc-pill.is-overdue, .asc-pill.is-unassigned { background: #fee2e2; color: #991b1b; }
+    .asc-pill.is-overdue, .asc-pill.is-unassigned, .asc-pill.is-not_done { background: #fee2e2; color: #991b1b; }
     .asc-pill.is-pending { background: #fef3c7; color: #92400e; }
     .dark .asc-pill { background: rgba(255,255,255,.1); color: #d1d5db; }
     .dark .asc-pill.is-done { background: rgba(34,197,94,.15); color: #86efac; }
-    .dark .asc-pill.is-overdue, .dark .asc-pill.is-unassigned { background: rgba(239,68,68,.15); color: #fca5a5; }
+    .dark .asc-pill.is-overdue, .dark .asc-pill.is-unassigned, .dark .asc-pill.is-not_done { background: rgba(239,68,68,.15); color: #fca5a5; }
     .dark .asc-pill.is-pending { background: rgba(245,158,11,.15); color: #fcd34d; }
     button.asc-pill { cursor: pointer; padding: .3rem .8rem; font-size: .8rem; }
     .asc-pills { display: flex; flex-wrap: wrap; gap: .5rem; }

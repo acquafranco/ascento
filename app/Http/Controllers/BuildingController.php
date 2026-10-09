@@ -56,6 +56,7 @@ public function index(Request $request)
         'visits' => function ($query) use ($month, $year, $user) {
 
             $query
+                ->with('deliveryNote:id,building_visit_id,performed')
                 ->where('company_id', $user->company_id)
                 ->where('visit_type', 'fixed')
                 ->where('month', $month)

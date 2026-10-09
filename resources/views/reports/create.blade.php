@@ -323,6 +323,11 @@ document.addEventListener('DOMContentLoaded', () => {
     form.addEventListener('submit', async (event) => {
         if (form.dataset.ready === '1') return;
         event.preventDefault();
+
+        if (navigator.onLine === false) {
+            alert('No hay conexión a internet. El reporte NO se envió, pero no se perdió nada: esperá a tener señal y tocá "Enviar reporte" de nuevo.');
+            return;
+        }
         submit.disabled = true;
         submit.textContent = photos.length ? 'Preparando fotos…' : 'Enviando…';
 

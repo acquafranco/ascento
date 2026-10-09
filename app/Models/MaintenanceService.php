@@ -167,8 +167,11 @@ class MaintenanceService extends Model
     public function visitStatus(string $type): array
     {
         $last = $this->visits()->where('assignment_type', $type)->first();
+        // Hecho = remito firmado y NO marcado como "no realizado".
         $doneThisMonth = $this->visits()->where('assignment_type', $type)
-            ->where('month', now()->month)->where('year', now()->year)->exists();
+            ->where('month', now()->month)->where('year', now()->year)
+            ->whereDoesntHave('deliveryNote', fn ($q) => $q->where('performed', false))
+            ->exists();
 
         $next = null;
 
