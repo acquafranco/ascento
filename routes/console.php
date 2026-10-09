@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\WebhookEvent;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -18,7 +19,12 @@ Schedule::command('buildings:geocode --limit=100')->hourly()->withoutOverlapping
 Schedule::command('subscriptions:reconcile-mercadopago')->everySixHours()->withoutOverlapping();
 
 // Auditoría de webhooks: se conservan 90 días.
-Schedule::command('model:prune', ['--model' => [\App\Models\WebhookEvent::class]])->daily();
+Schedule::command('model:prune', ['--model' => [WebhookEvent::class]])->daily();
 
 // Cobranzas: obligaciones periódicas de los servicios activos (idempotente).
 Schedule::command('billing:generate')->dailyAt('06:00')->withoutOverlapping();
+
+// Exportaciones de datos de empresa: se generan acá (CLI, sin límite de
+// tiempo de PHP-FPM) y los archivos vencidos se borran (queda el historial).
+Schedule::command('exports:process')->everyMinute()->withoutOverlapping(30);
+Schedule::command('exports:prune')->dailyAt('03:30');

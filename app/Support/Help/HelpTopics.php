@@ -36,6 +36,7 @@ class HelpTopics
         'receivables_intro' => ['Cobranzas', 'Lo que te deben tus clientes: cobros de servicios, de presupuestos aprobados y manuales. Registrá los pagos (también parciales) a medida que entran.', null],
         'map_intro' => ['Mapa', null, 'map'],
         'attention_center' => ['Centro de atención', 'Solo lo que necesita que hagas algo hoy: mantenimientos vencidos, trabajos trabados, reportes graves, presupuestos por vencer. Si está vacío, está todo en orden.', null],
+        'exports_intro' => ['Exportar datos', 'Generá un ZIP con un Excel y los adjuntos de tu empresa para tener tus datos. Se prepara en uno o dos minutos y queda disponible unos días; acá ves quién lo pidió y quién lo descargó.', null],
         'indicators' => ['Indicadores', 'Cada número responde una pregunta sobre tu empresa (¿cumplimos los mantenimientos?, ¿entran más reclamos?). Sirven para mirar la tendencia, no para controlar el día a día.', null],
     ];
 
@@ -68,6 +69,7 @@ class HelpTopics
             'pages.agenda' => 'agenda_intro',
             'pages.atencion' => 'attention_center',
             'pages.indicadores' => 'indicators',
+            'pages.exportaciones' => 'exports_intro',
             'pages.mapa' => 'map_intro',
             'resources.users.' => 'technicians_intro',
             'resources.clients.' => 'clients_intro',
