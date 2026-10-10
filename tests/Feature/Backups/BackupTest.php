@@ -83,7 +83,7 @@ class BackupTest extends TestCase
         $zip->setPassword('clave-de-prueba');
         $manifest = json_decode($zip->getFromName('manifest.json'), true);
 
-        $this->assertSame('sqlite', $manifest['driver']);
+        $this->assertSame(config('database.connections.'.config('database.default').'.driver'), $manifest['driver']);
         $this->assertSame(1, $manifest['tables']['report_photos']);
         $this->assertSame(1, $manifest['tables']['companies']);
         $this->assertSame([], $manifest['missing_referenced_files']);
@@ -95,6 +95,13 @@ class BackupTest extends TestCase
 
     public function test_verification_detects_tampering_and_restore_recovers_everything_elsewhere(): void
     {
+        if (config('database.default') !== 'sqlite') {
+            // Con MySQL, mysqldump usa su propia conexión y no ve los datos sin
+            // confirmar de la transacción del test. La restauración con MySQL
+            // real se probó aparte con datos demo (docs/backups.md).
+            $this->markTestSkipped('Restauración comparada: se prueba con SQLite en la suite y con MySQL a mano.');
+        }
+
         $backup = $this->backup();
         $this->assertTrue(app(BackupManager::class)->verify($backup)['ok']);
         $this->assertNotNull($backup->fresh()->verified_at);
@@ -187,7 +194,8 @@ class BackupTest extends TestCase
     public function test_failures_are_recorded_without_secrets_and_notify_superadmins(): void
     {
         $super = User::factory()->create(['is_super_admin' => true]);
-        config(['database.connections.sqlite.driver' => 'unsupported']); // fuerza la falla del volcado
+        // Fuerza la falla del volcado (motor no soportado / mysqldump inexistente).
+        config(['database.connections.sqlite.driver' => 'unsupported', 'backup.mysqldump' => '/no/existe/mysqldump']);
 
         $backup = $this->backup();
 
