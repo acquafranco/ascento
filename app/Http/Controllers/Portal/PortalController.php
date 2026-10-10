@@ -232,7 +232,7 @@ class PortalController extends Controller
 
         $quote->load(['items', 'company', 'building', 'client']);
 
-        return view('quotes.public', ['quote' => $quote, 'portal' => true]);
+        return view('portal.quote', ['quote' => $quote]);
     }
 
     public function document(Request $request, ElevatorDocument $elevatorDocument): StreamedResponse

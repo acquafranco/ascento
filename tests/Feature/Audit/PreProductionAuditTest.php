@@ -222,8 +222,12 @@ class PreProductionAuditTest extends TestCase
         $quoteA = $this->a['quote']->fresh();
         $noteA = $this->a['note1']->fresh();
 
-        $this->get("/{$this->a['slug']}/quote/{$quoteA->public_token}")->assertOk();
-        $this->get("/{$this->b['slug']}/quote/{$quoteA->public_token}")->assertNotFound();
+        // Enlaces firmados y con vencimiento: el de A abre; con la empresa B en la URL, no.
+        $quoteA->forceFill(['status' => Quote::SENT])->save();
+        $signed = $quoteA->fresh()->signedPublicUrl();
+        $this->get($signed)->assertOk();
+        $this->get(str_replace("/{$this->a['slug']}/", "/{$this->b['slug']}/", $signed))->assertStatus(410);
+        $this->get("/{$this->a['slug']}/quote/{$quoteA->public_token}")->assertStatus(410); // sin firma
 
         if ($noteA->public_token) {
             $this->get("/{$this->b['slug']}/public/delivery-notes/{$noteA->public_token}")->assertNotFound();

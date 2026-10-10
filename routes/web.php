@@ -367,6 +367,7 @@ Route::middleware(['auth', 'subscription'])->whereNumber(['report', 'photo'])->g
     Route::get('/files/reports/{report}/photos/{photo}', [ReportPhotoController::class, 'show'])->name('reports.photos.show');
     Route::get('/files/reports/{report}/pdf', \App\Http\Controllers\ReportPdfController::class)->name('reports.pdf');
     Route::get('/files/reports/{report}/video', [\App\Http\Controllers\ReportVideoController::class, 'show'])->name('reports.video');
+    Route::get('/files/quotes/{quote}/pdf', [\App\Http\Controllers\QuoteDocumentController::class, 'adminPdf'])->whereNumber('quote')->name('quotes.pdf');
     Route::post('/files/reports/{report}/video', [\App\Http\Controllers\ReportVideoController::class, 'store'])->middleware('throttle:10,1')->name('reports.video.store');
     Route::delete('/files/reports/{report}/video', [\App\Http\Controllers\ReportVideoController::class, 'destroy'])->name('reports.video.destroy');
 });
@@ -407,6 +408,7 @@ Route::prefix('portal')->name('portal.')->middleware(['auth', 'portal'])->group(
     Route::get('/reportes/{report}/fotos/{photo}', [\App\Http\Controllers\Portal\PortalController::class, 'reportPhoto'])->whereNumber(['report', 'photo'])->name('report-photo');
     Route::get('/reportes/{report}/video', [\App\Http\Controllers\Portal\PortalController::class, 'reportVideo'])->whereNumber('report')->name('report-video');
     Route::get('/presupuestos/{quote}', [\App\Http\Controllers\Portal\PortalController::class, 'quote'])->whereNumber('quote')->name('quote');
+    Route::get('/presupuestos/{quote}/pdf', [\App\Http\Controllers\QuoteDocumentController::class, 'portalPdf'])->whereNumber('quote')->middleware('throttle:30,1')->name('quote-pdf');
     Route::get('/documentos/{elevatorDocument}', [\App\Http\Controllers\Portal\PortalController::class, 'document'])->whereNumber('elevatorDocument')->name('document');
     Route::get('/notificaciones', [\App\Http\Controllers\NotificationInboxController::class, 'index'])->name('notifications');
     Route::get('/notificaciones/contador', [\App\Http\Controllers\NotificationInboxController::class, 'count'])->middleware('throttle:60,1')->name('notifications.count');
@@ -440,24 +442,12 @@ Route::middleware('guest')->prefix('portal')->name('portal.')->group(function ()
 |--------------------------------------------------------------------------
 */
 
-Route::get('/{company:slug}/quote/{token}', function (Company $company, $token) {
-
-    // Link público (lo abre el cliente): empresa + token. Sin el scope de la
-    // sesión: si en el navegador hay otra cuenta logueada, igual abre.
-    $quote = \App\Models\Quote::withoutGlobalScopes()
-        ->with([
-            'items' => fn ($q) => $q->withoutGlobalScopes(),
-            'building' => fn ($q) => $q->withoutGlobalScopes(),
-            'client' => fn ($q) => $q->withoutGlobalScopes(),
-            'company',
-        ])
-        ->where('company_id', $company->id)
-        ->where('public_token', $token)
-        ->firstOrFail();
-
-    return view('quotes.public', compact('quote'));
-
-})->name('quotes.public');
+// Enlace del cliente: FIRMADO y con vencimiento (sin firma o vencido → aviso).
+// Sin el scope de la sesión: abre aunque haya otra cuenta logueada.
+Route::get('/{company:slug}/quote/{token}', [\App\Http\Controllers\QuoteDocumentController::class, 'public'])
+    ->middleware('throttle:60,1')->name('quotes.public');
+Route::get('/{company:slug}/quote/{token}/pdf', [\App\Http\Controllers\QuoteDocumentController::class, 'publicPdf'])
+    ->middleware('throttle:30,1')->name('quotes.public.pdf');
 /*
 |--------------------------------------------------------------------------
 | AUTH

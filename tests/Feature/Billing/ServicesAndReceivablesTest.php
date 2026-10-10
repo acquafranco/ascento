@@ -348,10 +348,12 @@ class ServicesAndReceivablesTest extends TestCase
 
     public function test_viewing_or_editing_a_quote_never_creates_a_receivable(): void
     {
-        $quote = $this->quote();
-
+        // Un presupuesto abierto (enviado) se ve y se edita; uno aprobado se ve.
+        $quote = $this->quote('sent');
         Livewire::test(ViewQuote::class, ['record' => $quote->getRouteKey()]);
         Livewire::test(EditQuote::class, ['record' => $quote->getRouteKey()])->call('save');
+        $quote->update(['status' => 'approved']);
+        Livewire::test(ViewQuote::class, ['record' => $quote->getRouteKey()]);
 
         $this->assertSame(0, Receivable::count());
     }

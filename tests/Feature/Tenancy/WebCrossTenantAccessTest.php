@@ -123,10 +123,11 @@ class WebCrossTenantAccessTest extends TestCase
 
     public function test_public_quote_token_is_scoped_to_company(): void
     {
-        $quoteB = Quote::factory()->create(['building_id' => $this->b['building']->id]);
+        $quoteB = Quote::factory()->create(['building_id' => $this->b['building']->id, 'status' => Quote::SENT]);
+        $signed = $quoteB->fresh()->signedPublicUrl();
 
-        $this->get($this->urlA('/quote/'.$quoteB->public_token))->assertNotFound();
-        $this->get('/'.$this->b['company']->slug.'/quote/'.$quoteB->public_token)->assertOk();
+        $this->get(str_replace('/'.$this->b['company']->slug.'/', '/'.$this->a['company']->slug.'/', $signed))->assertStatus(410);
+        $this->get($signed)->assertOk();
     }
 
     public function test_cannot_open_delivery_note_form_for_other_company_building_or_work_order(): void

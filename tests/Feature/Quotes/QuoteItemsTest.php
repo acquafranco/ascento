@@ -166,9 +166,10 @@ class QuoteItemsTest extends TestCase
         $this->get(QuoteResource::getUrl('edit', ['record' => $quote]))->assertForbidden();
         Livewire::test(ViewQuote::class, ['record' => $quote->getRouteKey()])->assertActionHidden('edit');
 
-        // Anulado el cobro, se puede corregir otra vez.
+        // Aprobado sigue cerrado aunque se anule el cobro (trazabilidad): para
+        // cambiarlo se duplica.
         app(ReceivableService::class)->void(Receivable::sole(), 'Se corrige el presupuesto');
-        $this->assertTrue(QuoteResource::canEdit($quote->fresh()));
+        $this->assertFalse(QuoteResource::canEdit($quote->fresh()));
     }
 
     public function test_rejection_void_and_expiration(): void
@@ -236,9 +237,13 @@ class QuoteItemsTest extends TestCase
         auth()->logout();
         $this->profesional($b);
         $this->actingInPanel($b['admin'])->get(QuoteResource::getUrl('view', ['record' => $quote]))->assertNotFound();
-        $this->get("/{$b['company']->slug}/quote/{$quote->public_token}")->assertNotFound();
-        $this->get("/{$this->a['company']->slug}/quote/{$quote->public_token}")->assertOk()
-            ->assertSee('Cambio de contactor')->assertSee('$150.001,00')->assertSee('Válido hasta el 30/10/2026'); // + el ítem de $1 de arriba
+        // Enlaces sin firma (los permanentes de antes) ya no abren; con otra empresa en la URL, tampoco.
+        $this->get("/{$this->a['company']->slug}/quote/{$quote->public_token}")->assertStatus(410);
+        $quote->update(['status' => Quote::SENT]);
+        $signed = $quote->fresh()->signedPublicUrl();
+        $this->get(str_replace("/{$this->a['company']->slug}/", "/{$b['company']->slug}/", $signed))->assertStatus(410);
+        $this->get($signed)->assertOk()
+            ->assertSee('Cambio de contactor')->assertSee('$ 150.001,00')->assertSee('30/10/2026'); // + el ítem de $1 de arriba
     }
 
     public function test_public_links_open_complete_even_with_another_company_logged_in(): void
@@ -252,7 +257,8 @@ class QuoteItemsTest extends TestCase
         // En el navegador del cliente quedó logueada otra cuenta (de otra empresa).
         $this->actingAs($b['admin']);
 
-        $this->get("/{$this->a['company']->slug}/quote/{$quote->public_token}")->assertOk()
+        $quote->update(['status' => Quote::SENT]);
+        $this->get($quote->fresh()->signedPublicUrl())->assertOk()
             ->assertSee('Cambio de contactor')
             ->assertSee(e($this->a['building']->name), false)
             ->assertDontSee(e($b['building']->name), false);
@@ -261,7 +267,7 @@ class QuoteItemsTest extends TestCase
             ->assertSee(e($this->a['building']->name), false);
 
         // Pero el token de A con el slug de B, nunca.
-        $this->get("/{$b['company']->slug}/quote/{$quote->public_token}")->assertNotFound();
+        $this->get("/{$b['company']->slug}/quote/{$quote->public_token}")->assertStatus(410); // aviso genérico, sin datos
         $this->get("/{$b['company']->slug}/public/delivery-notes/{$note->public_token}")->assertNotFound();
     }
 

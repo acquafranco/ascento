@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Quotes;
 
+use App\Enums\PlanFeature;
 use App\Filament\Resources\Quotes\Pages\CreateQuote;
 use App\Filament\Resources\Quotes\Pages\EditQuote;
 use App\Filament\Resources\Quotes\Pages\ListQuotes;
@@ -10,27 +11,31 @@ use App\Filament\Resources\Quotes\Schemas\QuoteForm;
 use App\Filament\Resources\Quotes\Schemas\QuoteInfolist;
 use App\Filament\Resources\Quotes\Tables\QuotesTable;
 use App\Models\Quote;
+use App\Support\Plans\PlanGuard;
+use App\Support\Plans\PlanUpsell;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Builder;
-
+use Illuminate\Database\Eloquent\Model;
 
 class QuoteResource extends Resource
 {
     protected static ?string $model = Quote::class;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Comercial';
+
     // 📌 Icono del menú
     protected static string|BackedEnum|null $navigationIcon =
         Heroicon::OutlinedDocumentText;
 
     // 📌 nombres UI
     protected static ?string $navigationLabel = 'Presupuestos';
+
     protected static ?string $modelLabel = 'Presupuesto';
+
     protected static ?string $pluralModelLabel = 'Presupuestos';
 
     // 📌 importante para búsquedas globales
@@ -73,29 +78,29 @@ class QuoteResource extends Resource
     }
 
     public static function getEloquentQuery(): Builder
-{
-    $query = parent::getEloquentQuery();
+    {
+        $query = parent::getEloquentQuery();
 
-    $user = auth()->user();
+        $user = auth()->user();
 
-    if ($user->isSuperAdmin()) {
+        if ($user->isSuperAdmin()) {
 
-        $companyId = session('selected_company_id');
+            $companyId = session('selected_company_id');
 
-        if ($companyId) {
-            return $query->where('company_id', $companyId);
+            if ($companyId) {
+                return $query->where('company_id', $companyId);
+            }
+
+            return $query->whereRaw('1 = 0');
         }
 
-        return $query->whereRaw('1 = 0');
+        return $query->where(
+            'company_id',
+            $user->company_id
+        );
     }
 
-    return $query->where(
-        'company_id',
-        $user->company_id
-    );
-}
-
-   public static function shouldRegisterNavigation(): bool
+    public static function shouldRegisterNavigation(): bool
     {
         return auth()->check();
     }
@@ -109,12 +114,13 @@ class QuoteResource extends Resource
      * Con un cobro generado (no anulado) el presupuesto queda cerrado: su
      * importe ya se está cobrando. Para cambiarlo, primero se anula el cobro.
      */
-    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    /** Solo propuestas abiertas (borrador / enviado) sin cobro: ver Quote::isEditable(). */
+    public static function canEdit(Model $record): bool
     {
-        return ! $record->hasActiveReceivable();
+        return $record->isEditable();
     }
 
-    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    public static function canDelete(Model $record): bool
     {
         return ! $record->hasActiveReceivable();
     }
@@ -122,9 +128,9 @@ class QuoteResource extends Resource
     /** Si el plan no incluye presupuestos, el menú lo indica (y la página explica). */
     public static function getNavigationBadge(): ?string
     {
-        $company = \App\Support\Plans\PlanUpsell::currentCompany();
+        $company = PlanUpsell::currentCompany();
 
-        return $company && ! \App\Support\Plans\PlanGuard::for($company)->allows(\App\Enums\PlanFeature::Quotes)
+        return $company && ! PlanGuard::for($company)->allows(PlanFeature::Quotes)
             ? 'Profesional'
             : null;
     }
