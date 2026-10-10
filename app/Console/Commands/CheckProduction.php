@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Backup;
 use App\Notifications\MailOnlyNotification;
 use App\Services\Reports\ReportVideoService;
 use Illuminate\Console\Command;
@@ -12,6 +13,7 @@ use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
+use Symfony\Component\Process\Process;
 use Throwable;
 
 /**
@@ -102,6 +104,24 @@ class CheckProduction extends Command
         $this->check($upload >= $need && $post >= $need, "Límite de subida de PHP: {$upload} MB (post {$post} MB)",
             "PHP acepta {$upload} MB por archivo / {$post} MB por envío: los videos de hasta ".config('media.video_max_mb')." MB fallan. En Forge: PHP → upload_max_filesize y post_max_size ≥ {$need}M (y client_max_body_size en Nginx). Este chequeo lee la configuración de la CLI; confirmá también la de PHP-FPM");
         $this->info('  · FFmpeg: '.(ReportVideoService::ffmpegAvailable() ? 'disponible (los videos se comprimen)' : 'no disponible (los videos se guardan sin comprimir; opcional: apt install ffmpeg)'));
+
+        $this->line('<options=bold>Backups</>');
+        try {
+            $last = Backup::where('status', Backup::COMPLETED)->latest('completed_at')->first();
+            $this->check($last && $last->completed_at->gt(now()->subHours(26)), 'Último backup completo: '.($last?->completed_at?->format('d/m/Y H:i') ?? '—').' ('.($last?->sizeLabel() ?? '').')',
+                $last ? 'El último backup completo es del '.$last->completed_at->format('d/m/Y H:i').': el automático no está corriendo' : 'No hay ningún backup completo. Corré: php artisan backup:run');
+            $failed = Backup::where('status', Backup::FAILED)->where('created_at', '>', now()->subDays(2))->count();
+            $failed && $this->check(false, '', "Backups fallidos en los últimos 2 días: {$failed} (ver el panel de Backups)");
+        } catch (Throwable) {
+            $this->check(false, '', 'No se pudo leer la tabla de backups (¿falta migrar?)');
+        }
+        $this->check(filled(config('backup.password')), 'Backups cifrados (BACKUP_ARCHIVE_PASSWORD cargada, no se muestra)', 'BACKUP_ARCHIVE_PASSWORD vacía: los backups quedan SIN cifrar. Cargala y guardala también fuera del servidor');
+        if (in_array(config('database.connections.'.config('database.default').'.driver'), ['mysql', 'mariadb'], true)) {
+            $dump = new Process([(string) config('backup.mysqldump'), '--version']);
+            $dump->run();
+            $this->check($dump->isSuccessful(), 'mysqldump disponible', 'No se encontró mysqldump (BACKUP_MYSQLDUMP): sin él no hay backup de la base');
+        }
+        $this->info('  · Los backups quedan en este servidor (storage/app/private/backups): copialos afuera periódicamente (docs/backups.md).');
 
         $this->line('<options=bold>Push y Telegram (opcionales)</>');
         $this->info('  · Push (VAPID): '.(filled(config('webpush.vapid.public_key')) && filled(config('webpush.vapid.private_key')) ? 'configurado' : 'NO configurado (VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY)'));

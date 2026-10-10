@@ -379,6 +379,10 @@ Route::get('/files/exports/{companyExport}', \App\Http\Controllers\CompanyExport
     ->whereNumber('companyExport')
     ->name('company-exports.download');
 
+// Backups globales: solo SuperAdmin (ver BackupDownloadController).
+Route::get('/files/backups/{backup}', \App\Http\Controllers\BackupDownloadController::class)
+    ->middleware(['auth', 'throttle:10,1'])->whereNumber('backup')->name('backups.download');
+
 Route::get('/files/elevator-documents/{elevatorDocument}', \App\Http\Controllers\ElevatorDocumentController::class)
     ->middleware(['auth', 'subscription'])
     ->whereNumber('elevatorDocument')

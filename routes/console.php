@@ -35,3 +35,9 @@ Schedule::command('notifications:visits')->dailyAt('08:00')->withoutOverlapping(
 
 // Videos de reportes: compresión en segundo plano (solo si hay FFmpeg).
 Schedule::command('media:process-videos')->everyMinute()->withoutOverlapping(15);
+
+// Backups globales (base + archivos): automático diario, manuales pedidos desde
+// el panel (cada minuto) y retención. Ver docs/backups.md.
+Schedule::command('backup:run')->dailyAt('03:15')->withoutOverlapping(180);
+Schedule::command('backup:process')->everyMinute()->withoutOverlapping(180);
+Schedule::command('backup:prune')->dailyAt('04:30');
