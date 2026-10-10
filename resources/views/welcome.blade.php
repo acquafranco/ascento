@@ -257,15 +257,19 @@
                 <div class="mt-14 grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
                     @php
                         $benefits = [
-                            ['Clientes, edificios y ascensores', 'Cada consorcio con sus edificios, ascensores, montacargas y contactos, siempre a mano.', 'M2 13V5.5L8 2L14 5.5V13H2ZM6 13V9H10V13'],
-                            ['Técnicos desde el celular', 'Tu equipo ve lo que tiene asignado y carga avances en el momento, en la obra.', 'M8 2C5 2 2.5 4.5 2.5 7.5C2.5 11 8 14 8 14C8 14 13.5 11 13.5 7.5C13.5 4.5 11 2 8 2Z'],
-                            ['Mantenimientos mensuales', 'Controlá qué edificios se hicieron este mes y cuáles faltan, sin planillas.', 'M8 2V5M8 11V14M2 8H5M11 8H14'],
-                            ['Órdenes de trabajo', 'Asignás un trabajo y al técnico le llega el aviso al celular al instante.', 'M3 8H13M13 8L9 4M13 8L9 12'],
-                            ['Remitos digitales', 'Firmados en el celular por el técnico y el cliente, listos para enviar por WhatsApp.', 'M4 2H10L13 5V14H4V2ZM10 2V5H13'],
-                            ['Reportes con foto', 'Los técnicos informan fallas con foto y prioridad; vos las seguís hasta resolverlas.', 'M3 3H13V10H6L3 13V10H3V3Z'],
-                            ['Presupuestos', 'Armá el presupuesto y mandalo con un link para que el cliente lo vea desde el celular.', 'M3 3H13V13H3V3ZM3 6.5H13M6.5 6.5V13'],
-                            ['Mapa e historial', 'Todos tus edificios en el mapa y la trazabilidad completa de cada ascensor.', 'M8 8C9.7 8 11 6.7 11 5C11 3.3 9.7 2 8 2C6.3 2 5 3.3 5 5C5 6.7 6.3 8 8 8ZM3 14C3 11.2 5.2 9 8 9C10.8 9 13 11.2 13 14'],
-                        ];
+['Clientes, edificios y ascensores', 'Cada consorcio con sus edificios, equipos y contactos, con el legajo técnico y el historial de cada ascensor.', 'M2 13V5.5L8 2L14 5.5V13H2ZM6 13V9H10V13', null],
+['Agenda de mantenimientos e inspecciones', 'Qué edificio toca este mes, quién lo tiene y si ya se hizo. Lo vencido y lo no realizado aparece primero.', 'M3 3H13V13H3V3ZM3 6H13M6 2V4M10 2V4', null],
+['Técnicos desde el celular', 'Cada técnico ve solo lo suyo, firma el remito en el momento y carga informes con fotos.', 'M5 1.5H11V14.5H5V1.5ZM7.5 12.5H8.5', null],
+['Órdenes de trabajo y remitos firmados', 'Asignás un reclamo y le llega al técnico al instante; cierra con el remito firmado y los materiales usados.', 'M4 2H10L13 5V14H4V2ZM10 2V5H13', null],
+['Avisos en tiempo real', 'Campanita y avisos que llegan sin recargar la página, y notificaciones push en el celular para técnicos, admins y clientes.', 'M8 2C5.8 2 4 3.8 4 6V9L2.5 11H13.5L12 9V6C12 3.8 10.2 2 8 2ZM6.5 13C6.8 13.9 7.3 14.3 8 14.3C8.7 14.3 9.2 13.9 9.5 13', null],
+['Mapa y centro de atención', 'Todos los edificios en el mapa y una lista de lo que necesita tu atención: vencimientos, fallas repetidas, stock bajo.', 'M8 8C9.7 8 11 6.7 11 5C11 3.3 9.7 2 8 2C6.3 2 5 3.3 5 5C5 6.7 6.3 8 8 8ZM3 14C3 11.2 5.2 9 8 9C10.8 9 13 11.2 13 14', null],
+['Stock, servicios y cobranzas', 'Repuestos con aviso de mínimo, abonos con su frecuencia de cobro y el seguimiento de lo que te deben.', 'M3 5L8 2L13 5V11L8 14L3 11V5ZM3 5L8 8L13 5M8 8V14', null],
+['Exportación y backups', 'Descargás los datos de tu empresa en Excel cuando quieras. Además, Ascento hace copias de seguridad de toda la plataforma.', 'M8 2V10M8 10L5 7M8 10L11 7M3 13H13', null],
+['Presupuestos profesionales', 'Documento con tu logo, número y total, PDF y envío por correo con un enlace seguro que vence.', 'M3 3H13V13H3V3ZM3 6.5H13M6.5 6.5V13', 'Profesional y Empresa'],
+['Portal para tus clientes', 'Cada consorcio entra con su usuario y ve solo lo que le compartís de sus edificios: remitos, informes, presupuestos y documentos.', 'M2 6L8 2L14 6V14H2V6ZM6 14V9H10V14', 'Profesional y Empresa'],
+['Video en los informes', 'Un video por informe para mostrar la falla tal como se ve en la sala de máquinas.', 'M2 4H11V12H2V4ZM11 7L14 5V11L11 9', 'Profesional y Empresa'],
+['Análisis e indicadores', 'Fallas que se repiten, evolución de tu empresa y comparativas para decidir con datos.', 'M3 13V9M7 13V5M11 13V7M2 13.5H14', 'Profesional y Empresa'],
+];
                     @endphp
 
                     @foreach ($benefits as $i => $b)
@@ -275,6 +279,7 @@
                                 <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="{{ $b[2] }}" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
                             </div>
                             <h3 class="mt-4 font-display font-semibold text-[15px]">{{ $b[0] }}</h3>
+                @if($b[3])<span class="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">{{ $b[3] }}</span>@endif
                             <p class="mt-1.5 text-sm text-ink/55 leading-relaxed">{{ $b[1] }}</p>
                         </div>
                     @endforeach
@@ -432,6 +437,46 @@
                     @endforeach
                 </div>
 
+                @if ($plans->isNotEmpty())
+                    <div data-reveal class="mt-16">
+                        <h3 class="text-center font-display font-semibold text-2xl tracking-tight">Comparativa completa</h3>
+                        <p class="mt-2 text-center text-sm text-ink/50">Sale de la configuración real de cada plan: lo que ves acá es lo que el sistema habilita.</p>
+                        <div class="mt-6 overflow-x-auto rounded-2xl border border-ink/10">
+                            <table class="w-full min-w-[640px] text-sm">
+                                <thead class="bg-graphite text-white">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left font-semibold">Función</th>
+                                        @foreach ($plans as $plan)
+                                            <th class="px-4 py-3 text-center font-semibold">{{ $plan->shortName() }}<span class="block text-xs font-normal text-white/60">{{ $plan->formattedPrice() }}/mes</span></th>
+                                        @endforeach
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-ink/10 bg-white">
+                                    @foreach (\App\Models\SubscriptionPlan::comparisonRows($plans) as [$label, $values])
+                                        <tr>
+                                            <td class="px-4 py-2.5 text-ink/80">{{ $label }}</td>
+                                            @foreach ($plans as $plan)
+                                                @php
+                                                    $v = $values[$plan->slug] ?? false;
+                                                @endphp
+                                                <td class="px-4 py-2.5 text-center">
+                                                    @if (is_string($v))
+                                                        <span class="font-medium text-ink">{{ $v }}</span>
+                                                    @elseif ($v)
+                                                        <span class="text-amber-600 font-bold" aria-label="Incluido">✓</span>
+                                                    @else
+                                                        <span class="text-ink/25" aria-label="No incluido">—</span>
+                                                    @endif
+                                                </td>
+                                            @endforeach
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                @endif
+
                 <p class="mt-10 text-center text-sm text-ink/50">
                     Precios en pesos argentinos, por mes. Se paga con Mercado Pago y podés cambiar de plan o cancelar cuando quieras.
                 </p>
@@ -447,24 +492,13 @@
                         <span class="font-mono text-xs tracking-widest text-graphite/70 uppercase">Piso 05 · Prueba gratuita</span>
                         <h2 class="mt-3 font-display font-semibold text-3xl sm:text-4xl tracking-tight text-graphite">Probá el sistema gratis durante 30 días.</h2>
                         <p class="mt-4 text-graphite/70 max-w-lg mx-auto">Sin tarjeta de crédito. Sin compromiso. Configurás tu empresa y empezás a operar el mismo día.</p>
-                        <a href="{{ Route::has('login') ? route('login') : '/login' }}"
+                        <a href="{{ Route::has('register') ? route('register') : '/register' }}"
                            class="mt-8 inline-flex items-center gap-2 rounded-full bg-graphite text-white font-semibold px-7 py-3.5 hover:-translate-y-0.5 transition-transform duration-200">
                             Empezar prueba gratuita
                             <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
                         </a>
                     </div>
                 </div>
-            </div>
-        </section>
-
-        {{-- ============ TESTIMONIO ============ --}}
-        <section class="py-20">
-            <div class="mx-auto max-w-3xl px-5 sm:px-8 text-center" data-reveal>
-                <svg width="28" height="22" viewBox="0 0 28 22" fill="none" class="mx-auto text-amber-500"><path d="M0 22V13.8C0 6 4.6 1.2 11 0L12.4 3.4C8.4 4.6 6.2 7.4 6 11.2H11V22H0ZM16 22V13.8C16 6 20.6 1.2 27 0L28.4 3.4C24.4 4.6 22.2 7.4 22 11.2H27V22H16Z" fill="currentColor" opacity="0.85"/></svg>
-                <p class="mt-6 font-display text-xl sm:text-2xl leading-snug text-ink/85">
-                    Desde que implementamos Ascento redujimos muchísimo el tiempo administrativo y tenemos un mejor control de los mantenimientos de cada edificio.
-                </p>
-                <div class="mt-6 text-sm text-ink/50">Gerente de Operaciones — empresa de mantenimiento de ascensores</div>
             </div>
         </section>
 
@@ -479,13 +513,15 @@
                 <div class="mt-12 divide-y divide-ink/10 border-t border-b border-ink/10" x-data="{ openIndex: 0 }">
                     @php
                         $faqs = [
-                            ['¿Necesito instalar algo?', 'No. Ascento funciona directamente desde el navegador, tanto en la oficina como en el campo.'],
-                            ['¿Puedo acceder desde el celular?', 'Sí. La plataforma está pensada mobile first, para que tus técnicos la usen desde cualquier teléfono.'],
-                            ['¿Mis técnicos pueden usarlo?', 'Sí. Cada técnico tiene su propio acceso para ver sus órdenes, cargar avances y firmar remitos.'],
-                            ['¿Se hace backup de la información?', 'Sí. Toda la información de clientes, edificios y trabajos se respalda de forma automática.'],
-                            ['¿Puedo cancelar cuando quiera?', 'Sí. No hay permanencia mínima: podés dar de baja tu cuenta cuando lo necesites.'],
-                            ['¿Incluye soporte?', 'Sí. Todos los planes incluyen soporte para ayudarte a poner en marcha tu operación.'],
-                        ];
+['¿Necesito instalar algo?', 'No. Ascento funciona desde el navegador, en la computadora y en el celular. Los técnicos pueden agregarlo a la pantalla de inicio como una app.'],
+['¿Mis técnicos pueden usarlo desde el celular?', 'Sí. Cada técnico tiene su usuario, ve solo lo que tiene asignado, firma remitos y carga informes con fotos desde el teléfono.'],
+['¿Mis clientes pueden ver la información?', 'En los planes Profesional y Empresa, cada consorcio o administración entra al portal con su usuario y ve solo lo que vos le compartís de sus edificios.'],
+['¿Cómo me entero de lo que pasa?', 'Con avisos dentro de Ascento que llegan en el momento, sin recargar, y notificaciones push en el celular si las activás.'],
+['¿Qué pasa con mis datos?', 'Son tuyos: en todos los planes podés descargarlos en Excel (con fotos y documentos) cuando quieras. Además, Ascento hace copias de seguridad de toda la plataforma.'],
+['¿Hay prueba gratis?', 'Sí. 30 días con todas las funciones del plan Profesional, sin tarjeta. Al terminar elegís el plan que te sirva.'],
+['¿Puedo cambiar de plan o cancelar?', 'Sí. No hay permanencia mínima: cambiás de plan o cancelás desde tu cuenta.'],
+['¿Cómo pido ayuda?', 'Escribinos a '.config('app.support_email').' y te ayudamos a poner en marcha tu empresa.'],
+];
                     @endphp
                     @foreach ($faqs as $i => $f)
                         <div>
@@ -511,7 +547,7 @@
                 <span class="font-mono text-xs tracking-widest text-amber-500 uppercase">Última parada</span>
                 <h2 class="mt-3 font-display font-semibold text-3xl sm:text-5xl tracking-tight">Empezá a organizar tu empresa hoy.</h2>
                 <p class="mt-5 text-white/55 max-w-xl mx-auto">Sumá a tu equipo, cargá tus edificios y llevá el control de cada ascensor desde un solo lugar.</p>
-                <a href="{{ Route::has('login') ? route('login') : '/login' }}"
+                <a href="{{ Route::has('register') ? route('register') : '/register' }}"
                    class="mt-9 inline-flex items-center gap-2 rounded-full bg-amber-500 text-graphite font-semibold px-8 py-4 hover:bg-amber-400 hover:-translate-y-0.5 transition-all duration-200">
                     Entrar
                     <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -551,17 +587,8 @@
                     <div class="text-xs font-semibold text-white/40 uppercase tracking-wide">Contacto</div>
                     <ul class="mt-4 space-y-2.5 text-sm">
                         <li><a href="mailto:{{ config('app.support_email') }}" class="hover:text-white transition-colors">{{ config('app.support_email') }}</a></li>
-                        <li><a href="tel:+541100000000" class="hover:text-white transition-colors">+54 11 0000-0000</a></li>
                         <li>Buenos Aires, Argentina</li>
                     </ul>
-                    <div class="mt-5 flex gap-3">
-                        <a href="#" aria-label="LinkedIn" class="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 hover:bg-white/10 transition-colors">
-                            <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 5H4.2V14H2V5ZM3.1 1.5C3.85 1.5 4.4 2.05 4.4 2.75C4.4 3.45 3.85 4 3.1 4C2.4 4 1.85 3.45 1.85 2.75C1.85 2.05 2.4 1.5 3.1 1.5ZM6.2 5H8.3V6.1C8.6 5.5 9.4 4.85 10.6 4.85C13 4.85 13.5 6.4 13.5 8.45V14H11.3V8.9C11.3 7.8 11 7.05 10 7.05C9.05 7.05 8.5 7.7 8.5 8.9V14H6.2V5Z" fill="currentColor"/></svg>
-                        </a>
-                        <a href="#" aria-label="Instagram" class="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 hover:bg-white/10 transition-colors">
-                            <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="1.5" width="13" height="13" rx="4" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="8" r="3.2" stroke="currentColor" stroke-width="1.3"/><circle cx="12" cy="4" r="0.9" fill="currentColor"/></svg>
-                        </a>
-                    </div>
                 </div>
             </div>
             <div class="mt-12 pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-white/35">
