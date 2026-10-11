@@ -38,6 +38,8 @@ class CheckProduction extends Command
         $this->check(! config('app.debug'), 'APP_DEBUG=false', 'APP_DEBUG está activado: muestra detalles internos ante un error. Poné APP_DEBUG=false');
         $this->check(str_starts_with((string) config('app.url'), 'https://'), 'APP_URL usa https ('.config('app.url').')', 'APP_URL debe ser la URL pública con https: los enlaces de los correos salen de ahí');
 
+        $this->check((bool) config('session.secure') || ! str_starts_with((string) config('app.url'), 'https://'), 'Cookie de sesión solo por https (SESSION_SECURE_COOKIE=true)', 'SESSION_SECURE_COOKIE no está en true: con https la cookie de sesión debería viajar solo cifrada');
+
         $this->line('<options=bold>Correo (invitaciones, recuperación de contraseña, avisos)</>');
         $mailer = (string) config('mail.default');
         $this->check(! in_array($mailer, ['log', 'array'], true), "MAIL_MAILER={$mailer}", "MAIL_MAILER={$mailer}: los correos NO salen (se escriben en el log). Configurá smtp/ses/postmark/resend");

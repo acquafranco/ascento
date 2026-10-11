@@ -33,6 +33,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'portal' => EnsurePortalUser::class,
         ]);
 
+        // Cabeceras de seguridad en todas las respuestas web.
+        $middleware->web(append: [\App\Http\Middleware\SecurityHeaders::class]);
+
         $middleware->redirectUsersTo(function () {
             if (! auth()->check()) {
                 return null;
