@@ -62,6 +62,16 @@ El modelo de trabajo no cambió: **una visita fija por edificio, tipo y mes**, q
 
 ## 3. Exportación de datos de la empresa
 
+> **Respuesta definitiva (auditada en el código, rama `mejoras-producto`):**
+> - "Exportar datos" descarga **solo los datos de la empresa del admin que la pide**. No es un backup de toda la aplicación.
+> - `CompanyDataExporter` corre sin usuario y **filtra cada consulta por `company_id`**.
+> - Los adjuntos se toman solo de las carpetas de esa empresa, verificados con `realpath`.
+> - La pide y la descarga **solo un admin de esa empresa**. Otra empresa recibe 404 y cada descarga queda registrada.
+> - El **SuperAdmin no usa este flujo** (403).
+> - El backup global de la plataforma es otra cosa: Panel → Backups, solo SuperAdmin (`docs/backups.md`).
+> - **No incluye:** contraseñas ni sus hashes, tokens, sesiones, firmas dibujadas, enlaces públicos, datos de WhatsApp, Telegram o Mercado Pago, ni rutas internas del servidor.
+> - Tests: `tests/Feature/Exports/CompanyExportTest.php` (aislamiento, secretos, permisos, descarga registrada, vencimiento).
+
 - **Dónde:** panel → "Exportar datos" (solo admins de la empresa; el superadmin no la ve). También hay un enlace desde "Mi empresa".
 - **Cómo se genera:**
   1. Se pide desde la pantalla, que crea un registro `requested`.

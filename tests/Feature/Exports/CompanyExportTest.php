@@ -386,4 +386,14 @@ class CompanyExportTest extends TestCase
         $this->assertSame('No se pudo generar la exportación', $this->a['admin']->notifications()->where('type', ExportFinishedNotification::class)->sole()->data['title']);
         $this->assertSame(CompanyExport::REQUESTED, $service->request($this->a['admin'])->status);
     }
+
+    public function test_the_superadmin_does_not_use_the_company_export_and_the_page_states_its_scope(): void
+    {
+        $super = \App\Models\User::factory()->create(['is_super_admin' => true]);
+        $this->actingInPanel($super)->get(CompanyExports::getUrl())->assertForbidden();
+
+        $this->actingInPanel($this->a['admin'])->get(CompanyExports::getUrl())->assertOk()
+            ->assertSee('solo los datos de tu empresa')
+            ->assertSee('No es un backup del servidor');
+    }
 }
