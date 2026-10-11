@@ -22,9 +22,14 @@ use Throwable;
  * - Plan, cantidad, tamaño y formato se validan en el servidor al guardar
  *   (no alcanza con ocultar el campo).
  * - El formato se detecta por el contenido del archivo (no por la extensión).
- * - Con FFmpeg en el servidor, se comprime a MP4 H.264 (720p) en segundo plano
- *   (scheduler: media:process-videos), sin demorar la carga. Sin FFmpeg se
- *   guarda tal como llegó (dentro de los límites).
+ * - La duración se valida SIEMPRE en el servidor: con ffprobe si está; si no,
+ *   leyendo el encabezado del contenedor (MP4/MOV: caja mvhd; WEBM: Duration).
+ *   Si no se puede leer, el video se rechaza (no se confía en el navegador).
+ * - Con FFmpeg en el servidor, se comprime a MP4 H.264 (720p, techo de
+ *   bitrate) en segundo plano (scheduler: media:process-videos), sin demorar
+ *   la carga. Se escribe en un temporal y se renombra; el original se borra.
+ *   Si FFmpeg no puede leerlo (dañado), el video queda "falló" y se borra.
+ *   Sin FFmpeg se guarda tal como llegó (dentro de los límites).
  */
 class ReportVideoService
 {
@@ -65,6 +70,10 @@ class ReportVideoService
      */
     public function store(Report $report, UploadedFile $file, ?User $actor = null): ReportVideo
     {
+        // Un video que falló no cuenta: se reemplaza.
+        ReportVideo::withoutGlobalScopes()->where('report_id', $report->id)->where('status', ReportVideo::FAILED)->get()
+            ->each(fn (ReportVideo $failed) => $this->delete($failed));
+
         if (ReportVideo::withoutGlobalScopes()->where('report_id', $report->id)->exists()) {
             throw ValidationException::withMessages(['video' => 'Este reporte ya tiene un video. Borralo para subir otro.']);
         }
@@ -75,18 +84,24 @@ class ReportVideoService
         Storage::disk('local')->putFileAs(dirname($path), $file, basename($path));
 
         $video = new ReportVideo;
-        $video->forceFill([
-            'company_id' => $report->company_id,
-            'report_id' => $report->id,
-            'uploaded_by' => $actor?->id,
-            'path' => $path,
-            'original_name' => Str::limit($file->getClientOriginalName(), 180, ''),
-            'mime' => $mime,
-            'size' => (int) $file->getSize(),
-            'duration' => $duration,
-            'status' => static::ffmpegAvailable() ? ReportVideo::PENDING : ReportVideo::READY,
-            'processing_note' => static::ffmpegAvailable() ? null : 'Se guardó sin comprimir (el servidor no tiene FFmpeg).',
-        ])->save();
+        try {
+            $video->forceFill([
+                'company_id' => $report->company_id,
+                'report_id' => $report->id,
+                'uploaded_by' => $actor?->id,
+                'path' => $path,
+                'original_name' => Str::limit($file->getClientOriginalName(), 180, ''),
+                'mime' => $mime,
+                'size' => (int) $file->getSize(),
+                'duration' => $duration,
+                'status' => static::ffmpegAvailable() ? ReportVideo::PENDING : ReportVideo::READY,
+                'processing_note' => static::ffmpegAvailable() ? null : 'Se guardó sin comprimir (el servidor no tiene FFmpeg).',
+            ])->save();
+        } catch (Throwable $e) {
+            Storage::disk('local')->delete($path); // sin archivos huérfanos
+
+            throw $e;
+        }
 
         return $video;
     }
@@ -115,10 +130,14 @@ class ReportVideoService
             throw ValidationException::withMessages(['video' => 'Formato de video no permitido. Usá MP4, MOV (iPhone) o WEBM.']);
         }
 
-        $duration = $this->probeDuration($file->getRealPath());
+        $duration = $this->duration($file->getRealPath(), $mime);
 
-        if ($duration !== null && $duration > (int) config('media.video_max_seconds')) {
-            throw ValidationException::withMessages(['video' => 'El video puede durar hasta '.config('media.video_max_seconds').' segundos.']);
+        if ($duration === null) {
+            throw ValidationException::withMessages(['video' => 'No pudimos leer la duración del video (puede estar dañado). Grabalo de nuevo con la cámara del teléfono.']);
+        }
+
+        if ($duration > (int) config('media.video_max_seconds')) {
+            throw ValidationException::withMessages(['video' => 'El video dura '.$duration.' segundos y el máximo es '.config('media.video_max_seconds').'. Grabá uno más corto.']);
         }
 
         return [$mime, $duration];
@@ -150,7 +169,169 @@ class ReportVideoService
         return null;
     }
 
-    /** Duración en segundos (solo si el servidor tiene ffprobe). */
+    /** Duración en segundos: ffprobe si está; si no, el encabezado del contenedor. */
+    public function duration(string $path, string $mime): ?int
+    {
+        if (static::ffprobeAvailable()) {
+            return $this->probeDuration($path);
+        }
+
+        $seconds = $mime === 'video/webm' ? $this->webmDuration($path) : $this->mp4Duration($path);
+
+        return $seconds === null ? null : (int) ceil($seconds);
+    }
+
+    public static function ffprobeAvailable(): bool
+    {
+        $bin = (string) config('media.ffprobe');
+
+        return $bin !== '' && is_file($bin) && is_executable($bin);
+    }
+
+    /** MP4 / MOV: duración y escala de tiempo de la caja moov → mvhd. */
+    public function mp4Duration(string $path): ?float
+    {
+        $handle = @fopen($path, 'rb');
+        if (! $handle) {
+            return null;
+        }
+
+        try {
+            $end = (int) filesize($path);
+            $moov = $this->findBox($handle, 0, $end, 'moov');
+            $mvhd = $moov ? $this->findBox($handle, $moov[0], $moov[1], 'mvhd') : null;
+            if (! $mvhd) {
+                return null;
+            }
+
+            fseek($handle, $mvhd[0]);
+            $version = ord((string) fread($handle, 4));
+            if ($version === 1) {
+                fseek($handle, 16, SEEK_CUR);
+                $scale = unpack('N', (string) fread($handle, 4))[1] ?? 0;
+                $parts = unpack('N2', (string) fread($handle, 8));
+                $duration = ($parts[1] ?? 0) * 4294967296 + ($parts[2] ?? 0);
+            } else {
+                fseek($handle, 8, SEEK_CUR);
+                [$scale, $duration] = array_values(unpack('N2', (string) fread($handle, 8)) ?: [0, 0]);
+            }
+
+            return $scale > 0 && $duration > 0 ? $duration / $scale : null;
+        } finally {
+            fclose($handle);
+        }
+    }
+
+    /** @return array{0: int, 1: int}|null [inicio del contenido, fin] de la primera caja $type. */
+    private function findBox($handle, int $from, int $to, string $type): ?array
+    {
+        $offset = $from;
+        for ($i = 0; $i < 10000 && $offset + 8 <= $to; $i++) {
+            fseek($handle, $offset);
+            $header = (string) fread($handle, 8);
+            if (strlen($header) < 8) {
+                return null;
+            }
+            $size = unpack('N', substr($header, 0, 4))[1];
+            $name = substr($header, 4, 4);
+            $headerSize = 8;
+            if ($size === 1) {
+                $parts = unpack('N2', (string) fread($handle, 8));
+                $size = $parts[1] * 4294967296 + $parts[2];
+                $headerSize = 16;
+            } elseif ($size === 0) {
+                $size = $to - $offset;
+            }
+            if ($size < $headerSize) {
+                return null;
+            }
+            if ($name === $type) {
+                return [$offset + $headerSize, min($to, $offset + $size)];
+            }
+            $offset += $size;
+        }
+
+        return null;
+    }
+
+    /** WEBM: Segment → Info → Duration × TimecodeScale (sin Duration → null). */
+    public function webmDuration(string $path): ?float
+    {
+        $data = (string) @file_get_contents($path, false, null, 0, 1024 * 1024);
+        $pos = 0;
+        $len = strlen($data);
+        $scale = 1000000;
+        $duration = null;
+        $containers = ["\x18\x53\x80\x67", "\x15\x49\xA9\x66"]; // Segment, Info
+
+        for ($i = 0; $i < 5000 && $pos < $len; $i++) {
+            $id = $this->ebmlId($data, $pos);
+            $size = $id === null ? null : $this->ebmlSize($data, $pos);
+            if ($id === null || $size === null) {
+                break;
+            }
+            if (in_array($id, $containers, true)) {
+                continue; // se entra al contenido
+            }
+            if ($id === "\x1F\x43\xB6\x75") {
+                break; // Cluster: ya pasó la cabecera
+            }
+            $value = substr($data, $pos, (int) $size);
+            if ($id === "\x2A\xD7\xB1") {
+                $scale = (int) hexdec(bin2hex($value)) ?: 1000000;
+            } elseif ($id === "\x44\x89") {
+                $duration = match (strlen($value)) {
+                    4 => unpack('G', $value)[1],
+                    8 => unpack('E', $value)[1],
+                    default => null,
+                };
+            }
+            $pos += (int) $size;
+        }
+
+        return $duration && $duration > 0 ? $duration * $scale / 1e9 : null;
+    }
+
+    private function ebmlId(string $data, int &$pos): ?string
+    {
+        $first = ord($data[$pos] ?? ' ');
+        $length = match (true) {
+            $first >= 0x80 => 1, $first >= 0x40 => 2, $first >= 0x20 => 3, $first >= 0x10 => 4, default => 0,
+        };
+        if ($length === 0) {
+            return null;
+        }
+        $id = substr($data, $pos, $length);
+        $pos += $length;
+
+        return $id;
+    }
+
+    /** Tamaño EBML; los de tamaño "desconocido" (todo unos) se tratan como contenedor. */
+    private function ebmlSize(string $data, int &$pos): ?int
+    {
+        $first = ord($data[$pos] ?? ' ');
+        for ($length = 1; $length <= 8; $length++) {
+            if ($first & (0x80 >> ($length - 1))) {
+                break;
+            }
+        }
+        if ($length > 8) {
+            return null;
+        }
+        $value = $first & ((0xFF >> $length));
+        $allOnes = $value === (0xFF >> $length);
+        for ($i = 1; $i < $length; $i++) {
+            $byte = ord($data[$pos + $i] ?? ' ');
+            $allOnes = $allOnes && $byte === 0xFF;
+            $value = ($value << 8) | $byte;
+        }
+        $pos += $length;
+
+        return $allOnes ? 0 : $value;
+    }
+
+    /** Duración en segundos con ffprobe (null si no lo puede leer). */
     public function probeDuration(string $path): ?int
     {
         $bin = (string) config('media.ffprobe');
@@ -163,7 +344,9 @@ class ReportVideoService
             $process = new Process([$bin, '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', $path]);
             $process->setTimeout(20)->run();
 
-            return $process->isSuccessful() ? (int) ceil((float) trim($process->getOutput())) : null;
+            $seconds = (float) trim($process->getOutput());
+
+            return $process->isSuccessful() && $seconds > 0 ? (int) ceil($seconds) : null;
         } catch (Throwable) {
             return null;
         }
@@ -171,8 +354,9 @@ class ReportVideoService
 
     /**
      * Comprime un video pendiente (lo corre el scheduler). Toma el video de a
-     * uno (estado atómico) para no procesarlo dos veces. Si FFmpeg falla, se
-     * conserva el original y queda una nota.
+     * uno (estado atómico) para no procesarlo dos veces; escribe en un
+     * temporal y recién al terminar lo renombra. Si FFmpeg no puede leerlo,
+     * el video queda "falló", se borra y el reporte lo explica.
      */
     public function process(ReportVideo $video): void
     {
@@ -194,35 +378,49 @@ class ReportVideoService
 
         $target = 'reports/'.$video->company_id.'/videos/'.Str::random(40).'.mp4';
         $targetFull = Storage::disk('local')->path($target);
+        $temp = $targetFull.'.part';
         $height = (int) config('media.video_max_height');
+        $fps = (int) config('media.video_max_fps');
 
         try {
             $process = new Process([
-                (string) config('media.ffmpeg'), '-y', '-i', $source,
-                '-vf', "scale=-2:'min({$height},ih)'",
-                '-c:v', 'libx264', '-preset', 'veryfast', '-crf', (string) config('media.video_crf'), '-pix_fmt', 'yuv420p',
-                '-c:a', 'aac', '-b:a', '96k', '-movflags', '+faststart', $targetFull,
+                (string) config('media.ffmpeg'), '-nostdin', '-y', '-v', 'error', '-i', $source,
+                '-map', '0:v:0', '-map', '0:a:0?',
+                '-vf', "scale=-2:'min({$height},ih)'", '-fpsmax', (string) $fps,
+                '-c:v', 'libx264', '-preset', 'veryfast', '-crf', (string) config('media.video_crf'),
+                '-maxrate', (string) config('media.video_max_bitrate'), '-bufsize', ((int) config('media.video_max_bitrate') * 2).'k',
+                '-pix_fmt', 'yuv420p', '-threads', (string) config('media.video_threads'),
+                '-c:a', 'aac', '-b:a', '96k', '-ac', '2', '-movflags', '+faststart', '-f', 'mp4', $temp,
             ]);
             $process->setTimeout(600)->run();
 
-            if (! $process->isSuccessful() || ! is_file($targetFull) || filesize($targetFull) === 0) {
+            if (! $process->isSuccessful() || ! is_file($temp) || filesize($temp) === 0) {
                 throw new \RuntimeException('ffmpeg falló');
             }
 
-            // Solo se reemplaza si mejora: más liviano o el original no se ve en navegadores.
+            rename($temp, $targetFull);
+
+            // Se queda la versión comprimida (MP4 H.264: se ve en todos los
+            // navegadores), salvo que el original ya sea MP4/WEBM y más liviano.
             if (filesize($targetFull) < $video->size || ! $video->isWebPlayable()) {
                 $old = $video->path;
                 $video->forceFill(['path' => $target, 'mime' => 'video/mp4', 'size' => (int) filesize($targetFull), 'processing_note' => null])->save();
                 Storage::disk('local')->delete($old);
             } else {
                 Storage::disk('local')->delete($target);
+                $video->forceFill(['processing_note' => null]);
             }
 
             $video->forceFill(['status' => ReportVideo::READY, 'processed_at' => now()])->save();
         } catch (Throwable $e) {
+            @unlink($temp);
             Storage::disk('local')->delete($target);
-            Log::warning('No se pudo comprimir un video de reporte', ['video_id' => $video->id, 'exception' => $e::class]);
-            $video->forceFill(['status' => ReportVideo::READY, 'processing_note' => 'No se pudo comprimir; se conserva el original.', 'processed_at' => now()])->save();
+            Log::warning('No se pudo procesar un video de reporte', ['video_id' => $video->id, 'exception' => $e::class]);
+            $video->deleteFile();
+            $video->forceFill([
+                'status' => ReportVideo::FAILED, 'processed_at' => now(),
+                'processing_note' => 'No se pudo procesar el video (archivo dañado o formato no compatible). Subilo de nuevo.',
+            ])->save();
         }
     }
 

@@ -37,7 +37,10 @@ y revisa casi todo lo que sigue. Usalo antes y después de cada deploy.
 | `BACKUP_ARCHIVE_PASSWORD` | una clave larga | Cifra cada backup (AES-256). **Guardala también fuera del servidor**: sin ella el backup no se abre. |
 | `BACKUP_NOTIFY_EMAIL` | correo del responsable | Aviso por correo si un backup falla. Además se avisa al SuperAdmin dentro de la app. |
 | `BACKUP_MYSQLDUMP` / `BACKUP_MYSQL` | opcional | Ruta de los binarios si no están en el `PATH`. |
-| `MEDIA_VIDEO_MAX_MB` / `MEDIA_VIDEO_MAX_SECONDS` | `50` / `120` | Límites del video de un reporte. |
+| `MEDIA_VIDEO_MAX_MB` / `MEDIA_VIDEO_MAX_SECONDS` | `50` / `90` | Límites del video de un reporte. Se validan siempre en el servidor. |
+| `ASCENTO_ADMIN_NOTIFICATION_EMAIL` | correo del equipo de Ascento | Aviso por correo de cada empresa nueva. Vacío: solo campanita, push y Telegram de los SuperAdmin. |
+| `ASCENTO_WHATSAPP_NUMBER` | `5491173728421` (por defecto) | WhatsApp del formulario de contacto público. |
+| `SUPER_ADMIN_EMAIL` | ya no tiene un valor por defecto en el código | Lo exige el seeder del SuperAdmin. |
 | `FFMPEG_BINARY` / `FFPROBE_BINARY` | `/usr/bin/ffmpeg` / `/usr/bin/ffprobe` | Opcional: comprimir videos y medir su duración. |
 
 `APP_DEBUG` y las credenciales actuales **no se cambian** en este deploy;
@@ -110,11 +113,25 @@ un reporte como técnico. El aviso aparece sin recargar.
   (Forge → Server → PHP).
 - **Nginx:** `client_max_body_size 64M;`.
 - El chequeo lee los límites de la CLI; confirmá también los de FPM.
-- **FFmpeg (opcional):** `sudo apt install ffmpeg`.
-  - Con FFmpeg, `media:process-videos` (cada minuto, en el scheduler) pasa los
-    videos a H.264 720p con faststart.
-  - Sin FFmpeg, se guardan tal como se subieron: ya se validó en el servidor el
-    formato real (MP4, MOV o WebM leídos del contenido) y el tamaño.
+- **FFmpeg (recomendado):** `sudo apt install ffmpeg` (instala también `ffprobe`).
+  - Con FFmpeg, `media:process-videos` (cada minuto, en el scheduler) pasa los videos a:
+    - H.264 720p, calidad constante CRF 26 con techo de 2,5 Mbps;
+    - 30 cuadros por segundo como máximo;
+    - audio AAC y faststart.
+  - Escribe en un temporal y lo renombra; el original se borra.
+  - Si FFmpeg no puede leer el video (dañado o códec raro), el video queda "falló" y se borra; el reporte lo explica y se puede volver a subir.
+  - Sin FFmpeg, se guardan tal como se subieron, ya validados en el servidor:
+    - formato real (MP4, MOV o WebM leídos del contenido);
+    - tamaño;
+    - duración, leída del encabezado del archivo. Si no se puede leer, se rechaza.
+  - Un MOV de iPhone en HEVC puede no reproducirse en Chrome sin la conversión.
+  - Verificá que existan `/usr/bin/ffmpeg` y `/usr/bin/ffprobe`, o configurá `FFMPEG_BINARY` y `FFPROBE_BINARY`.
+- **Límite real de un envío:** un reporte puede llevar 6 fotos y 1 video. Las
+  fotos se achican en el celular antes de subir, pero las HEIC o muy grandes
+  que el navegador no pueda achicar van enteras (hasta 10 MB cada una). Con
+  64M el caso extremo puede superar el límite: el formulario lo informa como
+  "los archivos pesan más de lo que acepta el servidor" y no se pierde nada.
+  Subir a `128M` es opcional.
 - **Fotos:** se corrige la orientación, se quitan los metadatos (incluida la
   ubicación GPS), se achican a 2000 px y se generan miniaturas. Las fotos
   viejas reciben su miniatura la primera vez que se piden.
@@ -145,7 +162,9 @@ $FORGE_PHP artisan reverb:restart
 ( flock -w 10 9 || exit 1; echo 'Restarting FPM...'; sudo -S service $FORGE_PHP_FPM reload ) 9>/tmp/fpmlock
 ```
 
-`npm run build` es necesario porque hay una entrada nueva de Vite
+`npm run build` es necesario: la rama `mejoras-producto` suma la entrada
+`resources/js/signature.js` (la firma de remitos ya no depende de un CDN) y
+cambia la app del técnico (Tailwind compilado). La rama anterior sumó la entrada
 (`resources/js/portal.js`, para el push del portal). Si el build ya se hace de
 otra forma, conservá la que funciona.
 

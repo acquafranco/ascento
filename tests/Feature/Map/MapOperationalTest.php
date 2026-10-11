@@ -83,4 +83,27 @@ class MapOperationalTest extends TestCase
             ->assertSee('Colorear por: estado del mes')->assertSee('Todas las zonas')->assertSee('Zona Norte')
             ->assertSee('data-map-legend="status"', false)->assertSee('Sin técnico');
     }
+
+    public function test_the_map_explains_what_it_shows_and_never_carries_technician_positions(): void
+    {
+        $a = $this->makeTenant();
+        $this->place($a['building'], -34.60, -58.38);
+
+        $this->actingInPanel($a['admin'])->get(BuildingsMap::getUrl())->assertOk()
+            ->assertSee('Cómo leer este mapa')
+            ->assertSee('Cada punto es un edificio')
+            ->assertSee('no sigue la ubicación')
+            ->assertSee('Grupo de edificios cercanos');
+
+        // Cada marcador es un edificio con la ubicación del EDIFICIO; del
+        // técnico solo viaja el nombre del asignado (nada de coordenadas).
+        $marker = collect(Livewire::test(BuildingsMap::class)->instance()->getMarkers())->sole();
+        $this->assertSame($a['building']->id, $marker['id']);
+        $this->assertSame([-34.6, -58.38], [$marker['lat'], $marker['lng']]);
+        $this->assertSame($a['technician']->name, $marker['technicians']);
+        $this->assertEmpty(array_filter(array_keys($marker), fn ($k) => str_contains(strtolower($k), 'position') || str_contains(strtolower($k), 'gps')));
+
+        // Un técnico no entra al mapa del panel.
+        $this->actingAs($a['technician'])->get(BuildingsMap::getUrl())->assertRedirect(); // lo manda a su app
+    }
 }

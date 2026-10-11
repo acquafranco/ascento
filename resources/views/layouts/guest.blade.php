@@ -125,7 +125,16 @@
             Volver al inicio
         </a>
 
+        {{-- Contacto con Ascento: no en las pantallas del portal (el cliente habla con su empresa de ascensores). --}}
+        @unless(request()->routeIs('portal.*'))
+            <button type="button" data-whatsapp-open class="mt-3 text-xs font-medium text-ink/40 hover:text-ink/70 transition-colors">¿Necesitás ayuda? Escribinos por WhatsApp</button>
+        @endunless
+
     </div>
 
+    @unless(request()->routeIs('portal.*'))
+        @include('partials.whatsapp-contact', ['launcher' => false])
+    @endunless
+    @include('partials.cookie-notice')
 </body>
 </html>

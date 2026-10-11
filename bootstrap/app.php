@@ -47,6 +47,14 @@ return Application::configure(basePath: dirname(__DIR__))
         });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Enlace de confirmación de correo vencido o alterado: pantalla para
+        // pedir otro (en lugar de un 403 genérico). No dice nada de la cuenta.
+        $exceptions->render(function (\Illuminate\Routing\Exceptions\InvalidSignatureException $e, Request $request) {
+            if ($request->routeIs('verification.verify') && $request->user()) {
+                return redirect()->route('verification.notice')->with('status', 'verification-link-expired');
+            }
+        });
+
         // Límites y funciones del plan: mensaje claro + "Ver planes", nunca
         // un error genérico (ver PlanGuard / ConsumesPlanLimit).
         $exceptions->render(function (PlanLimitReachedException|PlanFeatureUnavailableException $e, Request $request) {

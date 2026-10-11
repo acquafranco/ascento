@@ -1,232 +1,94 @@
+{{--
+    Planilla del mes del técnico: los trabajos hechos, semana por semana. En
+    el celular se listan solo los días con trabajo; en escritorio, la semana
+    completa. Cada día abre su detalle.
+--}}
+@php
+    $slug = auth()->user()->company->slug;
+@endphp
 <x-app-layout>
+<div class="t-page">
+    <header class="mb-4">
+        <h1 class="t-h1">Planilla del mes</h1>
+        <p class="t-sub">Los trabajos que hiciste o en los que participaste, por semana.</p>
+    </header>
 
-<div class="max-w-7xl mx-auto px-4 py-6">
-
-    <div class="mb-6">
-
-        <h1 class="text-3xl font-black">
-            📋 Planillas Semanales
-        </h1>
-
-        <p class="text-gray-500">
-            Historial mensual de trabajos
-        </p>
-
-    </div>
-
-    {{-- FILTROS --}}
-    <form
-        method="GET"
-        class="flex gap-3 mb-8"
-    >
-
-        <select
-            name="month"
-            onchange="this.form.submit()"
-            class="rounded-xl border-gray-300"
-        >
-            @foreach(range(1,12) as $m)
-
-                <option
-                    value="{{ $m }}"
-                    @selected($month == $m)
-                >
-                    {{
-                        \Carbon\Carbon::create()
-                            ->month($m)
-                            ->translatedFormat('F')
-                    }}
-                </option>
-
+    <form method="GET" class="mb-5 grid grid-cols-2 gap-2 sm:max-w-sm">
+        <select name="month" class="t-input" aria-label="Mes" onchange="this.form.submit()">
+            @foreach(range(1, 12) as $m)
+                <option value="{{ $m }}" @selected($month == $m)>{{ ucfirst(\Carbon\Carbon::create()->month($m)->translatedFormat('F')) }}</option>
             @endforeach
         </select>
-
-        <select
-            name="year"
-            onchange="this.form.submit()"
-            class="rounded-xl border-gray-300"
-        >
+        <select name="year" class="t-input" aria-label="Año" onchange="this.form.submit()">
             @foreach(range(now()->year - 3, now()->year + 1) as $y)
-
-                <option
-                    value="{{ $y }}"
-                    @selected($year == $y)
-                >
-                    {{ $y }}
-                </option>
-
+                <option value="{{ $y }}" @selected($year == $y)>{{ $y }}</option>
             @endforeach
         </select>
-
     </form>
 
-    <div class="space-y-8">
-
+    <div class="space-y-6">
         @forelse($weeks as $week)
+            @php
+                $days = collect(range(0, 6))->map(function ($i) use ($week) {
+                    $date = $week['start']->copy()->addDays($i);
 
-            <div>
-
-                {{-- TITULO SEMANA --}}
-                <h2
-                    class="font-black text-lg mb-4"
-                >
-
-                    Semana del
-
-                    {{
-                        $week['start']
-                            ->translatedFormat('d')
-                    }}
-
-                    al
-
-                    {{
-                        $week['end']
-                            ->translatedFormat('d M')
-                    }}
-
-                </h2>
-
-                {{-- GRID 7 DIAS --}}
-                <div
-                    class="grid grid-cols-2 lg:grid-cols-7 gap-4"
-                >
-
-            @for($i = 0; $i < 7; $i++)
-
-                @php
-
-                    $date =
-                        $week['start']
-                            ->copy()
-                            ->addDays($i);
-
-                    $dayVisits =
-                        $week['visits']
-                        ->filter(function ($visit) use ($date) {
-
-                            return
-                                \Carbon\Carbon::parse(
-                                    $visit->visited_at
-                                )->isSameDay($date);
-
-                        });
-
-                @endphp
-
-                <a
-                    href="{{ $dayVisits->count() ? (
-                        isset($user)
-                            ? route('users.template.day', [
-                                'company' => auth()->user()->company->slug,
-                                'user' => $user->id,
-                                'date' => $date->format('Y-m-d'),
-                            ])
-                            : route('templates.day', [
-                                'company' => auth()->user()->company->slug,
-                                'date' => $date->format('Y-m-d'),
-                            ])
-                    ) : '#' }}"
-                    class="block bg-white rounded-3xl shadow p-4 min-h-[220px] hover:shadow-xl transition"
-                >
-                    {{-- DIA --}}
-                    <div class="font-black text-lg mb-4">
-
-                        {{
-                            ucfirst(
-                                $date->translatedFormat('D')
-                            )
-                        }}
-
-                        {{ $date->format('d') }}
-
+                    return [
+                        'date' => $date,
+                        'visits' => $week['visits']->filter(fn ($visit) => \Carbon\Carbon::parse($visit->visited_at)->isSameDay($date))->values(),
+                    ];
+                });
+                $worked = $days->filter(fn ($d) => $d['visits']->isNotEmpty());
+            @endphp
+            <section>
+                <h2 class="t-section mt-0">Semana del {{ $week['start']->translatedFormat('d') }} al {{ $week['end']->translatedFormat('d M') }}</h2>
+                @if($worked->isEmpty())
+                    <div class="t-empty py-5">Sin trabajos esta semana.</div>
+                @else
+                    <div class="grid grid-cols-1 gap-2 lg:grid-cols-7">
+                        @foreach($days as $day)
+                            @php
+                                $count = $day['visits']->count();
+                                $href = isset($user)
+                                    ? route('users.template.day', ['company' => $slug, 'user' => $user->id, 'date' => $day['date']->format('Y-m-d')])
+                                    : route('templates.day', ['company' => $slug, 'date' => $day['date']->format('Y-m-d')]);
+                            @endphp
+                            @if($count)
+                                <a href="{{ $href }}" class="t-card block p-3 transition hover:border-ink-300 active:scale-[0.99]">
+                                    <div class="flex items-baseline justify-between">
+                                        <span class="font-bold text-ink">{{ ucfirst($day['date']->translatedFormat('D d')) }}</span>
+                                        <span class="t-chip-done">{{ $count }} {{ $count === 1 ? 'trabajo' : 'trabajos' }}</span>
+                                    </div>
+                                    <ul class="mt-2 space-y-1.5">
+                                        @foreach($day['visits']->take(3) as $visit)
+                                            @php
+                                                $isMine = (int) $visit->user_id === (int) auth()->id();
+                                                $isParticipant = ($visit->participants ?? collect())->contains('id', auth()->id());
+                                            @endphp
+                                            <li class="text-sm">
+                                                <span class="block truncate font-semibold text-ink-700">{{ $visit->building?->name }}</span>
+                                                <span class="block truncate text-xs text-ink-500">
+                                                    {{ $isMine ? 'Hecho por vos' : ($isParticipant ? 'Participaste con '.$visit->user?->name : 'Hecho por '.$visit->user?->name) }}
+                                                </span>
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                    @if($count > 3)<p class="mt-1.5 text-xs font-semibold text-ink-500">y {{ $count - 3 }} más</p>@endif
+                                </a>
+                            @else
+                                <div class="hidden rounded-2xl border border-dashed border-ink-100 p-3 text-sm text-ink-300 lg:block">
+                                    <span class="font-semibold">{{ ucfirst($day['date']->translatedFormat('D d')) }}</span>
+                                </div>
+                            @endif
+                        @endforeach
                     </div>
-
-                  @if($dayVisits->count())
-
-                <div class="rounded-2xl bg-slate-50 border p-3">
-
-                    @foreach($dayVisits->take(3) as $visit)
-
-    <div class="mb-3">
-
-        <div class="text-xs font-semibold truncate">
-            🏢 {{ $visit->building?->name }}
-            {{ $visit->building?->address }}
-        </div>
-
-        @php
-            $isMine = (int) $visit->user_id === (int) auth()->id();
-            $participants = $visit->participants ?? collect();
-            $isParticipant = $participants->contains('id', auth()->id());
-        @endphp
-
-        @if($isMine)
-
-            <div class="text-[11px] text-green-600 font-medium">
-                ✔ Realizado por vos
+                @endif
+            </section>
+        @empty
+            <div class="t-empty">
+                <p class="font-semibold text-ink">No hay trabajos en este mes</p>
+                <p class="mt-1">Cuando firmes remitos, los vas a ver acá día por día.</p>
             </div>
-
-        @elseif($isParticipant)
-
-            <div class="text-[11px] text-blue-600 font-medium">
-                🤝 Participaste con {{ $visit->user?->name }}
-            </div>
-
-        @else
-
-            <div class="text-[11px] text-blue-600 font-medium">
-                🤝 Realizado por {{ $visit->user?->name }}
-            </div>
-
-        @endif
-
+        @endforelse
     </div>
-
-@endforeach
-
-                    @if($dayVisits->count() > 3)
-
-                        <div class="text-xs text-gray-500 mt-2">
-                            +{{ $dayVisits->count() - 3 }} trabajo(s) más
-                        </div>
-
-                    @endif
-
-                </div>
-
-               <div class="mt-3 text-center text-blue-600 text-xs font-bold">
-
-                    Ver día completo →
-
-                </div>
-
-            @else
-
-                <div class="text-sm text-gray-400">
-                    Sin trabajos
-                </div>
-
-            @endif
-
-                            </a>
-
-                        @endfor
-
-                            </div>
-
-                        </div>
-
-                    @empty
-
-                        <div class="text-gray-500">
-                            No hay trabajos
-                        </div>
-
-                    @endforelse
-
-    </div>
-
 </div>
-
 </x-app-layout>

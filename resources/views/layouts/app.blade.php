@@ -2,7 +2,7 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
         <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     @include('partials.brand-head')
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
@@ -33,29 +33,15 @@
 
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
-        <!-- Espacio para barra mobile -->
         <style>
             [x-cloak] { display: none !important; }
-
-            @media (min-width: 1023px) {
-                .menu { margin-top: 64px; }
-            }
-
-        input,
-        textarea,
-        select {
-            font-size: 16px !important;
-        }
-
-        /* Mantiene aspecto visual */
-        textarea {
-            line-height: 1.4;
-        }
+            /* iOS no hace zoom al enfocar campos con 16px o más. */
+            input, textarea, select { font-size: 16px !important; }
+            textarea { line-height: 1.4; }
         </style>
-
     </head>
     <body class="font-sans antialiased">
-        <div class="min-h-screen bg-gray-100">
+        <div class="min-h-screen bg-ink-50">
             @include('layouts.navigation')
 
             @if(auth()->check() && auth()->user()->role !== 'admin')

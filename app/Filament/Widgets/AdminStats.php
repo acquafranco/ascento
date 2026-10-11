@@ -5,16 +5,42 @@ namespace App\Filament\Widgets;
 use App\Models\Building;
 use App\Models\DeliveryNote;
 use App\Models\Quote;
+use App\Models\User;
 use App\Models\WorkOrder;
+use App\Support\CompanyContext;
+use App\Support\Realtime;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Números del inicio del admin. Se actualizan solos: cuando cambia una orden,
+ * un remito o un presupuesto de la empresa llega "dashboard.counters" por el
+ * canal privado del admin y el widget se vuelve a calcular. Respaldo por si
+ * un evento se pierde (corte de conexión): cada 2 min con tiempo real y cada
+ * 60 s sin él (venía cada 5 s).
+ */
 class AdminStats extends StatsOverviewWidget
 {
+    protected function getPollingInterval(): ?string
+    {
+        return Realtime::enabled() ? '120s' : '60s';
+    }
+
+    /** @return array<string, string> */
+    protected function getListeners(): array
+    {
+        $user = auth()->user();
+
+        return $user && Realtime::enabled()
+            ? ['echo-private:App.Models.User.'.$user->id.',.dashboard.counters' => '$refresh']
+            : [];
+    }
+
     protected function getStats(): array
     {
         $trabajosPendientes = WorkOrder::where('status', 'pending')->count();
+        $ingresadosHoy = WorkOrder::whereDate('created_at', today())->count();
 
         $remitosHoy = DeliveryNote::whereDate('created_at', today())->count();
 
@@ -26,61 +52,45 @@ class AdminStats extends StatsOverviewWidget
             DB::raw('elevator_count + freight_elevator_count')
         );
 
-          $tecnicosOcupados = WorkOrder::where('status', 'in_progress')
+        $tecnicosOcupados = WorkOrder::where('status', 'in_progress')
+            ->with(['users', 'participants'])
+            ->get()
+            ->flatMap(function ($workOrder) {
 
-        ->with(['users', 'participants'])
+                return $workOrder->users
 
-        ->get()
+                    ->merge($workOrder->participants);
 
-        ->flatMap(function ($workOrder) {
+            })
+            ->unique('id')
+            ->count();
 
-            return $workOrder->users
-
-                ->merge($workOrder->participants);
-
-        })
-
-        ->unique('id')
-
-        ->count();
-
-       $totalTecnicos = \App\Models\User::where('company_id', \App\Support\CompanyContext::currentId())
-        ->whereNotIn('role', ['admin', 'client'])
-        ->count();
+        $totalTecnicos = User::where('company_id', CompanyContext::currentId())
+            ->whereNotIn('role', ['admin', 'client'])
+            ->count();
 
         $tecnicosDisponibles = max(0, $totalTecnicos - $tecnicosOcupados);
 
         return [
 
-            Stat::make(
-            'Pendientes',
-            WorkOrder::where('status', 'pending')
-                ->whereDate('created_at', today())
-                ->count()
-        )
-            ->description('Ingresados hoy')
-            ->color('warning')
-            ->descriptionIcon('heroicon-m-clock'),
+            // Abiertas, sin importar el día en que se cargaron.
+            Stat::make('Pendientes', $trabajosPendientes)
+                ->description($ingresadosHoy === 1 ? '1 orden cargada hoy' : $ingresadosHoy.' órdenes cargadas hoy')
+                ->color('warning')
+                ->descriptionIcon('heroicon-m-clock'),
 
-        Stat::make(
-            'En proceso',
-            WorkOrder::where('status', 'in_progress')
-                ->whereDate('updated_at', today())
-                ->count()
-        )
-            ->description('Activos hoy')
-            ->color('info')
-            ->descriptionIcon('heroicon-m-wrench-screwdriver'),
+            // En curso ahora (antes: solo las modificadas hoy).
+            Stat::make('En proceso', WorkOrder::where('status', 'in_progress')->count())
+                ->description('En curso ahora')
+                ->color('info')
+                ->descriptionIcon('heroicon-m-wrench-screwdriver'),
 
-        Stat::make(
-            'Completados',
-            WorkOrder::where('status', 'completed')
-                ->whereDate('updated_at', today())
-                ->count()
-        )
-            ->description('Ejecutados hoy')
-            ->color('success')
-            ->descriptionIcon('heroicon-m-check-circle'),
+            // Terminadas hoy (por la fecha de finalización, no la de edición).
+            // Las "no realizadas" no cuentan como completadas.
+            Stat::make('Completados', WorkOrder::where('status', 'completed')->whereDate('finished_at', today())->count())
+                ->description('Terminados hoy')
+                ->color('success')
+                ->descriptionIcon('heroicon-m-check-circle'),
 
             Stat::make('Remitos de hoy', $remitosHoy)
                 ->description(today()->format('d/m/Y'))

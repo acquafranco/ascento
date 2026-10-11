@@ -102,6 +102,7 @@
             </div>
 
             <div class="hidden lg:flex items-center gap-3">
+                <button type="button" data-whatsapp-open class="text-sm font-semibold text-ink/70 hover:text-ink transition-colors">Hablemos</button>
                 <a href="{{ Route::has('login') ? route('login') : '/login' }}"
                    class="inline-flex items-center gap-1.5 rounded-full bg-graphite text-white text-sm font-semibold pl-4 pr-3.5 py-2.5 shadow-card hover:shadow-cardHover hover:-translate-y-0.5 transition-all duration-200">
                     Entrar
@@ -121,6 +122,7 @@
                 <a @click="open=false" href="#como-funciona" class="py-2.5 text-ink/75">Cómo funciona</a>
                 <a @click="open=false" href="#planes" class="py-2.5 text-ink/75">Planes</a>
                 <a @click="open=false" href="#faq" class="py-2.5 text-ink/75">Preguntas frecuentes</a>
+                <button type="button" data-whatsapp-open @click="open=false" class="py-2.5 text-left text-ink/75">Hablemos por WhatsApp</button>
                 <div class="flex gap-2 pt-3">
                     <a href="{{ Route::has('login') ? route('login') : '/login' }}" class="flex-1 text-center rounded-full bg-graphite text-white px-4 py-2.5 text-sm font-semibold">Entrar</a>
                 </div>
@@ -339,36 +341,56 @@
                         <div class="pointer-events-none absolute inset-y-0 right-0 w-16 sm:w-24 z-10 bg-gradient-to-l from-paper to-transparent"></div>
 
                         <div class="overflow-hidden">
+                            {{-- Capturas REALES de la app con datos ficticios de demo (tools/landing-screenshots, docs/landing-capturas.md). --}}
+                            @php
+                                $phoneShots = [
+                                    ['tecnico-inicio', 'App del técnico', 'Lo próximo que tiene que hacer'],
+                                    ['tecnico-trabajos', 'Órdenes de trabajo', 'Tomar y finalizar con el remito'],
+                                    ['tecnico-visitas', 'Visitas del mes', 'Mantenimientos e inspecciones'],
+                                    ['tecnico-reporte', 'Nuevo reporte', 'Edificio, fotos y video'],
+                                    ['portal-inicio', 'Portal del cliente', 'Lo que la empresa comparte'],
+                                    ['portal-documentos', 'Documentos del cliente', 'Remitos, reportes y presupuestos'],
+                                ];
+                            @endphp
                             <div class="flex w-max animate-marquee gap-5 sm:gap-6">
-                                @php
-                                    $shots = [
-                                        'screenshot-1.jpg',
-                                        'screenshot-2.jpg',
-                                        'screenshot-3.jpg',
-                                        'screenshot-4.jpg',
-                                        'screenshot-5.jpg',
-                                        'screenshot-6.jpg',
-                                        'screenshot-7.jpg',
-                                    ];
-                                @endphp
-
-                                {{-- Duplicamos la lista para que el loop sea infinito y sin cortes --}}
-                                @foreach (array_merge($shots, $shots) as $shot)
-                                    <div class="shrink-0 w-[170px] sm:w-[200px] lg:w-[220px] rounded-2xl overflow-hidden border border-ink/10 shadow-card bg-white">
-                                        <img
-                                            src="{{ asset('images/' . $shot) }}"
-                                            alt="Captura de la app Ascento"
-                                            width="640"
-                                            height="1141"
-                                            loading="lazy"
-                                            class="w-full h-full object-cover"
-                                        >
-                                    </div>
+                                {{-- La lista va dos veces para que el loop sea continuo. --}}
+                                @foreach (array_merge($phoneShots, $phoneShots) as $i => [$file, $title, $caption])
+                                    <figure class="shrink-0 w-[180px] sm:w-[210px] lg:w-[230px]" @if($i >= count($phoneShots)) aria-hidden="true" @endif>
+                                        <div class="rounded-[22px] overflow-hidden border border-ink/10 shadow-card bg-white aspect-[640/1247]">
+                                            <img src="{{ asset('images/landing/'.$file.'.jpg') }}" alt="{{ $title }}: {{ mb_strtolower($caption) }}"
+                                                 width="640" height="1247" loading="lazy" decoding="async" class="block w-full h-full object-cover object-top">
+                                        </div>
+                                        <figcaption class="mt-3 px-1">
+                                            <span class="block text-sm font-semibold text-ink">{{ $title }}</span>
+                                            <span class="block text-xs text-ink/50">{{ $caption }}</span>
+                                        </figcaption>
+                                    </figure>
                                 @endforeach
                             </div>
                         </div>
                     </div>
                 </div>
+
+                {{-- Panel de la empresa (escritorio) --}}
+                <div class="mt-12 -mx-5 px-5 sm:mx-0 sm:px-0 flex sm:grid sm:grid-cols-3 gap-5 overflow-x-auto snap-x snap-mandatory scroll-px-5 sm:scroll-px-0 pb-2" data-reveal>
+                    @foreach ([
+                        ['admin-inicio', 'Panel de la empresa', 'Pendientes, en curso y completados, al día.'],
+                        ['admin-mapa', 'Mapa de edificios', 'Toda la cartera, por zona, técnico y estado del mes.'],
+                        ['admin-presupuesto', 'Presupuestos', 'Documento listo para enviar por correo con PDF.'],
+                    ] as [$file, $title, $caption])
+                        <figure class="snap-start shrink-0 w-[85%] sm:w-auto">
+                            <div class="rounded-2xl overflow-hidden border border-ink/10 shadow-card bg-white aspect-[16/10]">
+                                <img src="{{ asset('images/landing/'.$file.'.jpg') }}" alt="{{ $title }}: {{ mb_strtolower($caption) }}"
+                                     width="1280" height="800" loading="lazy" decoding="async" class="block w-full h-full object-cover object-top">
+                            </div>
+                            <figcaption class="mt-3">
+                                <span class="block text-sm font-semibold text-ink">{{ $title }}</span>
+                                <span class="block text-xs text-ink/50">{{ $caption }}</span>
+                            </figcaption>
+                        </figure>
+                    @endforeach
+                </div>
+                <p class="mt-6 text-center text-xs text-ink/40">Capturas de la aplicación real con datos de ejemplo.</p>
 
             </div>
         </section>
@@ -547,11 +569,17 @@
                 <span class="font-mono text-xs tracking-widest text-amber-500 uppercase">Última parada</span>
                 <h2 class="mt-3 font-display font-semibold text-3xl sm:text-5xl tracking-tight">Empezá a organizar tu empresa hoy.</h2>
                 <p class="mt-5 text-white/55 max-w-xl mx-auto">Sumá a tu equipo, cargá tus edificios y llevá el control de cada ascensor desde un solo lugar.</p>
-                <a href="{{ Route::has('register') ? route('register') : '/register' }}"
-                   class="mt-9 inline-flex items-center gap-2 rounded-full bg-amber-500 text-graphite font-semibold px-8 py-4 hover:bg-amber-400 hover:-translate-y-0.5 transition-all duration-200">
-                    Entrar
-                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </a>
+                <div class="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <a href="{{ Route::has('register') ? route('register') : '/register' }}"
+                       class="inline-flex items-center gap-2 rounded-full bg-amber-500 text-graphite font-semibold px-8 py-4 hover:bg-amber-400 hover:-translate-y-0.5 transition-all duration-200">
+                        Crear cuenta gratis
+                        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </a>
+                    <button type="button" data-whatsapp-open
+                            class="inline-flex items-center gap-2 rounded-full border border-white/20 text-white font-semibold px-7 py-4 hover:bg-white/10 transition-colors">
+                        ¿Dudas? Hablemos por WhatsApp
+                    </button>
+                </div>
             </div>
         </section>
     </main>
@@ -581,12 +609,15 @@
                         <li><a href="{{ Route::has('legal.terms') ? route('legal.terms') : '/legal/terminos' }}" class="hover:text-white transition-colors">Términos y Condiciones</a></li>
                         <li><a href="{{ Route::has('legal.privacy') ? route('legal.privacy') : '/legal/privacidad' }}" class="hover:text-white transition-colors">Política de Privacidad</a></li>
                         <li><a href="{{ Route::has('legal.data-deletion') ? route('legal.data-deletion') : '/legal/eliminacion-de-datos' }}" class="hover:text-white transition-colors">Eliminación de Datos</a></li>
+                        <li><a href="{{ route('legal.cookies') }}" class="hover:text-white transition-colors">Política de cookies</a></li>
+                        <li><button type="button" data-cookie-preferences class="hover:text-white transition-colors">Preferencias de cookies</button></li>
                     </ul>
                 </div>
                 <div>
                     <div class="text-xs font-semibold text-white/40 uppercase tracking-wide">Contacto</div>
                     <ul class="mt-4 space-y-2.5 text-sm">
                         <li><a href="mailto:{{ config('app.support_email') }}" class="hover:text-white transition-colors">{{ config('app.support_email') }}</a></li>
+                        <li><button type="button" data-whatsapp-open class="hover:text-white transition-colors">WhatsApp: +54 9 11 7372-8421</button></li>
                         <li>Buenos Aires, Argentina</li>
                     </ul>
                 </div>
@@ -609,6 +640,9 @@
                     }
                     .animate-marquee:hover {
                         animation-play-state: paused;
+                    }
+                    @media (prefers-reduced-motion: reduce) {
+                        .animate-marquee { animation: none; }
                     }
                 </style>
 
@@ -663,5 +697,7 @@
         window.addEventListener('scroll', updateRail, { passive: true });
         updateRail();
     </script>
+    @include('partials.whatsapp-contact')
+    @include('partials.cookie-notice')
 </body>
 </html>

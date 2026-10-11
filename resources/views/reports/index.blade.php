@@ -1,125 +1,53 @@
+{{-- Reportes del técnico (los propios), del más nuevo al más viejo. --}}
+@php
+    use App\Support\TechNav;
+    $priority = ['critica' => ['Crítica', 't-chip-failed'], 'alta' => ['Alta', 't-chip-progress'], 'media' => ['Media', 't-chip-pending'], 'baja' => ['Baja', 't-chip-neutral']];
+    $status = ['pendiente' => ['Pendiente', 't-chip-pending'], 'en_revision' => ['En revisión', 't-chip-progress'], 'resuelto' => ['Resuelto', 't-chip-done']];
+@endphp
 <x-app-layout>
-
-<div class="max-w-7xl mx-auto px-4 py-6" style="padding-bottom: 100px;">
-
-    {{-- HEADER --}}
-    <div class="flex justify-between items-start gap-4 mb-6">
-
+<div class="t-page">
+    <header class="mb-4 flex items-start justify-between gap-3">
         <div>
-            <h1 class="text-3xl font-black text-black flex items-center gap-2">
-                📋 Mis reportes
-            </h1>
-
-            <p class="text-gray-500 mt-1">
-                Historial de incidencias registradas
-            </p>
+            <h1 class="t-h1">Reportes</h1>
+            <p class="t-sub">Fallas e incidencias que cargaste.</p>
         </div>
-
-        <a href="{{ route('reports.create', ['company' => $company->slug]) }}"
-           class="px-4 py-3 rounded-2xl text-white font-bold shadow-sm whitespace-nowrap"
-           style="background:#2563EB;">
-            + Nuevo
+        <a href="{{ route('reports.create', ['company' => $company->slug]) }}" class="t-btn-primary shrink-0">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">{!! TechNav::icon('plus') !!}</svg>
+            Nuevo
         </a>
+    </header>
 
-    </div>
+    @if(session('success'))
+        <div class="t-alert-success mb-4" role="status">{{ session('success') }}</div>
+    @endif
 
-
-    {{-- LISTA --}}
-    <div class="space-y-4">
-
-        @forelse($reports as $report)
-
-            <a href="{{ route('reports.show', ['company' => $company->slug, 'report' => $report->id]) }}"
-               class="block bg-white rounded-3xl border border-slate-200 shadow-sm p-5 hover:shadow-md transition">
-
-                <div class="flex justify-between items-start gap-3">
-
-                    <div>
-                        <h2 class="text-xl font-black text-black">
-                            {{ $report->building?->name ?? 'Edificio sin asignar' }}
-                        </h2>
-
-                        <div class="text-sm text-gray-500 mt-1">
-                            📍 {{ $report->building?->address ?? 'Sin dirección' }}
-                        </div>
-                    </div>
-
-                    <div class="text-right text-xs text-gray-500 whitespace-nowrap">
-                        <div class="font-bold text-black">
-                            {{ $report->created_at->format('d/m/Y') }}
-                        </div>
-                        <div>
-                            {{ $report->created_at->format('H:i') }} hs
-                        </div>
-                    </div>
-
-                </div>
-
-
-                <div class="mt-4 grid grid-cols-2 gap-3">
-
-                    <div class="bg-slate-50 rounded-2xl p-3">
-                        <div class="text-xs text-gray-500">
-                            Ascensor
-                        </div>
-
-                        <div class="font-black text-black">
-                            🛗 {{ $report->elevator_number ?? 'No indicado' }}
-                        </div>
-                    </div>
-
-
-                    <div class="bg-slate-50 rounded-2xl p-3">
-                        <div class="text-xs text-gray-500">
-                            Prioridad
-                        </div>
-
-                        <div class="font-black">
-                            @if($report->priority === 'critica')
-                                <span class="text-red-600">🔴 Crítica</span>
-                            @elseif($report->priority === 'alta')
-                                <span class="text-orange-600">🟠 Alta</span>
-                            @elseif($report->priority === 'media')
-                                <span class="text-yellow-600">🟡 Media</span>
-                            @else
-                                <span class="text-green-600">🟢 Baja</span>
-                            @endif
-                        </div>
-                    </div>
-
-                </div>
-
-
-                <div class="mt-4 flex justify-between items-center gap-3">
-
-                    <div class="text-xs text-gray-500">
-                        Estado: {{ ucfirst($report->status) }}
-                    </div>
-
-
-                    <div class="text-sm text-blue-600 font-bold whitespace-nowrap">
-                        Ver detalle →
-                    </div>
-
-                </div>
-
-            </a>
-
-        @empty
-
-            <div class="text-center text-gray-500 py-10">
-                Todavía no realizaste ningún reporte.
-            </div>
-
-        @endforelse
-
-    </div>
-
-
-    <div class="mt-6">
-        {{ $reports->links() }}
-    </div>
-
+    @if($reports->isEmpty())
+        <div class="t-empty">
+            <p class="font-semibold text-ink">Todavía no cargaste reportes</p>
+            <p class="mt-1">Si encontrás una falla, cargala con fotos o un video y la oficina recibe el aviso.</p>
+        </div>
+    @else
+        <div class="t-card t-divide overflow-hidden">
+            @foreach($reports as $report)
+                <a href="{{ route('reports.show', ['company' => $company->slug, 'report' => $report->id]) }}" class="t-row hover:bg-ink-50">
+                    <span class="min-w-0 flex-1">
+                        <span class="flex flex-wrap items-center gap-1.5">
+                            <span class="{{ $status[$report->status][1] ?? 't-chip-neutral' }}">{{ $status[$report->status][0] ?? ucfirst($report->status) }}</span>
+                            <span class="{{ $priority[$report->priority][1] ?? 't-chip-neutral' }}">{{ $priority[$report->priority][0] ?? ucfirst($report->priority) }}</span>
+                        </span>
+                        <span class="mt-1 block truncate font-semibold text-ink">{{ $report->building?->name ?? 'Edificio sin asignar' }}</span>
+                        <span class="block truncate text-sm text-ink-500">{{ $report->elevator_number ?? 'Equipo no indicado' }} · {{ Str::limit($report->description, 60) }}</span>
+                    </span>
+                    <span class="shrink-0 text-right text-xs text-ink-500">
+                        <span class="block font-semibold text-ink">{{ $report->created_at->format('d/m') }}</span>
+                        {{ $report->created_at->format('H:i') }}
+                    </span>
+                </a>
+            @endforeach
+        </div>
+        @if($reports->hasPages())
+            <div class="mt-4">{{ $reports->links() }}</div>
+        @endif
+    @endif
 </div>
-
 </x-app-layout>

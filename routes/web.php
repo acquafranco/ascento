@@ -42,6 +42,7 @@ Route::get('/', function () {
 Route::get('/legal/terminos', fn () => view('legal.terms'))->name('legal.terms');
 Route::get('/legal/privacidad', fn () => view('legal.privacy'))->name('legal.privacy');
 Route::get('/legal/eliminacion-de-datos', fn () => view('legal.data-deletion'))->name('legal.data-deletion');
+Route::get('/legal/cookies', fn () => view('legal.cookies'))->name('legal.cookies');
 
 /*
 |--------------------------------------------------------------------------
@@ -93,6 +94,10 @@ Route::prefix('{company:slug}')
         DashboardController::class,
         'index'
     ])->name('dashboard');
+
+    // Contadores del técnico (para ponerse al día en tiempo real o al reconectar).
+    Route::get('/dashboard/contadores', \App\Http\Controllers\TechnicianCountersController::class)
+        ->middleware('throttle:60,1')->name('technician.counters');
 
 
     /*
@@ -367,6 +372,7 @@ Route::middleware(['auth', 'subscription'])->whereNumber(['report', 'photo'])->g
     Route::get('/files/reports/{report}/photos/{photo}', [ReportPhotoController::class, 'show'])->name('reports.photos.show');
     Route::get('/files/reports/{report}/pdf', \App\Http\Controllers\ReportPdfController::class)->name('reports.pdf');
     Route::get('/files/reports/{report}/video', [\App\Http\Controllers\ReportVideoController::class, 'show'])->name('reports.video');
+    Route::get('/files/reports/{report}/video/status', [\App\Http\Controllers\ReportVideoController::class, 'status'])->middleware('throttle:30,1')->name('reports.video.status');
     Route::get('/files/quotes/{quote}/pdf', [\App\Http\Controllers\QuoteDocumentController::class, 'adminPdf'])->whereNumber('quote')->name('quotes.pdf');
     Route::post('/files/reports/{report}/video', [\App\Http\Controllers\ReportVideoController::class, 'store'])->middleware('throttle:10,1')->name('reports.video.store');
     Route::delete('/files/reports/{report}/video', [\App\Http\Controllers\ReportVideoController::class, 'destroy'])->name('reports.video.destroy');

@@ -106,7 +106,7 @@ function initMap(container) {
         dot.style.cssText = `display:inline-block;width:.6rem;height:.6rem;border-radius:999px;margin-right:.35rem;background:${SAFE_COLOR.test(marker.statusColor ?? '') ? marker.statusColor : '#CBD5E1'}`;
         status.append(dot, document.createTextNode(`Mantenimiento del mes: ${marker.statusLabel ?? '—'}`));
         root.append(status);
-        if (marker.technicians) root.append(el('div', 'bm-popup-meta', `Técnico: ${marker.technicians}`));
+        root.append(el('div', 'bm-popup-meta', marker.technicians ? `Técnico asignado: ${marker.technicians}` : 'Sin técnico asignado'));
 
         const units = [];
         if (marker.elevators) units.push(`${marker.elevators} ${marker.elevators === 1 ? 'ascensor' : 'ascensores'}`);
@@ -114,7 +114,7 @@ function initMap(container) {
         if (units.length) root.append(el('div', 'bm-popup-meta', units.join(' · ')));
 
         if (!marker.active) root.append(el('div', 'bm-popup-badge', 'Inactivo'));
-        if (marker.manual) root.append(el('div', 'bm-popup-note', 'Ubicación marcada a mano'));
+        root.append(el('div', 'bm-popup-note', marker.manual ? 'Ubicación marcada a mano' : 'Ubicación según la dirección cargada'));
 
         const actions = el('div', 'bm-popup-actions');
 

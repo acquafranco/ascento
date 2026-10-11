@@ -9,7 +9,7 @@
         <div class="asc-card">
             <p style="margin: 0 0 .5rem; font-weight: 600">¿Qué se descarga?</p>
             <p class="asc-q">Un archivo ZIP con un Excel (una hoja por tema: clientes, edificios, ascensores, contratos, técnicos, mantenimientos, inspecciones, órdenes, reportes, remitos, presupuestos, stock, cobranzas…) y las fotos y documentos adjuntos.</p>
-            <p class="asc-c" style="margin-top: .5rem">Es una copia de tus <strong>datos de negocio</strong> para que los tengas. No es un backup del servidor ni sirve para restaurar Ascento (eso lo hacemos nosotros). No incluye contraseñas, tokens ni datos de pago. El archivo queda disponible {{ \App\Models\CompanyExport::KEEP_DAYS }} días.</p>
+            <p class="asc-c" style="margin-top: .5rem">Incluye <strong>solo los datos de tu empresa</strong>, nunca de otras. Es una copia de tus <strong>datos de negocio</strong> para que los tengas. No es un backup del servidor ni sirve para restaurar Ascento (eso lo hacemos nosotros). No incluye contraseñas, tokens ni datos de pago. El archivo queda disponible {{ \App\Models\CompanyExport::KEEP_DAYS }} días.</p>
             <div style="margin-top: .9rem">
                 <x-filament::button wire:click="requestExport" icon="heroicon-o-arrow-down-tray" :disabled="$pending">
                     {{ $pending ? 'Preparando exportación…' : 'Generar exportación' }}

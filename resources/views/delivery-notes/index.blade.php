@@ -1,225 +1,78 @@
+{{-- Remitos del técnico, con filtro de fecha opcional. --}}
+@php
+    $slug = auth()->user()->company->slug;
+    $hasDate = request()->filled('day') || request()->filled('month') || request()->filled('year');
+@endphp
 <x-app-layout>
+<div class="t-page">
+    <header class="mb-4 flex items-start justify-between gap-3">
+        <div>
+            <h1 class="t-h1">Remitos</h1>
+            <p class="t-sub">Los remitos que generaste.</p>
+        </div>
+        <span class="t-chip-neutral mt-1 shrink-0">{{ $deliveryNotes->total() }} {{ $deliveryNotes->total() === 1 ? 'remito' : 'remitos' }}</span>
+    </header>
+
     @if(session('success'))
-    <div class="mb-4 rounded-lg bg-green-100 px-4 py-3 text-green-800">
-        {{ session('success') }}
-    </div>
-@endif
-    <div class="max-w-7xl mx-auto p-6">
-
- <div class="flex items-center justify-between mb-8">
-
-    <div>
-        <h1 class="text-3xl font-black">
-            📄 Mis Remitos
-        </h1>
-
-        <p class="text-gray-500 mt-1">
-            Historial de remitos generados
-        </p>
-    </div>
-
-    <div class="bg-blue-50 text-blue-700 px-4 py-2 rounded-2xl font-bold">
-        {{ $deliveryNotes->total() }} remitos
-    </div>
-
-</div>
-
-<form method="GET" class="mb-6 flex flex-wrap items-center gap-2">
-
-    <select
-        name="day"
-        onchange="this.form.submit()"
-        class="w-20 rounded-xl border-gray-300 text-sm px-2"
-    >
-        <option value="">Día</option>
-
-        @for($d=1;$d<=31;$d++)
-            <option
-                value="{{ $d }}"
-                @selected(request('day')==$d)
-            >
-                {{ $d }}
-            </option>
-        @endfor
-
-    </select>
-
-    <select
-        name="month"
-        onchange="this.form.submit()"
-        class="w-20 rounded-xl border-gray-300 text-sm px-2"
-    >
-
-        <option value="">Mes</option>
-
-        @for($m=1;$m<=12;$m++)
-            <option
-                value="{{ $m }}"
-                @selected(request('month')==$m)
-            >
-                {{ \Carbon\Carbon::create()->month($m)->translatedFormat('F') }}
-            </option>
-        @endfor
-
-    </select>
-
-    <select
-        name="year"
-        onchange="this.form.submit()"
-        class="w-20 rounded-xl border-gray-300 text-sm px-2"
-    >
-
-        <option value="">Año</option>
-
-        @for($y=now()->year-3;$y<=now()->year+1;$y++)
-            <option
-                value="{{ $y }}"
-                @selected(request('year')==$y)
-            >
-                {{ $y }}
-            </option>
-        @endfor
-
-    </select>
-
-      <a
-        href="{{ route('delivery-notes.index', [
-            'company' => auth()->user()->company->slug,
-            'status' => request('status')
-        ]) }}"
-        title="Limpiar filtros"
-        class="h-10 w-20 rounded-xl bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 transition shadow-sm shrink-0"
-    >
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-        </svg>
-    </a>
-
-</form>
-
-<div class="grid gap-4">
-
-    @forelse($deliveryNotes as $note)
-
-        <a href="{{ route('delivery-notes.show', [
-    'company' => auth()->user()->company->slug,
-    'deliveryNote' => $note->number
-    ]) }}"
-
-            class="bg-white rounded-3xl shadow hover:shadow-lg transition p-6 block"
-        >
-
-            <div class="flex justify-between items-start">
-
-                <div>
-
-                    <h2 class="font-black text-xl">
-                        Remito #{{ $note->number }}
-                    </h2>
-
-                    <p class="text-gray-500 mt-1">
-                        {{ $note->building?->name }} {{ $note->building?->address }}
-
-                    </p>
-
-                    @if($note->workOrder)
-
-                        @php
-                            $type = $note->workOrder->type;
-                            $label = \App\Support\WorkOrderLabels::type($type);
-
-                            $colors = [
-                                'maintenance' => 'bg-blue-100 text-blue-700',
-                                'inspection' => 'bg-yellow-100 text-yellow-700',
-                                'claim' => 'bg-red-100 text-red-700',
-                                'installation' => 'bg-green-100 text-green-700',
-                                'modernization' => 'bg-purple-100 text-purple-700',
-                            ];
-                        @endphp
-
-                        <p class="text-sm mt-2">
-                            OT:
-
-                            <span class="px-3 py-1 rounded-full text-xs font-black {{ $colors[$type] ?? 'bg-gray-100 text-gray-700' }}">
-                                {{ $label }}
-                            </span>
-                        </p>
-
-
-                    @elseif($note->buildingVisit)
-
-                        @php
-                            $type = $note->buildingVisit->assignment_type;
-                            $label = \App\Support\WorkOrderLabels::type($type);
-
-                            $colors = [
-                                'maintenance' => 'bg-blue-100 text-blue-700',
-                                'inspection' => 'bg-yellow-100 text-yellow-700',
-                            ];
-                        @endphp
-
-                        <p class="text-sm mt-2">
-                            Visita:
-
-                            <span class="px-3 py-1 rounded-full text-xs font-black {{ $colors[$type] ?? 'bg-gray-100 text-gray-700' }}">
-                                {{ $label }}
-                            </span>
-                        </p>
-
-                    @endif
-                </div>
-
-                <div>
-
-                    @if($note->performed)
-
-                        <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-bold">
-                            Realizado
-                        </span>
-
-                    @else
-
-                        <span class="bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm font-bold">
-                            No realizado
-                        </span>
-
-                    @endif
-
-                </div>
-
-            </div>
-
-            <div class="mt-4 text-sm text-gray-500">
-
-                {{ $note->created_at->format('d/m/Y H:i') }}
-
-            </div>
-
-        </a>
-
-    @empty
-
-        <div class="bg-white rounded-3xl shadow p-10 text-center">
-
-            <div class="text-5xl mb-3">
-                📄
-            </div>
-
-            <h2 class="font-bold text-lg">
-                Todavía no hay remitos
-            </h2>
-
-        </div>
-
-    @endforelse
-
-    @if ($deliveryNotes->hasPages())
-        <div class="pt-2">
-            {{ $deliveryNotes->onEachSide(1)->links() }}
-        </div>
+        <div class="t-alert-success mb-4" role="status">{{ session('success') }}</div>
     @endif
 
-</div>
+    <details class="t-card mb-4" @if($hasDate) open @endif>
+        <summary class="flex min-h-[48px] cursor-pointer list-none items-center justify-between px-4 text-sm font-semibold text-ink-700">
+            Filtrar por fecha {{ $hasDate ? '· activo' : '' }}
+            <svg class="h-4 w-4 text-ink-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
+        <form method="GET" class="grid grid-cols-3 gap-2 border-t border-ink-100 p-3">
+            <select name="day" class="t-input" aria-label="Día" onchange="this.form.submit()">
+                <option value="">Día</option>
+                @for($d = 1; $d <= 31; $d++)<option value="{{ $d }}" @selected(request('day') == $d)>{{ $d }}</option>@endfor
+            </select>
+            <select name="month" class="t-input" aria-label="Mes" onchange="this.form.submit()">
+                <option value="">Mes</option>
+                @for($m = 1; $m <= 12; $m++)<option value="{{ $m }}" @selected(request('month') == $m)>{{ ucfirst(\Carbon\Carbon::create()->month($m)->translatedFormat('F')) }}</option>@endfor
+            </select>
+            <select name="year" class="t-input" aria-label="Año" onchange="this.form.submit()">
+                <option value="">Año</option>
+                @for($y = now()->year - 3; $y <= now()->year + 1; $y++)<option value="{{ $y }}" @selected(request('year') == $y)>{{ $y }}</option>@endfor
+            </select>
+            @if($hasDate)
+                <a href="{{ route('delivery-notes.index', ['company' => $slug]) }}" class="col-span-3 text-center text-sm font-semibold text-brand-700">Quitar filtro de fecha</a>
+            @endif
+        </form>
+    </details>
+
+    @if($deliveryNotes->isEmpty())
+        <div class="t-empty">
+            <p class="font-semibold text-ink">{{ $hasDate ? 'No hay remitos en esa fecha' : 'Todavía no generaste remitos' }}</p>
+            <p class="mt-1">{{ $hasDate ? 'Probá quitando el filtro.' : 'Se generan al terminar una visita o una orden de trabajo.' }}</p>
+        </div>
+    @else
+        <div class="t-card t-divide overflow-hidden">
+            @foreach($deliveryNotes as $note)
+                @php
+                    $kind = $note->workOrder
+                        ? 'Orden · '.\App\Support\WorkOrderLabels::type($note->workOrder->type)
+                        : ($note->buildingVisit ? \App\Support\WorkOrderLabels::type($note->buildingVisit->assignment_type) : null);
+                @endphp
+                <a href="{{ route('delivery-notes.show', ['company' => $slug, 'deliveryNote' => $note->number]) }}" class="t-row hover:bg-ink-50">
+                    <span class="min-w-0 flex-1">
+                        <span class="flex flex-wrap items-center gap-1.5">
+                            <span class="{{ $note->performed ? 't-chip-done' : 't-chip-failed' }}">{{ $note->performed ? 'Realizado' : 'No realizado' }}</span>
+                            @if($kind)<span class="t-chip-neutral">{{ $kind }}</span>@endif
+                        </span>
+                        <span class="mt-1 block truncate font-semibold text-ink">{{ $note->building?->name }}</span>
+                        <span class="block truncate text-sm text-ink-500">Remito {{ $note->number }} · {{ $note->building?->address }}</span>
+                    </span>
+                    <span class="shrink-0 text-right text-xs text-ink-500">
+                        <span class="block font-semibold text-ink">{{ $note->created_at->format('d/m') }}</span>
+                        {{ $note->created_at->format('H:i') }}
+                    </span>
+                </a>
+            @endforeach
+        </div>
+        @if($deliveryNotes->hasPages())
+            <div class="mt-4">{{ $deliveryNotes->onEachSide(1)->links() }}</div>
+        @endif
+    @endif
 </div>
 </x-app-layout>
-

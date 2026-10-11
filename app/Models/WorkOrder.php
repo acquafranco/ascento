@@ -39,6 +39,15 @@ class WorkOrder extends Model
         // tienen historial: pendientes o fallidas y sin remito.
         static::deleting(fn (WorkOrder $workOrder) => $workOrder->canBeDeleted());
 
+        // Cerrada desde el panel sin hora de finalización (el remito ya la
+        // pone): se registra ahora, para que cuente en "completados hoy" y en
+        // los indicadores.
+        static::saving(function (WorkOrder $workOrder) {
+            if (in_array($workOrder->status, ['completed', 'failed'], true) && $workOrder->isDirty('status') && ! $workOrder->finished_at) {
+                $workOrder->finished_at = now();
+            }
+        });
+
         // Al completarse (por remito, por el servicio o desde el panel) se
         // descuentan los materiales usados. Idempotente: ver StockService.
         static::saved(function (WorkOrder $workOrder) {

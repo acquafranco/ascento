@@ -22,6 +22,9 @@ class ReportVideo extends Model
 
     public const READY = 'ready';
 
+    /** No se pudo procesar (dañado o códec no soportado): el archivo se borra. */
+    public const FAILED = 'failed';
+
     /** MIME reales aceptados (detectados por contenido, no por la extensión). */
     public const MIMES = ['video/mp4' => 'mp4', 'video/quicktime' => 'mov', 'video/webm' => 'webm'];
 

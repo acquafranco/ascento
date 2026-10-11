@@ -12,7 +12,7 @@
         <section class="p-sec"><h2>Observaciones</h2><div class="p-text" style="margin-top:8px">{{ $report->observations }}</div></section>
     @endif
 
-    @if($report->video)
+    @if($report->video && $report->video->status !== \App\Models\ReportVideo::FAILED)
         <section class="p-sec">
             <h2 style="margin-bottom:8px">Video</h2>
             @include('partials.report-video', ['video' => $report->video, 'src' => route('portal.report-video', $report)])
