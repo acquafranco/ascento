@@ -1,0 +1,17 @@
+{
+    "Profile": "Mi perfil",
+    "Profile Information": "Datos de tu cuenta",
+    "Update your account's profile information and email address.": "Tu nombre y tu correo electrónico.",
+    "Name": "Nombre",
+    "Email": "Correo electrónico",
+    "Your email address is unverified.": "Tu correo todavía no está confirmado.",
+    "Click here to re-send the verification email.": "Reenviar el correo de confirmación.",
+    "A new verification link has been sent to your email address.": "Te enviamos un nuevo enlace de confirmación.",
+    "Save": "Guardar",
+    "Saved.": "Guardado.",
+    "Update Password": "Cambiar contraseña",
+    "Ensure your account is using a long, random password to stay secure.": "Usá una contraseña larga y que no uses en otros sitios.",
+    "Current Password": "Contraseña actual",
+    "New Password": "Contraseña nueva",
+    "Confirm Password": "Repetí la contraseña nueva"
+}

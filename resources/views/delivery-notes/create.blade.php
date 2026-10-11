@@ -1,437 +1,210 @@
+{{--
+    Remito digital: lo completa el técnico al terminar una visita (mantenimiento
+    o inspección del mes) o una orden de trabajo, con su firma y, si se puede,
+    la del cliente. Mismos campos y reglas que antes; el servidor valida todo.
+--}}
+@php
+    $typeLabel = $workOrder
+        ? 'Orden de trabajo · '.\App\Support\WorkOrderLabels::type($workOrder->type)
+        : ($assignmentType === 'inspection' ? 'Inspección del mes' : 'Mantenimiento del mes');
+    $participants = $workOrder
+        ? $workOrder->users->unique('id')->values()
+        : $building->users()->wherePivot('type', $assignmentType)->orderBy('name')->get()->unique('id')->values();
+    if ($participants->isEmpty()) {
+        $participants = collect([auth()->user()]);
+    }
+@endphp
 <x-app-layout>
+<div class="t-page max-w-2xl lg:max-w-2xl">
+    <a href="{{ $workOrder ? route('work-orders.show', ['company' => auth()->user()->company->slug, 'workOrder' => $workOrder]) : route('buildings.index', ['company' => auth()->user()->company->slug]) }}"
+       class="inline-flex min-h-[40px] items-center gap-1 text-sm font-semibold text-ink-500 hover:text-ink">
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
+        {{ $workOrder ? 'Orden de trabajo' : 'Visitas' }}
+    </a>
+    <header class="mb-4 mt-1 flex items-start justify-between gap-3">
+        <div>
+            <h1 class="t-h1">Nuevo remito</h1>
+            <span class="t-chip-progress mt-1.5">{{ $typeLabel }}</span>
+        </div>
+        @if(auth()->user()->company?->logo)
+            <img src="{{ asset('storage/'.auth()->user()->company->logo) }}" alt="{{ auth()->user()->company->name }}" class="h-12 w-12 shrink-0 rounded-xl bg-white object-contain p-1 ring-1 ring-ink-100">
+        @endif
+    </header>
 
-<div class="min-h-screen bg-slate-100 py-6 md:py-10">
-    <div class="max-w-2xl mx-auto px-4">
+    @if ($errors->any())
+        <div id="remito-errors" class="t-alert-error mb-4" role="alert">
+            <p class="mb-1">No se pudo generar el remito:</p>
+            <ul class="list-inside list-disc space-y-0.5 font-normal">
+                @foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach
+            </ul>
+        </div>
+    @endif
 
-        {{-- Header --}}
-            <div
-                class="rounded-2xl p-6 text-white shadow-lg mb-5"
-                style="
-                    background-color: {{ auth()->user()->company?->primary_color ?? '#0f172a' }};
-                "
-            >
-                <div class="flex items-center gap-4">
+    <form method="POST" action="{{ route('delivery-notes.store', ['company' => auth()->user()->company->slug]) }}" id="remito-form" class="space-y-4">
+        @csrf
+        @if($workOrder)
+            <input type="hidden" name="work_order_id" value="{{ $workOrder->id }}">
+        @endif
+        <input type="hidden" name="building_id" value="{{ $building->id }}">
+        <input type="hidden" name="year" value="{{ $year }}">
+        <input type="hidden" name="elevator_quantity" value="{{ $building->elevator_count }}">
+        <input type="hidden" name="freight_elevator_quantity" value="{{ $building->freight_elevator_count }}">
+        <input type="hidden" name="signature" id="sig-tech-input">
+        <input type="hidden" name="client_signature" id="sig-client-input">
+        <input type="hidden" name="assignment_type" value="{{ $workOrder ? 'work_order' : $assignmentType }}">
 
-                    {{-- Logo empresa --}}
-                    @if(auth()->user()->company?->logo)
-                        <img
-                            src="{{ asset('storage/' . auth()->user()->company->logo) }}"
-                            alt="Logo"
-                            class="w-20 h-20 rounded-xl object-contain"                        >
-                    @endif
-
-                    {{-- Títulos --}}
-                    <div class="flex-1">
-                        <h1 class="text-3xl font-black leading-tight">
-                            Nuevo Remito
-                        </h1>
-
-                       @if($workOrder)
-
-                    <div class="mt-3 flex flex-wrap gap-2">
-
-                        <div class="inline-flex items-center gap-2
-                            bg-orange-200 text-orange-900
-                            border border-orange-300
-                            px-3 py-1.5 rounded-xl text-xs font-black">
-
-                            🔧
-                            Orden de trabajo:
-                            {{ \App\Support\WorkOrderLabels::type($workOrder->type) }}
-
-                        </div>
-
-
-
-                    </div>
-
-
-                        @elseif($assignmentType === 'maintenance')
-
-                            <div class="mt-3 inline-flex items-center gap-2
-                                bg-blue-100 text-blue-700
-                                px-3 py-2 rounded-xl text-sm font-black">
-
-                                🔄 Mantenimiento mensual
-
-                            </div>
-
-                        @elseif($assignmentType === 'inspection')
-
-                            <div class="mt-3 inline-flex items-center gap-2
-                                px-3 py-2 rounded-xl text-sm font-black"
-                                style="background-color:#ddd6fe; color:#3b0764;">
-
-                                🔍 Inspección
-
-                            </div>
-
+        {{-- 1. Dónde y cuándo --}}
+        <section class="t-card divide-y divide-ink-100">
+            <div class="px-4 py-3">
+                <div class="text-xs font-bold uppercase tracking-wider text-ink-500">Edificio</div>
+                <div class="font-semibold text-ink">{{ $building->name }}</div>
+                <div class="text-sm text-ink-700">{{ $building->address }}{{ $building->client?->name ? ' · '.$building->client->name : '' }}</div>
+            </div>
+            <div class="grid grid-cols-2 divide-x divide-ink-100">
+                <div class="px-4 py-3">
+                    <div class="text-xs font-bold uppercase tracking-wider text-ink-500">Equipos</div>
+                    <div class="font-semibold text-ink">
+                        @if($workOrder)
+                            {{ $workOrder->unit ?: 'Según la orden' }}
+                        @else
+                            {{ $building->elevator_count }} asc. · {{ $building->freight_elevator_count }} mont.
                         @endif
                     </div>
-
-                    {{-- Icono remito --}}
-                    <span class="text-5xl leading-none">
-                        📄
-                    </span>
-
+                </div>
+                <div class="px-4 py-3">
+                    <div class="text-xs font-bold uppercase tracking-wider text-ink-500">Fecha</div>
+                    <div class="font-semibold text-ink">{{ now()->format('d/m/Y') }}</div>
                 </div>
             </div>
+            <div class="px-4 py-3">
+                <label for="month" class="t-label">Corresponde al mes</label>
+                <select id="month" name="month" class="t-input">
+                    @foreach(range(1, 12) as $m)
+                        <option value="{{ $m }}" @selected(old('month', $month) == $m)>{{ ucfirst(\Carbon\Carbon::create()->month($m)->locale('es')->monthName) }} {{ $year }}</option>
+                    @endforeach
+                </select>
+            </div>
+        </section>
 
-
-
-
-
-
-        @if ($errors->any())
-        <div class="mb-5 bg-red-50 border border-red-200 rounded-xl p-4">
-
-            <div class="flex items-center gap-2 mb-2">
-                <span class="text-red-600 text-lg">⚠️</span>
-
-                <h3 class="font-bold text-red-700">
-                    No se pudo generar el remito
-                </h3>
+        {{-- 2. Trabajo --}}
+        <section class="t-card space-y-4 p-4">
+            <div>
+                <label class="t-label" for="description">Trabajo realizado</label>
+                <textarea name="description" id="description" rows="6" required maxlength="5000" class="t-input resize-y"
+                          placeholder="Detallá todo el trabajo realizado durante la visita">{{ old('description') }}</textarea>
+                @error('description')<p class="mt-1 text-sm font-semibold text-red-600">{{ $message }}</p>@enderror
             </div>
 
-            <ul class="list-disc list-inside text-sm text-red-600 space-y-1">
-                @foreach ($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
+            <label class="flex min-h-[52px] cursor-pointer select-none items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4">
+                <input type="checkbox" name="performed" value="1" @checked($errors->any() ? old('performed') == '1' : true) class="h-5 w-5 shrink-0 rounded border-ink-300 text-emerald-600 focus:ring-emerald-500">
+                <span class="text-sm font-semibold text-emerald-900">Trabajo realizado correctamente</span>
+            </label>
+            <p class="-mt-2 text-xs text-ink-500">Si no se pudo hacer, destildalo: la oficina lo ve y coordina la nueva visita.</p>
 
-        </div>
-        @endif
-        <form method="POST" action="{{ route('delivery-notes.store', [
-
-                    'company' => auth()->user()->company->slug
-
-                        ])}}" id="remito-form">
-            @csrf
-
-            @if($workOrder)
-                <input type="hidden" name="work_order_id" value="{{ $workOrder->id }}">
-            @endif
-
-            <input type="hidden" name="building_id"               value="{{ $building->id }}">
-            <input type="hidden" name="year" value="{{ $year }}">
-            <input type="hidden" name="month" value="{{ $month }}">
-            <input type="hidden" name="elevator_quantity"         value="{{ $building->elevator_count }}">
-            <input type="hidden" name="freight_elevator_quantity" value="{{ $building->freight_elevator_count }}">
-            <input type="hidden" name="signature"        id="sig-tech-input">
-            <input type="hidden" name="client_signature" id="sig-client-input">
-
-            <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
-                <div class="p-5 md:p-7 space-y-5">
-
-                    {{-- 1. Cliente / Dirección / Fecha --}}
-                <div class="grid grid-cols-3 gap-3">
-
-                    <div class="bg-slate-50 rounded-xl p-4">
-                        <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">
-                            Cliente
-                        </div>
-
-                        <div class="font-bold text-base leading-snug">
-                            {{ $building->client?->name }}
-                        </div>
-                    </div>
-
-
-                    <div class="bg-slate-50 rounded-xl p-4">
-                        <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">
-                            Dirección
-                        </div>
-
-                        <div class="font-semibold text-sm leading-snug">
-                            {{ $building->name }} {{ $building->address }}
-                        </div>
-                    </div>
-
-
-                    <div class="bg-slate-50 rounded-xl p-4">
-                        <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">
-                            Fecha
-                        </div>
-
-                        <div class="font-bold text-base leading-snug">
-                            {{ now()->format('d/m/Y') }}
-                        </div>
-                    </div>
-
-                </div>
-
-                    {{-- 2. Equipos + Mes en la misma fila --}}
-                    <div class="grid grid-cols-2 gap-3">
-                        <div class="bg-slate-50 rounded-xl p-4">
-                            <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">Equipos</div>
-                            <div class="font-semibold text-sm">
-                                @if($workOrder)
-                                    {{ $workOrder->unit }}
-                                @else
-                                    {{ $building->elevator_count }} Asc. / {{ $building->freight_elevator_count }} Mont.
-                                @endif
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-xs text-slate-500 uppercase tracking-wider mb-1.5">
-                                Corresponde al mes
-                            </label>
-
-                            <select
-                                name="month"
-                                class="w-full rounded-xl border-slate-300 h-11 px-3 text-sm font-semibold"
-                            >
-                                @foreach(range(1,12) as $m)
-                                    <option
-                                        value="{{ $m }}"
-                                        @selected($month == $m)
-                                    >
-                                        {{ \Carbon\Carbon::create()->month($m)->locale('es')->monthName }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-                    </div>
-                    <input
-                        type="hidden"
-                        name="assignment_type"
-                        value="{{ $workOrder ? 'work_order' : $assignmentType }}"
-                    >
-
-                    {{-- 3. Descripción --}}
-                    <div>
-                        <label class="block font-bold text-sm mb-1.5" for="description">
-                            Trabajo realizado
-                        </label>
-                        <textarea
-                            name="description" id="description" rows="7" required
-                            class="w-full rounded-xl border-slate-300 text-sm p-3 resize-y"
-                            placeholder="Detallá todo el trabajo realizado durante la visita..."
-                        ></textarea>
-                        @error('description')
-                            <p class="text-red-500 text-sm mt-1">
-                                {{ $message }}
-                            </p>
-                        @enderror
-                    </div>
-
-                    {{-- 4. Checkbox --}}
-                    <div class="bg-green-50 border border-green-200 rounded-xl p-4">
-                        <label class="flex items-center gap-3 cursor-pointer select-none">
-                            <input type="checkbox" name="performed" value="1" checked
-                                class="w-5 h-5 accent-green-600 flex-shrink-0">
-                            <span class="font-semibold text-green-800 text-sm">Trabajo realizado correctamente</span>
-                        </label>
-                    </div>
-
-                    @php
-                        $participants = $workOrder
-                            ? $workOrder->users->unique('id')->values()
-                            : $building->users()
-                                ->wherePivot('type', $assignmentType)
-                                ->orderBy('name')
-                                ->get()
-                                ->unique('id')
-                                ->values();
-
-                        if ($participants->isEmpty()) {
-                            $participants = collect([auth()->user()]);
-                        }
-                    @endphp
-
-                    <div>
-                        <label class="block font-bold text-sm mb-2">
-                            Participantes
-                        </label>
-
-                        <div class="space-y-2">
-
-                            @foreach($participants as $participant)
-
-                                <label class="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-
-                                    <div>
-                                        <div class="font-semibold">
-                                            {{ $participant->name }}
-                                        </div>
-
-                                        <div class="text-xs text-slate-500">
-                                            Participó del trabajo
-                                        </div>
-                                    </div>
-
-                                    <input
-                                        type="checkbox"
-                                        name="participants[]"
-                                        value="{{ $participant->id }}"
-                                        @checked($participant->id == auth()->id() || in_array($participant->id, old('participants', $participants->pluck('id')->toArray())))
-                                        @disabled($participant->id == auth()->id())
-                                        class="w-5 h-5 rounded"
-                                    >
-
-                                    @if($participant->id == auth()->id())
-                                        <input type="hidden" name="participants[]" value="{{ $participant->id }}">
-                                    @endif
-
-                                </label>
-
-                            @endforeach
-
-                        </div>
-                    </div>
-
-                    {{-- Materiales usados (solo órdenes de trabajo con stock cargado). --}}
-                    @if($workOrder && isset($stockItems) && $stockItems->isNotEmpty())
-                        <div id="materialsSection">
-                            <h2 class="font-black text-base text-slate-800">Materiales utilizados</h2>
-                            <p class="text-xs text-slate-500 mb-3">Opcional. Agregá los repuestos que usaste: se descuentan del stock al guardar el remito.</p>
-
-                            @if($workOrder->materials->isNotEmpty())
-                                <div class="mb-3 rounded-xl bg-slate-50 border border-slate-200 p-3 text-sm">
-                                    <div class="text-xs font-bold text-slate-500 uppercase mb-1">Ya cargados por la oficina</div>
-                                    @foreach($workOrder->materials as $material)
-                                        <div class="flex justify-between"><span>{{ $material->stockItem?->name }}</span><span class="font-semibold">{{ $material->stockItem?->formatQuantity($material->quantity) }}</span></div>
-                                    @endforeach
-                                </div>
+            <fieldset>
+                <legend class="t-label">Participantes</legend>
+                <div class="space-y-2">
+                    @foreach($participants as $participant)
+                        <label class="flex min-h-[52px] items-center justify-between gap-3 rounded-xl border border-ink-100 bg-ink-50/60 px-4">
+                            <span>
+                                <span class="block font-semibold text-ink">{{ $participant->name }}</span>
+                                <span class="block text-xs text-ink-500">{{ $participant->id == auth()->id() ? 'Vos' : 'Participó del trabajo' }}</span>
+                            </span>
+                            <input type="checkbox" name="participants[]" value="{{ $participant->id }}"
+                                   @checked($participant->id == auth()->id() || in_array($participant->id, old('participants', $participants->pluck('id')->toArray())))
+                                   @disabled($participant->id == auth()->id())
+                                   class="h-5 w-5 rounded border-ink-300 text-brand focus:ring-brand">
+                            @if($participant->id == auth()->id())
+                                <input type="hidden" name="participants[]" value="{{ $participant->id }}">
                             @endif
+                        </label>
+                    @endforeach
+                </div>
+            </fieldset>
+        </section>
 
-                            <div id="materialRows" class="space-y-3"></div>
+        {{-- Materiales usados (solo órdenes de trabajo con stock cargado). --}}
+        @if($workOrder && isset($stockItems) && $stockItems->isNotEmpty())
+            <section id="materialsSection" class="t-card p-4">
+                <h2 class="font-bold text-ink">Materiales utilizados</h2>
+                <p class="mb-3 text-xs text-ink-500">Opcional. Agregá los repuestos que usaste: se descuentan del stock al guardar el remito.</p>
 
-                            <button type="button" id="addMaterial"
-                                class="mt-3 w-full py-3 rounded-xl border-2 border-dashed border-blue-300 text-blue-700 font-bold text-base">
-                                + Agregar material
-                            </button>
+                @if($workOrder->materials->isNotEmpty())
+                    <div class="mb-3 rounded-xl bg-ink-50 p-3 text-sm">
+                        <div class="mb-1 text-xs font-bold uppercase text-ink-500">Ya cargados por la oficina</div>
+                        @foreach($workOrder->materials as $material)
+                            <div class="flex justify-between"><span>{{ $material->stockItem?->name }}</span><span class="font-semibold">{{ $material->stockItem?->formatQuantity($material->quantity) }}</span></div>
+                        @endforeach
+                    </div>
+                @endif
 
-                            <template id="materialTemplate">
-                                <div class="material-row rounded-xl border border-slate-200 p-3 space-y-2">
-                                    <select class="material-item w-full rounded-xl border-slate-300 text-base py-3" required>
-                                        <option value="">Elegí el material…</option>
-                                        @foreach($stockItems as $item)
-                                            <option value="{{ $item->id }}" data-unit="{{ $item->unit }}" data-stock="{{ (float) $item->current_stock }}">
-                                                {{ $item->name }}@if($item->code) ({{ $item->code }})@endif
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                    <div class="flex items-center gap-2">
-                                        <input type="number" class="material-qty flex-1 rounded-xl border-slate-300 text-base py-3" min="0.01" max="99999" step="0.01" inputmode="decimal" placeholder="Cantidad" required>
-                                        <span class="material-unit text-sm text-slate-500 w-16"></span>
-                                        <button type="button" class="material-remove px-4 py-3 rounded-xl bg-red-50 text-red-700 font-bold border border-red-200">Quitar</button>
-                                    </div>
-                                    <p class="material-stock text-xs"></p>
-                                </div>
-                            </template>
+                <div id="materialRows" class="space-y-3"></div>
+                <button type="button" id="addMaterial" class="t-btn-secondary mt-3 w-full border-dashed">+ Agregar material</button>
+
+                <template id="materialTemplate">
+                    <div class="material-row space-y-2 rounded-xl border border-ink-100 p-3">
+                        <select class="material-item t-input" required>
+                            <option value="">Elegí el material…</option>
+                            @foreach($stockItems as $item)
+                                <option value="{{ $item->id }}" data-unit="{{ $item->unit }}" data-stock="{{ (float) $item->current_stock }}">
+                                    {{ $item->name }}@if($item->code) ({{ $item->code }})@endif
+                                </option>
+                            @endforeach
+                        </select>
+                        <div class="flex items-center gap-2">
+                            <input type="number" class="material-qty t-input flex-1" min="0.01" max="99999" step="0.01" inputmode="decimal" placeholder="Cantidad" required>
+                            <span class="material-unit w-16 text-sm text-ink-500"></span>
+                            <button type="button" class="material-remove t-btn-secondary t-btn-sm text-red-700">Quitar</button>
                         </div>
-                    @endif
+                        <p class="material-stock text-xs"></p>
+                    </div>
+                </template>
+            </section>
+        @endif
 
-                    {{-- 5. Firmas --}}
-                    <div>
-                        <div class="flex items-baseline gap-2 mb-3">
-                            <h2 class="font-black text-base text-slate-800">Firmas</h2>
-                            <span class="text-xs text-slate-400">Tocá el recuadro para firmar</span>
+        {{-- 3. Firmas --}}
+        <section class="t-card p-4">
+            <div class="mb-3 flex items-baseline justify-between gap-2">
+                <h2 class="font-bold text-ink">Firmas</h2>
+                <span class="text-xs text-ink-500">Tocá el recuadro para firmar</span>
+            </div>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                @foreach(['tech' => ['Técnico', true], 'client' => ['Cliente', false]] as $key => [$who, $required])
+                    <div class="flex flex-col gap-2">
+                        <div class="text-xs font-bold uppercase tracking-wider text-ink-700">
+                            {{ $who }} <span class="font-normal normal-case tracking-normal {{ $required ? 'text-red-600' : 'text-ink-500' }}">{{ $required ? '(obligatoria)' : '(opcional)' }}</span>
                         </div>
-
-                        <div class="grid grid-cols-2 gap-4">
-
-                            {{-- Técnico --}}
-                            <div class="flex flex-col gap-2">
-                                <div class="flex items-center gap-1.5">
-                                    <span class="w-2 h-2 rounded-full bg-slate-800 flex-shrink-0"></span>
-                                    <span class="text-xs font-bold text-slate-700 uppercase tracking-wider">Técnico</span>
-                                    <span class="text-xs text-red-400">*</span>
-                                </div>
-
-                                {{-- Trigger / Preview --}}
-                                <button
-                                    type="button"
-                                    id="tech-trigger"
-                                    data-target="tech"
-                                    class="sig-trigger relative w-full rounded-xl border-2 border-dashed border-slate-300
-                                           bg-slate-50 hover:border-slate-500 hover:bg-white
-                                           focus:outline-none focus:ring-2 focus:ring-slate-400
-                                           transition-all overflow-hidden flex items-center justify-center"
-                                    style="height: 100px;"
-                                >
-                                    <div id="tech-placeholder" class="flex flex-col items-center gap-1 pointer-events-none">
-                                        <span class="text-2xl">✍️</span>
-                                        <span class="text-slate-400 text-xs">Tocá para firmar</span>
-                                    </div>
-                                    <img id="tech-preview" src="" alt=""
-                                        class="hidden absolute inset-0 w-full h-full object-contain p-1.5 pointer-events-none">
-                                </button>
-
-                                <p id="tech-error" class="hidden text-xs text-red-500 font-semibold">
-                                    ⚠️ Firma obligatoria
-                                </p>
-
-                                <div>
-                                    <label class="block text-xs text-slate-500 mb-1">Aclaración</label>
-                                    <input type="text" value="{{ old('signature_name', auth()->user()->name) }}" name="signature_name"
-                                        class="w-full rounded-xl border-slate-300 h-9 px-3 text-sm"
-                                        placeholder="Nombre y apellido">
-                                        @error('signature_name')
-                                            <p class="text-red-500 text-sm mt-1">
-                                                {{ $message }}
-                                            </p>
-                                        @enderror
-                                </div>
-                            </div>
-
-                            {{-- Cliente --}}
-                            <div class="flex flex-col gap-2">
-                                <div class="flex items-center gap-1.5">
-                                    <span class="w-2 h-2 rounded-full bg-slate-400 flex-shrink-0"></span>
-                                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Cliente</span>
-                                    <span class="text-xs text-slate-400">(opcional)</span>
-                                </div>
-
-                                <button
-                                    type="button"
-                                    id="client-trigger"
-                                    data-target="client"
-                                    class="sig-trigger relative w-full rounded-xl border-2 border-dashed border-slate-200
-                                           bg-slate-50 hover:border-slate-400 hover:bg-white
-                                           focus:outline-none focus:ring-2 focus:ring-slate-300
-                                           transition-all overflow-hidden flex items-center justify-center"
-                                    style="height: 100px;"
-                                >
-                                    <div id="client-placeholder" class="flex flex-col items-center gap-1 pointer-events-none">
-                                        <span class="text-2xl">✍️</span>
-                                        <span class="text-slate-400 text-xs">Tocá para firmar</span>
-                                    </div>
-                                    <img id="client-preview" src="" alt=""
-                                        class="hidden absolute inset-0 w-full h-full object-contain p-1.5 pointer-events-none">
-                                </button>
-
-                                <div>
-                                    <label class="block text-xs text-slate-500 mb-1">Aclaración</label>
-                                    <input type="text" name="client_signature_name"
-                                        class="w-full rounded-xl border-slate-300 h-9 px-3 text-sm"
-                                        placeholder="Nombre y apellido">
-                                </div>
-                            </div>
-
+                        <button type="button" id="{{ $key }}-trigger" data-target="{{ $key }}"
+                                class="sig-trigger relative flex h-28 w-full items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-ink-300 bg-ink-50 transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                                aria-label="Firmar como {{ mb_strtolower($who) }}">
+                            <span id="{{ $key }}-placeholder" class="pointer-events-none flex flex-col items-center gap-1 text-ink-500">
+                                <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17c3-3 4.5-9 7-9s-1 9 2 9 3-5 5-5 2 3 4 3"/></svg>
+                                <span class="text-xs font-semibold">Tocá para firmar</span>
+                            </span>
+                            <img id="{{ $key }}-preview" src="" alt="" class="pointer-events-none absolute inset-0 hidden h-full w-full object-contain p-1.5">
+                        </button>
+                        @if($key === 'tech')
+                            <p id="tech-error" class="hidden text-xs font-semibold text-red-600">Falta tu firma.</p>
+                        @endif
+                        <div>
+                            <label class="mb-1 block text-xs text-ink-500" for="{{ $key }}-name">Aclaración</label>
+                            @if($key === 'tech')
+                                <input type="text" id="tech-name" name="signature_name" value="{{ old('signature_name', auth()->user()->name) }}" class="t-input py-2.5" placeholder="Nombre y apellido">
+                                @error('signature_name')<p class="mt-1 text-sm font-semibold text-red-600">{{ $message }}</p>@enderror
+                            @else
+                                <input type="text" id="client-name" name="client_signature_name" value="{{ old('client_signature_name') }}" class="t-input py-2.5" placeholder="Nombre y apellido">
+                            @endif
                         </div>
                     </div>
-
-                </div>
-
-                {{-- Submit --}}
-                <div class="border-t border-slate-100 bg-slate-50 px-5 py-4 md:px-7">
-                    <button
-                        id="submit-remito"
-                        type="submit"
-                        class="w-full text-white font-black text-base py-3 rounded-xl transition"
-                        style="background-color: {{ auth()->user()->company?->primary_color ?? '#0f172a' }};"
-                    >
-                        <span id="submit-text">
-                            Generar Remito
-                        </span>
-                    </button>
-                </div>
+                @endforeach
             </div>
+        </section>
 
-        </form>
-    </div>
+        <div id="remito-client-error" class="t-alert-error hidden" role="alert"></div>
+        <button id="submit-remito" type="submit" class="t-btn-primary w-full text-base">
+            <span id="submit-text">Generar remito</span>
+        </button>
+    </form>
 </div>
 
 {{-- ═══════════════════════════ MODAL DE FIRMA ═══════════════════════════ --}}
@@ -479,18 +252,17 @@
                     Limpiar
                 </button>
                 <button id="sig-modal-confirm" type="button"
-                    style="flex:2; border:none; background:#0f172a; border-radius:12px;
-                           padding:11px 16px; font-size:15px; font-weight:900; color:#fff;
+                    style="flex:2; border:none; background:#FF6600; border-radius:12px;
+                           padding:11px 16px; font-size:15px; font-weight:800; color:#11161D;
                            cursor:pointer;">
-                    Listo ✓
+                    Listo
                 </button>
             </div>
 
         </div>
     </div>
 </div>
-<br><br><br>
-<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
+@vite('resources/js/signature.js')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
@@ -600,8 +372,8 @@ document.addEventListener('DOMContentLoaded', function () {
         pad.placeholder.classList.add('hidden');
 
         pad.trigger.style.borderStyle = 'solid';
-        pad.trigger.style.borderColor = '#4ade80';
-        pad.trigger.style.background  = '#f0fdf4';
+        pad.trigger.style.borderColor = '#10B981';
+        pad.trigger.style.background  = '#ECFDF5';
 
         if (currentTarget === 'tech') {
             techError.classList.add('hidden');
@@ -628,6 +400,12 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     let sending = false;
+    const formError = document.getElementById('remito-client-error');
+    function showFormError(message) {
+        formError.textContent = message;
+        formError.classList.remove('hidden');
+        formError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
 
 form.addEventListener('submit', function (e) {
 
@@ -640,7 +418,7 @@ form.addEventListener('submit', function (e) {
 
     if (!description.value.trim()) {
         e.preventDefault();
-        alert('Debe completar el campo "Trabajo realizado".');
+        showFormError('Completá el campo "Trabajo realizado".');
         description.focus();
         return;
     }
@@ -661,7 +439,7 @@ form.addEventListener('submit', function (e) {
     // del navegador). Todo queda cargado; se manda cuando vuelva la conexión.
     if (navigator.onLine === false) {
         e.preventDefault();
-        alert('No hay conexión a internet. El remito NO se envió, pero no se perdió nada: esperá a tener señal y tocá "Generar remito" de nuevo.');
+        showFormError('No hay conexión a internet. El remito NO se envió, pero no se perdió nada: esperá a tener señal y tocá "Generar remito" de nuevo.');
         return;
     }
 
@@ -670,9 +448,8 @@ form.addEventListener('submit', function (e) {
     const btn = document.getElementById('submit-remito');
     const text = document.getElementById('submit-text');
 
+    formError.classList.add('hidden');
     btn.disabled = true;
-    btn.style.opacity = '.7';
-    btn.style.cursor = 'not-allowed';
 
     text.textContent = 'Generando remito...';
 
@@ -683,7 +460,7 @@ form.addEventListener('submit', function (e) {
 });
 @if ($errors->any())
 window.addEventListener('load', () => {
-    document.querySelector('.bg-red-50')?.scrollIntoView({
+    document.getElementById('remito-errors')?.scrollIntoView({
         behavior: 'smooth',
         block: 'center'
     });
@@ -710,9 +487,9 @@ window.addEventListener('load', () => {
 
         const stock = parseFloat(option.dataset.stock);
         const fmt = (n) => n.toLocaleString('es-AR', { maximumFractionDigits: 2 }) + ' ' + option.dataset.unit;
-        info.className = 'material-stock text-xs ' + (qty > stock ? 'text-orange-700 font-semibold' : 'text-slate-500');
+        info.className = 'material-stock text-xs ' + (qty > stock ? 'text-brand-700 font-semibold' : 'text-ink-500');
         info.textContent = qty > stock
-            ? '⚠️ Hay ' + fmt(stock) + '. Se registra igual; avisale a la oficina para reponer.'
+            ? 'Atención: hay ' + fmt(stock) + '. Se registra igual; avisale a la oficina para reponer.'
             : 'Hay ' + fmt(stock) + ' en stock.';
     }
 

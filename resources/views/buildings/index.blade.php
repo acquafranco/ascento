@@ -53,7 +53,7 @@
             </select>
         </div>
         <input type="search" name="search" value="{{ request('search') }}" id="searchInput" autocomplete="off"
-               placeholder="Buscar por edificio, calle, cliente, localidad o barrio" class="t-input" aria-label="Buscar edificio">
+               placeholder="Edificio, calle, barrio o cliente" class="t-input" aria-label="Buscar edificio">
     </form>
 
     <div class="space-y-3" id="buildingsList">

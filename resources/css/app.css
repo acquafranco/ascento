@@ -61,3 +61,9 @@
     animation: t-spin .7s linear infinite;
 }
 @keyframes t-spin { to { transform: rotate(360deg); } }
+
+/* Celular: al saltar a un campo, un error o un botón, que no quede tapado
+   por la barra inferior fija ni por la superior. */
+@media (max-width: 1023px) {
+    html { scroll-padding-bottom: calc(88px + env(safe-area-inset-bottom)); scroll-padding-top: 72px; }
+}
