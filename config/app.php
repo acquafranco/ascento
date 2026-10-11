@@ -68,7 +68,7 @@ return [
     'timezone' => 'America/Argentina/Buenos_Aires',
 
 
-    'super_admin_email' => env('SUPER_ADMIN_EMAIL', 'acquafranco97@gmail.com'),
+    'super_admin_email' => env('SUPER_ADMIN_EMAIL'),
     'super_admin_password' => env('SUPER_ADMIN_PASSWORD'),
     /*
     |--------------------------------------------------------------------------
@@ -85,6 +85,10 @@ return [
 
     // Contacto de soporte que se muestra a los usuarios (registro, landing).
     'support_email' => env('SUPPORT_EMAIL', 'contacto@ascento.online'),
+
+    // A quién avisar por correo cuando se registra una empresa nueva (el
+    // equipo de Ascento). Vacío: solo la campanita/push de los SuperAdmin.
+    'admin_notification_email' => env('ASCENTO_ADMIN_NOTIFICATION_EMAIL'),
 
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 

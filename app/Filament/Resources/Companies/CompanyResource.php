@@ -35,6 +35,11 @@ class CompanyResource extends Resource
         return CompanyForm::configure($schema);
     }
 
+    public static function infolist(Schema $schema): Schema
+    {
+        return \App\Filament\Resources\Companies\Schemas\CompanyInfolist::configure($schema);
+    }
+
     public static function table(Table $table): Table
     {
         return CompaniesTable::configure($table);
@@ -52,6 +57,7 @@ class CompanyResource extends Resource
         return [
             'index' => ListCompanies::route('/'),
             'create' => CreateCompany::route('/create'),
+            'view' => \App\Filament\Resources\Companies\Pages\ViewCompany::route('/{record}'),
             'edit' => EditCompany::route('/{record}/edit'),
         ];
     }

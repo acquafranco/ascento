@@ -13,7 +13,14 @@ use NotificationChannels\WebPush\HasPushSubscriptions;
 use App\Models\Concerns\ConsumesPlanLimit;
 use App\Enums\PlanLimit;
 
-class User extends Authenticatable implements FilamentUser
+/**
+ * MustVerifyEmail: el registro de una empresa manda el correo de confirmación
+ * (evento Registered). No bloquea el acceso (ninguna ruta usa "verified"): el
+ * estado se muestra al admin y al SuperAdmin. Los técnicos y clientes del
+ * portal no reciben ese correo (los crea la empresa; el portal se activa con
+ * su propio enlace).
+ */
+class User extends Authenticatable implements FilamentUser, \Illuminate\Contracts\Auth\MustVerifyEmail
 {
 
     use HasFactory, Notifiable, SoftDeletes;

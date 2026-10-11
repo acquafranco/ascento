@@ -28,7 +28,8 @@ class CompaniesTable
     {
         return $table
             // Eager loading de lo que usan las columnas (evita N+1).
-            ->modifyQueryUsing(fn (Builder $query) => $query->with(['latestSubscription'])->withCount(['users', 'buildings']))
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['latestSubscription', 'owner'])->withCount(['users', 'buildings']))
+            ->recordUrl(fn (Company $record) => \App\Filament\Resources\Companies\CompanyResource::getUrl('view', ['record' => $record]))
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('name')
@@ -36,6 +37,18 @@ class CompaniesTable
                     ->description(fn (Company $record) => $record->email)
                     ->searchable(['name', 'business_name', 'email', 'cuit'])
                     ->sortable(),
+
+                // Correo del responsable (quien registró la empresa): es un
+                // estado distinto de la cuenta y de la suscripción.
+                IconColumn::make('owner_verified')
+                    ->label('Correo')
+                    ->state(fn (Company $record) => (bool) $record->owner?->hasVerifiedEmail())
+                    ->boolean()
+                    ->trueIcon('heroicon-o-check-badge')
+                    ->falseIcon('heroicon-o-clock')
+                    ->trueColor('success')
+                    ->falseColor('warning')
+                    ->tooltip(fn (Company $record) => $record->owner?->hasVerifiedEmail() ? 'Correo confirmado' : 'Correo sin confirmar'),
 
                 TextColumn::make('subscription_status')
                     ->label('Suscripción')
@@ -105,6 +118,20 @@ class CompaniesTable
                         return $query->whereKey($ids);
                     }),
 
+                SelectFilter::make('email_verification')
+                    ->label('Correo del responsable')
+                    ->options(['verified' => 'Confirmado', 'unverified' => 'Sin confirmar'])
+                    ->query(fn (Builder $query, array $data) => match ($data['value'] ?? null) {
+                        'verified' => $query->whereHas('users', fn ($u) => $u->where('role', 'admin')->whereNotNull('email_verified_at')),
+                        'unverified' => $query->whereDoesntHave('users', fn ($u) => $u->where('role', 'admin')->whereNotNull('email_verified_at')),
+                        default => $query,
+                    }),
+
+                SelectFilter::make('registered')
+                    ->label('Alta')
+                    ->options(['7' => 'Últimos 7 días', '30' => 'Últimos 30 días'])
+                    ->query(fn (Builder $query, array $data) => filled($data['value'] ?? null) ? $query->where('created_at', '>=', now()->subDays((int) $data['value'])) : $query),
+
                 TrashedFilter::make()->label('Desactivadas'),
             ])
             ->recordActions([
@@ -126,6 +153,7 @@ class CompaniesTable
                         return redirect()->to('/admin');
                     }),
 
+                \Filament\Actions\ViewAction::make()->label('Ficha'),
                 EditAction::make(),
             ])
             ->toolbarActions([

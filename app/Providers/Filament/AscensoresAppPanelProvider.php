@@ -103,6 +103,15 @@ class AscensoresAppPanelProvider extends PanelProvider
                 },
             )
 
+            // Confirmación del correo del admin de empresa (no bloquea).
+            ->renderHook(
+                PanelsRenderHook::PAGE_START,
+                fn (): string => auth()->user()?->canUseOnboarding()
+                    && (! auth()->user()->hasVerifiedEmail() || request()->boolean('verified'))
+                    ? view('filament.partials.verify-email-banner')->render()
+                    : '',
+            )
+
             // Avisos push del admin (trabajo terminado, reportes nuevos).
             ->renderHook(
                 PanelsRenderHook::HEAD_END,

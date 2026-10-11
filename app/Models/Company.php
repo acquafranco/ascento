@@ -134,6 +134,12 @@ class Company extends Model
      * acceso). Usar esta en el panel de admin, donde hace falta ver
      * el estado real incluso si está paused/canceled.
      */
+    /** Quien registró la empresa (el primer admin). */
+    public function owner(): HasOne
+    {
+        return $this->hasOne(User::class)->where('role', 'admin')->oldestOfMany();
+    }
+
     public function latestSubscription(): HasOne
     {
         return $this->hasOne(Subscription::class)->latestOfMany();

@@ -72,8 +72,13 @@ class AppServiceProvider extends ServiceProvider
             ->greeting('Confirmá tu email')
             ->line('Tocá el botón para confirmar que este email es tuyo.')
             ->action('Confirmar email', $url)
+            ->line('El enlace vence en '.config('auth.verification.expire', 60).' minutos. Si venció, pedí otro desde Ascento.')
             ->line('Si no creaste una cuenta en Ascento, ignorá este correo.')
             ->salutation('Ascento'));
+
+        // Empresa nueva: aviso al equipo de Ascento (correo configurable y
+        // campanita/push/Telegram de los SuperAdmin), una sola vez.
+        Event::listen(\Illuminate\Auth\Events\Registered::class, [\App\Listeners\NotifyNewCompanyRegistration::class, 'handle']);
 
         // Un usuario del portal que elige su contraseña (invitación o
         // recuperación) queda activado y se avisa a los admins de su empresa.
