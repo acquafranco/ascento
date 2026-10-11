@@ -106,11 +106,15 @@
         };
         window.ascentoConsent = { allows: (category) => !!(read()?.choices || {})[category] };
 
-        const decide = (choices) => { write(choices); bar.hidden = true; apply(choices); };
+        // Mientras el aviso está abierto, la página deja lugar abajo para que
+        // nada quede tapado (p. ej. el botón "Entrar" en pantallas bajas).
+        const reserve = () => { document.body.style.paddingBottom = bar.hidden ? '' : (bar.offsetHeight + 24) + 'px'; };
+        window.addEventListener('resize', reserve);
+        const decide = (choices) => { write(choices); bar.hidden = true; reserve(); apply(choices); };
         const all = (value) => Object.fromEntries(categories.map((c) => [c, value]));
 
         const saved = read();
-        if (saved) apply(saved.choices || {}); else bar.hidden = false;
+        if (saved) apply(saved.choices || {}); else { bar.hidden = false; reserve(); }
 
         bar.addEventListener('click', (e) => {
             const action = e.target.closest('[data-ck]')?.dataset.ck;
