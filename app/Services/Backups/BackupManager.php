@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 use Throwable;
 use ZipArchive;
@@ -91,9 +92,11 @@ class BackupManager
             }
 
             $password = (string) config('backup.password');
+            // Si este PHP (libzip) no puede cifrar, se corta: nunca un backup
+            // marcado "cifrado" que en realidad no lo está.
             $encrypt = function (string $name) use ($zip, $password) {
-                if ($password !== '') {
-                    $zip->setEncryptionName($name, ZipArchive::EM_AES_256, $password);
+                if ($password !== '' && ! $zip->setEncryptionName($name, ZipArchive::EM_AES_256, $password)) {
+                    throw new RuntimeException('Este PHP no puede cifrar el ZIP con AES-256 (libzip sin cifrado). Con BACKUP_ARCHIVE_PASSWORD cargada no se genera un backup sin cifrar.');
                 }
             };
 
@@ -136,8 +139,8 @@ class BackupManager
             $this->copyOffsite($backup);
         } catch (Throwable $e) {
             @unlink($zipPath);
-            Log::error('Falló un backup', ['backup_id' => $backup->id, 'exception' => $e::class, 'at' => basename($e->getFile()).':'.$e->getLine()]);
-            $backup->forceFill(['status' => Backup::FAILED, 'error' => 'El backup no se pudo generar ('.class_basename($e).'). Revisá el log del servidor.', 'completed_at' => now()])->save();
+            Log::error('Falló un backup', ['backup_id' => $backup->id, 'exception' => $e::class, 'message' => $this->redact($e->getMessage()), 'at' => basename($e->getFile()).':'.$e->getLine()]);
+            $backup->forceFill(['status' => Backup::FAILED, 'error' => 'El backup no se pudo generar: '.$this->describeFailure($e), 'completed_at' => now()])->save();
             $this->notifyFailure($backup);
         } finally {
             File::deleteDirectory($work);
@@ -422,7 +425,9 @@ class BackupManager
             }
 
             if (! $process->isSuccessful()) {
-                throw new RuntimeException('mysqldump falló (código '.$process->getExitCode().').');
+                Log::error('mysqldump falló', ['exit' => $process->getExitCode(), 'stderr' => $this->redact($process->getErrorOutput())]);
+
+                throw new RuntimeException('mysqldump falló (código '.$process->getExitCode().'): '.$this->mysqldumpCause($process).'.');
             }
         } finally {
             @unlink($options);
@@ -577,18 +582,73 @@ class BackupManager
         return array_slice($missing, 0, 500);
     }
 
+    /**
+     * Avisa a los SuperAdmin (campanita) y a BACKUP_NOTIFY_EMAIL. Todo en el
+     * momento (notifyNow): la notificación de Filament es ShouldQueue y, sin
+     * worker de colas, quedaba en la tabla jobs y no llegaba nunca. Cada
+     * destino por separado: si falla uno, los demás igual se avisan.
+     */
     private function notifyFailure(Backup $backup): void
     {
-        try {
-            User::where('is_super_admin', true)->get()->each(fn (User $admin) => FilamentNotification::make()
-                ->title('Falló un backup de Ascento')->body((string) $backup->error)->danger()->sendToDatabase($admin));
+        $text = (string) $backup->error;
 
-            if ($email = config('backup.notify_email')) {
-                Notification::route('mail', $email)->notifyNow(new MailOnlyNotification((new MailMessage)
-                    ->subject('Falló un backup de Ascento')->error()->line('El backup #'.$backup->id.' no se pudo generar.')->line((string) $backup->error)));
+        foreach (User::where('is_super_admin', true)->get() as $admin) {
+            try {
+                $admin->notifyNow(FilamentNotification::make()->title('Falló un backup de Ascento')->body($text)->danger()->toDatabase());
+            } catch (Throwable $e) {
+                Log::warning('No se pudo avisar la falla del backup a un SuperAdmin', ['backup_id' => $backup->id, 'exception' => $e::class]);
             }
-        } catch (Throwable $e) {
-            Log::warning('No se pudo avisar la falla del backup', ['backup_id' => $backup->id, 'exception' => $e::class]);
         }
+
+        if ($email = config('backup.notify_email')) {
+            try {
+                Notification::route('mail', $email)->notifyNow(new MailOnlyNotification((new MailMessage)
+                    ->subject('Falló un backup de Ascento')->error()->line('Backup #'.$backup->id.':')->line($text)
+                    ->line('Detalle técnico: storage/logs/laravel.log (buscá "backup").')));
+            } catch (Throwable $e) {
+                Log::warning('No se pudo mandar el correo de falla del backup', ['backup_id' => $backup->id, 'exception' => $e::class]);
+            }
+        }
+    }
+
+    /**
+     * Qué pasó, en palabras y sin secretos (va al panel y al correo). Los
+     * mensajes propios (RuntimeException de este archivo) ya son seguros.
+     */
+    private function describeFailure(Throwable $e): string
+    {
+        return match (true) {
+            $e instanceof ProcessTimedOutException => 'El volcado de la base tardó demasiado y se cortó.',
+            $e instanceof RuntimeException => $e->getMessage(),
+            default => 'Error inesperado ('.class_basename($e).').',
+        };
+    }
+
+    /** Causa probable de un error de mysqldump (su salida va solo al log, sin contraseñas). */
+    private function mysqldumpCause(Process $process): string
+    {
+        $out = $process->getErrorOutput();
+
+        return match (true) {
+            $process->getExitCode() === 127 || str_contains($out, 'not found') => 'no se encontró el programa mysqldump (BACKUP_MYSQLDUMP)',
+            (bool) preg_match('/need \(at least one of\) the ([A-Z ,]+) privilege/i', $out, $m) => 'el usuario de la base no tiene el permiso '.trim($m[1]).' que pide mysqldump',
+            str_contains($out, 'Access denied') => 'MySQL rechazó el usuario o la contraseña (revisá DB_USERNAME / DB_PASSWORD)',
+            str_contains($out, 'Unknown database') => 'la base de DB_DATABASE no existe',
+            str_contains($out, "Can't connect") || str_contains($out, 'Lost connection') => 'no se pudo conectar a MySQL (revisá DB_HOST / DB_PORT)',
+            str_contains($out, 'Errcode: 28') || str_contains($out, 'No space left') => 'no hay espacio en disco',
+            str_contains($out, 'Errcode: 13') || str_contains($out, 'Permission denied') => 'no hay permiso para escribir el archivo temporal',
+            default => 'causa en el log del servidor',
+        };
+    }
+
+    /** Texto para el log sin la contraseña de la base ni la de los backups. */
+    private function redact(string $text): string
+    {
+        $secrets = array_filter([
+            (string) config('database.connections.'.config('database.default').'.password'),
+            (string) config('backup.password'),
+        ], fn ($v) => strlen($v) >= 3);
+
+        return Str::limit(str_replace($secrets, '***', $text), 800);
     }
 }

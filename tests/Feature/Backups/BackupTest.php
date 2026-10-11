@@ -10,7 +10,9 @@ use App\Models\ReportPhoto;
 use App\Models\User;
 use App\Services\Backups\BackupManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\Concerns\InteractsWithTenants;
@@ -267,5 +269,51 @@ class BackupTest extends TestCase
 
         $this->assertSame([], Storage::disk('offsite')->allFiles());
         $this->assertStringContainsString('sin cifrar', $backup->summary['offsite']['error']);
+    }
+
+    public function test_failure_notices_are_delivered_even_with_a_database_queue_and_no_worker(): void
+    {
+        // Producción usa QUEUE_CONNECTION=database sin worker: el aviso de
+        // Filament (ShouldQueue) quedaba en la tabla jobs y nunca llegaba.
+        config(['queue.default' => 'database']);
+        $super = User::factory()->create(['is_super_admin' => true]);
+        config(['database.connections.sqlite.driver' => 'unsupported']);
+
+        $this->backup();
+
+        $this->assertSame(0, DB::table('jobs')->count());
+        $this->assertSame('Falló un backup de Ascento', $super->notifications()->sole()->data['title']);
+    }
+
+    public function test_a_mysqldump_failure_explains_the_cause_without_leaking_passwords(): void
+    {
+        $super = User::factory()->create(['is_super_admin' => true]);
+        $script = $this->root.'/mysqldump-falso';
+        file_put_contents($script, "#!/bin/sh\necho \"mysqldump: Got error: 1045: Access denied for user 'forge'@'localhost' (using password: YES) clave-db-secreta\" >&2\nexit 2\n");
+        chmod($script, 0755);
+        config(['database.connections.sqlite.driver' => 'mysql', 'database.connections.sqlite.username' => 'forge', 'database.connections.sqlite.password' => 'clave-db-secreta', 'database.connections.sqlite.database' => 'ascento', 'backup.mysqldump' => $script]);
+        Log::spy();
+
+        $backup = $this->backup();
+
+        $this->assertSame(Backup::FAILED, $backup->status);
+        $this->assertStringContainsString('rechazó el usuario o la contraseña', $backup->error);
+        $this->assertStringNotContainsString('clave-db-secreta', $backup->error);
+        $this->assertStringNotContainsString('clave-de-prueba', $backup->error);
+        Log::shouldHaveReceived('error')->withArgs(fn ($message, $context = []) => $message === 'mysqldump falló'
+            && str_contains($context['stderr'], 'Access denied') && ! str_contains($context['stderr'], 'clave-db-secreta'));
+        $this->assertStringContainsString('rechazó el usuario', $super->notifications()->sole()->data['body']);
+    }
+
+    public function test_a_failing_notice_channel_does_not_stop_the_others(): void
+    {
+        $super = User::factory()->create(['is_super_admin' => true]);
+        config(['backup.notify_email' => 'avisos@ascento.test', 'mail.default' => 'roto', 'mail.mailers.roto' => ['transport' => 'no-existe']]);
+        config(['database.connections.sqlite.driver' => 'unsupported']);
+
+        $backup = $this->backup();
+
+        $this->assertSame(Backup::FAILED, $backup->status); // el registro queda igual
+        $this->assertSame(1, $super->notifications()->count());
     }
 }
