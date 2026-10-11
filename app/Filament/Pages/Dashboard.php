@@ -44,6 +44,12 @@ class Dashboard extends Page
 
     protected function getFooterWidgets(): array
     {
+        // SuperAdmin sin empresa elegida: el estado de la plataforma (los
+        // números de una empresa quedarían en 0). Con "Entrar", los de esa empresa.
+        if (auth()->user()?->isSuperAdmin() && ! session('selected_company_id')) {
+            return [\App\Filament\Widgets\PlatformOverviewWidget::class];
+        }
+
         return [
             AdminStats::class,
         ];
