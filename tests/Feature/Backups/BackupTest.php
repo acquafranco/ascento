@@ -9,12 +9,17 @@ use App\Models\Report;
 use App\Models\ReportPhoto;
 use App\Models\User;
 use App\Services\Backups\BackupManager;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
+use Mockery;
+use PDOException;
+use RuntimeException;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 use ZipArchive;
@@ -121,7 +126,7 @@ class BackupTest extends TestCase
         try {
             app(BackupManager::class)->restore($backup, (string) config('database.connections.sqlite.database'), $target);
             $this->fail('Se restauró sobre la base de la app.');
-        } catch (\RuntimeException $e) {
+        } catch (RuntimeException $e) {
             $this->assertStringContainsString('No se restaura sobre la base que usa la app', $e->getMessage());
         }
 
@@ -322,5 +327,109 @@ class BackupTest extends TestCase
 
         $this->assertSame(Backup::FAILED, $backup->status); // el registro queda igual
         $this->assertSame(1, $super->notifications()->count());
+    }
+
+    /**
+     * Simula otra base en el mismo servidor de MySQL (en Forge, por ejemplo,
+     * la base "forge" u otro sitio): Schema::getTables() sin esquema la lista.
+     */
+    private function anotherDatabaseOnTheServer(bool $alsoInTheAppSchema = false): void
+    {
+        $real = Schema::getFacadeRoot();
+        $foreign = ['name' => 'tabla_de_otra_base', 'schema' => 'otra_base'];
+        $mock = Mockery::mock($real);
+        $mock->shouldReceive('getTables')->andReturnUsing(fn ($schema = null) => $schema === null || $alsoInTheAppSchema
+            ? [...$real->getTables($schema), $foreign]
+            : $real->getTables($schema));
+        $this->app->instance('db.schema', $mock);
+    }
+
+    // Producción 11/10/2026 03:15: QueryException en backup:run.
+    public function test_tables_of_other_databases_on_the_same_server_do_not_break_the_backup(): void
+    {
+        $this->anotherDatabaseOnTheServer();
+        Log::spy();
+
+        $backup = $this->backup();
+
+        $this->assertSame(Backup::COMPLETED, $backup->status);
+        $this->assertNull($backup->error);
+        $this->assertNotNull($backup->checksum);
+        $this->assertTrue(app(BackupManager::class)->verify($backup)['ok']);
+        Log::shouldNotHaveReceived('error');
+    }
+
+    public function test_a_database_error_during_generation_is_recorded_with_its_step_and_cause(): void
+    {
+        $super = User::factory()->create(['is_super_admin' => true]);
+        $this->anotherDatabaseOnTheServer(alsoInTheAppSchema: true); // tabla listada que no existe
+        Log::spy();
+
+        $backup = $this->backup();
+
+        $this->assertSame(Backup::FAILED, $backup->status);
+        $this->assertStringContainsString('(conteo de filas)', $backup->error);
+        $this->assertStringContainsString('error de la base de datos (SQLSTATE', $backup->error);
+        $this->assertStringContainsString('tabla_de_otra_base', $backup->error);
+        $this->assertLessThanOrEqual(255, mb_strlen($backup->error), 'entra en la columna error');
+        $this->assertSame([], Storage::disk('local')->allFiles('backups'));
+        Log::shouldHaveReceived('error')->withArgs(fn ($message, $context = []) => $message === 'Falló un backup'
+            && $context['step'] === 'conteo de filas'
+            && $context['exception'] === QueryException::class
+            && str_contains($context['sql'], 'tabla_de_otra_base')
+            && str_starts_with($context['at'], 'app/Services/Backups/BackupManager.php:'));
+        $this->assertStringContainsString('conteo de filas', $super->notifications()->sole()->data['body']);
+    }
+
+    public function test_if_saving_the_failure_also_fails_the_original_error_is_kept_and_notified(): void
+    {
+        $super = User::factory()->create(['is_super_admin' => true]);
+        $this->breakDatabaseDump();
+        Backup::saving(function (Backup $b) {
+            if ($b->status === Backup::FAILED) {
+                throw new RuntimeException('la base dejó de responder');
+            }
+        });
+        Log::spy();
+
+        $backup = $this->backup(); // no explota
+
+        Log::shouldHaveReceived('error')->withArgs(fn ($message, $context = []) => $message === 'Falló un backup' && $context['step'] === 'volcado de la base');
+        Log::shouldHaveReceived('critical')->withArgs(fn ($message, $context = []) => $message === 'No se pudo registrar el fallo del backup'
+            && $context['original']['step'] === 'volcado de la base'
+            && $context['original']['exception'] === RuntimeException::class
+            && str_contains($context['original']['message'], 'Motor de base no soportado')
+            && str_contains($context['al_guardar']['message'], 'la base dejó de responder'));
+        $this->assertSame(Backup::RUNNING, Backup::find($backup->id)->status, 'no se inventa un estado que no se pudo guardar');
+        $this->assertStringContainsString('Motor de base no soportado', $super->notifications()->sole()->data['body']);
+    }
+
+    public function test_database_errors_never_leak_values_or_passwords(): void
+    {
+        // "clave-de-prueba" es BACKUP_ARCHIVE_PASSWORD (se tapa igual que la de la base;
+        // no se cambia la de la base para no romper el mysqldump real con MySQL).
+        $pdo = new PDOException("SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry 'persona@correo.test' for key 'users_email_unique'");
+        $pdo->errorInfo = ['23000', 1062, "Duplicate entry 'persona@correo.test' for key 'users_email_unique' clave-de-prueba"];
+        Backup::saving(function (Backup $b) use ($pdo) {
+            if ($b->status === Backup::COMPLETED) {
+                throw new QueryException('mysql', 'update users set email = ?, password = ? where id = ?', ['persona@correo.test', 'clave-de-prueba', 1], $pdo);
+            }
+        });
+        $logged = [];
+        Log::listen(function ($event) use (&$logged) {
+            $logged[] = $event->message.' '.json_encode($event->context, JSON_UNESCAPED_UNICODE);
+        });
+
+        $backup = $this->backup();
+
+        $everything = $backup->error.' '.implode(' ', $logged);
+        $this->assertSame(Backup::FAILED, $backup->status);
+        $this->assertStringContainsString('registro del backup completo', $backup->error);
+        $this->assertStringContainsString('users_email_unique', $everything);
+        $this->assertStringContainsString('update users set email = ?, password = ?', $everything);
+        foreach (['persona@correo.test', 'clave-de-prueba'] as $secret) {
+            $this->assertStringNotContainsString($secret, $everything);
+        }
+        $this->assertSame([], Storage::disk('local')->allFiles('backups'), 'no queda un ZIP de un backup fallido');
     }
 }
