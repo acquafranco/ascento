@@ -42,6 +42,7 @@ Route::get('/', function () {
 Route::get('/legal/terminos', fn () => view('legal.terms'))->name('legal.terms');
 Route::get('/legal/privacidad', fn () => view('legal.privacy'))->name('legal.privacy');
 Route::get('/legal/eliminacion-de-datos', fn () => view('legal.data-deletion'))->name('legal.data-deletion');
+Route::get('/legal/cookies', fn () => view('legal.cookies'))->name('legal.cookies');
 
 /*
 |--------------------------------------------------------------------------

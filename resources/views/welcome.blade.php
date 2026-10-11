@@ -609,6 +609,8 @@
                         <li><a href="{{ Route::has('legal.terms') ? route('legal.terms') : '/legal/terminos' }}" class="hover:text-white transition-colors">Términos y Condiciones</a></li>
                         <li><a href="{{ Route::has('legal.privacy') ? route('legal.privacy') : '/legal/privacidad' }}" class="hover:text-white transition-colors">Política de Privacidad</a></li>
                         <li><a href="{{ Route::has('legal.data-deletion') ? route('legal.data-deletion') : '/legal/eliminacion-de-datos' }}" class="hover:text-white transition-colors">Eliminación de Datos</a></li>
+                        <li><a href="{{ route('legal.cookies') }}" class="hover:text-white transition-colors">Política de cookies</a></li>
+                        <li><button type="button" data-cookie-preferences class="hover:text-white transition-colors">Preferencias de cookies</button></li>
                     </ul>
                 </div>
                 <div>
@@ -696,5 +698,6 @@
         updateRail();
     </script>
     @include('partials.whatsapp-contact')
+    @include('partials.cookie-notice')
 </body>
 </html>

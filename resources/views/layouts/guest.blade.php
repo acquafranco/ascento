@@ -135,5 +135,6 @@
     @unless(request()->routeIs('portal.*'))
         @include('partials.whatsapp-contact', ['launcher' => false])
     @endunless
+    @include('partials.cookie-notice')
 </body>
 </html>
