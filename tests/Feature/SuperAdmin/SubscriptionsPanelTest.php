@@ -13,7 +13,9 @@ use App\Models\SubscriptionPayment;
 use App\Models\User;
 use App\Support\SubscriptionStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -171,5 +173,62 @@ class SubscriptionsPanelTest extends TestCase
         $this->actingInPanel($this->active['admin'])
             ->get(SubscriptionResource::getUrl('index'))
             ->assertForbidden();
+    }
+
+    public function test_detail_of_an_active_company_shows_its_status_and_can_enter(): void
+    {
+        $this->get(SubscriptionResource::getUrl('view', ['record' => $this->subscription]))
+            ->assertOk()
+            ->assertSee('Activa')
+            ->assertDontSee(SubscriptionStatus::MISSING_COMPANY);
+
+        Livewire::test(ViewSubscription::class, ['record' => $this->subscription->getRouteKey()])
+            ->assertActionVisible('enter');
+    }
+
+    // Producción 11/10/2026: SubscriptionStatus::label(null) al abrir "Ver" de
+    // la suscripción de una empresa eliminada (SoftDeletes).
+    public function test_detail_of_a_deleted_company_still_opens_and_says_so(): void
+    {
+        $this->active['company']->delete();
+
+        $this->get(SubscriptionResource::getUrl('view', ['record' => $this->subscription]))
+            ->assertOk()
+            ->assertSee($this->active['company']->name.' (eliminada)')
+            ->assertSee('Empresa desactivada')
+            ->assertSee('Pagado hasta');
+
+        Livewire::test(ViewSubscription::class, ['record' => $this->subscription->getRouteKey()])
+            ->assertActionHidden('enter');
+
+        Livewire::test(ListSubscriptions::class)
+            ->assertCanSeeTableRecords([$this->subscription])
+            ->assertSee($this->active['company']->name.' (eliminada)');
+
+        $this->assertNotNull($this->subscription->fresh(), 'la suscripción se conserva');
+    }
+
+    public function test_a_subscription_without_any_company_row_does_not_break_the_panel(): void
+    {
+        // Registro inconsistente (no debería pasar: la clave foránea lo impide).
+        // SQLite no deja apagar las claves dentro de la transacción de la prueba:
+        // se difieren (nunca se confirma, la prueba hace rollback).
+        DB::getDriverName() === 'sqlite' ? DB::statement('PRAGMA defer_foreign_keys = ON') : Schema::disableForeignKeyConstraints();
+        DB::table('subscriptions')->where('id', $this->subscription->id)->update(['company_id' => 999999]);
+        DB::getDriverName() === 'sqlite' || Schema::enableForeignKeyConstraints();
+
+        $this->get(SubscriptionResource::getUrl('view', ['record' => $this->subscription]))
+            ->assertOk()
+            ->assertSee(SubscriptionStatus::MISSING_COMPANY);
+
+        Livewire::test(ViewSubscription::class, ['record' => $this->subscription->getRouteKey()])
+            ->assertActionHidden('enter');
+
+        Livewire::test(ListSubscriptions::class)
+            ->assertCanSeeTableRecords([$this->subscription])
+            ->assertSee(SubscriptionStatus::MISSING_COMPANY);
+
+        $this->assertSame(SubscriptionStatus::MISSING_COMPANY, SubscriptionStatus::label(null));
+        $this->assertSame('danger', SubscriptionStatus::color(null));
     }
 }

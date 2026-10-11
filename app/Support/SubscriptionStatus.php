@@ -64,13 +64,16 @@ class SubscriptionStatus
         };
     }
 
-    public static function label(Company $company): string
+    /** Sin empresa (registro inconsistente): se muestra así en vez de romper la página. */
+    public const MISSING_COMPANY = 'Empresa no encontrada';
+
+    public static function label(?Company $company): string
     {
-        return self::OPTIONS[self::key($company)];
+        return $company ? self::OPTIONS[self::key($company)] : self::MISSING_COMPANY;
     }
 
-    public static function color(Company $company): string
+    public static function color(?Company $company): string
     {
-        return self::COLORS[self::key($company)];
+        return $company ? self::COLORS[self::key($company)] : 'danger';
     }
 }
