@@ -44,6 +44,28 @@ class AppServiceProvider extends ServiceProvider
             }
         });
 
+        // Contadores en tiempo real (inicio del admin y del técnico): cuando
+        // cambia algo que se cuenta, se avisa a los admins de la empresa y a
+        // los técnicos involucrados (una vez por request; ver RealtimeCounters).
+        $workOrderTouched = fn (\App\Models\WorkOrder $order) => \App\Support\RealtimeCounters::touchWorkOrder($order);
+        \App\Models\WorkOrder::created($workOrderTouched);
+        \App\Models\WorkOrder::updated(function (\App\Models\WorkOrder $order) use ($workOrderTouched) {
+            if ($order->wasChanged(['status', 'finished_at', 'started_at'])) {
+                $workOrderTouched($order);
+            }
+        });
+        \App\Models\WorkOrder::deleted($workOrderTouched);
+        \App\Models\WorkOrder::restored($workOrderTouched);
+        \App\Models\DeliveryNote::created(fn (\App\Models\DeliveryNote $note) => \App\Support\RealtimeCounters::touch($note->company_id, [$note->user_id]));
+        \App\Models\BuildingVisit::created(fn (\App\Models\BuildingVisit $visit) => \App\Support\RealtimeCounters::touch($visit->company_id, [$visit->user_id]));
+        \App\Models\Quote::created(fn (\App\Models\Quote $quote) => \App\Support\RealtimeCounters::touch($quote->company_id));
+        \App\Models\Quote::updated(function (\App\Models\Quote $quote) {
+            if ($quote->wasChanged(['status', 'valid_until'])) {
+                \App\Support\RealtimeCounters::touch($quote->company_id);
+            }
+        });
+        \App\Models\Quote::deleted(fn (\App\Models\Quote $quote) => \App\Support\RealtimeCounters::touch($quote->company_id));
+
         // Verificación de email (rutas de Breeze): en español y con el diseño de Ascento.
         VerifyEmail::toMailUsing(fn (object $notifiable, string $url) => (new MailMessage)
             ->subject('Confirmá tu email - Ascento')
