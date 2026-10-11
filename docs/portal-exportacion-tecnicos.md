@@ -22,11 +22,17 @@ El modelo de trabajo no cambió: **una visita fija por edificio, tipo y mes**, q
 
 ## 2. Portal del cliente
 
-- **Usuarios:** son `users` con `role = client` y `client_id`. No se duplicó la entidad cliente (el cliente comercial y la persona que inicia sesión son entidades distintas), y un cliente puede tener varios usuarios.
+- **Usuarios: identidad global con accesos por empresa** (desde la rama `auditoria-comercial`).
+  - La persona es un `users` con `role = client`.
+  - Cada acceso a una empresa es una fila de `portal_memberships` (persona + empresa + cliente comercial de esa empresa, más los edificios autorizados).
+  - El mismo email puede ser cliente de dos empresas de ascensores **sin duplicar la cuenta ni mezclar datos**. Arriba aparece un selector de empresa, y cada empresa solo ve y administra sus propios accesos.
+  - Se eligió esta opción (B) frente a una cuenta por empresa (A) porque A obliga a usar emails distintos o rompe la recuperación de contraseña.
+  - Un email que ya es admin o técnico no se puede invitar como cliente; el rechazo es genérico y no revela a qué empresa pertenece.
+  - Tests: `tests/Feature/Portal/PortalIdentityTest.php`.
 - **Plan:** solo Profesional y Empresa (`PlanFeature::ClientPortal`). Ver la sección 4.
 - **Alta por invitación** (Clientes → editar → pestaña "Acceso al portal" → "Invitar al portal"):
   1. El admin carga nombre, email y los edificios de ese cliente que la persona puede ver.
-  2. La cuenta se crea con una contraseña aleatoria que nadie conoce.
+  2. Si el email es nuevo, la cuenta se crea con una contraseña aleatoria que nadie conoce. Si ya existe como cliente (de otra empresa), solo se suma el acceso y se le avisa por correo, sin token.
   3. Ascento manda un correo con un enlace `/portal/activar/{token}`. Usa el mecanismo de "olvidé mi contraseña" de Laravel con un broker propio (`portal_invitations`): token aleatorio guardado con hash, de un solo uso, que vence a las 72 h.
   4. La persona elige su contraseña, la cuenta queda "Activa" y los admins reciben un aviso.
   5. Entra por `/portal/ingresar`.
@@ -34,8 +40,8 @@ El modelo de trabajo no cambió: **una visita fija por edificio, tipo y mes**, q
   - El estado aparece en la tabla: Invitación sin enviar / enviada / vencida, Activo, Desactivado.
   - "Reenviar invitación" invalida el enlace anterior.
 - **Recuperación de contraseña:** la estándar (`/forgot-password`). Sirve para clientes, técnicos y admins. El cliente vuelve al login del portal. El admin también puede "Enviar cambio de contraseña"; nunca la ve.
-- **Desactivar** (soft delete) corta el acceso de inmediato, incluso con una sesión abierta: el usuario deja de resolverse en el siguiente request.
-- **Edificios:** autorización explícita por usuario (`client_portal_buildings`). Solo se pueden elegir edificios de ese cliente, y el servidor lo vuelve a filtrar.
+- **Desactivar** marca el acceso de **esa empresa** (`deactivated_at`) y lo corta de inmediato, incluso con una sesión abierta. La persona conserva sus accesos a otras empresas.
+- **Edificios:** autorización explícita por acceso (`client_portal_buildings`). Solo se pueden elegir edificios de ese cliente, y el servidor lo vuelve a filtrar.
 - **Qué ve:** solo lo marcado **"En portal"** (`shared_with_client`, privado por defecto) en remitos, reportes con sus fotos, presupuestos y documentos del legajo. Se comparte uno por uno o en lote, y queda `shared_at`. Lo histórico no se comparte.
 - **Autorización en backend:**
   - middleware `portal` (rol, cliente y empresa válidos, suscripción activa);
@@ -46,7 +52,12 @@ El modelo de trabajo no cambió: **una visita fija por edificio, tipo y mes**, q
   - el usuario del portal no entra al panel ni a las rutas de técnicos (lo redirige al portal o recibe 403);
   - no cuenta como técnico para los límites del plan;
   - no aparece en listas de asignación ni de participantes.
-- **UI:** layout propio, liviano y responsive, con estados vacíos. Sin chat, pagos ni facturación.
+- **UI:** layout propio con la marca de la empresa.
+  - Secciones: Inicio, Documentos, Mantenimientos, Inspecciones y Avisos.
+  - Mantenimientos e inspecciones van separados.
+  - Documentos tiene paginación y filtros en el servidor: tipo, edificio, estado, fechas, búsqueda y orden.
+  - Responsive, con estados vacíos. Sin chat, pagos ni facturación.
+  - Tests: `PortalDocumentsTest`, `PortalPushTest`.
 - Tests: `tests/Feature/Portal/ClientPortalTest.php` y el escenario de validación.
 
 ## 3. Exportación de datos de la empresa
@@ -105,6 +116,8 @@ El modelo de trabajo no cambió: **una visita fija por edificio, tipo y mes**, q
 | Exportación de datos | ✓ | ✓ | ✓ |
 | Presupuestos, remitos digitales | — | ✓ | ✓ |
 | **Portal para clientes** | — | ✓ | ✓ |
+| Video en reportes (uno por reporte) | — | ✓ | ✓ |
+| Avisos en tiempo real y push | ✓ | ✓ | ✓ |
 | Funciones avanzadas (indicadores, alertas) | — | parcial | ✓ |
 
 - **Prueba gratis:** 30 días con Profesional. `companies.trial_ends_at` se fija al registrarse y no se reinicia al contratar (`TrialTimelineTest`).
@@ -122,13 +135,13 @@ El modelo de trabajo no cambió: **una visita fija por edificio, tipo y mes**, q
 
 **Canales:**
 - **Dentro de Ascento:**
-  - admins: campanita del panel (Filament, se actualiza cada 10 s);
+  - admins: campanita del panel (Filament);
   - técnicos: `/notificaciones`, con contador en la barra y en el menú del celular;
   - clientes: `/portal/notificaciones`, con contador en el encabezado;
-  - técnicos y clientes: contador por consulta cada 60 s (sin WebSockets);
+  - **en tiempo real para los tres perfiles** con Laravel Reverb (canal privado por usuario). Sin Reverb, o si se corta la conexión, se consulta cada 60 s (y la campanita del panel cada 30 s). Ver `docs/operacion-produccion.md`;
   - todos: marcar leído al abrir y "Marcar todos como leídos".
 - **Correo:** solo para lo que hay que saber fuera de la plataforma (ver la matriz).
-- **Push / Telegram:** los existentes para admins y técnicos, si el usuario los activó.
+- **Push:** admins, técnicos y clientes del portal, si la persona lo activó (el permiso se pide solo al tocar "Activar avisos"). **Telegram:** el existente.
 
 | Evento | Quién lo recibe | Interno | Correo | Push |
 |---|---|---|---|---|
@@ -144,7 +157,10 @@ El modelo de trabajo no cambió: **una visita fija por edificio, tipo y mes**, q
 | Quitado de una orden / orden cancelada | ese técnico (sin detalles de la orden) | ✓ | — | ✓ |
 | Edificio asignado / quitado | ese técnico | ✓ | — | ✓ |
 | Visitas pendientes del mes (desde el día 20) / vencidas (días 1 a 5) | cada técnico, solo sus asignaciones vigentes | ✓ | — | ✓ |
-| Remito / reporte / presupuesto / documento **compartido** | usuarios del portal con ese edificio autorizado | ✓ (uno por registro) | ✓ (uno por acción) | — |
+| Remito / reporte / presupuesto / documento **compartido** | usuarios del portal con ese edificio autorizado | ✓ (uno por registro) | ✓ (uno por acción) | ✓ |
+| Acceso al portal de otra empresa | la persona (ya tenía cuenta) | — | ✓ | — |
+| Presupuesto enviado | el email indicado por el admin | — | ✓ (con PDF y enlace firmado) | — |
+| Backup fallido | SuperAdmin | ✓ | ✓ (si `BACKUP_NOTIFY_EMAIL`) | — |
 
 **Criterio para el correo:** solo si hay que actuar fuera de Ascento (activar la cuenta, recuperar el acceso, descargar antes de que venza, algo vencido) o si el destinatario no entra todos los días (el cliente). Lo rutinario del día a día queda dentro de la app y en push.
 
@@ -160,6 +176,8 @@ El modelo de trabajo no cambió: **una visita fija por edificio, tipo y mes**, q
 - **No hay avisos automáticos al cliente cuando termina una intervención.** Terminar un trabajo y compartirlo son acciones distintas: el cliente se entera cuando la empresa comparte.
 
 ## 6. Producción (Forge)
+
+> Lo agregado en la rama `auditoria-comercial` (Reverb, videos, backups, variables nuevas, deploy y rollback) está en `docs/operacion-produccion.md` y `docs/backups.md`.
 
 `php artisan ascento:check-production` (solo lectura) revisa todo esto y no muestra secretos. Con `--mail-to=vos@dominio` manda un correo de prueba.
 

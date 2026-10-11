@@ -50,8 +50,10 @@ Fuente: `database/seeders/SubscriptionPlanSeeder.php` y `app/Enums/PlanFeature.p
 | Stock, servicios y cobranzas | ✓ | ✓ | ✓ |
 | Agenda, centro de atención básico, legajo del ascensor, indicadores básicos | ✓ | ✓ | ✓ |
 | Exportación de datos | ✓ | ✓ | ✓ |
-| Presupuestos con link; remitos digitales (PDF y link para WhatsApp o email) | — | ✓ | ✓ |
+| Presupuestos numerados con envío por correo (PDF adjunto) y enlace seguro con vencimiento; remitos digitales (PDF y link para WhatsApp o email) | — | ✓ | ✓ |
 | Portal para clientes (con invitación por correo y avisos al cliente) | — | ✓ | ✓ |
+| Video en reportes (uno por reporte, validado en el servidor) | — | ✓ | ✓ |
+| Avisos en tiempo real dentro de Ascento y push en el celular | ✓ | ✓ | ✓ |
 | Centro de atención avanzado, historial avanzado, análisis de fallas, indicadores de empresa | — | ✓ | ✓ |
 | Indicadores avanzados (año contra año, cartera), alertas avanzadas | — | — | ✓ |
 

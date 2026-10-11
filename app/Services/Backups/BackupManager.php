@@ -24,7 +24,7 @@ use ZipArchive;
  *
  * Contenido del ZIP (cifrado AES-256 si hay BACKUP_ARCHIVE_PASSWORD):
  * - database.sql  → volcado completo y consistente (mysqldump
- *                   --single-transaction; SQLite: copia con VACUUM INTO).
+ *                   --single-transaction; SQLite: volcado SQL equivalente).
  * - files/...     → storage/app/private y storage/app/public (sin exports,
  *                   temporales ni backups).
  * - manifest.json → fecha, motor, filas por tabla, archivos, sha256 de la base
