@@ -2,11 +2,14 @@
 
 namespace Tests\Feature\Onboarding;
 
+use App\Filament\Pages\CompanySettings;
+use App\Filament\Pages\Dashboard;
 use App\Livewire\AdminOnboarding;
 use App\Models\Client;
 use App\Models\Company;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\URL;
 use Livewire\Livewire;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -71,8 +74,8 @@ class AdminOnboardingTest extends TestCase
 
         $this->actingInPanel($admin);
 
-        // Reabrir es 100% del lado del navegador (no guarda nada): el botón
-        // de Ayuda arranca el recorrido sin tocar el estado guardado.
+        // Reabrir desde Ayuda arranca el recorrido sin tocar "terminada" ni
+        // "omitida" (el paso que se recorre sí se guarda, ver los tests de abajo).
         Livewire::test(AdminOnboarding::class)
             ->assertSee('Ver la guía desde el principio')
             ->assertSeeHtml('x-on:click="start(0)" data-ascento-restart');
@@ -197,5 +200,158 @@ class AdminOnboardingTest extends TestCase
         $admin->refresh();
         $this->assertNull($admin->onboarding_completed_at);
         $this->assertNull($admin->onboarding_skipped_at);
+    }
+
+    // --- Progreso guardado en el servidor ---------------------------------
+
+    public function test_the_current_step_is_saved_on_the_server_and_offered_on_every_page(): void
+    {
+        $admin = $this->freshAdmin();
+        $this->actingInPanel($admin);
+
+        Livewire::test(AdminOnboarding::class)->call('saveStep', 4);
+        $this->assertSame(4, $admin->fresh()->onboarding_step);
+
+        // Otra página, otra carga (o otro navegador con la misma cuenta): retoma en el 4.
+        $this->actingAs($admin->fresh())->get('/admin/buildings')
+            ->assertOk()
+            ->assertSee('data-autostart="true"', false)
+            ->assertSee('savedStep: 4', false)
+            ->assertDontSee('ascento-onboarding-', false); // ya no se guarda en el navegador
+    }
+
+    public function test_saved_step_is_always_a_real_step_and_repeating_it_is_harmless(): void
+    {
+        $admin = $this->freshAdmin();
+        $this->actingInPanel($admin);
+        $last = count(AdminOnboarding::steps()) - 1;
+
+        Livewire::test(AdminOnboarding::class)->call('saveStep', 999);
+        $this->assertSame($last, $admin->fresh()->onboarding_step);
+
+        Livewire::test(AdminOnboarding::class)->call('saveStep', -3);
+        $this->assertSame(0, $admin->fresh()->onboarding_step);
+
+        Livewire::test(AdminOnboarding::class)->call('saveStep', 2)->call('saveStep', 2)->call('saveStep', 2);
+        $this->assertSame(2, $admin->fresh()->onboarding_step);
+        $this->assertNull($admin->fresh()->onboarding_completed_at, 'guardar el paso no la da por terminada');
+    }
+
+    public function test_the_step_is_per_admin_and_never_crosses_companies(): void
+    {
+        $admin = $this->freshAdmin();
+        $sameCompany = User::factory()->admin()->create(['company_id' => $admin->company_id]);
+        $other = $this->freshAdmin();
+
+        $this->actingInPanel($admin);
+        Livewire::test(AdminOnboarding::class)->call('saveStep', 6);
+
+        $this->assertSame(6, $admin->fresh()->onboarding_step);
+        $this->assertNull($sameCompany->fresh()->onboarding_step);
+        $this->assertNull($other->fresh()->onboarding_step);
+    }
+
+    public function test_closing_with_the_x_pauses_it_for_this_session_only(): void
+    {
+        $admin = $this->freshAdmin();
+        $admin->forceFill(['onboarding_step' => 3])->save();
+        $this->actingInPanel($admin);
+
+        Livewire::test(AdminOnboarding::class)->call('pause');
+
+        // Misma sesión: no se vuelve a abrir sola en ninguna página.
+        $this->get('/admin/clients')->assertOk()->assertSee('data-autostart="false"', false);
+        $this->get('/admin/buildings')->assertOk()->assertSee('data-autostart="false"', false);
+
+        // Sesión nueva: retoma en el mismo paso; nada se dio por terminado.
+        $this->flushSession();
+        $this->actingAs($admin->fresh())->get('/admin/clients')
+            ->assertOk()
+            ->assertSee('data-autostart="true"', false)
+            ->assertSee('savedStep: 3', false);
+        $this->assertNull($admin->fresh()->onboarding_completed_at);
+        $this->assertNull($admin->fresh()->onboarding_skipped_at);
+    }
+
+    // Antes: tocar un "primer paso" en la tarjeta final navegaba sin terminar
+    // la guía y en la página siguiente arrancaba otra vez desde la bienvenida.
+    public function test_following_a_first_step_link_at_the_end_finishes_the_guide(): void
+    {
+        $admin = $this->freshAdmin();
+        $admin->forceFill(['onboarding_step' => count(AdminOnboarding::steps()) - 1])->save();
+        $this->actingInPanel($admin);
+
+        Livewire::test(AdminOnboarding::class)
+            ->assertSeeHtml('wire:click.prevent="openChecklistItem(0)"')
+            ->call('openChecklistItem', 0)
+            ->assertRedirect(CompanySettings::getUrl());
+
+        $admin->refresh();
+        $this->assertNotNull($admin->onboarding_completed_at);
+        $this->assertNull($admin->onboarding_step);
+
+        $this->get('/admin/company-settings')->assertOk()->assertSee('data-autostart="false"', false);
+    }
+
+    public function test_an_unknown_first_step_is_rejected(): void
+    {
+        $admin = $this->freshAdmin();
+        $this->actingInPanel($admin);
+
+        Livewire::test(AdminOnboarding::class)->call('openChecklistItem', 99)->assertNotFound();
+        $this->assertNull($admin->fresh()->onboarding_completed_at);
+    }
+
+    public function test_completing_or_skipping_clears_the_saved_step_and_pause(): void
+    {
+        $admin = $this->freshAdmin();
+        $admin->forceFill(['onboarding_step' => 5])->save();
+        $this->actingInPanel($admin);
+
+        Livewire::test(AdminOnboarding::class)->call('pause')->call('skip');
+
+        $admin->refresh();
+        $this->assertNotNull($admin->onboarding_skipped_at);
+        $this->assertNull($admin->onboarding_step);
+        $this->assertNull(session(AdminOnboarding::PAUSED_SESSION_KEY));
+
+        // Ya omitida: no vuelve sola, ni después de confirmar el correo (redirección con ?verified=1).
+        $this->get(Dashboard::getUrl().'?verified=1')->assertOk()->assertSee('data-autostart="false"', false);
+    }
+
+    public function test_the_guide_resumes_after_the_email_confirmation_redirect(): void
+    {
+        $admin = $this->freshAdmin();
+        $admin->forceFill(['onboarding_step' => 7, 'email_verified_at' => null])->save();
+
+        $url = URL::temporarySignedRoute('verification.verify', now()->addMinutes(30), ['id' => $admin->id, 'hash' => sha1($admin->email)]);
+
+        $this->actingAs($admin)->get($url)->assertRedirect();
+        $this->get(Dashboard::getUrl().'?verified=1')
+            ->assertOk()
+            ->assertSee('data-autostart="true"', false)
+            ->assertSee('savedStep: 7', false)
+            ->assertSee('Correo confirmado');
+    }
+
+    public function test_technicians_and_super_admins_cannot_save_steps(): void
+    {
+        $tenant = $this->makeTenant();
+        $super = User::factory()->superAdmin()->create();
+
+        foreach ([$tenant['technician'], $super] as $user) {
+            $this->actingInPanel($user);
+            Livewire::test(AdminOnboarding::class)->assertForbidden();
+            $this->assertNull($user->fresh()->onboarding_step);
+        }
+    }
+
+    public function test_the_saved_step_is_not_mass_assignable(): void
+    {
+        $admin = $this->freshAdmin();
+
+        $admin->fill(['onboarding_step' => 9])->save();
+
+        $this->assertNull($admin->fresh()->onboarding_step);
     }
 }

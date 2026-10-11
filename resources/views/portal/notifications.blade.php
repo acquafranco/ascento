@@ -18,7 +18,8 @@
     @forelse($notifications as $notification)
         @if($loop->first)<ul class="p-list">@endif
         <li>
-            <a class="p-row" href="{{ route('portal.notifications.open', $notification->id) }}">
+            <a class="p-row" href="{{ route('portal.notifications.open', $notification->id) }}"
+               data-notification-id="{{ $notification->id }}" @unless($notification->read_at) data-notification-unread @endunless>
                 <span class="p-row-main">
                     <span class="p-icon" aria-hidden="true">🔔</span>
                     <span style="min-width:0">
@@ -38,4 +39,5 @@
     @endforelse
 
     @include('portal.partials.pager', ['paginator' => $notifications])
+    @include('partials.notifications-seen-inbox', ['seenUrl' => route('portal.notifications.seen')])
 </x-portal-layout>

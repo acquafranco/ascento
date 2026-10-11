@@ -85,7 +85,18 @@
             } catch (err) {}
         }
 
+        // Se acaban de marcar avisos como vistos en la bandeja: el número de
+        // esta página pudo salir antes de que el servidor los registrara.
+        try {
+            if (sessionStorage.getItem('ascento-seen-pending')) {
+                sessionStorage.removeItem('ascento-seen-pending');
+                setTimeout(refresh, 700);
+            }
+        } catch (e) {}
+
         setInterval(function () { if (!live && !document.hidden) { refresh(); refreshCounters(); } }, 60000);
         document.addEventListener('visibilitychange', function () { if (!document.hidden) { refresh(); refreshCounters(); } });
+        // Volver con "atrás" muestra la página guardada: el contador se vuelve a pedir.
+        window.addEventListener('pageshow', function (e) { if (e.persisted) { refresh(); refreshCounters(); } });
     })();
 </script>

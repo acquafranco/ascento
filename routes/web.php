@@ -424,6 +424,7 @@ Route::prefix('portal')->name('portal.')->middleware(['auth', 'portal'])->group(
     Route::get('/notificaciones/contador', [\App\Http\Controllers\NotificationInboxController::class, 'count'])->middleware('throttle:60,1')->name('notifications.count');
     Route::get('/notificaciones/{notification}', [\App\Http\Controllers\NotificationInboxController::class, 'open'])->whereUuid('notification')->name('notifications.open');
     Route::post('/notificaciones/leidas', [\App\Http\Controllers\NotificationInboxController::class, 'readAll'])->name('notifications.read-all');
+    Route::post('/notificaciones/vistas', [\App\Http\Controllers\NotificationInboxController::class, 'seen'])->middleware('throttle:30,1')->name('notifications.seen');
     // Push en el celular del cliente (la suscripción queda a nombre del usuario autenticado).
     Route::post('/push-subscriptions', [\App\Http\Controllers\PushSubscriptionController::class, 'store'])->middleware('throttle:20,1')->name('push.store');
     Route::delete('/push-subscriptions', [\App\Http\Controllers\PushSubscriptionController::class, 'destroy'])->middleware('throttle:20,1')->name('push.destroy');
@@ -436,6 +437,7 @@ Route::middleware(['auth', 'subscription'])->prefix('notificaciones')->name('not
     Route::get('/contador', [\App\Http\Controllers\NotificationInboxController::class, 'count'])->middleware('throttle:60,1')->name('count');
     Route::get('/{notification}', [\App\Http\Controllers\NotificationInboxController::class, 'open'])->whereUuid('notification')->name('open');
     Route::post('/leidas', [\App\Http\Controllers\NotificationInboxController::class, 'readAll'])->name('read-all');
+    Route::post('/vistas', [\App\Http\Controllers\NotificationInboxController::class, 'seen'])->middleware('throttle:30,1')->name('seen');
 });
 
 // Ingreso y activación del portal (sin sesión). La activación usa el token

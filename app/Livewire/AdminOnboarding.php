@@ -19,6 +19,7 @@ use App\Models\User;
 use App\Models\WorkOrder;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Renderless;
 use Livewire\Component;
 
 /**
@@ -30,6 +31,10 @@ use Livewire\Component;
  *   estado de otro admin ni de otra empresa.
  * - Los pasos señalan los ítems reales del menú lateral (URLs generadas
  *   desde los Resources/Pages de Filament).
+ * - El paso actual también se guarda en el servidor (users.onboarding_step):
+ *   al seguir un enlace, recargar, volver después o abrir Ascento en otro
+ *   navegador (p. ej. desde el correo de confirmación) se retoma donde quedó.
+ *   Cerrar con la X la pausa hasta la próxima sesión (sesión del servidor).
  */
 class AdminOnboarding extends Component
 {
@@ -42,14 +47,53 @@ class AdminOnboarding extends Component
         $this->section = static::sectionFor($routeName ?? (string) request()->route()?->getName());
     }
 
+    public const PAUSED_SESSION_KEY = 'onboarding.paused';
+
     public function complete(): void
     {
-        $this->user()->forceFill(['onboarding_completed_at' => now()])->save();
+        $this->user()->forceFill(['onboarding_completed_at' => now(), 'onboarding_step' => null])->save();
+        session()->forget(self::PAUSED_SESSION_KEY);
     }
 
     public function skip(): void
     {
-        $this->user()->forceFill(['onboarding_skipped_at' => now()])->save();
+        $this->user()->forceFill(['onboarding_skipped_at' => now(), 'onboarding_step' => null])->save();
+        session()->forget(self::PAUSED_SESSION_KEY);
+    }
+
+    /** Guarda el paso en el que está (valor acotado: nunca uno inexistente). */
+    #[Renderless]
+    public function saveStep(int $index): void
+    {
+        $index = max(0, min($index, count(static::steps()) - 1));
+        $user = $this->user();
+
+        if ($user->onboarding_step !== $index) {
+            $user->forceFill(['onboarding_step' => $index])->save();
+        }
+    }
+
+    /** X: no se vuelve a abrir sola en esta sesión; después retoma en el mismo paso. */
+    #[Renderless]
+    public function pause(): void
+    {
+        $this->user();
+        session()->put(self::PAUSED_SESSION_KEY, true);
+    }
+
+    /**
+     * Un "primer paso" de la tarjeta final: es el final de la guía, así que se
+     * da por terminada y se va a esa pantalla. La URL sale de la lista del
+     * servidor (nunca del navegador).
+     */
+    public function openChecklistItem(int $index)
+    {
+        $item = $this->checklist()[$index] ?? null;
+        abort_unless($item !== null, 404);
+
+        $this->complete();
+
+        return $this->redirect($item['url']);
     }
 
     public function render()
@@ -57,11 +101,11 @@ class AdminOnboarding extends Component
         $user = $this->user();
 
         return view('livewire.admin-onboarding', [
-            'autoStart' => $user->shouldAutoStartOnboarding() && $user->company?->hasActiveAccess(),
+            'autoStart' => $user->shouldAutoStartOnboarding() && $user->company?->hasActiveAccess() && ! session(self::PAUSED_SESSION_KEY),
+            'savedStep' => (int) $user->onboarding_step,
             'steps' => static::steps(),
             'checklist' => $this->checklist(),
             'sectionHelp' => static::sectionHelp()[$this->section] ?? static::sectionHelp()['dashboard'],
-            'userKey' => 'ascento-onboarding-'.$user->id,
         ]);
     }
 

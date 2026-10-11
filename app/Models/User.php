@@ -49,6 +49,7 @@ class User extends Authenticatable implements FilamentUser, \Illuminate\Contract
         'password' => 'hashed',
         'is_super_admin' => 'boolean',
         'onboarding_completed_at' => 'datetime',
+        'onboarding_step' => 'integer',
         'onboarding_skipped_at' => 'datetime',
         'telegram_linked_at' => 'datetime',
         'portal_invited_at' => 'datetime',

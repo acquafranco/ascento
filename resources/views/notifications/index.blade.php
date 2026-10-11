@@ -20,6 +20,7 @@
         <div class="mt-5 space-y-2">
             @forelse($notifications as $notification)
                 <a href="{{ route('notifications.open', $notification->id) }}"
+                   data-notification-id="{{ $notification->id }}" @unless($notification->read_at) data-notification-unread @endunless
                    class="block rounded-2xl border bg-white px-4 py-3 {{ $notification->read_at ? 'border-[#14171C]/10' : 'border-[#FF6A1A]/40' }}">
                     <div class="flex items-start justify-between gap-3">
                         <p class="text-[15px] {{ $notification->read_at ? 'text-[#14171C]/80' : 'font-semibold text-[#14171C]' }}">{{ $notification->data['title'] ?? 'Aviso' }}</p>
@@ -38,4 +39,5 @@
 
         <div class="mt-4">{{ $notifications->links() }}</div>
     </div>
+    @include('partials.notifications-seen-inbox', ['seenUrl' => route('notifications.seen')])
 </x-app-layout>
