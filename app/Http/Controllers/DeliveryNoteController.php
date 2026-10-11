@@ -689,10 +689,11 @@ public function showPublic(
     ]);
 
 
-    return view(
+    // El remito firmado es un comprobante para el cliente: no se indexa.
+    return response()->view(
         'delivery-notes.show',
         compact('deliveryNote')
-    );
+    )->header('X-Robots-Tag', 'noindex, nofollow');
 }
 }
 ?>

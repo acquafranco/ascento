@@ -56,7 +56,7 @@ Route::get(
 
     [DeliveryNoteController::class, 'showPublic']
 
-)->name('delivery-notes.public');
+)->middleware('throttle:60,1')->name('delivery-notes.public');
 
 
 /*

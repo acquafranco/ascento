@@ -118,7 +118,8 @@ class WebCrossTenantAccessTest extends TestCase
             ->assertNotFound();
 
         $this->get('/'.$this->b['company']->slug.'/public/delivery-notes/'.$noteB->public_token)
-            ->assertOk();
+            ->assertOk()
+            ->assertHeader('X-Robots-Tag', 'noindex, nofollow');
     }
 
     public function test_public_quote_token_is_scoped_to_company(): void
