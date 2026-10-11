@@ -169,6 +169,12 @@ cambia la app del técnico (Tailwind compilado). La rama anterior sumó la entra
 (`resources/js/portal.js`, para el push del portal). Si el build ya se hace de
 otra forma, conservá la que funciona.
 
+**Desde la rama `revision-final` también las páginas públicas** (inicio,
+ingreso, registro, portal, términos) usan CSS compilado
+(`resources/css/public.css`) y tipografías propias, sin el CDN de Tailwind ni
+Google Fonts. Sin `npm run build` esas páginas se ven sin estilos: el deploy
+tiene que fallar si el build falla (el `&&` del script ya lo hace).
+
 ## 8. Migraciones de esta rama
 
 Todas suman tablas o columnas. Ninguna borra ni modifica datos existentes.

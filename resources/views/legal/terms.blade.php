@@ -5,41 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     @include('partials.brand-head')
     <title>Términos y Condiciones — Ascento</title>
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #F7F7F4; color: #14171C; }
         h1, h2 { font-family: 'Space Grotesk', sans-serif; }
     </style>
+    {{-- Al final del head (como antes el CDN): mismo orden de estilos. --}}
+    @vite(['resources/css/public.css', 'resources/js/public.js'])
 </head>
 <body class="antialiased">
 
-        <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        ink: '#14171C',
-                        paper: '#F7F7F4',
-                        graphite: '#12151C',
-                        graphite2: '#1B1F29',
-                        amber: { 100: '#FFE8D6', 400: '#FF8A3D', 500: '#FF6A1A', 600: '#E85A0A', 700: '#C24800' },
-                        rail: { 100: '#E7ECFB', 400: '#5A78D6', 500: '#2E4FBE', 600: '#233D99' },
-                    },
-                    fontFamily: {
-                        display: ['"Space Grotesk"', 'sans-serif'],
-                        body: ['Inter', 'sans-serif'],
-                        mono: ['"JetBrains Mono"', 'monospace'],
-                    },
-                    boxShadow: {
-                        card: '0 1px 2px rgba(20,23,28,0.04), 0 8px 24px -8px rgba(20,23,28,0.10)',
-                        cardHover: '0 4px 10px rgba(20,23,28,0.06), 0 20px 40px -12px rgba(20,23,28,0.18)',
-                    },
-                }
-            }
-        }
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 
     <style>
         html { scrollbar-gutter: stable; }
