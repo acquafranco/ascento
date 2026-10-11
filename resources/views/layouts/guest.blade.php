@@ -23,48 +23,7 @@
     <meta name="twitter:description" content="Toda la gestión de tu empresa de ascensores, en un solo lugar.">
     <meta name="twitter:image" content="https://ascento.online/images/brand/og-1200x630.jpg">
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 
-    <script src="https://cdn.tailwindcss.com"></script>
-
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        ink: '#14171C',
-                        paper: '#F7F7F4',
-                        graphite: '#12151C',
-                        graphite2: '#1B1F29',
-                        amber: {
-                            100: '#FFE8D6',
-                            400: '#FF8A3D',
-                            500: '#FF6A1A',
-                            600: '#E85A0A',
-                            700: '#C24800'
-                        },
-                        rail: {
-                            100: '#E7ECFB',
-                            400: '#5A78D6',
-                            500: '#2E4FBE',
-                            600: '#233D99'
-                        },
-                    },
-                    fontFamily: {
-                        display: ['"Space Grotesk"', 'sans-serif'],
-                        body: ['Inter', 'sans-serif'],
-                        mono: ['"JetBrains Mono"', 'monospace'],
-                    },
-                    boxShadow: {
-                        card: '0 1px 2px rgba(20,23,28,0.04), 0 8px 24px -8px rgba(20,23,28,0.10)',
-                        cardHover: '0 4px 10px rgba(20,23,28,0.06), 0 20px 40px -12px rgba(20,23,28,0.18)',
-                    },
-                }
-            }
-        }
-    </script>
 
     <style>
         body {
@@ -86,6 +45,9 @@
             accent-color: #FF6A1A;
         }
     </style>
+    {{-- Estilos y tipografías compilados con Vite (sin CDN). Al final del head, como el CDN:
+         el orden frente a los estilos propios de la página no cambia. --}}
+    @vite('resources/css/public.css')
 </head>
 
 <body class="bg-paper text-ink font-body antialiased min-h-screen">

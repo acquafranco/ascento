@@ -136,4 +136,25 @@ class TechnicianExperienceTest extends TestCase
             ->assertSee('Planilla del mes')
             ->assertSee('data-unread-count', false);
     }
+
+    public function test_report_and_delivery_note_forms_keep_a_local_draft_per_technician(): void
+    {
+        $tech = $this->a['technician'];
+        $slug = $this->a['company']->slug;
+
+        $this->actingAs($tech)->get(route('reports.create', ['company' => $slug]))->assertOk()
+            ->assertSee('data-draft="reporte.'.$tech->id.'.'.$this->a['company']->id.'"', false)
+            ->assertSee('data-draft-xhr', false)->assertSee('data-draft-notice', false)
+            ->assertDontSee('data-draft-restore="off"', false);
+
+        $url = route('delivery-notes.building', ['company' => $slug, 'building' => $this->a['building']->id, 'month' => now()->month, 'year' => now()->year, 'assignment_type' => 'maintenance']);
+        $this->get($url)->assertOk()
+            ->assertSee('data-draft="remito.'.$tech->id.'.'.$this->a['building']->id.'.maintenance"', false)
+            ->assertDontSee('data-draft-restore="off"', false);
+
+        // Volvió con un error de validación: manda lo que trae la página, no el borrador.
+        $this->from($url)->post(route('delivery-notes.store', ['company' => $slug]), ['building_id' => $this->a['building']->id, 'assignment_type' => 'maintenance'])
+            ->assertRedirect($url);
+        $this->get($url)->assertOk()->assertSee('data-draft-restore="off"', false);
+    }
 }

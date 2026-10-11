@@ -37,8 +37,10 @@
         </div>
     @endif
 
-    <form method="POST" action="{{ route('reports.store', ['company' => $company->slug]) }}" enctype="multipart/form-data" class="space-y-5" novalidate>
+    <form method="POST" action="{{ route('reports.store', ['company' => $company->slug]) }}" enctype="multipart/form-data" class="space-y-5" novalidate
+          data-draft="reporte.{{ auth()->id() }}.{{ $company->id }}" data-draft-xhr @if($errors->any()) data-draft-restore="off" @endif>
         @csrf
+        @include('partials.draft-notice', ['media' => 'Las fotos y el video se vuelven a elegir.'])
 
         {{-- 1. Edificio --}}
         <section class="t-card p-4">
@@ -49,7 +51,7 @@
                 <p class="mt-1.5 text-xs text-ink-500">Tocá el campo para ver tus edificios asignados.</p>
                 <div id="buildingResults" role="listbox" class="mt-2 hidden max-h-80 overflow-y-auto rounded-xl border border-ink-100 bg-white"></div>
             </div>
-            <input type="hidden" id="buildingSelect" name="building_id" value="{{ old('building_id') }}">
+            <input type="hidden" id="buildingSelect" name="building_id" data-draft-field value="{{ old('building_id') }}">
 
             <div id="selectedBuilding" class="hidden items-start gap-3 rounded-xl border border-brand-200 bg-brand-50 px-3 py-3">
                 <svg class="mt-0.5 h-5 w-5 shrink-0 text-brand-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{!! TechNav::icon('check') !!}</svg>
@@ -61,7 +63,7 @@
             </div>
 
             <label for="elevator_number" class="t-label mt-4">Equipo</label>
-            <select id="elevator_number" name="elevator_number" class="t-input" disabled>
+            <select id="elevator_number" name="elevator_number" class="t-input" disabled data-draft-field>
                 <option value="">Elegí primero el edificio</option>
             </select>
         </section>
@@ -70,7 +72,7 @@
         <section class="t-card space-y-4 p-4">
             <div>
                 <label class="t-label" for="component">¿Qué parte falla? <span class="font-normal text-ink-500">(opcional)</span></label>
-                <select id="component" name="component" class="t-input">
+                <select id="component" name="component" class="t-input" data-draft-field>
                     <option value="">No sé / no aplica</option>
                     @foreach(\App\Support\ElevatorComponents::LIST as $value => $label)
                         <option value="{{ $value }}" @selected(old('component') === $value)>{{ $label }}</option>
@@ -79,14 +81,14 @@
             </div>
             <div>
                 <label class="t-label" for="description">Descripción</label>
-                <textarea id="description" name="description" rows="4" maxlength="5000" class="t-input" placeholder="Qué encontraste, desde cuándo, qué probaste">{{ old('description') }}</textarea>
+                <textarea id="description" name="description" data-draft-field rows="4" maxlength="5000" class="t-input" placeholder="Qué encontraste, desde cuándo, qué probaste">{{ old('description') }}</textarea>
             </div>
             <fieldset>
                 <legend class="t-label">Prioridad</legend>
                 <div class="grid grid-cols-4 gap-2">
                     @foreach(['baja' => 'Baja', 'media' => 'Media', 'alta' => 'Alta', 'critica' => 'Crítica'] as $value => $label)
                         <label class="relative">
-                            <input type="radio" name="priority" value="{{ $value }}" class="peer sr-only" @checked(old('priority', 'baja') === $value)>
+                            <input type="radio" name="priority" value="{{ $value }}" data-draft-field class="peer sr-only" @checked(old('priority', 'baja') === $value)>
                             <span class="flex min-h-[44px] cursor-pointer items-center justify-center rounded-xl border border-ink-100 bg-white text-sm font-semibold text-ink-700 peer-checked:border-ink peer-checked:bg-ink peer-checked:text-white peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-brand">{{ $label }}</span>
                         </label>
                     @endforeach
@@ -154,7 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const results = document.getElementById('buildingResults');
     const picker = document.getElementById('buildingPicker');
     const selected = document.getElementById('selectedBuilding');
-    const oldUnit = @json(old('elevator_number'));
+    const oldUnit = @json(old('elevator_number')) ?? elevatorSelect.dataset.draftValue ?? null; // o el del borrador
 
     const normalize = (text) => (text ?? '').toString().normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
     buildings.forEach((b) => { b.haystack = normalize([b.name, b.address, b.place, b.client].join(' ')); });
@@ -237,6 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function choose(b, unit = null) {
         buildingSelect.value = b.id;
+        buildingSelect.dispatchEvent(new Event('change', { bubbles: true })); // borrador
         document.getElementById('selectedName').textContent = b.name;
         document.getElementById('selectedMeta').textContent = [b.address, b.place, b.client].filter(Boolean).join(' · ');
         picker.classList.add('hidden');
@@ -457,6 +460,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try { body = JSON.parse(xhr.responseText); } catch (e) {}
             if (xhr.status >= 200 && xhr.status < 300 && body.redirect) {
                 progressLabel.textContent = 'Listo. Abriendo tus reportes…';
+                window.ascentoDrafts?.clear(form.dataset.draft);
                 window.location.assign(body.redirect);
                 return;
             }

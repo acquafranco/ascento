@@ -11,6 +11,7 @@ use App\Notifications\App\PortalAccountActivatedNotification;
 use App\Notifications\PortalAccessGrantedNotification;
 use App\Notifications\PortalInvitationNotification;
 use App\Services\Notifications\Notifier;
+use App\Support\VerifiedSender;
 use Illuminate\Auth\Passwords\PasswordBroker;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -70,6 +71,7 @@ class PortalInvitations
     public function invite(Client $client, string $name, string $email, array $buildingIds, ?User $actor = null): array
     {
         $email = Str::lower(trim($email));
+        VerifiedSender::ensure($actor);
 
         if ($problem = static::emailProblem($client, $email)) {
             throw ValidationException::withMessages(['email' => $problem]);
@@ -124,8 +126,10 @@ class PortalInvitations
      *
      * @return bool true si el proveedor de correo aceptó el envío
      */
-    public function send(PortalMembership $membership): bool
+    public function send(PortalMembership $membership, ?User $actor = null): bool
     {
+        VerifiedSender::ensure($actor);
+
         $user = User::withTrashed()->find($membership->user_id);
 
         if (! $user || ! $user->isClientUser() || $user->trashed() || ! $membership->isActive()) {

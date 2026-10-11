@@ -1,6 +1,8 @@
 {{--
     Confirmación del correo del admin de empresa (no bloquea el uso). Se ve
-    hasta que lo confirma; después de confirmar, una vez, el "listo".
+    hasta que lo confirma; después de confirmar, una vez, el "listo". El texto
+    no afirma que ya se mandó un enlace: las cuentas anteriores a la
+    verificación nunca recibieron uno.
 --}}
 @php
     $user = auth()->user();
@@ -13,18 +15,18 @@
     @else
         <span style="flex: 1 1 18rem;">
             <strong>Confirmá tu correo.</strong>
-            Te enviamos un enlace a <strong>{{ $user->email }}</strong>.
+            Usá el enlace de confirmación enviado a <strong>{{ $user->email }}</strong>.
             @if($status === 'verification-link-sent')
                 Listo: te mandamos uno nuevo (revisá también spam).
             @elseif($status === 'verification-link-expired')
                 El enlace que abriste venció o no es válido: pedí uno nuevo.
             @else
-                Si no te llegó o venció, pedí otro.
+                Si no lo tenés o venció, pedí uno nuevo.
             @endif
         </span>
         <form method="POST" action="{{ route('verification.send') }}" style="margin:0">
             @csrf
-            <button type="submit" style="cursor:pointer; padding:.45rem .9rem; border-radius:.5rem; border:0; background:#FF6600; color:#11161D; font-weight:700; font-size:.8rem;">Reenviar enlace</button>
+            <button type="submit" style="cursor:pointer; padding:.45rem .9rem; border-radius:.5rem; border:0; background:#FF6600; color:#11161D; font-weight:700; font-size:.8rem;">Enviar enlace</button>
         </form>
     @endif
 </div>

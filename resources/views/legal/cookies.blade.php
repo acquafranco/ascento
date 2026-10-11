@@ -64,10 +64,8 @@
     </ul>
 
     <h2>Servicios de terceros que cargan algunas páginas</h2>
-    <p>Algunas páginas descargan recursos de estos proveedores. No ponen cookies de Ascento, pero tu navegador se conecta con ellos (como con cualquier sitio):</p>
+    <p>Las tipografías, estilos y scripts de Ascento se sirven desde nuestro propio servidor. Algunas funciones usan estos proveedores. No ponen cookies de Ascento, pero tu navegador se conecta con ellos (como con cualquier sitio):</p>
     <ul>
-        <li>Tipografías de Google Fonts y Bunny Fonts.</li>
-        <li>Estilos y componentes desde cdn.tailwindcss.com y cdn.jsdelivr.net (páginas públicas).</li>
         <li>Mapas de OpenStreetMap (solo en el panel de la empresa).</li>
         <li>Notificaciones push del navegador, solo si las activás: las entrega el servicio de tu navegador (por ejemplo Google o Apple).</li>
     </ul>

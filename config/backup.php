@@ -11,7 +11,7 @@
 |
 | IMPORTANTE: por defecto se guarda en el mismo servidor (storage/app/backups).
 | Eso protege de errores y despliegues fallidos, NO de perder el servidor:
-| hay que copiar los archivos afuera (ver docs/backups.md).
+| hay que copiar los archivos afuera: BACKUP_OFFSITE_DISK (ver docs/backups.md).
 |
 */
 
@@ -39,6 +39,13 @@ return [
     'files_root' => null,
     'include' => ['private', 'public'],
     'exclude' => ['private/exports', 'private/backups', 'private/livewire-tmp', 'backups', 'restore'],
+
+    // Copia externa (opcional): nombre de un disco de config/filesystems.php
+    // en OTRO lugar (p. ej. "s3": AWS S3, Backblaze B2, Cloudflare R2 o
+    // DigitalOcean Spaces con AWS_ENDPOINT). Vacío = sin copia externa.
+    // Solo se copian backups cifrados. Misma retención que los locales.
+    'offsite_disk' => env('BACKUP_OFFSITE_DISK'),
+    'offsite_path' => env('BACKUP_OFFSITE_PATH', 'ascento-backups'),
 
     // Aviso si falla (además de la campanita de los superadmins).
     'notify_email' => env('BACKUP_NOTIFY_EMAIL'),

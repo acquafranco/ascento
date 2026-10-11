@@ -1,3 +1,8 @@
+/* Tipografía de la app servida desde Ascento (sin fonts.bunny.net). */
+@import '@fontsource/figtree/latin-400.css';
+@import '@fontsource/figtree/latin-500.css';
+@import '@fontsource/figtree/latin-600.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

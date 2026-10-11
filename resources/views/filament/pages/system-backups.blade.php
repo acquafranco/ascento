@@ -11,7 +11,11 @@
             <p class="asc-c" style="margin-top: .5rem">
                 Retención: {{ config('backup.keep_daily') }} diarios, {{ config('backup.keep_weekly') }} semanales y los manuales {{ config('backup.keep_manual_days') }} días. Nunca se borra el último completo.
                 @unless($encrypted) <strong>Atención: sin BACKUP_ARCHIVE_PASSWORD los backups quedan sin cifrar.</strong> @endunless
-                <strong>Se guardan en este mismo servidor:</strong> protegen de errores y despliegues fallidos, no de perder el servidor. Descargá una copia periódicamente o configurá una copia externa (ver docs/backups.md).
+                @if($offsiteDisk)
+                    Se guardan en este servidor y <strong>cada backup cifrado se copia afuera</strong> (disco «{{ $offsiteDisk }}»).
+                @else
+                    <strong>Se guardan en este mismo servidor:</strong> protegen de errores y despliegues fallidos, no de perder el servidor. Descargá una copia periódicamente o configurá la copia externa (BACKUP_OFFSITE_DISK, ver docs/backups.md).
+                @endif
             </p>
             <div style="margin-top: .9rem">
                 <x-filament::button wire:click="requestBackup" icon="heroicon-o-circle-stack" :disabled="$pending">
@@ -40,9 +44,14 @@
                                     </td>
                                     <td>
                                         @if($backup->summary)
-                                            {{ number_format($backup->summary['rows'], 0, ',', '.') }} filas · {{ number_format($backup->summary['files'], 0, ',', '.') }} archivos
+                                            {{ number_format($backup->summary['rows'] ?? 0, 0, ',', '.') }} filas · {{ number_format($backup->summary['files'] ?? 0, 0, ',', '.') }} archivos
                                             {{ $backup->encrypted ? '· cifrado' : '· sin cifrar' }}
-                                            @if($backup->summary['missing_referenced_files'])<div class="asc-small asc-muted">{{ $backup->summary['missing_referenced_files'] }} archivos que la base menciona no estaban en el disco.</div>@endif
+                                            @if($backup->summary['missing_referenced_files'] ?? 0)<div class="asc-small asc-muted">{{ $backup->summary['missing_referenced_files'] }} archivos que la base menciona no estaban en el disco.</div>@endif
+                                            @if(! empty($backup->summary['offsite']['copied_at']))
+                                                <div class="asc-small asc-muted">Copia externa: lista ({{ \Illuminate\Support\Carbon::parse($backup->summary['offsite']['copied_at'])->timezone(config('app.timezone'))->format('d/m H:i') }})</div>
+                                            @elseif(! empty($backup->summary['offsite']['error']))
+                                                <div class="asc-small" style="color:#d97706">Copia externa: {{ $backup->summary['offsite']['error'] }}</div>
+                                            @endif
                                         @else
                                             —
                                         @endif

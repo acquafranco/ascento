@@ -204,4 +204,68 @@ class BackupTest extends TestCase
         $this->assertSame([], Storage::disk('local')->allFiles('backups'));
         $this->assertSame('Falló un backup de Ascento', $super->notifications()->sole()->data['title']);
     }
+
+    public function test_without_an_offsite_disk_nothing_is_copied(): void
+    {
+        $backup = $this->backup();
+
+        $this->assertSame(Backup::COMPLETED, $backup->status);
+        $this->assertArrayNotHasKey('offsite', $backup->summary);
+    }
+
+    public function test_each_encrypted_backup_is_copied_offsite_and_pruned_there_too(): void
+    {
+        Storage::fake('offsite');
+        config(['backup.offsite_disk' => 'offsite', 'backup.offsite_path' => 'ascento-backups']);
+
+        $backup = $this->backup();
+
+        $remote = $backup->summary['offsite']['path'];
+        $this->assertSame('ascento-backups/'.basename($backup->path), $remote);
+        $this->assertNotEmpty($backup->summary['offsite']['copied_at']);
+        $this->assertSame($backup->size, Storage::disk('offsite')->size($remote));
+        $this->assertSame($backup->checksum, hash('sha256', Storage::disk('offsite')->get($remote)));
+
+        // La retención también borra la copia externa (los registros quedan).
+        config(['backup.keep_daily' => 0, 'backup.keep_weekly' => 0]);
+        $this->travel(1)->days();
+        $newer = $this->backup();
+        app(BackupManager::class)->prune();
+        Storage::disk('offsite')->assertMissing($remote);
+        Storage::disk('offsite')->assertExists($newer->fresh()->summary['offsite']['path']);
+    }
+
+    public function test_an_offsite_failure_is_recorded_notified_once_and_retried(): void
+    {
+        $super = User::factory()->create(['is_super_admin' => true]);
+        config(['filesystems.disks.roto' => ['driver' => 'local', 'root' => '/dev/null/no-existe', 'throw' => true], 'backup.offsite_disk' => 'roto']);
+
+        $backup = $this->backup();
+
+        $this->assertSame(Backup::COMPLETED, $backup->status); // el backup local igual sirve
+        $this->assertStringContainsString('No se pudo copiar afuera', $backup->summary['offsite']['error']);
+        $this->assertStringNotContainsString('clave-de-prueba', json_encode($backup->summary));
+        $this->assertStringContainsString('copia externa falló', $super->notifications()->sole()->data['body']);
+
+        // Reintento: antes de 30 minutos no; después, con el disco andando, sí.
+        Storage::fake('offsite');
+        config(['backup.offsite_disk' => 'offsite']);
+        app(BackupManager::class)->processPending();
+        $this->assertArrayNotHasKey('copied_at', $backup->fresh()->summary['offsite']);
+        $this->travel(31)->minutes();
+        app(BackupManager::class)->processPending();
+        $this->assertNotEmpty($backup->fresh()->summary['offsite']['copied_at']);
+        $this->assertSame(1, $super->notifications()->count()); // un solo aviso
+    }
+
+    public function test_an_unencrypted_backup_never_leaves_the_server(): void
+    {
+        Storage::fake('offsite');
+        config(['backup.offsite_disk' => 'offsite', 'backup.password' => null]);
+
+        $backup = $this->backup();
+
+        $this->assertSame([], Storage::disk('offsite')->allFiles());
+        $this->assertStringContainsString('sin cifrar', $backup->summary['offsite']['error']);
+    }
 }

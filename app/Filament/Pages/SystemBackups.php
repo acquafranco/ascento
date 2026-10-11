@@ -69,6 +69,7 @@ class SystemBackups extends Page
             'backups' => $backups,
             'pending' => $backups->contains(fn (Backup $b) => in_array($b->status, [Backup::REQUESTED, Backup::RUNNING], true)),
             'encrypted' => filled(config('backup.password')),
+            'offsiteDisk' => BackupManager::offsiteDisk(),
         ];
     }
 }

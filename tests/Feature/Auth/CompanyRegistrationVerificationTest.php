@@ -14,6 +14,7 @@ use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\URL;
 use Livewire\Livewire;
+use NotificationChannels\WebPush\WebPushChannel;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -194,5 +195,50 @@ class CompanyRegistrationVerificationTest extends TestCase
             ->assertCanSeeTableRecords([$company])->assertCanNotSeeTableRecords([$verifiedCompany['company']]);
 
         $this->actingInPanel($verifiedCompany['admin'])->get(CompanyResource::getUrl('view', ['record' => $company]))->assertNotFound();
+    }
+
+    public function test_opening_the_link_without_a_session_verifies_after_logging_in(): void
+    {
+        $this->register();
+        $owner = User::where('email', 'duena@sur.test')->sole();
+        auth()->logout();
+        $this->flushSession();
+
+        $url = $this->verificationUrl($owner);
+        $this->get($url)->assertRedirect(route('login'));
+        $this->post('/login', ['email' => 'duena@sur.test', 'password' => 'clave-segura-123'])->assertRedirect($url);
+        $this->get($url)->assertRedirect();
+        $this->assertTrue($owner->fresh()->hasVerifiedEmail());
+    }
+
+    public function test_changing_the_email_from_any_screen_asks_to_confirm_it_again(): void
+    {
+        $a = $this->makeTenant();
+        $this->assertTrue($a['admin']->hasVerifiedEmail());
+
+        // Otro admin le cambia el correo desde el panel (o el SuperAdmin): queda sin confirmar.
+        $a['admin']->update(['email' => 'otro@correo.test']);
+        $this->assertFalse($a['admin']->fresh()->hasVerifiedEmail());
+
+        // Guardar otros datos no toca la confirmación.
+        $a['technician']->update(['name' => 'Otro nombre']);
+        $this->assertTrue($a['technician']->fresh()->hasVerifiedEmail());
+
+        // Quien confirma explícitamente al mismo tiempo puede marcarlo.
+        $admin = $a['admin']->fresh();
+        $admin->forceFill(['email' => 'confirmado@correo.test', 'email_verified_at' => now()])->save();
+        $this->assertTrue($admin->fresh()->hasVerifiedEmail());
+    }
+
+    public function test_a_failing_channel_does_not_stop_the_others_for_superadmins(): void
+    {
+        config(['webpush.vapid.public_key' => 'clave-publica-test']);
+        $this->mock(WebPushChannel::class, fn ($m) => $m->shouldReceive('send')->andThrow(new \RuntimeException('push caído')));
+
+        $this->register()->assertRedirect();
+
+        // El push falló, pero la campanita quedó.
+        $this->assertSame(1, $this->super->notifications()->where('type', NewCompanyRegisteredNotification::class)->count());
+        $this->assertSame(1, Company::count());
     }
 }

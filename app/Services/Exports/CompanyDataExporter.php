@@ -348,7 +348,8 @@ class CompanyDataExporter
         });
 
         // Videos de reportes → adjuntos/videos (mismas validaciones de ruta).
-        $this->scoped(ReportVideo::class)->orderBy('report_id')->chunkById(self::CHUNK, function ($videos) {
+        // Los que fallaron al procesarse ya no tienen archivo: no son un faltante.
+        $this->scoped(ReportVideo::class)->where('status', '!=', ReportVideo::FAILED)->orderBy('report_id')->chunkById(self::CHUNK, function ($videos) {
             foreach ($videos as $video) {
                 $building = Str::slug($this->name('buildings', $this->names['report_building'][$video->report_id] ?? null) ?? 'edificio');
                 $this->attach((string) $video->path, 'reports/', 'adjuntos/videos/'.$building.'/reporte-'.$video->report_id.'.'.(ReportVideo::MIMES[$video->mime] ?? 'mp4'), "Reporte #{$video->report_id} (video)");

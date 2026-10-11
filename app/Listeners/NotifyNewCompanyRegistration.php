@@ -53,11 +53,14 @@ class NotifyNewCompanyRegistration
             Log::notice('Empresa nueva sin correo de aviso: ASCENTO_ADMIN_NOTIFICATION_EMAIL no está configurado', ['company_id' => $company->id]);
         }
 
+        // Canal por canal: si falla el push, igual llegan la campanita y Telegram.
         User::where('is_super_admin', true)->get()->each(function (User $super) use ($notification, $company) {
-            try {
-                $super->notifyNow($notification);
-            } catch (Throwable $e) {
-                Log::warning('No se pudo avisar a un SuperAdmin de la empresa nueva', ['company_id' => $company->id, 'exception' => $e::class]);
+            foreach ($notification->via($super) as $channel) {
+                try {
+                    $super->notifyNow($notification, [$channel]);
+                } catch (Throwable $e) {
+                    Log::warning('No se pudo avisar a un SuperAdmin de la empresa nueva', ['company_id' => $company->id, 'channel' => class_basename($channel), 'exception' => $e::class]);
+                }
             }
         });
     }
