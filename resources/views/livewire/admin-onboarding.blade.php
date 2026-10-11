@@ -45,9 +45,16 @@
     </style>
 
     <script>
-        window.ascentoOnboarding ??= ({ steps, autoStart, storageKey }) => ({
+        // El paso y la pausa viven en el servidor (savedStep / $wire.pause()):
+        // la guía se retoma igual después de seguir un enlace, recargar,
+        // volver otro día o abrir Ascento en otro navegador.
+        window.ascentoOnboarding ??= ({ steps, autoStart, savedStep }) => ({
             steps,
+            saved: savedStep,
             active: false,
+            // Un modal de Filament abierto (campanita, acciones): la guía se
+            // oculta para no quedar encima y su Esc no la pausa.
+            modalOpen: false,
             helpOpen: false,
             index: 0,
             spot: null,
@@ -60,31 +67,27 @@
             get isLast() { return this.index === this.steps.length - 1 },
 
             init() {
-                if (autoStart && ! this.read(sessionStorage, 'paused')) {
-                    this.start(this.savedIndex())
-                }
+                if (! autoStart) { return }
+                // Después de que Filament acomode el menú (en celular lo cierra
+                // al cargar): si no, se señala un ítem que ya no está a la vista.
+                const begin = () => requestAnimationFrame(() => this.start(this.savedIndex()))
+                document.readyState === 'complete' ? begin() : window.addEventListener('load', begin, { once: true })
             },
 
-            // localStorage/sessionStorage pueden no estar disponibles
-            // (modo privado, bloqueados): la guía funciona igual sin ellos.
-            read(store, suffix) {
-                try { return store.getItem(`${storageKey}-${suffix}`) } catch (e) { return null }
-            },
-            write(store, suffix, value) {
-                try {
-                    value === null ? store.removeItem(`${storageKey}-${suffix}`) : store.setItem(`${storageKey}-${suffix}`, value)
-                } catch (e) {}
-            },
             savedIndex() {
-                const saved = parseInt(this.read(localStorage, 'step') ?? '0', 10)
-                return Number.isInteger(saved) && saved > 0 && saved < this.steps.length - 1 ? saved : 0
+                const saved = parseInt(this.saved ?? 0, 10)
+                return Number.isInteger(saved) && saved > 0 && saved < this.steps.length ? saved : 0
+            },
+            remember() {
+                if (this.saved === this.index) { return }
+                this.saved = this.index
+                this.$wire.saveStep(this.index)
             },
 
             start(index = 0) {
                 this.helpOpen = false
                 this.index = index
                 this.active = true
-                this.write(sessionStorage, 'paused', null)
                 this.bind()
                 this.go()
             },
@@ -99,15 +102,21 @@
             // Cerrar con la X: se retoma en el mismo paso la próxima vez
             // que entre (no en cada página de esta sesión).
             pause() {
-                this.write(sessionStorage, 'paused', '1')
+                this.$wire.pause()
                 this.end(false)
             },
             onEscape() {
+                if (this.modalOpen) { return }
                 if (this.active) { this.pause() } else { this.helpOpen = false }
+            },
+            modalClosed() {
+                this.modalOpen = false
+                if (! this.active) { return }
+                this.$nextTick(() => { const el = this.target(); el ? this.place(el) : this.placeCentered() })
             },
 
             end(forget) {
-                if (forget) { this.write(localStorage, 'step', null) }
+                if (forget) { this.saved = 0 }
                 this.active = false
                 this.spot = null
                 this.unbind()
@@ -129,7 +138,7 @@
             },
 
             go() {
-                if (this.index > 0) { this.write(localStorage, 'step', String(this.index)) }
+                this.remember()
 
                 const el = this.target()
 
@@ -159,6 +168,13 @@
                 }
 
                 setTimeout(() => {
+                    // El menú del celular quedó cerrado (fuera de pantalla): se abre.
+                    const r = el.getBoundingClientRect()
+                    if (this.isMobile() && sidebar && (r.right <= 0 || r.left >= window.innerWidth)) {
+                        sidebar.open()
+                        this.openedSidebar = true
+                        return setTimeout(() => this.place(el), 320)
+                    }
                     el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
                     setTimeout(() => this.place(el), 180)
                 }, wait)
@@ -233,17 +249,19 @@
     x-data="ascentoOnboarding({
         steps: @js($steps),
         autoStart: @js($autoStart),
-        storageKey: @js($userKey),
+        savedStep: @js($savedStep),
     })"
     x-on:ascento-help.window="toggleHelp()"
     x-on:keydown.escape.window="onEscape()"
+    x-on:x-modal-opened.document="modalOpen = true"
+    x-on:modal-closed.window="modalClosed()"
     data-autostart="{{ $autoStart ? 'true' : 'false' }}"
 >
 
 
     {{-- ============================ GUÍA ============================ --}}
     <template x-if="active">
-        <div>
+        <div x-show="! modalOpen">
             <div class="asc-onb-backdrop" x-show="! spot" x-cloak></div>
             <div class="asc-onb-spot" x-show="spot" x-cloak
                  x-bind:style="spot && `top:${spot.top}px;left:${spot.left}px;width:${spot.width}px;height:${spot.height}px`"></div>
@@ -281,9 +299,10 @@
                 {{-- Cierre: primeros pasos con el progreso real de la empresa --}}
                 <template x-if="isLast">
                     <ul class="asc-onb-check">
-                        @foreach ($checklist as $item)
+                        @foreach ($checklist as $i => $item)
                             <li>
-                                <a href="{{ $item['url'] }}">
+                                {{-- Es el final de la guía: se da por terminada y se va a esa pantalla (antes volvía a empezar). --}}
+                                <a href="{{ $item['url'] }}" wire:click.prevent="openChecklistItem({{ $i }})" data-onboarding-checklist>
                                     <span class="asc-onb-tick {{ $item['done'] ? 'is-done' : '' }}">{{ $item['done'] ? '✓' : '' }}</span>
                                     <span class="{{ $item['done'] ? 'is-done-text' : '' }}">{{ $item['label'] }}</span>
                                 </a>
