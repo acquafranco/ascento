@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Widgets\AdminStats;
+use App\Filament\Widgets\PlatformOverviewWidget;
 use App\Filament\Widgets\WelcomeBanner;
 use Filament\Pages\Page;
 
@@ -47,7 +48,7 @@ class Dashboard extends Page
         // SuperAdmin sin empresa elegida: el estado de la plataforma (los
         // números de una empresa quedarían en 0). Con "Entrar", los de esa empresa.
         if (auth()->user()?->isSuperAdmin() && ! session('selected_company_id')) {
-            return [\App\Filament\Widgets\PlatformOverviewWidget::class];
+            return [PlatformOverviewWidget::class];
         }
 
         return [

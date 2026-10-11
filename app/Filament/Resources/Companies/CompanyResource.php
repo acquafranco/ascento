@@ -5,7 +5,9 @@ namespace App\Filament\Resources\Companies;
 use App\Filament\Resources\Companies\Pages\CreateCompany;
 use App\Filament\Resources\Companies\Pages\EditCompany;
 use App\Filament\Resources\Companies\Pages\ListCompanies;
+use App\Filament\Resources\Companies\Pages\ViewCompany;
 use App\Filament\Resources\Companies\Schemas\CompanyForm;
+use App\Filament\Resources\Companies\Schemas\CompanyInfolist;
 use App\Filament\Resources\Companies\Tables\CompaniesTable;
 use App\Models\Company;
 use BackedEnum;
@@ -37,7 +39,7 @@ class CompanyResource extends Resource
 
     public static function infolist(Schema $schema): Schema
     {
-        return \App\Filament\Resources\Companies\Schemas\CompanyInfolist::configure($schema);
+        return CompanyInfolist::configure($schema);
     }
 
     public static function table(Table $table): Table
@@ -57,7 +59,7 @@ class CompanyResource extends Resource
         return [
             'index' => ListCompanies::route('/'),
             'create' => CreateCompany::route('/create'),
-            'view' => \App\Filament\Resources\Companies\Pages\ViewCompany::route('/{record}'),
+            'view' => ViewCompany::route('/{record}'),
             'edit' => EditCompany::route('/{record}/edit'),
         ];
     }

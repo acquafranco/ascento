@@ -389,7 +389,7 @@ class CompanyExportTest extends TestCase
 
     public function test_the_superadmin_does_not_use_the_company_export_and_the_page_states_its_scope(): void
     {
-        $super = \App\Models\User::factory()->create(['is_super_admin' => true]);
+        $super = User::factory()->create(['is_super_admin' => true]);
         $this->actingInPanel($super)->get(CompanyExports::getUrl())->assertForbidden();
 
         $this->actingInPanel($this->a['admin'])->get(CompanyExports::getUrl())->assertOk()

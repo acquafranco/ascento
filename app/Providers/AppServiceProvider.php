@@ -3,12 +3,19 @@
 namespace App\Providers;
 
 use App\Http\Controllers\PushSubscriptionController;
+use App\Listeners\NotifyNewCompanyRegistration;
+use App\Models\BuildingVisit;
+use App\Models\DeliveryNote;
+use App\Models\Quote;
 use App\Models\User;
+use App\Models\WorkOrder;
 use App\Services\Portal\PortalInvitations;
 use App\Support\Realtime;
+use App\Support\RealtimeCounters;
 use Carbon\Carbon;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Notifications\Events\NotificationSent;
@@ -47,24 +54,24 @@ class AppServiceProvider extends ServiceProvider
         // Contadores en tiempo real (inicio del admin y del técnico): cuando
         // cambia algo que se cuenta, se avisa a los admins de la empresa y a
         // los técnicos involucrados (una vez por request; ver RealtimeCounters).
-        $workOrderTouched = fn (\App\Models\WorkOrder $order) => \App\Support\RealtimeCounters::touchWorkOrder($order);
-        \App\Models\WorkOrder::created($workOrderTouched);
-        \App\Models\WorkOrder::updated(function (\App\Models\WorkOrder $order) use ($workOrderTouched) {
+        $workOrderTouched = fn (WorkOrder $order) => RealtimeCounters::touchWorkOrder($order);
+        WorkOrder::created($workOrderTouched);
+        WorkOrder::updated(function (WorkOrder $order) use ($workOrderTouched) {
             if ($order->wasChanged(['status', 'finished_at', 'started_at'])) {
                 $workOrderTouched($order);
             }
         });
-        \App\Models\WorkOrder::deleted($workOrderTouched);
-        \App\Models\WorkOrder::restored($workOrderTouched);
-        \App\Models\DeliveryNote::created(fn (\App\Models\DeliveryNote $note) => \App\Support\RealtimeCounters::touch($note->company_id, [$note->user_id]));
-        \App\Models\BuildingVisit::created(fn (\App\Models\BuildingVisit $visit) => \App\Support\RealtimeCounters::touch($visit->company_id, [$visit->user_id]));
-        \App\Models\Quote::created(fn (\App\Models\Quote $quote) => \App\Support\RealtimeCounters::touch($quote->company_id));
-        \App\Models\Quote::updated(function (\App\Models\Quote $quote) {
+        WorkOrder::deleted($workOrderTouched);
+        WorkOrder::restored($workOrderTouched);
+        DeliveryNote::created(fn (DeliveryNote $note) => RealtimeCounters::touch($note->company_id, [$note->user_id]));
+        BuildingVisit::created(fn (BuildingVisit $visit) => RealtimeCounters::touch($visit->company_id, [$visit->user_id]));
+        Quote::created(fn (Quote $quote) => RealtimeCounters::touch($quote->company_id));
+        Quote::updated(function (Quote $quote) {
             if ($quote->wasChanged(['status', 'valid_until'])) {
-                \App\Support\RealtimeCounters::touch($quote->company_id);
+                RealtimeCounters::touch($quote->company_id);
             }
         });
-        \App\Models\Quote::deleted(fn (\App\Models\Quote $quote) => \App\Support\RealtimeCounters::touch($quote->company_id));
+        Quote::deleted(fn (Quote $quote) => RealtimeCounters::touch($quote->company_id));
 
         // Verificación de email (rutas de Breeze): en español y con el diseño de Ascento.
         VerifyEmail::toMailUsing(fn (object $notifiable, string $url) => (new MailMessage)
@@ -78,7 +85,7 @@ class AppServiceProvider extends ServiceProvider
 
         // Empresa nueva: aviso al equipo de Ascento (correo configurable y
         // campanita/push/Telegram de los SuperAdmin), una sola vez.
-        Event::listen(\Illuminate\Auth\Events\Registered::class, [\App\Listeners\NotifyNewCompanyRegistration::class, 'handle']);
+        Event::listen(Registered::class, [NotifyNewCompanyRegistration::class, 'handle']);
 
         // Un usuario del portal que elige su contraseña (invitación o
         // recuperación) queda activado y se avisa a los admins de su empresa.
