@@ -328,4 +328,16 @@ class PortalAccountsTest extends TestCase
 
         $this->assertSame(1, PlanLimit::Technicians->usage($this->a['company']));
     }
+
+    public function test_activating_the_portal_requires_a_strong_password(): void
+    {
+        [$user, $token] = $this->invite();
+
+        $this->activate($user, $token, 'password1234')->assertSessionHasErrors('password');
+        $this->activate($user, $token, 'sofia-consorcio-1')->assertSessionHasErrors('password'); // contiene el correo
+        $this->assertFalse($user->fresh()->hasVerifiedEmail(), 'sin activar, sin confirmar');
+
+        $this->activate($user, $token, 'Kiosco-Verde-8241')->assertSessionHasNoErrors();
+        $this->assertTrue($user->fresh()->hasVerifiedEmail(), 'el enlace de la invitación prueba que el correo es suyo');
+    }
 }

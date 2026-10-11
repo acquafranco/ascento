@@ -50,6 +50,10 @@
                 @include('partials.realtime-inbox', ['countUrl' => route('notifications.count'), 'inboxUrl' => route('notifications.index')])
             @endif
 
+            @if(auth()->check() && auth()->user()->role !== 'admin')
+                <div class="px-4">@include('partials.verify-email-notice')</div>
+            @endif
+
             <!-- Page Heading -->
             @isset($header)
                 <header class="bg-white shadow">

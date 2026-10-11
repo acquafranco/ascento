@@ -91,6 +91,13 @@ class User extends Authenticatable implements FilamentUser, \Illuminate\Contract
             }
         });
 
+        // Correo nuevo sin confirmar: se manda el enlace para confirmarlo.
+        static::updated(function (User $user) {
+            if ($user->wasChanged('email') && ! $user->hasVerifiedEmail()) {
+                $user->sendVerificationSafely();
+            }
+        });
+
         // Nadie puede desactivarse a sí mismo (evita que un admin se deje
         // afuera, y que un técnico "desaparezca" del historial).
         static::deleting(fn (User $user) => auth()->id() !== $user->id);
@@ -255,6 +262,23 @@ class User extends Authenticatable implements FilamentUser, \Illuminate\Contract
         return $this->canUseOnboarding()
             && $this->onboarding_completed_at === null
             && $this->onboarding_skipped_at === null;
+    }
+
+    /**
+     * Manda el enlace de confirmación sin cortar lo que se estaba haciendo
+     * (alta de un técnico, cambio de correo) si el correo falla.
+     */
+    public function sendVerificationSafely(): void
+    {
+        if ($this->hasVerifiedEmail()) {
+            return;
+        }
+
+        try {
+            $this->sendEmailVerificationNotification();
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('No se pudo mandar el correo de confirmación', ['user_id' => $this->id, 'exception' => $e::class]);
+        }
     }
 
     public function isAdmin(): bool

@@ -171,6 +171,7 @@
         @endif
     </header>
     <main class="p-main" id="contenido">
+        @include('partials.verify-email-notice')
         {{ $slot }}
         <p class="p-foot">Información compartida por {{ $company?->name }} mediante Ascento.</p>
     </main>

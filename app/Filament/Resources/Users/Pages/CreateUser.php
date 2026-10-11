@@ -24,4 +24,10 @@ class CreateUser extends CreateRecord
 
         return $data;
     }
+
+    /** El técnico recibe el enlace para confirmar su correo (no lo bloquea: puede trabajar igual). */
+    protected function afterCreate(): void
+    {
+        $this->record->sendVerificationSafely();
+    }
 }

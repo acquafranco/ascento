@@ -77,13 +77,13 @@ class PasswordResetTest extends TestCase
         $this->post('/reset-password', [
             'token' => $this->tokenFor($user),
             'email' => $user->email,
-            'password' => 'new-password',
-            'password_confirmation' => 'new-password',
+            'password' => 'Kiosco-Verde-8241',
+            'password_confirmation' => 'Kiosco-Verde-8241',
         ])
             ->assertSessionHasNoErrors()
             ->assertRedirect(route('login'));
 
-        $this->assertTrue(Hash::check('new-password', $user->fresh()->password));
+        $this->assertTrue(Hash::check('Kiosco-Verde-8241', $user->fresh()->password));
     }
 
     public function test_token_cannot_reset_another_users_password(): void
@@ -97,11 +97,11 @@ class PasswordResetTest extends TestCase
         $this->post('/reset-password', [
             'token' => $this->tokenFor($attacker),
             'email' => $victim->email,
-            'password' => 'hijacked-password',
-            'password_confirmation' => 'hijacked-password',
+            'password' => 'Tomado-Ajeno-5512',
+            'password_confirmation' => 'Tomado-Ajeno-5512',
         ])->assertSessionHasErrors('email');
 
-        $this->assertFalse(Hash::check('hijacked-password', $victim->fresh()->password));
+        $this->assertFalse(Hash::check('Tomado-Ajeno-5512', $victim->fresh()->password));
     }
 
     public function test_forgot_password_is_rate_limited(): void

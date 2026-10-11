@@ -16,13 +16,14 @@
 
         <div>
             <x-input-label for="password" :value="__('Contraseña')" />
-            <x-text-input id="password" type="password" name="password" required autocomplete="new-password" placeholder="••••••••" />
+            <x-password-input id="password" name="password" required autocomplete="new-password" aria-describedby="password-hint" />
+            <p id="password-hint" class="mt-1.5 text-xs text-ink/50">{{ \App\Support\Auth\PasswordPolicy::HINT }}</p>
             <x-input-error :messages="$errors->get('password')" class="mt-1.5" />
         </div>
 
         <div>
             <x-input-label for="password_confirmation" :value="__('Repetir contraseña')" />
-            <x-text-input id="password_confirmation" type="password" name="password_confirmation" required autocomplete="new-password" placeholder="••••••••" />
+            <x-password-input id="password_confirmation" name="password_confirmation" required autocomplete="new-password" />
             <x-input-error :messages="$errors->get('password_confirmation')" class="mt-1.5" />
         </div>
 

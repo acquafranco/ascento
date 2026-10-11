@@ -13,7 +13,7 @@ use Tests\TestCase;
 
 class RegistrationTest extends TestCase
 {
-    use InteractsWithTenants, RefreshDatabase;
+    use InteractsWithTenants, RefreshDatabase, \Tests\Concerns\PassesRegistrationChallenge;
 
     public function test_registration_screen_can_be_rendered(): void
     {
@@ -23,11 +23,12 @@ class RegistrationTest extends TestCase
     public function test_registration_creates_company_with_admin_and_trial(): void
     {
         $response = $this->post('/register', [
+            ...$this->registrationProof(),
             'company_name' => 'Ascensores Test',
             'name' => 'Test User',
             'email' => 'test@example.com',
-            'password' => 'password',
-            'password_confirmation' => 'password',
+            'password' => 'Kiosco-Verde-8241',
+            'password_confirmation' => 'Kiosco-Verde-8241',
             ...$this->required(),
         ]);
 
@@ -47,11 +48,12 @@ class RegistrationTest extends TestCase
         $existing = $this->makeTenant();
 
         $this->post('/register', [
+            ...$this->registrationProof(),
             'company_name' => 'Atacante SA',
             'name' => 'Atacante',
             'email' => 'attacker@example.com',
-            'password' => 'password',
-            'password_confirmation' => 'password',
+            'password' => 'Kiosco-Verde-8241',
+            'password_confirmation' => 'Kiosco-Verde-8241',
             ...$this->required(['cuit' => '20-12345678-6']),
             'company_id' => $existing['company']->id,
             'is_super_admin' => 1,
@@ -95,6 +97,7 @@ class RegistrationTest extends TestCase
     private function register(array $overrides = [])
     {
         return $this->post('/register', [
+            ...$this->registrationProof(),
             'company_name' => 'Ascensores del Sur',
             'name' => 'Dueña',
             'email' => 'duena@sur.test',
