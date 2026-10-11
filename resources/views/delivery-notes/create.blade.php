@@ -40,8 +40,10 @@
         </div>
     @endif
 
-    <form method="POST" action="{{ route('delivery-notes.store', ['company' => auth()->user()->company->slug]) }}" id="remito-form" class="space-y-4">
+    <form method="POST" action="{{ route('delivery-notes.store', ['company' => auth()->user()->company->slug]) }}" id="remito-form" class="space-y-4"
+          data-draft="remito.{{ auth()->id() }}.{{ $building->id }}.{{ $workOrder ? 'ot'.$workOrder->id : $assignmentType }}" @if($errors->any()) data-draft-restore="off" @endif>
         @csrf
+        @include('partials.draft-notice', ['media' => 'Las firmas y los materiales se vuelven a cargar.'])
         @if($workOrder)
             <input type="hidden" name="work_order_id" value="{{ $workOrder->id }}">
         @endif
@@ -78,7 +80,7 @@
             </div>
             <div class="px-4 py-3">
                 <label for="month" class="t-label">Corresponde al mes</label>
-                <select id="month" name="month" class="t-input">
+                <select id="month" name="month" class="t-input" data-draft-field>
                     @foreach(range(1, 12) as $m)
                         <option value="{{ $m }}" @selected(old('month', $month) == $m)>{{ ucfirst(\Carbon\Carbon::create()->month($m)->locale('es')->monthName) }} {{ $year }}</option>
                     @endforeach
@@ -90,13 +92,13 @@
         <section class="t-card space-y-4 p-4">
             <div>
                 <label class="t-label" for="description">Trabajo realizado</label>
-                <textarea name="description" id="description" rows="6" required maxlength="5000" class="t-input resize-y"
+                <textarea name="description" id="description" data-draft-field rows="6" required maxlength="5000" class="t-input resize-y"
                           placeholder="Detallá todo el trabajo realizado durante la visita">{{ old('description') }}</textarea>
                 @error('description')<p class="mt-1 text-sm font-semibold text-red-600">{{ $message }}</p>@enderror
             </div>
 
             <label class="flex min-h-[52px] cursor-pointer select-none items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4">
-                <input type="checkbox" name="performed" value="1" @checked($errors->any() ? old('performed') == '1' : true) class="h-5 w-5 shrink-0 rounded border-ink-300 text-emerald-600 focus:ring-emerald-500">
+                <input type="checkbox" name="performed" value="1" data-draft-field @checked($errors->any() ? old('performed') == '1' : true) class="h-5 w-5 shrink-0 rounded border-ink-300 text-emerald-600 focus:ring-emerald-500">
                 <span class="text-sm font-semibold text-emerald-900">Trabajo realizado correctamente</span>
             </label>
             <p class="-mt-2 text-xs text-ink-500">Si no se pudo hacer, destildalo: la oficina lo ve y coordina la nueva visita.</p>
@@ -189,10 +191,10 @@
                         <div>
                             <label class="mb-1 block text-xs text-ink-500" for="{{ $key }}-name">Aclaración</label>
                             @if($key === 'tech')
-                                <input type="text" id="tech-name" name="signature_name" value="{{ old('signature_name', auth()->user()->name) }}" class="t-input py-2.5" placeholder="Nombre y apellido">
+                                <input type="text" id="tech-name" name="signature_name" data-draft-field value="{{ old('signature_name', auth()->user()->name) }}" class="t-input py-2.5" placeholder="Nombre y apellido">
                                 @error('signature_name')<p class="mt-1 text-sm font-semibold text-red-600">{{ $message }}</p>@enderror
                             @else
-                                <input type="text" id="client-name" name="client_signature_name" value="{{ old('client_signature_name') }}" class="t-input py-2.5" placeholder="Nombre y apellido">
+                                <input type="text" id="client-name" name="client_signature_name" data-draft-field value="{{ old('client_signature_name') }}" class="t-input py-2.5" placeholder="Nombre y apellido">
                             @endif
                         </div>
                     </div>
