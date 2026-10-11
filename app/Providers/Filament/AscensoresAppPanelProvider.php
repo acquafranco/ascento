@@ -73,11 +73,17 @@ class AscensoresAppPanelProvider extends PanelProvider
             ->widgets([])
 
             // Guía de bienvenida + ayuda: solo para admins de empresa.
+            // Encabezado: notificaciones, ayuda y el perfil al extremo derecho
+            // (la ayuda va justo antes del menú de usuario).
             ->renderHook(
-                PanelsRenderHook::TOPBAR_END,
+                PanelsRenderHook::USER_MENU_BEFORE,
                 fn (): string => auth()->user()?->canUseOnboarding()
                     ? view('filament.partials.help-button')->render()
                     : '',
+            )
+            ->renderHook(
+                PanelsRenderHook::STYLES_AFTER,
+                fn (): string => '<style>.fi-topbar-end{column-gap:1rem}@media (max-width:640px){.fi-topbar-end{column-gap:.85rem}}</style>',
             )
             ->renderHook(
                 PanelsRenderHook::BODY_END,
