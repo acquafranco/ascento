@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Report;
 use App\Models\ReportPhoto;
+use App\Services\Reports\ReportPhotoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -45,7 +46,7 @@ class ReportPhotoController extends Controller
         abort_unless($disk, 404);
 
         // ?thumb=1 → miniatura (listas, conexiones lentas).
-        if (request()->boolean('thumb') && ($thumb = app(\App\Services\Reports\ReportPhotoService::class)->thumbnail($photo))) {
+        if (request()->boolean('thumb') && ($thumb = app(ReportPhotoService::class)->thumbnail($photo))) {
             return Storage::disk('local')->response($thumb, null, [
                 'Content-Type' => 'image/jpeg',
                 'Cache-Control' => 'private, max-age=86400',

@@ -115,7 +115,6 @@ return [
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
 
-
     /*
     |--------------------------------------------------------------------------
     | Correos con la marca de Ascento
