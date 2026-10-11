@@ -25,7 +25,7 @@ use Tests\TestCase;
  */
 class CompanyRegistrationVerificationTest extends TestCase
 {
-    use InteractsWithTenants, RefreshDatabase;
+    use InteractsWithTenants, RefreshDatabase, \Tests\Concerns\PassesRegistrationChallenge;
 
     private User $super;
 
@@ -41,6 +41,7 @@ class CompanyRegistrationVerificationTest extends TestCase
     private function register(array $overrides = [])
     {
         return $this->post('/register', [
+            ...$this->registrationProof(),
             'company_name' => 'Ascensores del Sur', 'name' => 'Dueña Sur', 'email' => 'duena@sur.test',
             'password' => 'clave-segura-123', 'password_confirmation' => 'clave-segura-123',
             'cuit' => '30-71234567-1', 'phone' => '11 4567-8900', 'province' => 'Buenos Aires', 'locality' => 'Lomas de Zamora', 'terms' => '1',
@@ -148,11 +149,20 @@ class CompanyRegistrationVerificationTest extends TestCase
         $this->register();
         $owner = User::where('email', 'duena@sur.test')->sole();
 
-        for ($i = 0; $i < 6; $i++) {
+        // 3 enlaces cada 10 minutos por cuenta; después avisa que espere (sin mandar).
+        for ($i = 0; $i < 3; $i++) {
             $this->actingAs($owner)->post(route('verification.send'))->assertSessionHas('status', 'verification-link-sent');
         }
+        for ($i = 0; $i < 3; $i++) {
+            $this->post(route('verification.send'))->assertSessionHas('status', 'verification-throttled');
+        }
+        // Y la ruta corta en 6 por minuto.
         $this->post(route('verification.send'))->assertStatus(429);
-        Notification::assertSentToTimes($owner, VerifyEmail::class, 7); // 1 del registro + 6 reenvíos
+        Notification::assertSentToTimes($owner, VerifyEmail::class, 4); // 1 del registro + 3 reenvíos
+
+        // Pasados los 10 minutos se puede volver a pedir.
+        $this->travel(11)->minutes();
+        $this->post(route('verification.send'))->assertSessionHas('status', 'verification-link-sent');
 
         auth()->logout();
         $verified = $this->makeTenant()['admin'];

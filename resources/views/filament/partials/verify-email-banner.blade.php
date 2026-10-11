@@ -18,6 +18,8 @@
             Usá el enlace de confirmación enviado a <strong>{{ $user->email }}</strong>.
             @if($status === 'verification-link-sent')
                 Listo: te mandamos uno nuevo (revisá también spam).
+            @elseif($status === 'verification-throttled')
+                Ya te mandamos varios hace poco: esperá unos minutos y volvé a pedirlo.
             @elseif($status === 'verification-link-expired')
                 El enlace que abriste venció o no es válido: pedí uno nuevo.
             @else
