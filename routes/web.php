@@ -94,6 +94,10 @@ Route::prefix('{company:slug}')
         'index'
     ])->name('dashboard');
 
+    // Contadores del técnico (para ponerse al día en tiempo real o al reconectar).
+    Route::get('/dashboard/contadores', \App\Http\Controllers\TechnicianCountersController::class)
+        ->middleware('throttle:60,1')->name('technician.counters');
+
 
     /*
     |--------------------------------------------------------------------------

@@ -1,195 +1,159 @@
+{{--
+    Inicio del técnico: lo próximo que tiene que hacer, sus contadores (en
+    tiempo real) y las visitas del mes. Todo sale de TechnicianWorkload.
+--}}
+@php
+    use App\Support\TechNav;
+    use App\Support\WorkOrderLabels;
+    $slug = auth()->user()->company->slug;
+    $priorityChip = ['urgent' => 't-chip-failed', 'high' => 't-chip-progress', 'medium' => 't-chip-pending', 'low' => 't-chip-neutral'];
+    $typeLabels = \App\Services\Insights\MaintenanceAgenda::TYPES;
+    $monthTotal = $month['done'] + $month['not_done'] + $month['pending'];
+@endphp
 <x-app-layout>
-@if(session('success'))
-    <div
-        class="mb-5 rounded-2xl border border-emerald-200/60 bg-emerald-50/80 backdrop-blur-sm p-4 text-emerald-700 font-semibold flex items-center gap-2.5"
-    >
-        <svg class="w-[18px] h-[18px] shrink-0" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        {{ session('success') }}
-    </div>
-@endif
-<div class="fixed left-0 right-0 top-0 bottom-20 lg:top-16 lg:bottom-0 overflow-y-auto" style="background-color:#fff">
+<div class="t-page">
 
-    <div class="h-full flex flex-col gap-1 p-1">
-        <div class="rounded-3xl border flex items-center justify-between px-6 py-6 shadow-[0_6px_20px_-8px_rgba(20,23,28,0.18)] bg-white"
-             style="border-color:#FFE1CC;">
-            <div>
-                <div class="text-sm font-medium" style="color:#FF6A1A;">
-                    {{ now()->translatedFormat('l, j \\d\\e F') }}
-                </div>
+    @if(session('success'))
+        <div class="t-alert-success mb-4" role="status">{{ session('success') }}</div>
+    @endif
 
-                <h1 class="mt-1 text-2xl font-bold" style="color:#12151C;">
-                    ¡Hola, {{ auth()->user()->name }}!
-                </h1>
+    <header class="mb-5">
+        <p class="text-sm font-semibold text-brand-700">{{ ucfirst(now()->translatedFormat('l j \d\e F')) }}</p>
+        <h1 class="t-h1 mt-0.5">Hola, {{ Str::of(auth()->user()->name)->before(' ') }}</h1>
+    </header>
 
-                <p class="mt-2 text-sm" style="color:#5B6472;">
-                    Bienvenido. Revisá tus tareas pendientes y comenzá tu jornada.
-                </p>
-            </div>
-
-           <div class="flex items-center justify-center">
-    <svg class="w-14 h-14" viewBox="0 0 24 24" fill="none" style="color:#FF6A1A">
-        <rect x="6" y="3" width="12" height="18" rx="2" stroke="currentColor" stroke-width="1.8"/>
-        <path d="M12 7V17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-        <path d="M10 9L12 7L14 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M10 15L12 17L14 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-</div>
-        </div>
-
-        {{-- Activar avisos push (se oculta sola cuando ya están activos). --}}
-        @include('push-notifications.card', ['compact' => true])
-
-        <div class="grid grid-cols-2 grid-rows-3 flex-1 gap-1">
-            {{-- PENDIENTES --}}
-            <a href="{{ route('work-orders.index', [
-                'company' => auth()->user()->company->slug,
-                'status' => 'pending',
-            ]) }}"
-            class="card-dashboard top-left  shadow-[0_4px_16px_-6px_rgba(20,23,28,0.35)] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 flex flex-col items-center justify-center py-5"
-            style="background-color:#12151C; border: 2px solid #FF6A1A;">
-
-                <span class="flex h-8 w-8 items-center justify-center rounded-lg mb-2" style="color:#FF6A1A;">
-                    <svg class="w-[22px] h-[22px]" viewBox="0 0 24 24" fill="none"><path d="M12 6V12L16 14M20 12A8 8 0 1 1 4 12A8 8 0 0 1 20 12Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </span>
-
-                <div class="text-sm text-white font-medium">
-                    Pendientes
-                </div>
-
-                <div class="text-4xl font-semibold tracking-tight text-white">
-                    {{ $pending }}
-                </div>
-
+    {{-- Contadores: enlazan a cada listado y se actualizan solos. --}}
+    <div class="grid grid-cols-3 gap-2.5" data-tech-counters data-counts-url="{{ route('technician.counters', ['company' => $slug]) }}">
+        @foreach([
+            ['key' => 'pending', 'label' => 'Pendientes', 'status' => 'pending', 'accent' => 'bg-amber-400'],
+            ['key' => 'in_progress', 'label' => 'En curso', 'status' => 'in_progress', 'accent' => 'bg-brand'],
+            ['key' => 'completed_today', 'label' => 'Completados hoy', 'status' => 'completed', 'accent' => 'bg-emerald-500'],
+        ] as $counter)
+            <a href="{{ route('work-orders.index', ['company' => $slug, 'status' => $counter['status']]) }}"
+               class="t-card relative overflow-hidden px-3 py-3.5 transition active:scale-[0.98] hover:border-ink-300">
+                <span class="absolute inset-y-0 left-0 w-1 {{ $counter['accent'] }}"></span>
+                <span class="block text-[28px] font-bold leading-none tracking-tight text-ink" data-count="{{ $counter['key'] }}">{{ $counts[$counter['key']] }}</span>
+                <span class="mt-1.5 block text-xs font-semibold leading-tight text-ink-500">{{ $counter['label'] }}</span>
             </a>
-
-
-            {{-- EN PROGRESO --}}
-            <a href="{{ route('work-orders.index', [
-                'company' => auth()->user()->company->slug,
-                'status' => 'in_progress',
-            ]) }}"
-            class="card-dashboard top-right shadow-[0_4px_16px_-6px_rgba(20,23,28,0.35)] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 flex flex-col items-center justify-center py-5" style="background-color:#12151C; border: 2px solid #FF6A1A;">
-
-                <span class="flex h-8 w-8 items-center justify-center rounded-lg mb-2" style="color:#FF6A1A;">
-                    <svg class="w-[22px] h-[22px]" viewBox="0 0 24 24" fill="none"><path d="M12 4V6M12 18V20M4 12H6M18 12H20M6.3 6.3L7.8 7.8M16.2 16.2L17.7 17.7M6.3 17.7L7.8 16.2M16.2 7.8L17.7 6.3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
-                </span>
-
-                <div class="text-sm text-white font-medium">
-                    En progreso
-                </div>
-
-                <div class="text-4xl font-semibold tracking-tight text-white">
-                    {{ $in_progress }}
-                </div>
-
-            </a>
-
-
-            {{-- COMPLETADAS --}}
-            <a href="{{ route('work-orders.index', [
-                'company' => auth()->user()->company->slug,
-                'status' => 'completed',
-            ]) }}"
-            class="shadow-[0_4px_16px_-6px_rgba(20,23,28,0.35)] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 flex flex-col items-center justify-center py-5" style="background-color:#12151C; border: 2px solid #FF6A1A;">
-
-                <span class="flex h-8 w-8 items-center justify-center rounded-lg mb-2" style="color:#FF6A1A;">
-                    <svg class="w-[22px] h-[22px]" viewBox="0 0 24 24" fill="none"><path d="M4 12L9.5 17.5L20 6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </span>
-
-                <div class="text-sm text-white font-medium">
-                    Completadas hoy
-                </div>
-
-                <div class="text-4xl font-semibold tracking-tight text-white">
-                    {{ $completed_today }}
-                </div>
-
-            </a>
-
-
-            {{--  Visitas Tecnicas --}}
-            <a href="{{ route('buildings.index', [
-                'company' => auth()->user()->company->slug,
-            ]) }}"
-            class="shadow-[0_4px_16px_-6px_rgba(20,23,28,0.35)] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 flex flex-col items-center justify-center py-5" style="background-color:#12151C; border: 2px solid #FF6A1A;">
-
-                <span class="flex h-8 w-8 items-center justify-center rounded-lg mb-2" style="color:#FF6A1A;">
-                    <svg class="w-[22px] h-[22px]" viewBox="0 0 24 24" fill="none"><path d="M12 21C12 21 5 14.5 5 9.5A7 7 0 0 1 19 9.5C19 14.5 12 21 12 21ZM9.5 9.5A2.5 2.5 0 1 0 14.5 9.5A2.5 2.5 0 0 0 9.5 9.5Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </span>
-
-                <div class="text-sm text-white font-medium">
-                    Visitas hoy
-                </div>
-
-                <div class="text-4xl font-semibold tracking-tight text-white">
-                    {{ $tasks_today }}
-                </div>
-
-            </a>
-
-
-
-
-            {{-- REMITOS --}}
-            <a href="{{ route('delivery-notes.index', [
-                'company' => auth()->user()->company->slug,
-            ]) }}"
-            class="bottom-left card-dashboard shadow-[0_4px_16px_-6px_rgba(20,23,28,0.35)] hover:-translate-y-0.5 active:scale-[0.98] hover:brightness-110 transition-all duration-200 flex flex-col items-center justify-center py-5" style="background:linear-gradient(180deg,#FF7A1A 0%,#FF6A1A 100%); border:2px solid #FF8F3A;">
-
-                <span class="flex h-8 w-8 items-center justify-center rounded-lg mb-2 drop-shadow-sm" style="color:#FFFFFF;">
-                    <svg class="w-[22px] h-[22px]" viewBox="0 0 24 24" fill="none"><path d="M6 3H14L18 7V21H6V3ZM14 3V7H18M9 12H15M9 16H15" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </span>
-
-                <div class="text-sm text-white font-semibold">
-                    Remitos
-                </div>
-
-            </a>
-
-
-
-            {{-- PLANTILLAS --}}
-            <a href="{{ route('templates.index', [
-                'company' => auth()->user()->company->slug,
-            ]) }}"
-            class="card-dashboard bottom-right shadow-[0_4px_16px_-6px_rgba(20,23,28,0.35)] hover:-translate-y-0.5 active:scale-[0.98] hover:brightness-110 transition-all duration-200 flex flex-col items-center justify-center py-5"
-            style="background:linear-gradient(180deg,#FF7A1A 0%,#FF6A1A 100%); border:2px solid #FF8F3A;">
-
-                <span class="flex h-8 w-8 items-center justify-center rounded-lg drop-shadow-sm" style="color:#FFFFFF;">
-                    <svg class="w-[22px] h-[22px]" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M3 9H21" stroke="currentColor" stroke-width="1.7"/></svg>
-                </span>
-
-                <div class="mt-2 text-sm font-semibold text-white">
-                    Planillas
-                </div>
-
-            </a>
-        </div>
+        @endforeach
     </div>
 
+    {{-- Activar avisos push (se oculta sola cuando ya están activos). --}}
+    <div class="mt-3">@include('push-notifications.card', ['compact' => true])</div>
+
+    <div class="lg:grid lg:grid-cols-2 lg:gap-6">
+        {{-- Próximos trabajos --}}
+        <section>
+            <h2 class="t-section">
+                Próximos trabajos
+                <a href="{{ route('work-orders.index', ['company' => $slug]) }}" class="text-xs font-bold normal-case tracking-normal text-brand-700">Ver todos</a>
+            </h2>
+            @if($nextOrders->isEmpty())
+                <div class="t-empty">
+                    <p class="font-semibold text-ink">No tenés trabajos pendientes</p>
+                    <p class="mt-1">Cuando la oficina te asigne una orden, aparece acá y te llega un aviso.</p>
+                </div>
+            @else
+                <div class="t-card t-divide overflow-hidden">
+                    @foreach($nextOrders as $order)
+                        <a href="{{ route('work-orders.show', ['company' => $slug, 'workOrder' => $order]) }}" class="t-row hover:bg-ink-50">
+                            <span class="min-w-0 flex-1">
+                                <span class="flex flex-wrap items-center gap-1.5">
+                                    @if($order->status === 'in_progress')
+                                        <span class="t-chip-progress">En curso</span>
+                                    @endif
+                                    <span class="{{ $priorityChip[$order->priority] ?? 't-chip-neutral' }}">{{ WorkOrderLabels::priority($order->priority) }}</span>
+                                    <span class="text-xs font-semibold text-ink-500">{{ WorkOrderLabels::type($order->type) }}{{ $order->unit ? ' · '.$order->unit : '' }}</span>
+                                </span>
+                                <span class="mt-1 block truncate font-semibold text-ink">{{ $order->building?->name }}</span>
+                                <span class="block truncate text-sm text-ink-500">{{ trim(($order->building?->address ?? '').' '.($order->building?->locality ?? '')) }}</span>
+                            </span>
+                            <svg class="h-5 w-5 shrink-0 text-ink-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{!! TechNav::icon('chevron') !!}</svg>
+                        </a>
+                    @endforeach
+                </div>
+            @endif
+        </section>
+
+        {{-- Visitas del mes --}}
+        <section>
+            <h2 class="t-section">
+                Visitas de {{ now()->translatedFormat('F') }}
+                <a href="{{ route('buildings.index', ['company' => $slug]) }}" class="text-xs font-bold normal-case tracking-normal text-brand-700">Ver visitas</a>
+            </h2>
+            @if($monthTotal === 0)
+                <div class="t-empty">
+                    <p class="font-semibold text-ink">No tenés edificios asignados para mantenimiento o inspección</p>
+                    <p class="mt-1">Las asignaciones las hace la oficina desde el panel.</p>
+                </div>
+            @else
+                <div class="t-card overflow-hidden">
+                    <div class="px-4 pt-4">
+                        <div class="flex items-baseline justify-between">
+                            <span class="text-sm font-semibold text-ink">{{ $month['done'] + $month['not_done'] }} de {{ $monthTotal }} hechas</span>
+                            <span class="text-xs text-ink-500">Hoy: {{ $visitsToday }}</span>
+                        </div>
+                        <div class="mt-2 h-2 overflow-hidden rounded-full bg-ink-50" role="progressbar" aria-valuemin="0" aria-valuemax="{{ $monthTotal }}" aria-valuenow="{{ $month['done'] + $month['not_done'] }}">
+                            <div class="h-full rounded-full bg-emerald-500" style="width: {{ $monthTotal ? round(($month['done'] + $month['not_done']) / $monthTotal * 100) : 0 }}%"></div>
+                        </div>
+                        @if($month['not_done'])
+                            <p class="mt-2 text-xs font-semibold text-amber-700">{{ $month['not_done'] }} con remito "no realizado": la oficina coordina la nueva visita.</p>
+                        @endif
+                    </div>
+                    @if($month['next']->isNotEmpty())
+                        <div class="t-divide mt-3 border-t border-ink-100">
+                            @foreach($month['next'] as $row)
+                                <a href="{{ route('delivery-notes.building', ['company' => $slug, 'building' => $row['building'], 'month' => now()->month, 'year' => now()->year, 'assignment_type' => $row['type']]) }}" class="t-row hover:bg-ink-50">
+                                    <span class="min-w-0 flex-1">
+                                        <span class="block truncate font-semibold text-ink">{{ $row['building']->name }}</span>
+                                        <span class="block truncate text-sm text-ink-500">{{ $typeLabels[$row['type']] }} · {{ $row['building']->address }}</span>
+                                    </span>
+                                    <span class="t-btn-secondary t-btn-sm shrink-0">Hacer remito</span>
+                                </a>
+                            @endforeach
+                        </div>
+                        @if($month['pending'] > $month['next']->count())
+                            <a href="{{ route('buildings.index', ['company' => $slug]) }}" class="block border-t border-ink-100 px-4 py-3 text-center text-sm font-semibold text-brand-700">Ver las {{ $month['pending'] }} pendientes</a>
+                        @endif
+                    @else
+                        <p class="px-4 pb-4 pt-2 text-sm font-semibold text-emerald-700">Todas las visitas del mes están hechas.</p>
+                    @endif
+                </div>
+            @endif
+        </section>
+    </div>
+
+    {{-- Accesos rápidos --}}
+    <h2 class="t-section">Accesos rápidos</h2>
+    <div class="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+        <a href="{{ route('reports.create', ['company' => $slug]) }}" class="t-btn-primary justify-start">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">{!! TechNav::icon('plus') !!}</svg>Nuevo reporte
+        </a>
+        <a href="{{ route('buildings.all', ['company' => $slug]) }}" class="t-btn-secondary justify-start">
+            <svg class="h-5 w-5 text-ink-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{!! TechNav::icon('building') !!}</svg>Edificios
+        </a>
+        <a href="{{ route('delivery-notes.index', ['company' => $slug]) }}" class="t-btn-secondary justify-start">
+            <svg class="h-5 w-5 text-ink-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{!! TechNav::icon('document') !!}</svg>Remitos
+        </a>
+        <a href="{{ route('templates.index', ['company' => $slug]) }}" class="t-btn-secondary justify-start">
+            <svg class="h-5 w-5 text-ink-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{!! TechNav::icon('table') !!}</svg>Planilla
+        </a>
+    </div>
+
+    {{-- Últimos remitos --}}
+    @if($recentNotes->isNotEmpty())
+        <h2 class="t-section">Tus últimos remitos</h2>
+        <div class="t-card t-divide overflow-hidden">
+            @foreach($recentNotes as $note)
+                <a href="{{ route('delivery-notes.show', ['company' => $slug, 'deliveryNote' => $note]) }}" class="t-row hover:bg-ink-50">
+                    <span class="min-w-0 flex-1">
+                        <span class="block truncate font-semibold text-ink">{{ $note->building?->name }}</span>
+                        <span class="block text-sm text-ink-500">Remito {{ $note->number }} · {{ $note->created_at?->format('d/m H:i') }}</span>
+                    </span>
+                    <span class="{{ $note->performed === false ? 't-chip-failed' : 't-chip-done' }}">{{ $note->performed === false ? 'No realizado' : 'Realizado' }}</span>
+                </a>
+            @endforeach
+        </div>
+    @endif
 </div>
-
-<style>
-
-/* primera tarjeta */
-.card-dashboard.top-left {
-    border-top-left-radius: 24px;
-}
-
-/* segunda tarjeta */
-.card-dashboard.top-right {
-    border-top-right-radius: 24px;
-}
-
-/* tercera tarjeta */
-.card-dashboard.bottom-left {
-    border-bottom-left-radius: 24px;
-}
-
-/* sexta tarjeta */
-.card-dashboard.bottom-right {
-    border-bottom-right-radius: 24px;
-}
-</style>
-
 </x-app-layout>

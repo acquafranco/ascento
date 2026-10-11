@@ -1,187 +1,94 @@
+{{--
+    Trabajos del técnico: pestañas por estado (con sus contadores) y filtro de
+    fecha opcional. Las reglas de qué ve cada técnico están en el controlador.
+--}}
 @php
-    use App\Support\WorkOrderLabels;
+    $slug = auth()->user()->company->slug;
+    $status = request('status');
+    $counts = app(\App\Services\Technicians\TechnicianWorkload::class)->counts(auth()->user());
+    $tabs = [
+        ['value' => 'pending', 'label' => 'Pendientes', 'count' => $counts['pending']],
+        ['value' => 'in_progress', 'label' => 'En curso', 'count' => $counts['in_progress']],
+        ['value' => 'completed', 'label' => 'Completados', 'count' => null],
+        ['value' => null, 'label' => 'Todos', 'count' => null],
+    ];
+    foreach ($tabs as $i => $tab) {
+        $tabs[$i]['active'] = $status === $tab['value'] || ($tab['value'] === null && blank($status));
+    }
+    $hasDate = request()->filled('day') || request()->filled('month') || request()->filled('year');
 @endphp
-
 <x-app-layout>
+<div class="t-page">
+    <header class="mb-4">
+        <h1 class="t-h1">Trabajos</h1>
+        <p class="t-sub">Órdenes que te asignó la oficina: tomalas y finalizalas con el remito.</p>
+    </header>
 
-<div class="max-w-7xl mx-auto px-4 pt-8 pb-32">
+    @if(session('success'))
+        <div class="t-alert-success mb-4" role="status">{{ session('success') }}</div>
+        <script>navigator.vibrate?.(40);</script>
+    @endif
 
-    <div class="mb-8">
+    {{-- Pestañas de estado --}}
+    <nav class="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1" aria-label="Estado" data-tech-counters data-counts-url="{{ route('technician.counters', ['company' => $slug]) }}">
+        @foreach($tabs as $tab)
+            <a href="{{ route('work-orders.index', array_filter(['company' => $slug, 'status' => $tab['value'], 'day' => request('day'), 'month' => request('month'), 'year' => request('year')])) }}"
+               @if($tab['active']) aria-current="page" @endif
+               class="inline-flex min-h-[40px] shrink-0 items-center gap-2 rounded-full px-4 text-sm font-semibold transition {{ $tab['active'] ? 'bg-ink text-white' : 'border border-ink-100 bg-white text-ink-700 hover:bg-ink-50' }}">
+                {{ $tab['label'] }}
+                @if($tab['count'] !== null)
+                    <span data-count="{{ $tab['value'] }}" class="rounded-full px-1.5 text-xs font-bold {{ $tab['active'] ? 'bg-brand text-ink' : 'bg-ink-50 text-ink-700' }}">{{ $tab['count'] }}</span>
+                @endif
+            </a>
+        @endforeach
+    </nav>
 
-        <h1 class="text-3xl font-black">
-            🔧 Órdenes de trabajo
-        </h1>
+    {{-- Filtro de fecha (fecha de creación de la orden) --}}
+    <details class="t-card mb-4" @if($hasDate) open @endif>
+        <summary class="flex min-h-[48px] cursor-pointer list-none items-center justify-between px-4 text-sm font-semibold text-ink-700">
+            Filtrar por fecha {{ $hasDate ? '· activo' : '' }}
+            <svg class="h-4 w-4 text-ink-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
+        <form method="GET" class="grid grid-cols-3 gap-2 border-t border-ink-100 p-3">
+            <input type="hidden" name="status" value="{{ $status }}">
+            <select name="day" class="t-input" aria-label="Día" onchange="this.form.submit()">
+                <option value="">Día</option>
+                @for($d = 1; $d <= 31; $d++)<option value="{{ $d }}" @selected(request('day') == $d)>{{ $d }}</option>@endfor
+            </select>
+            <select name="month" class="t-input" aria-label="Mes" onchange="this.form.submit()">
+                <option value="">Mes</option>
+                @for($m = 1; $m <= 12; $m++)<option value="{{ $m }}" @selected(request('month') == $m)>{{ ucfirst(\Carbon\Carbon::create()->month($m)->translatedFormat('F')) }}</option>@endfor
+            </select>
+            <select name="year" class="t-input" aria-label="Año" onchange="this.form.submit()">
+                <option value="">Año</option>
+                @for($y = now()->year - 3; $y <= now()->year + 1; $y++)<option value="{{ $y }}" @selected(request('year') == $y)>{{ $y }}</option>@endfor
+            </select>
+            @if($hasDate)
+                <a href="{{ route('work-orders.index', array_filter(['company' => $slug, 'status' => $status])) }}" class="col-span-3 text-center text-sm font-semibold text-brand-700">Quitar filtro de fecha</a>
+            @endif
+        </form>
+    </details>
 
-        <p class="text-gray-500">
-            Tomá y finalizá trabajos asignados
-        </p>
-
-    </div>
-
-  <form
-    method="GET"
-    class="mb-6 flex flex-nowrap items-end gap-2 overflow-x-auto"
-    id="filters-form"
->
-
-    <input
-        type="hidden"
-        name="status"
-        value="{{ request('status') }}"
-    >
-
-   <select
-        name="day"
-        onchange="this.form.submit()"
-        class="w-20 rounded-xl border-gray-300 text-sm px-2"
-    >
-        <option value="">Día</option>
-
-        @for($d=1;$d<=31;$d++)
-            <option
-                value="{{ $d }}"
-                @selected(request('day')==$d)
-            >
-                {{ $d }}
-            </option>
-        @endfor
-
-    </select>
-
-    <select
-        name="month"
-        onchange="this.form.submit()"
-        class="w-20 rounded-xl border-gray-300 text-sm px-2"
-    >
-
-        <option value="">Mes</option>
-
-        @for($m=1;$m<=12;$m++)
-            <option
-                value="{{ $m }}"
-                @selected(request('month')==$m)
-            >
-                {{ \Carbon\Carbon::create()->month($m)->translatedFormat('F') }}
-            </option>
-        @endfor
-
-    </select>
-
-    <select
-        name="year"
-        onchange="this.form.submit()"
-        class="w-20 rounded-xl border-gray-300 text-sm px-2"
-    >
-
-        <option value="">Año</option>
-
-        @for($y=now()->year-3;$y<=now()->year+1;$y++)
-            <option
-                value="{{ $y }}"
-                @selected(request('year')==$y)
-            >
-                {{ $y }}
-            </option>
-        @endfor
-
-    </select>
-
-
-    <a
-        href="{{ route('work-orders.index', [
-            'company' => auth()->user()->company->slug,
-            'status' => request('status')
-        ]) }}"
-        title="Limpiar filtros"
-        class="h-11 w-20 shrink-0 rounded-xl bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 transition shadow-sm"
-    >
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-        </svg>
-    </a>
-
-</form>
-
-<div class="mb-6 grid grid-cols-3 gap-2">
-
-    <a
-        href="{{ route('work-orders.index', [
-            'company' => auth()->user()->company->slug,
-            'status' => 'pending',
-        ]) }}"
-        class="py-3 rounded-xl bg-blue-100 hover:bg-blue-200 text-center text-xs sm:text-sm font-semibold"
-    >
-        📋<br>
-        Pendientes
-    </a>
-
-    <a
-        href="{{ route('work-orders.index', [
-
-        'company' => auth()->user()->company->slug,
-
-        'status' => 'in_progress']) }}"
-        class="py-3 rounded-xl bg-yellow-100 hover:bg-yellow-200 text-yellow-800 text-center text-xs sm:text-sm font-semibold"
-    >
-        🟡<br>
-        En curso
-    </a>
-
-    <a
-        href="{{ route('work-orders.index', [
-
-        'company' => auth()->user()->company->slug,
-
-        'status' => 'completed']) }}"
-        class="py-3 rounded-xl bg-green-100 hover:bg-green-200 text-green-700 text-center text-xs sm:text-sm font-semibold"
-    >
-        ✅<br>
-        Completados
-    </a>
-
-</div>
-
-    <div class="space-y-4">
-
+    <div class="space-y-3">
         @forelse($workOrders as $workOrder)
-
-            @include('work-orders.partials.card', ['workOrder' => $workOrder])
-
+            @include('work-orders.partials.card', ['workOrder' => $workOrder, 'linkToDetail' => true])
         @empty
-
-            <div class="text-center py-20 text-gray-500">
-                No hay órdenes de trabajo
+            <div class="t-empty">
+                <p class="font-semibold text-ink">
+                    @switch($status)
+                        @case('pending') No tenés trabajos pendientes @break
+                        @case('in_progress') No tenés trabajos en curso @break
+                        @case('completed') Todavía no completaste trabajos @break
+                        @default No hay órdenes de trabajo
+                    @endswitch
+                </p>
+                <p class="mt-1">{{ $hasDate ? 'Probá quitando el filtro de fecha.' : 'Cuando la oficina te asigne una orden, aparece acá y te llega un aviso.' }}</p>
             </div>
-
         @endforelse
 
-        @if ($workOrders->hasPages())
-            <div class="pt-2">
-                {{ $workOrders->onEachSide(1)->links() }}
-            </div>
+        @if($workOrders->hasPages())
+            <div class="pt-2">{{ $workOrders->onEachSide(1)->links() }}</div>
         @endif
-
     </div>
-
 </div>
-
-<script>
-document.querySelectorAll('.filter-select')
-.forEach(select => {
-
-    select.addEventListener('change', () => {
-
-        document
-            .getElementById('filters-form')
-            .submit();
-
-    });
-
-});
-</script>
-@if(session('success'))
-<script>
-    navigator.vibrate?.(40);
-</script>
-@endif
 </x-app-layout>

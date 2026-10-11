@@ -63,15 +63,27 @@ class ReportController extends Controller
             'warning' => $guard->warning($limit),
         ] : null;
 
-        $buildings = Building::where(
-            'company_id',
-            $company->id
-        )
-        ->where('is_active',true)
-        ->orderBy('name')
-        // Solo lo que usa el buscador del formulario (se serializa a JSON
-        // en la página).
-        ->get(['id', 'name', 'address', 'elevator_count', 'freight_elevator_count']);
+        // Edificios activos de la empresa con lo necesario para reconocerlos
+        // (dirección, localidad, barrio, cliente) y si están asignados al
+        // técnico (aparecen primero). Solo esos campos se serializan a JSON.
+        $assigned = auth()->user()->buildings()->pluck('buildings.id')->flip();
+
+        $buildings = Building::where('company_id', $company->id)
+            ->where('is_active', true)
+            ->with('client:id,name')
+            ->orderBy('name')
+            ->get(['id', 'name', 'address', 'locality', 'neighborhood', 'client_id', 'client_name', 'elevator_count', 'freight_elevator_count'])
+            ->map(fn (Building $b) => [
+                'id' => $b->id,
+                'name' => $b->name,
+                'address' => $b->address,
+                'place' => collect([$b->locality, $b->neighborhood])->filter()->unique()->implode(' · '),
+                'client' => $b->client?->name ?? $b->client_name,
+                'units' => $b->unitLabels(),
+                'mine' => $assigned->has($b->id),
+            ])
+            ->sortByDesc('mine')
+            ->values();
 
 
         return view(
@@ -150,6 +162,7 @@ class ReportController extends Controller
 
         $building = Building::where('id', $data['building_id'])
             ->where('company_id', $company->id)
+            ->where('is_active', true)
             ->first();
 
         if (! $building) {

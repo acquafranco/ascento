@@ -182,12 +182,24 @@ public function all(Request $request)
 {
     $user = auth()->user();
 
+    // Búsqueda en el servidor (antes filtraba solo la página visible y no andaba).
+    $search = trim((string) $request->query('search', ''));
+
     $buildings = Building::with('client')
         ->where('company_id', $user->company_id)
+        ->when($search !== '', fn ($query) => $query->where(fn ($q) => $q
+            ->where('name', 'like', "%{$search}%")
+            ->orWhere('address', 'like', "%{$search}%")
+            ->orWhere('locality', 'like', "%{$search}%")
+            ->orWhere('neighborhood', 'like', "%{$search}%")
+            ->orWhere('client_name', 'like', "%{$search}%")
+            ->orWhereHas('client', fn ($c) => $c->where('name', 'like', "%{$search}%"))))
         ->select([
             'id',
             'name',
             'address',
+            'locality',
+            'neighborhood',
             'client_id',
             'client_name',
             'contact_person',
@@ -197,7 +209,8 @@ public function all(Request $request)
             'notes',
         ])
         ->orderBy('name')
-        ->paginate(20);
+        ->paginate(20)
+        ->withQueryString();
 
     return view('buildings.all', compact('buildings'));
 }

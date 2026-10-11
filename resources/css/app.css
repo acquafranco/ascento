@@ -1,3 +1,63 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+ * App del técnico: componentes de la identidad de Ascento.
+ * Naranja #FF6600 (acción principal, con texto oscuro por contraste),
+ * oscuro #11161D (barras y títulos), blanco y grises para superficies.
+ */
+@layer components {
+    .t-page { @apply mx-auto w-full max-w-3xl px-4 pb-28 pt-4 lg:max-w-5xl lg:px-8 lg:pb-12 lg:pt-8; }
+    .t-h1 { @apply text-[22px] font-bold leading-tight tracking-tight text-ink lg:text-[26px]; }
+    .t-sub { @apply mt-1 text-sm text-ink-500; }
+    .t-section { @apply mb-2 mt-6 flex items-center justify-between text-xs font-bold uppercase tracking-[0.08em] text-ink-500; }
+    .t-card { @apply rounded-2xl border border-ink-100 bg-white shadow-[0_1px_2px_rgba(17,22,29,0.04)]; }
+    .t-row { @apply flex items-center gap-3 px-4 py-3.5; }
+    .t-divide > * + * { @apply border-t border-ink-100; }
+
+    .t-btn { @apply inline-flex min-h-[48px] select-none items-center justify-center gap-2 rounded-xl px-4 text-[15px] font-semibold transition duration-150 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand; }
+    .t-btn-primary { @apply t-btn bg-brand text-ink hover:bg-brand-600; }
+    .t-btn-dark { @apply t-btn bg-ink text-white hover:bg-ink-700; }
+    .t-btn-secondary { @apply t-btn border border-ink-100 bg-white text-ink hover:bg-ink-50; }
+    .t-btn-danger { @apply t-btn bg-red-600 text-white hover:bg-red-700; }
+    .t-btn-sm { @apply min-h-[40px] rounded-lg px-3 text-sm; }
+
+    .t-chip { @apply inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold; }
+    .t-chip-pending { @apply t-chip bg-amber-100 text-amber-800; }
+    .t-chip-progress { @apply t-chip bg-brand-100 text-brand-700; }
+    .t-chip-done { @apply t-chip bg-emerald-100 text-emerald-800; }
+    .t-chip-failed { @apply t-chip bg-red-100 text-red-700; }
+    .t-chip-neutral { @apply t-chip bg-ink-50 text-ink-700; }
+
+    .t-input { @apply block w-full rounded-xl border-ink-100 bg-white px-3.5 py-3 text-ink shadow-none placeholder:text-ink-300 focus:border-brand focus:ring-brand; }
+    .t-label { @apply mb-1.5 block text-sm font-semibold text-ink-700; }
+    .t-empty { @apply rounded-2xl border border-dashed border-ink-100 bg-white px-5 py-8 text-center text-sm text-ink-500; }
+    .t-alert-success { @apply rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800; }
+    .t-alert-error { @apply rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700; }
+    .t-alert-warning { @apply rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800; }
+}
+
+/* Navegación entre páginas sin parpadeo (navegadores que lo soportan): la
+   barra queda quieta y el contenido cambia con un fundido corto. Sin
+   JavaScript ni SPA: cada página sigue siendo una carga normal. */
+@view-transition { navigation: auto; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: 120ms; }
+.t-nav-top { view-transition-name: tech-nav-top; }
+.t-nav-bottom { view-transition-name: tech-nav-bottom; }
+@media (prefers-reduced-motion: reduce) {
+    @view-transition { navigation: none; }
+}
+
+/* Barra de carga al navegar o enviar un formulario. */
+#t-progress { position: fixed; inset: 0 0 auto 0; height: 3px; z-index: 100; pointer-events: none; transform: scaleX(0); transform-origin: left; background: #FF6600; opacity: 0; transition: opacity .2s; }
+#t-progress.is-active { opacity: 1; animation: t-progress 8s cubic-bezier(.1,.7,.2,1) forwards; }
+@keyframes t-progress { from { transform: scaleX(0); } 20% { transform: scaleX(.45); } to { transform: scaleX(.92); } }
+
+/* Botón ocupado (envío en curso): spinner sin cambiar el texto. */
+.t-btn[aria-busy="true"]::before, .t-btn-primary[aria-busy="true"]::before, .t-btn-dark[aria-busy="true"]::before,
+.t-btn-secondary[aria-busy="true"]::before, .t-btn-danger[aria-busy="true"]::before {
+    content: ""; width: 16px; height: 16px; border-radius: 999px; border: 2px solid currentColor; border-right-color: transparent;
+    animation: t-spin .7s linear infinite;
+}
+@keyframes t-spin { to { transform: rotate(360deg); } }

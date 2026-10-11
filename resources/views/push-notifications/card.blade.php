@@ -31,8 +31,8 @@
         x-show="state === 'default' || state === 'error'"
         @click="enable()"
         :disabled="busy"
-        class="shrink-0 rounded-xl px-3 py-2 text-sm font-bold text-white disabled:opacity-60"
-        style="background:#FF6A1A;"
+        class="shrink-0 rounded-xl px-3 py-2 text-sm font-bold text-ink disabled:opacity-60"
+        style="background:#FF6600;"
         data-push-enable
     >
         <span x-show="!busy">Activar</span>
@@ -72,8 +72,8 @@
                     type="button"
                     @click="enable()"
                     :disabled="busy"
-                    class="mt-3 w-full rounded-2xl px-5 py-3 font-bold text-white transition disabled:opacity-60 sm:w-auto"
-                    style="background:#FF6A1A;"
+                    class="mt-3 w-full rounded-2xl px-5 py-3 font-bold text-ink transition disabled:opacity-60 sm:w-auto"
+                    style="background:#FF6600;"
                     data-push-enable
                 >
                     <span x-show="!busy">Activar notificaciones</span>

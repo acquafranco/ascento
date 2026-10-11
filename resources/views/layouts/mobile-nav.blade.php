@@ -1,185 +1,79 @@
-<div
-    x-data="{
-        menu: false,
-        showNav: true,
-        lastScroll: 0,
+{{--
+    Barra inferior del celular: siempre visible (no se esconde al hacer
+    scroll), con las 4 secciones de trabajo y "Más" para el resto. Respeta el
+    área segura del iPhone. El contenido deja lugar abajo (.t-page).
+--}}
+@php
+    ['main' => $navMain, 'more' => $navMore, 'unread' => $unread, 'slug' => $slug] = \App\Support\TechNav::get();
+    $navIcon = fn (string $name) => \App\Support\TechNav::icon($name);
+    $moreActive = collect($navMore)->contains('active', true) || request()->routeIs('notifications.*', 'profile.*');
+@endphp
 
-        fixedPage: {{ request()->routeIs('dashboard') ? 'true' : 'false' }},
+<div x-data="{ more: false }" @keydown.escape.window="more = false" class="lg:hidden">
+    <nav class="t-nav-bottom fixed inset-x-0 bottom-0 z-50 border-t border-ink-100 bg-white/95 backdrop-blur"
+         style="padding-bottom: env(safe-area-inset-bottom);" aria-label="Secciones">
+        <div class="mx-auto grid max-w-lg grid-cols-5">
+            @foreach($navMain as $item)
+                <a href="{{ $item['href'] }}" @if($item['active']) aria-current="page" @endif
+                   class="relative flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-semibold {{ $item['active'] ? 'text-ink' : 'text-ink-500' }}">
+                    @if($item['active'])<span class="absolute inset-x-5 top-0 h-[3px] rounded-b-full bg-brand"></span>@endif
+                    <svg class="h-6 w-6 {{ $item['active'] ? 'text-brand' : '' }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{!! $navIcon($item['icon']) !!}</svg>
+                    {{ $item['label'] }}
+                </a>
+            @endforeach
+            <button type="button" @click="more = !more" :aria-expanded="more" aria-controls="t-more"
+                    class="relative flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-semibold {{ $moreActive ? 'text-ink' : 'text-ink-500' }}">
+                @if($moreActive)<span class="absolute inset-x-5 top-0 h-[3px] rounded-b-full bg-brand"></span>@endif
+                <span class="relative">
+                    <svg class="h-6 w-6 {{ $moreActive ? 'text-brand' : '' }}" viewBox="0 0 24 24" fill="currentColor">{!! $navIcon('more') !!}</svg>
+                    <span data-unread-count @if($unread === 0) hidden @endif
+                          class="absolute -right-3 -top-1.5 min-w-[18px] rounded-full bg-brand px-1 text-center text-[11px] font-bold leading-[18px] text-ink">{{ $unread > 99 ? '99+' : $unread }}</span>
+                </span>
+                Más
+            </button>
+        </div>
+    </nav>
 
-        init() {
-
-            if (this.fixedPage) {
-                this.showNav = true;
-                return;
-            }
-
-            window.addEventListener('scroll', () => {
-
-                const current = window.scrollY;
-                const delta = current - this.lastScroll;
-
-                if (delta > 15 && current > 60) {
-                    this.showNav = false;
-                }
-
-                if (delta < -2) {
-                    this.showNav = true;
-                }
-
-                this.lastScroll = current;
-            });
-
-            window.addEventListener('click', (e) => {
-                if (
-                    this.menu &&
-                    !this.$refs.menu.contains(e.target) &&
-                    !this.$refs.button.contains(e.target)
-                ) {
-                    this.menu = false;
-                }
-            });
-        }
-    }"
-    :style="fixedPage
-    ? 'transform:translateY(0)'
-    : (showNav
-        ? 'transform:translateY(0)'
-        : 'transform:translateY(100%)')"
-    class="lg:hidden fixed bottom-0 left-0 right-0 z-50 transition-all duration-300 mx-3 mb-3"
->
-    <div style="background-color:rgba(247,247,244,0.55); backdrop-filter:saturate(160%) blur(2px); -webkit-backdrop-filter:saturate(160%) blur(2px);"
-         class="rounded-3xl border border-black/[0.06] shadow-[0_8px_30px_-8px_rgba(20,23,28,0.22)]">
-    <div class="flex items-end justify-between px-2 py-2 w-full">
-
-           <!-- EDIFICIOS -->
-        <a href="{{ route('buildings.all', [
-        'company' => auth()->user()->company->slug,
-
-        ]) }}"  class="flex flex-1 min-w-0 flex-col items-center justify-center gap-1 text-center group">
-            <svg class="w-6 h-6 group-active:scale-90 transition-all duration-150" style="color:#FF6A1A" viewBox="0 0 24 24" fill="none">
-                <path d="M5 21V4A1 1 0 0 1 6 3H14A1 1 0 0 1 15 4V21" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
-                <path d="M15 10H18A1 1 0 0 1 19 11V21" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
-                <path d="M3 21H21" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
-                <path d="M8 7H8.01M11 7H11.01M8 11H8.01M11 11H11.01M8 15H8.01M11 15H11.01" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
-            </svg>
-            <div class="text-[11px] font-medium text-[#14171C]/70 whitespace-nowrap">Edificios</div>
-        </a>
-
-        <!-- TRABAJOS -->
-        <a href="{{ route('work-orders.index', [
-            'company' => auth()->user()->company->slug
-        ]) }}" class="flex flex-1 min-w-0 flex-col items-center justify-center gap-1 text-center group">
-            <svg class="w-6 h-6 group-active:scale-90 transition-all duration-150" style="color:#FF6A1A" viewBox="0 0 24 24" fill="none">
-                <path d="M14.5 3.5L20.5 9.5M17 3L21 7L8 20H4V16L17 3Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
-            </svg>
-            <div class="text-[11px] font-medium text-[#14171C]/70 whitespace-nowrap">Trabajos</div>
-        </a>
-
-        <!-- INICIO (destacado, centro) -->
-        <a href="{{ route('dashboard', [
-            'company' => auth()->user()->company->slug
-        ]) }}" class="flex flex-1 min-w-0 flex-col items-center justify-center gap-1 text-center group -mt-5">
-            <span class="flex items-center justify-center w-14 h-14 rounded-full shadow-[0_8px_20px_-4px_rgba(255,106,26,0.55)] group-active:scale-95 transition-all duration-150" style="background-color:#FF6A1A;">
-                <svg class="w-7 h-7" style="color:#F7F7F4" viewBox="0 0 24 24" fill="none">
-                    <path d="M4 11L12 4L20 11V19A1 1 0 0 1 19 20H15V14H9V20H5A1 1 0 0 1 4 19V11Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-                </svg>
-            </span>
-        </a>
-
-
-        <!-- REPORTES -->
-        <a href="{{ route('reports.index', [
-            'company' => auth()->user()->company->slug
-        ]) }}" class="flex flex-1 min-w-0 flex-col items-center justify-center gap-1 text-center group">
-            <svg class="w-6 h-6 group-active:scale-90 transition-all duration-150" style="color:#FF6A1A" viewBox="0 0 24 24" fill="none">
-                <path d="M6 3H14L19 8V21H6V3Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
-                <path d="M14 3V8H19" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
-                <path d="M9 13H16M9 17H16" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
-            </svg>
-            <div class="text-[11px] font-medium text-[#14171C]/70 whitespace-nowrap">Reportes</div>
-        </a>
-
-
-        <!-- BOTÓN MENU -->
-        <button
-            x-ref="button"
-            @click="menu = !menu"
-            class="flex flex-1 min-w-0 flex-col items-center justify-center gap-1 text-center group"
-        >
-            <svg xmlns="http://www.w3.org/2000/svg"
-                 class="w-6 h-6 group-active:scale-90 transition-all duration-150"
-                 style="color:#FF6A1A"
-                 fill="none"
-                 viewBox="0 0 24 24"
-                 stroke="currentColor">
-                <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M4 6h16M4 12h16M4 18h16"
-                />
-            </svg>
-            <div class="text-[11px] font-medium text-[#14171C]/70 whitespace-nowrap" style="position:relative">Menú
-                @if(auth()->user()->role === 'technician')
-                    @php($menuUnread = auth()->user()->unreadNotifications()->count())
-                    <span data-unread-count @if($menuUnread === 0) hidden @endif style="position:absolute; top:-30px; right:-14px; min-width:18px; height:18px; padding:0 5px; border-radius:999px; background:#dc2626; color:#fff; font-size:11px; font-weight:700; line-height:18px; text-align:center;">{{ $menuUnread > 99 ? '99+' : $menuUnread }}</span>
-                @endif
-            </div>
-        </button>
-
-    </div>
-    </div>
-
-    <!-- MENU DESPLEGABLE -->
-    <div
-        x-show="menu"
-        x-transition:enter="transition ease-out duration-200"
-        x-transition:enter-start="opacity-0 scale-95 translate-y-2"
-        x-transition:enter-end="opacity-100 scale-100 translate-y-0"
-        x-transition:leave="transition ease-in duration-150"
-        x-transition:leave-start="opacity-100 scale-100"
-        x-transition:leave-end="opacity-0 scale-95 translate-y-2"
-        x-ref="menu"
-        class="absolute bottom-20 right-4 bg-white rounded-3xl shadow-[0_20px_45px_-12px_rgba(20,23,28,0.32)] border border-black/[0.08] p-3 w-56"
-    >
-
-        <div class="flex items-center gap-2.5 border-b border-black/[0.06] pb-3 mb-2 px-1">
-            <span class="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold uppercase shrink-0" style="background-color:#12151C; color:#FF6A1A;">
-                {{ Str::of(auth()->user()->name)->substr(0, 1) }}
-            </span>
-            <span class="font-semibold text-sm text-[#14171C] truncate">
-                {{ auth()->user()->name }}
+    {{-- Menú "Más": hoja desde abajo, se cierra tocando afuera o con Escape. --}}
+    <div x-cloak x-show="more" x-transition.opacity class="fixed inset-0 z-[55] bg-ink/40" @click="more = false"></div>
+    <div id="t-more" x-cloak x-show="more"
+         x-transition:enter="transition ease-out duration-200" x-transition:enter-start="translate-y-full" x-transition:enter-end="translate-y-0"
+         x-transition:leave="transition ease-in duration-150" x-transition:leave-start="translate-y-0" x-transition:leave-end="translate-y-full"
+         class="fixed inset-x-0 bottom-0 z-[60] rounded-t-3xl bg-white px-3 pt-2 shadow-2xl"
+         style="padding-bottom: calc(env(safe-area-inset-bottom) + 12px);" role="dialog" aria-label="Más opciones">
+        <div class="mx-auto mb-2 h-1.5 w-10 rounded-full bg-ink-100"></div>
+        <div class="flex items-center gap-3 border-b border-ink-100 px-2 pb-3">
+            <span class="flex h-10 w-10 items-center justify-center rounded-full bg-ink text-sm font-bold uppercase text-brand">{{ Str::of(auth()->user()->name)->substr(0, 1) }}</span>
+            <span class="min-w-0">
+                <span class="block truncate font-semibold text-ink">{{ auth()->user()->name }}</span>
+                <span class="block truncate text-xs text-ink-500">{{ auth()->user()->company?->name }}</span>
             </span>
         </div>
-
-        @if(auth()->user()->role === 'technician')
-            <a href="{{ route('notifications.index') }}" class="flex items-center gap-3 py-2.5 px-2 rounded-xl text-sm text-[#14171C]/75 hover:bg-black/[0.05] hover:text-[#14171C] transition-colors duration-150">
-                <svg class="w-[18px] h-[18px] text-[#14171C]/50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
-                Avisos
-                <span data-unread-count @if($menuUnread === 0) hidden @endif style="margin-left:auto; min-width:18px; height:18px; padding:0 5px; border-radius:999px; background:#dc2626; color:#fff; font-size:11px; font-weight:700; line-height:18px; text-align:center;">{{ $menuUnread > 99 ? '99+' : $menuUnread }}</span>
+        <div class="py-1">
+            @foreach($navMore as $item)
+                <a href="{{ $item['href'] }}" class="flex min-h-[52px] items-center gap-3 rounded-xl px-2 text-[15px] font-semibold {{ $item['active'] ? 'bg-brand-50 text-ink' : 'text-ink-700 active:bg-ink-50' }}">
+                    <svg class="h-[22px] w-[22px] text-ink-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">{!! $navIcon($item['icon']) !!}</svg>
+                    {{ $item['label'] }}
+                </a>
+            @endforeach
+            @if(auth()->user()->role === 'technician')
+                <a href="{{ route('notifications.index') }}" class="flex min-h-[52px] items-center gap-3 rounded-xl px-2 text-[15px] font-semibold text-ink-700 active:bg-ink-50">
+                    <svg class="h-[22px] w-[22px] text-ink-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">{!! $navIcon('bell') !!}</svg>
+                    Avisos
+                    <span data-unread-count @if($unread === 0) hidden @endif class="ml-auto min-w-[20px] rounded-full bg-brand px-1.5 text-center text-xs font-bold leading-5 text-ink">{{ $unread > 99 ? '99+' : $unread }}</span>
+                </a>
+            @endif
+            <a href="{{ route('profile.edit', ['company' => $slug]) }}" class="flex min-h-[52px] items-center gap-3 rounded-xl px-2 text-[15px] font-semibold text-ink-700 active:bg-ink-50">
+                <svg class="h-[22px] w-[22px] text-ink-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">{!! $navIcon('user') !!}</svg>
+                Mi perfil
             </a>
-        @endif
-
-        <a href="{{ route('profile.edit', [
-            'company' => auth()->user()->company->slug,
-        ]) }}" class="flex items-center gap-3 py-2.5 px-2 rounded-xl text-sm text-[#14171C]/75 hover:bg-black/[0.05] hover:text-[#14171C] transition-colors duration-150">
-            <svg class="w-[18px] h-[18px] text-[#14171C]/50" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="1.7"/>
-                <path d="M5 20C6 16.5 8.7 15 12 15C15.3 15 18 16.5 19 20" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
-            </svg>
-            Perfil
-        </a>
-
-        <form method="POST" action="{{ route('logout') }}">
-            @csrf
-
-            <button class="w-full flex items-center gap-3 py-2.5 px-2 rounded-xl text-left text-sm font-medium text-red-500 hover:bg-red-50 transition-colors duration-150">
-                <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none">
-                    <path d="M9 21H5A2 2 0 0 1 3 19V5A2 2 0 0 1 5 3H9M16 17L21 12L16 7M21 12H9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                Cerrar sesión
-            </button>
-        </form>
-
+            <form method="POST" action="{{ route('logout') }}">
+                @csrf
+                <button class="flex min-h-[52px] w-full items-center gap-3 rounded-xl px-2 text-left text-[15px] font-semibold text-red-600 active:bg-red-50">
+                    <svg class="h-[22px] w-[22px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">{!! $navIcon('logout') !!}</svg>
+                    Cerrar sesión
+                </button>
+            </form>
+        </div>
     </div>
 </div>

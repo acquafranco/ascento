@@ -1,401 +1,161 @@
+{{--
+    Visitas del técnico: sus edificios asignados con el mantenimiento y/o la
+    inspección del mes elegido. Desde acá se hace el remito de cada visita.
+    Mismos datos y filtros que antes (mes, año y búsqueda).
+--}}
+@php
+    use App\Support\TechNav;
+    $slug = auth()->user()->company->slug;
+    $machines = fn (int $n, string $one, string $many) => $n.' '.($n === 1 ? $one : $many);
+@endphp
 <x-app-layout>
+<div class="t-page">
+    <header class="mb-4">
+        <h1 class="t-h1">Visitas</h1>
+        <p class="t-sub">Mantenimientos e inspecciones de tus edificios asignados.</p>
+    </header>
 
-<div class="max-w-7xl mx-auto px-4 py-6">
-
-    {{-- HEADER --}}
-<div class="mb-6 flex flex-col gap-4">
-
-    <div>
-        <h1 class="text-3xl font-black flex items-center gap-2">
-            📍 Mis visitas
-        </h1>
-
-        <p class="text-gray-500">
-            Mantenimientos e inspecciones asignados
-        </p>
-
-    </div>
-
-<div class="grid grid-cols-3 gap-2 w-full">
-
-    {{-- TOTAL --}}
-    <div class="bg-blue-100 border border-blue-200 rounded-2xl p-2 text-center">
-        <div class="w-full h-8 flex items-center justify-center">
-            <span class="w-full text-center text-xs font-semibold text-green-700 leading-tight">
-                🛗 Máquinas totales
-            </span>
-        </div>
-
-        <div class="text-3xl font-black text-blue-800 leading-none mt-1">
-            {{ $totalMachines }}
-        </div>
-    </div>
-
-
-    {{-- MANTENIMIENTO --}}
-    @if($maintenanceTotalMachines > 0)
-
-        <div class="bg-green-100 border border-green-200 rounded-2xl p-2 text-center">
-            <div class="w-full h-8 flex items-center justify-center">
-                <span class="w-full text-center text-xs font-semibold text-green-700 leading-tight">
-                    🔧 Mant. restantes
-                </span>
-            </div>
-
-            <div class="text-3xl font-black text-green-800 leading-none mt-1">
-                {{ $maintenanceRemaining }}
-            </div>
-        </div>
-
+    @if(session('success'))
+        <div class="t-alert-success mb-4" role="status">{{ session('success') }}</div>
     @endif
 
-
-    {{-- INSPECCION --}}
-    @if($inspectionTotalMachines > 0)
-
-        <div class="bg-purple-100 border border-purple-200 rounded-2xl p-2 text-center">
-            <div class="w-full h-8 flex items-center justify-center">
-                <span class="w-full text-center text-xs font-semibold text-green-700 leading-tight">
-                  🔎 Insp. restantes
-                </span>
-            </div>
-
-            <div class="text-3xl font-black text-purple-800 leading-none mt-1">
-                {{ $inspectionRemaining }}
-            </div>
+    {{-- Resumen del mes (máquinas) --}}
+    <div class="mb-4 grid grid-cols-3 gap-2.5">
+        <div class="t-card px-3 py-3">
+            <div class="text-[26px] font-bold leading-none text-ink">{{ $totalMachines }}</div>
+            <div class="mt-1 text-xs font-semibold text-ink-500">Máquinas asignadas</div>
         </div>
-
-    @endif
-
-</div>
-</div>
-
-<form method="GET" id="filtersForm" class="mb-5 space-y-3">
-
-    <div class="flex gap-2">
-
-        <select
-            name="month"
-            onchange="document.getElementById('filtersForm').submit()"
-            class="rounded-xl border-gray-300"
-        >
-            @for($m = 1; $m <= 12; $m++)
-                <option
-                    value="{{ $m }}"
-                    @selected($month == $m)
-                >
-                    {{ \Carbon\Carbon::create()->month($m)->translatedFormat('F') }}
-                </option>
-            @endfor
-        </select>
-
-
-        <select
-            name="year"
-            onchange="document.getElementById('filtersForm').submit()"
-            class="rounded-xl border-gray-300"
-        >
-            @for($y = now()->year - 2; $y <= now()->year + 2; $y++)
-                <option
-                    value="{{ $y }}"
-                    @selected($year == $y)
-                >
-                    {{ $y }}
-                </option>
-            @endfor
-        </select>
-
+        @if($maintenanceTotalMachines > 0)
+            <div class="t-card px-3 py-3">
+                <div class="text-[26px] font-bold leading-none {{ $maintenanceRemaining ? 'text-ink' : 'text-emerald-600' }}">{{ $maintenanceRemaining }}</div>
+                <div class="mt-1 text-xs font-semibold text-ink-500">Mantenimientos por hacer</div>
+            </div>
+        @endif
+        @if($inspectionTotalMachines > 0)
+            <div class="t-card px-3 py-3">
+                <div class="text-[26px] font-bold leading-none {{ $inspectionRemaining ? 'text-ink' : 'text-emerald-600' }}">{{ $inspectionRemaining }}</div>
+                <div class="mt-1 text-xs font-semibold text-ink-500">Inspecciones por hacer</div>
+            </div>
+        @endif
     </div>
 
+    <form method="GET" id="filtersForm" class="mb-4 space-y-2" role="search">
+        <div class="grid grid-cols-2 gap-2">
+            <select name="month" class="t-input" aria-label="Mes" onchange="this.form.submit()">
+                @for($m = 1; $m <= 12; $m++)
+                    <option value="{{ $m }}" @selected($month == $m)>{{ ucfirst(\Carbon\Carbon::create()->month($m)->translatedFormat('F')) }}</option>
+                @endfor
+            </select>
+            <select name="year" class="t-input" aria-label="Año" onchange="this.form.submit()">
+                @for($y = now()->year - 2; $y <= now()->year + 2; $y++)
+                    <option value="{{ $y }}" @selected($year == $y)>{{ $y }}</option>
+                @endfor
+            </select>
+        </div>
+        <input type="search" name="search" value="{{ request('search') }}" id="searchInput" autocomplete="off"
+               placeholder="Buscar por edificio, calle, cliente, localidad o barrio" class="t-input" aria-label="Buscar edificio">
+    </form>
 
-    <input
-        type="text"
-        name="search"
-        value="{{ request('search') }}"
-        id="searchInput"
-        placeholder="Buscar calle, cliente, localidad o barrio..."
-        class="w-full rounded-2xl border-gray-300 shadow-sm"
-    >
-
-</form>
-
-
-    {{-- LISTA --}}
     <div class="space-y-3" id="buildingsList">
-
         @forelse($buildings as $building)
             @php
-            $types = $building->users
-    ->pluck('pivot.type')
-    ->flatMap(function ($type) {
-        return explode(',', $type);
-    })
-    ->toArray();
-
-            $maintenanceVisit = $building->visits
-                ->where('assignment_type', 'maintenance')
-                ->first();
-
-            $inspectionVisit = $building->visits
-                ->where('assignment_type', 'inspection')
-                ->first();
+                $types = $building->users->pluck('pivot.type')->flatMap(fn ($type) => explode(',', $type))->toArray();
+                $visits = [
+                    'maintenance' => $building->visits->where('assignment_type', 'maintenance')->first(),
+                    'inspection' => $building->visits->where('assignment_type', 'inspection')->first(),
+                ];
+                $place = collect([$building->locality, $building->neighborhood, $building->municipality])->filter()->unique()->implode(' · ');
+                $address = trim(($building->address ?? '').', '.($building->locality ?? ''), ', ');
             @endphp
-            {{-- 🔥 UN SOLO DISEÑO (mobile + desktop) --}}
-            <div
-                class="building-card bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden"
-                data-name="{{ strtolower(
-                    $building->name . ' ' .
-                    $building->address . ' ' .
-                    ($building->client?->name ?? '') . ' ' .
-                    ($building->locality ?? '') . ' ' .
-                    ($building->neighborhood ?? '') . ' ' .
-                    ($building->municipality ?? '')
-                ) }}"
-                 >
-
+            <article class="t-card overflow-hidden">
                 <div class="p-4">
-
-                    {{-- HEADER --}}
                     <div class="flex items-start justify-between gap-3">
-
-                        <div>
-
-                                <div class="font-bold">
-
-                                    {{ $building->client?->name ?? 'Sin cliente' }}
-
-                                </div>
-
-                                <div class="text-sm text-slate-500">
-
-                                    {{ $building->name }} {{ $building->address }}
-
-                                </div>
-
+                        <div class="min-w-0">
+                            <h2 class="text-[17px] font-bold leading-snug text-ink">{{ $building->name }}</h2>
+                            <p class="text-sm text-ink-700">{{ $building->address }}</p>
+                            <p class="text-xs text-ink-500">{{ $place }}{{ $place && $building->client ? ' · ' : '' }}{{ $building->client?->name }}</p>
                         </div>
-
-                        <div class="text-xs text-slate-500 mt-1">
-
-                        {{ $building->locality }}
-
-                        @if($building->neighborhood)
-                            · {{ $building->neighborhood }}
+                        @if($address !== '')
+                            <a href="https://www.google.com/maps/search/?api=1&query={{ rawurlencode($address) }}" target="_blank" rel="noopener"
+                               class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-ink-100 text-ink-500 hover:bg-ink-50" aria-label="Cómo llegar a {{ $building->name }}">
+                                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{!! TechNav::icon('pin') !!}</svg>
+                            </a>
                         @endif
+                    </div>
 
-                        @if($building->municipality)
-                            · {{ $building->municipality }}
+                    <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-500">
+                        <span><strong class="text-ink">{{ $machines((int) $building->elevator_count, 'ascensor', 'ascensores') }}</strong>{{ $building->freight_elevator_count ? ' · '.$machines((int) $building->freight_elevator_count, 'montacargas', 'montacargas') : '' }}</span>
+                        @if($building->contact_person)<span>Contacto: <strong class="text-ink">{{ $building->contact_person }}</strong></span>@endif
+                        @if($building->phone)
+                            <a href="tel:{{ preg_replace('/[^0-9+]/', '', $building->phone) }}" class="font-semibold text-brand-700">{{ $building->phone }}</a>
                         @endif
-
                     </div>
-
-                    </div>
-
-                    {{-- INFO SIMPLE (SIN ÍCONOS) --}}
-                    <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
-
-                        <div class="bg-slate-50 border rounded-xl p-2">
-                            <div class="text-slate-500">Contacto</div>
-                            <div class="font-semibold">
-                                {{ $building->contact_person ?? '—' }}
-                            </div>
-                        </div>
-
-                        <div class="bg-slate-50 border rounded-xl p-2">
-                            <div class="text-slate-500">Teléfono</div>
-                            <div class="font-semibold">
-                                {{ $building->phone ?: '—' }}
-                            </div>
-                        </div>
-
-                        <div class="bg-slate-50 border rounded-xl p-2 col-span-2">
-                            <div class="text-slate-500">Asc / Mont</div>
-                            <div class="font-semibold">
-                                {{ $building->elevator_count }} / {{ $building->freight_elevator_count }}
-                            </div>
-                        </div>
-
-                    </div>
-
-                    {{-- ESTADO --}}
-                    <div class="mt-4 space-y-3">
-
-                {{-- MANTENIMIENTO --}}
-                @if(in_array('maintenance', $types))
-
-                    @if(!$maintenanceVisit)
-
-                        <a
-                            href="{{ route('delivery-notes.building',[
-                                'company' => auth()->user()->company->slug,
-                                'building'=>$building,
-                                'month'=>$month,
-                                'year'=>$year,
-                                'assignment_type'=>'maintenance'
-                            ]) }}"
-                            class="block text-center bg-slate-800 hover:bg-slate-900 text-white py-3 rounded-2xl font-bold"
-                        >
-                            🔧 Marcar mantenimiento
-                        </a>
-
-                    @else
-
-                        @php
-                            $maintenanceNotDone = $maintenanceVisit->deliveryNote?->performed === false;
-                        @endphp
-                        <div class="flex items-center justify-between {{ $maintenanceNotDone ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200' }} border rounded-2xl p-4">
-
-                            <div>
-
-                                <div class="font-bold {{ $maintenanceNotDone ? 'text-amber-700' : 'text-green-700' }}">
-                                    {{ $maintenanceNotDone ? '⚠️ Remito firmado: no se pudo realizar' : '🔧 Mantenimiento realizado' }}
-                                </div>
-                                @if($maintenanceNotDone)
-                                    <div class="text-sm text-amber-700">La oficina lo ve y coordina la nueva visita.</div>
-                                @endif
-
-                                @if($maintenanceVisit->delivery_note)
-                                    <div class="text-sm text-slate-500">
-                                        Remito #{{ $maintenanceVisit->delivery_note }}
-                                    </div>
-                                @endif
-
-                            </div>
-
-
-
-                        </div>
-
-                    @endif
-
-                @endif
-
-
-
-                {{-- INSPECCIÓN --}}
-                @if(in_array('inspection', $types))
-
-                    @if(!$inspectionVisit)
-
-                        <a
-                            href="{{ route('delivery-notes.building',[
-                                'company' => auth()->user()->company->slug,
-                                'building'=>$building,
-                                'month'=>$month,
-                                'year'=>$year,
-                                'assignment_type'=>'inspection'
-                            ]) }}"
-                            class="block text-center bg-blue-700 hover:bg-blue-800 text-white py-3 rounded-2xl font-bold"
-                        >
-                            🔎 Marcar inspección
-                        </a>
-
-                    @else
-
-                        @php
-                            $inspectionNotDone = $inspectionVisit->deliveryNote?->performed === false;
-                        @endphp
-                        <div class="flex items-center justify-between {{ $inspectionNotDone ? 'bg-amber-50 border-amber-200' : 'bg-blue-50 border-blue-200' }} border rounded-2xl p-4">
-
-                            <div>
-
-                                <div class="font-bold {{ $inspectionNotDone ? 'text-amber-700' : 'text-blue-700' }}">
-                                    {{ $inspectionNotDone ? '⚠️ Remito firmado: no se pudo realizar' : '🔎 Inspección realizada' }}
-                                </div>
-                                @if($inspectionNotDone)
-                                    <div class="text-sm text-amber-700">La oficina lo ve y coordina la nueva visita.</div>
-                                @endif
-
-                                @if($inspectionVisit->delivery_note)
-                                    <div class="text-sm text-slate-500">
-                                        Remito #{{ $inspectionVisit->delivery_note }}
-                                    </div>
-                                @endif
-
-                            </div>
-
-
-
-                        </div>
-
-                    @endif
-
-                @endif
-
-            </div>
-
                 </div>
 
-            </div>
-
+                {{-- Estado y acción de cada tipo de visita asignado --}}
+                <div class="t-divide border-t border-ink-100">
+                    @foreach(['maintenance' => 'Mantenimiento', 'inspection' => 'Inspección'] as $type => $label)
+                        @continue(! in_array($type, $types))
+                        @php
+                            $visit = $visits[$type];
+                            $notDone = $visit && $visit->deliveryNote?->performed === false;
+                        @endphp
+                        <div class="flex items-center gap-3 px-4 py-3">
+                            <div class="min-w-0 flex-1">
+                                <div class="text-sm font-semibold text-ink">{{ $label }}</div>
+                                @if(! $visit)
+                                    <span class="t-chip-pending mt-0.5">Pendiente</span>
+                                @elseif($notDone)
+                                    <span class="t-chip-failed mt-0.5">Remito firmado: no se pudo realizar</span>
+                                    <p class="mt-1 text-xs text-ink-500">La oficina lo ve y coordina la nueva visita.</p>
+                                @else
+                                    <span class="t-chip-done mt-0.5">{{ $type === 'maintenance' ? 'Mantenimiento realizado' : 'Inspección realizada' }}</span>
+                                @endif
+                                @if($visit?->delivery_note)
+                                    <span class="ml-1 text-xs text-ink-500">Remito #{{ $visit->delivery_note }}</span>
+                                @endif
+                            </div>
+                            @unless($visit)
+                                <a href="{{ route('delivery-notes.building', ['company' => $slug, 'building' => $building, 'month' => $month, 'year' => $year, 'assignment_type' => $type]) }}"
+                                   class="{{ $type === 'maintenance' ? 't-btn-primary' : 't-btn-dark' }} t-btn-sm shrink-0">
+                                    Marcar {{ mb_strtolower($label) }}
+                                </a>
+                            @endunless
+                        </div>
+                    @endforeach
+                </div>
+            </article>
         @empty
-
-            <div class="text-center py-10 text-gray-500">
-                No tenés edificios asignados
+            <div class="t-empty">
+                @if(request('search'))
+                    <p class="font-semibold text-ink">No encontramos edificios con "{{ request('search') }}"</p>
+                    <p class="mt-1">Probá con la calle, el barrio o el nombre del cliente.</p>
+                @else
+                    <p class="font-semibold text-ink">No tenés edificios asignados</p>
+                    <p class="mt-1">Las asignaciones de mantenimiento e inspección las hace la oficina.</p>
+                @endif
             </div>
-
         @endforelse
-
     </div>
 
+    @if($buildings->hasPages())
+        <div class="mt-4">{{ $buildings->links() }}</div>
+    @endif
 </div>
 
-<div class="mt-6">
-    {{ $buildings->links() }}
-</div>
 <script>
-function confirmarDesmarcar() {
-
-    return confirm(
-`Este mantenimiento ya tiene un remito asociado.
-
-Si lo desmarcás:
-
-• El remito NO se eliminará.
-• El edificio volverá a quedar pendiente.
-• Podrías generar un remito duplicado si volvés a realizar el mantenimiento.
-
-¿Querés continuar?`
-    );
-
-}
+    // Búsqueda: se aplica sola al dejar de escribir (medio segundo).
+    (() => {
+        const input = document.getElementById('searchInput');
+        let timer;
+        input.addEventListener('input', () => {
+            clearTimeout(timer);
+            timer = setTimeout(() => input.form.submit(), 500);
+        });
+        if (input.value) {
+            input.focus();
+            input.setSelectionRange(input.value.length, input.value.length);
+        }
+    })();
 </script>
-<script>
-
-let timer;
-
-const searchInput = document.getElementById('searchInput');
-
-searchInput.addEventListener('input', function () {
-
-    clearTimeout(timer);
-
-    timer = setTimeout(() => {
-
-        document
-            .getElementById('filtersForm')
-            .submit();
-
-    }, 500);
-
-});
-
-
-window.onload = function () {
-
-    if (searchInput.value) {
-
-        searchInput.focus();
-
-        searchInput.setSelectionRange(
-            searchInput.value.length,
-            searchInput.value.length
-        );
-
-    }
-
-};
-
-</script>
-
-
 </x-app-layout>
