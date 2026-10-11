@@ -34,6 +34,16 @@
                     <p class="asc-c">{{ $o['health']['failed_backups'] }} fallidos en 48 h</p></div>
                 <div class="asc-card"><p class="asc-q">Exportaciones fallidas</p><p class="asc-v">{{ $o['health']['failed_exports'] }}</p><p class="asc-c">últimos 7 días</p></div>
                 <div class="asc-card"><p class="asc-q">Videos que no se pudieron procesar</p><p class="asc-v">{{ $o['health']['failed_videos'] }}</p><p class="asc-c">últimos 7 días</p></div>
+                @php
+                    // Valor REAL del PHP que atiende la web (PHP-FPM): el comando de consola no lo puede ver.
+                    $uploadMb = \App\Support\Diagnostics\ServerLimits::toMb((string) ini_get('upload_max_filesize'));
+                    $postMb = \App\Support\Diagnostics\ServerLimits::toMb((string) ini_get('post_max_size'));
+                    $neededMb = (int) config('media.video_max_mb') + 10;
+                    $uploadOk = $uploadMb !== null && $postMb !== null && $uploadMb >= $neededMb && $postMb >= $neededMb;
+                @endphp
+                <div class="asc-card"><p class="asc-q">Subida de archivos (PHP de la web)</p>
+                    <p class="asc-v" style="font-size:1.1rem; @unless($uploadOk) color:#dc2626 @endunless">{{ \App\Support\Diagnostics\ServerLimits::label($uploadMb) }} / {{ \App\Support\Diagnostics\ServerLimits::label($postMb) }}</p>
+                    <p class="asc-c">por archivo / por envío · {{ $uploadOk ? 'alcanza para videos de '.config('media.video_max_mb').' MB' : 'hace falta ≥ '.$neededMb.' MB (Forge → PHP)' }}. Nginx se revisa aparte.</p></div>
             </div>
         </section>
 
