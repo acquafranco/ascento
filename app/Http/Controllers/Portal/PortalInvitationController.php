@@ -5,12 +5,12 @@ namespace App\Http\Controllers\Portal;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\Portal\PortalInvitations;
+use App\Support\Auth\PasswordPolicy;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rules;
 
 /**
  * Activación de una cuenta del portal desde el enlace de la invitación. El
@@ -35,7 +35,7 @@ class PortalInvitationController extends Controller
         $request->validate([
             'token' => ['required', 'string'],
             'email' => ['required', 'email'],
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'password' => PasswordPolicy::rules([$request->input('email')]),
         ]);
 
         $user = User::where('email', $request->input('email'))->first();

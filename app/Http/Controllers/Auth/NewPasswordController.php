@@ -4,13 +4,13 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\Auth\PasswordPolicy;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rules;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -34,7 +34,7 @@ class NewPasswordController extends Controller
         $request->validate([
             'token' => ['required'],
             'email' => ['required', 'email'],
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'password' => PasswordPolicy::rules([$request->input('email')]),
         ]);
 
         // Here we will attempt to reset the user's password. If it is successful we
@@ -50,6 +50,8 @@ class NewPasswordController extends Controller
                 $user->forceFill([
                     'password' => Hash::make($request->password),
                     'remember_token' => Str::random(60),
+                    // El enlace con el token llegó a este correo: prueba válida de que es suyo.
+                    'email_verified_at' => $user->email_verified_at ?? now(),
                 ])->save();
 
                 event(new PasswordReset($user));

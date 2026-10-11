@@ -504,7 +504,7 @@ class PreProductionAuditTest extends TestCase
         Livewire::test(CreateUser::class)
             ->assertSee('Número de teléfono')
             ->assertDontSee('WhatsApp')
-            ->fillForm(['name' => 'Técnica Nueva', 'email' => 'nueva@alfa.test', 'phone' => '0351 15 123-4567', 'password' => 'clave-segura-1'])
+            ->fillForm(['name' => 'Técnica Nueva', 'email' => 'nueva@alfa.test', 'phone' => '0351 15 123-4567', 'password' => 'clave-segura-1', 'password_confirmation' => 'clave-segura-1'])
             ->call('create')
             ->assertHasNoFormErrors();
 
@@ -514,7 +514,7 @@ class PreProductionAuditTest extends TestCase
         $this->assertSame('technician', $user->role);
 
         Livewire::test(CreateUser::class)
-            ->fillForm(['name' => 'Mal', 'email' => 'mal@alfa.test', 'phone' => '123', 'password' => 'clave-segura-1'])
+            ->fillForm(['name' => 'Mal', 'email' => 'mal@alfa.test', 'phone' => '123', 'password' => 'clave-segura-1', 'password_confirmation' => 'clave-segura-1'])
             ->call('create')
             ->assertHasFormErrors(['phone']);
 

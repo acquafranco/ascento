@@ -213,7 +213,8 @@ class FilamentTenantIsolationTest extends TestCase
                 'name' => 'Nuevo Técnico',
                 'email' => 'nuevo@example.com',
                 'phone' => '1122334455',
-                'password' => 'secret-password',
+                'password' => 'Kiosco-Verde-8241',
+                'password_confirmation' => 'Kiosco-Verde-8241',
             ])
             ->set('data.company_id', $this->b['company']->id)
             ->set('data.is_super_admin', true)

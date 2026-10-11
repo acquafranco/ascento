@@ -64,13 +64,28 @@ class UserResource extends Resource
                     })
                     ->dehydrateStateUsing(fn (?string $state) => PhoneNumber::normalize($state)),
 
+            // Misma política que el resto de Ascento (PasswordPolicy). En la
+            // edición es opcional: vacío = no se cambia.
             TextInput::make('password')
-                ->label('Contraseña')
+                ->label(fn (string $operation) => $operation === 'create' ? 'Contraseña' : 'Contraseña nueva')
                 ->password()
+                ->revealable()
+                ->autocomplete('new-password')
                 ->required(fn (string $operation) => $operation === 'create')
+                ->rule(fn () => \Illuminate\Validation\Rules\Password::defaults())
+                ->rule(fn (\Filament\Schemas\Components\Utilities\Get $get) => new \App\Rules\NotCommonPassword([$get('name'), $get('email')]))
+                ->confirmed()
+                ->helperText(fn (string $operation) => \App\Support\Auth\PasswordPolicy::HINT.($operation === 'edit' ? ' Dejala vacía para no cambiarla.' : ''))
                 ->dehydrated(fn ($state) => filled($state))
-                ->dehydrateStateUsing(fn ($state) => Hash::make($state))
-                ->minLength(8),
+                ->dehydrateStateUsing(fn ($state) => Hash::make($state)),
+
+            TextInput::make('password_confirmation')
+                ->label('Repetir contraseña')
+                ->password()
+                ->revealable()
+                ->autocomplete('new-password')
+                ->required(fn (string $operation, \Filament\Schemas\Components\Utilities\Get $get) => $operation === 'create' || filled($get('password')))
+                ->dehydrated(false),
             ]);
     }
 

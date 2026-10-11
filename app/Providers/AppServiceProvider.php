@@ -10,6 +10,7 @@ use App\Models\Quote;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Services\Portal\PortalInvitations;
+use App\Support\Auth\PasswordPolicy;
 use App\Support\Realtime;
 use App\Support\RealtimeCounters;
 use Carbon\Carbon;
@@ -23,6 +24,7 @@ use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -34,6 +36,9 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Carbon::setLocale('es');
+
+        // Una sola política para crear o cambiar contraseñas (ver PasswordPolicy).
+        Password::defaults(fn () => PasswordPolicy::defaults());
 
         // Subidas temporales de Livewire (panel): alcanza para el video de un
         // reporte (por defecto Livewire corta en 12 MB).
