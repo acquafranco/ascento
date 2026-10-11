@@ -14,6 +14,28 @@
             $inProgress = $this->isGeocodingInProgress();
         @endphp
 
+        {{-- CÓMO LEER EL MAPA: qué representa y qué NO (no hay seguimiento GPS). --}}
+        <details class="bm-help" data-map-help open
+                 style="margin-bottom:1rem;border:1px solid rgba(127,127,127,.25);border-radius:.75rem;padding:.75rem 1rem;font-size:.875rem;">
+            <summary style="cursor:pointer;font-weight:600;">Cómo leer este mapa</summary>
+            <ul style="margin:.6rem 0 0;padding-left:1.1rem;line-height:1.55;list-style:disc;">
+                <li><strong>Cada punto es un edificio</strong>, ubicado en la dirección cargada (o donde lo marcaste a mano si la dirección no alcanzaba).</li>
+                <li><strong>Un círculo con un número</strong> agrupa edificios cercanos: tocalo o acercate para separarlos.</li>
+                <li>El <strong>técnico</strong> que figura es el <strong>asignado</strong> al edificio. Ascento <strong>no sigue la ubicación</strong> de los técnicos: no hay GPS ni posiciones en vivo.</li>
+                <li>El color es el que elegiste para cada edificio o, con "Colorear por: estado del mes", si el mantenimiento de {{ now()->translatedFormat('F') }} está hecho, pendiente o sin técnico.</li>
+                <li>Los datos son los del momento en que abriste la página: recargá para ver cambios.</li>
+            </ul>
+        </details>
+        <script>
+            // Se recuerda si lo cerraste (solo en este navegador).
+            (() => {
+                const help = document.querySelector('[data-map-help]');
+                if (!help) return;
+                try { if (localStorage.getItem('ascento.mapHelpClosed') === '1') help.open = false; } catch (e) {}
+                help.addEventListener('toggle', () => { try { localStorage.setItem('ascento.mapHelpClosed', help.open ? '0' : '1'); } catch (e) {} });
+            })();
+        </script>
+
         {{-- RESUMEN + FILTROS --}}
         <div class="bm-toolbar">
             <div class="bm-stats">
@@ -143,6 +165,7 @@
                     @endforeach
                     <span style="opacity:.6">Mantenimiento de {{ now()->translatedFormat('F') }}.</span>
                 </div>
+                <span style="display:inline-flex;align-items:center;gap:.35rem;opacity:.85"><span style="display:inline-flex;width:1.1rem;height:1.1rem;border-radius:999px;background:#FF6600;color:#11161D;font-size:.65rem;font-weight:700;align-items:center;justify-content:center">3</span>Grupo de edificios cercanos</span>
             </div>
         @endif
 
