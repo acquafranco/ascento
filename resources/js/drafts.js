@@ -11,6 +11,10 @@
  * [data-draft-notice] con un botón [data-draft-discard].
  *  - data-draft-restore="off": la página ya trae los datos (error de validación).
  *  - data-draft-xhr: la página envía por su cuenta y llama a ascentoDrafts.clear().
+ *  - Cada clave lleva el id del usuario: en un celular compartido nadie ve ni
+ *    recupera el borrador de otra cuenta, y al cerrar sesión se borran solo
+ *    los propios. (Quedan en el navegador hasta enviarse, cerrar sesión o
+ *    vencer a los 7 días: son textos, sin fotos, firmas ni videos.)
  *  - Formularios normales: al enviarse quedan "enviados"; en la página
  *    siguiente (sin ese formulario) el borrador se borra. Si el envío falló
  *    (sin señal, sesión vencida), al volver al formulario sigue ahí.
@@ -157,7 +161,10 @@ export function initDrafts() {
     document.addEventListener('submit', (event) => {
         if (/\/logout$/.test(new URL(event.target.action, location.href).pathname)) {
             frozen = true;
-            keys().forEach(clear);
+            // Solo los de quien sale (clave "tipo.{usuario}.…"): si el celular
+            // es compartido, los borradores de otra cuenta no se tocan.
+            const user = document.querySelector('meta[name="ascento-user"]')?.content;
+            keys().filter((key) => user && key.split('.')[1] === user).forEach(clear);
         }
     });
 

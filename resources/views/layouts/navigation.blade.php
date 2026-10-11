@@ -55,7 +55,7 @@
                         <x-dropdown-link :href="route('profile.edit', ['company' => $slug])">Mi perfil</x-dropdown-link>
                         <form method="POST" action="{{ route('logout') }}">
                             @csrf
-                            <x-dropdown-link :href="route('logout')" onclick="event.preventDefault(); this.closest('form').submit();">Cerrar sesión</x-dropdown-link>
+                            <x-dropdown-link :href="route('logout')" onclick="event.preventDefault(); const f = this.closest('form'); f.requestSubmit ? f.requestSubmit() : f.submit();">Cerrar sesión</x-dropdown-link>
                         </form>
                     </x-slot>
                 </x-dropdown>

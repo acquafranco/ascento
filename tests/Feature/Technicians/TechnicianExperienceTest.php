@@ -5,7 +5,9 @@ namespace Tests\Feature\Technicians;
 use App\Models\Building;
 use App\Models\User;
 use App\Models\WorkOrder;
+use App\Services\Reports\ReportVideoService;
 use App\Services\Technicians\TechnicianWorkload;
+use App\Support\Diagnostics\ServerLimits;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -156,5 +158,37 @@ class TechnicianExperienceTest extends TestCase
         $this->from($url)->post(route('delivery-notes.store', ['company' => $slug]), ['building_id' => $this->a['building']->id, 'assignment_type' => 'maintenance'])
             ->assertRedirect($url);
         $this->get($url)->assertOk()->assertSee('data-draft-restore="off"', false);
+    }
+
+    public function test_logout_clears_only_the_current_users_drafts_on_desktop_and_mobile(): void
+    {
+        $tech = $this->a['technician'];
+
+        $html = $this->actingAs($tech)->get(route('work-orders.index', ['company' => $this->a['company']->slug]))->assertOk()->getContent();
+
+        // drafts.js borra solo las claves "tipo.{este usuario}.…" al cerrar sesión.
+        $this->assertStringContainsString('<meta name="ascento-user" content="'.$tech->id.'">', $html);
+        // El "Cerrar sesión" de escritorio dispara el evento submit (form.submit() no lo hace).
+        $this->assertStringContainsString('f.requestSubmit ? f.requestSubmit() : f.submit();', $html);
+        $this->assertStringNotContainsString("this.closest('form').submit()", $html);
+    }
+
+    public function test_the_video_limit_shown_on_the_web_never_exceeds_what_php_accepts(): void
+    {
+        config(['media.video_max_mb' => 50]);
+        $this->assertSame(50, ReportVideoService::effectiveMaxMb()); // consola: el configurado
+
+        // Como en la web (PHP-FPM): el menor entre lo configurado y lo que acepta PHP.
+        $running = new \ReflectionProperty($this->app, 'isRunningInConsole');
+        $running->setValue($this->app, false);
+        try {
+            $upload = ServerLimits::toMb((string) ini_get('upload_max_filesize')) ?? INF;
+            $post = ServerLimits::toMb((string) ini_get('post_max_size')) ?? INF;
+            $expected = max(1, (int) floor(min(50, $upload, $post - 5)));
+            $this->assertSame($expected, ReportVideoService::effectiveMaxMb());
+            $this->assertSame($expected * 1024, ReportVideoService::maxKb());
+        } finally {
+            $running->setValue($this->app, true);
+        }
     }
 }
