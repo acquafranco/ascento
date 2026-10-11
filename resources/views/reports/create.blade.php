@@ -118,7 +118,7 @@
             @if($videoAllowed)
                 {{-- Un video por reporte (Profesional y Empresa). Duración y tamaño se validan también en el servidor. --}}
                 <div>
-                    <div class="t-label">Video <span class="font-normal text-ink-500">(opcional, hasta {{ config('media.video_max_seconds') }} s y {{ config('media.video_max_mb') }} MB)</span></div>
+                    <div class="t-label">Video <span class="font-normal text-ink-500">(opcional, hasta {{ config('media.video_max_seconds') }} s y {{ \App\Services\Reports\ReportVideoService::effectiveMaxMb() }} MB)</span></div>
                     <label class="flex min-h-[56px] cursor-pointer items-center gap-3 rounded-xl border border-dashed border-ink-300 bg-ink-50 px-4 py-3 active:bg-ink-100">
                         <svg class="h-6 w-6 shrink-0 text-ink-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3z"/></svg>
                         <span class="min-w-0">
@@ -395,7 +395,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Video: tamaño y duración antes de subir (el servidor lo vuelve a validar).
         const video = videoInput?.files?.[0];
         if (video) {
-            const maxMb = {{ (int) config('media.video_max_mb') }}, maxSeconds = {{ (int) config('media.video_max_seconds') }};
+            const maxMb = {{ \App\Services\Reports\ReportVideoService::effectiveMaxMb() }}, maxSeconds = {{ (int) config('media.video_max_seconds') }};
             if (video.size > maxMb * 1024 * 1024) {
                 showError('El video pesa ' + (video.size / 1048576).toFixed(1) + ' MB. El máximo es ' + maxMb + ' MB: grabá uno más corto.');
                 return;

@@ -38,7 +38,7 @@ class ReportVideoActions
                 ->schema([
                     FileUpload::make('video')
                         ->label('Video (MP4, MOV o WEBM)')
-                        ->helperText('Uno por reporte. Hasta '.config('media.video_max_mb').' MB y '.config('media.video_max_seconds').' segundos.')
+                        ->helperText('Uno por reporte. Hasta '.ReportVideoService::effectiveMaxMb().' MB y '.config('media.video_max_seconds').' segundos.')
                         ->acceptedFileTypes(['video/mp4', 'video/quicktime', 'video/webm'])
                         ->maxSize(ReportVideoService::maxKb())
                         ->storeFiles(false)

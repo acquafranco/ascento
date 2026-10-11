@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Models\Report;
 use App\Models\ReportVideo;
 use App\Models\User;
+use App\Support\Diagnostics\ServerLimits;
 use App\Support\Plans\PlanGuard;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
@@ -38,7 +39,27 @@ class ReportVideoService
 {
     public static function maxKb(): int
     {
-        return (int) config('media.video_max_mb') * 1024;
+        return static::effectiveMaxMb() * 1024;
+    }
+
+    /**
+     * Tamaño máximo real en MB: el configurado (MEDIA_VIDEO_MAX_MB) o menos,
+     * si el PHP que atiende la web acepta menos (upload_max_filesize y
+     * post_max_size, con 5 MB de margen para las fotos del mismo envío). Así
+     * el formulario avisa ANTES de subir, en vez de fallar al terminar.
+     * En consola (comandos, pruebas) se usa el configurado: la CLI no es la web.
+     */
+    public static function effectiveMaxMb(): int
+    {
+        $configured = (int) config('media.video_max_mb');
+        if (app()->runningInConsole()) {
+            return $configured;
+        }
+
+        $upload = ServerLimits::toMb((string) ini_get('upload_max_filesize')) ?? INF;
+        $post = ServerLimits::toMb((string) ini_get('post_max_size')) ?? INF;
+
+        return max(1, (int) floor(min($configured, $upload, $post - 5)));
     }
 
     /** @return array<string, array<int, string>> */
@@ -50,7 +71,7 @@ class ReportVideoService
     public static function messages(string $field = 'video'): array
     {
         return [
-            "{$field}.max" => 'El video puede pesar hasta '.config('media.video_max_mb').' MB.',
+            "{$field}.max" => 'El video puede pesar hasta '.static::effectiveMaxMb().' MB.',
             "{$field}.file" => 'No se pudo recibir el video. Probá de nuevo.',
             "{$field}.uploaded" => 'No se pudo recibir el video (¿muy pesado?). Probá con uno más corto.',
         ];
@@ -124,7 +145,7 @@ class ReportVideoService
         }
 
         if (! $file->isValid() || $file->getSize() > static::maxKb() * 1024) {
-            throw ValidationException::withMessages(['video' => 'El video puede pesar hasta '.config('media.video_max_mb').' MB.']);
+            throw ValidationException::withMessages(['video' => 'El video puede pesar hasta '.static::effectiveMaxMb().' MB.']);
         }
 
         $mime = $this->detectMime($file->getRealPath());

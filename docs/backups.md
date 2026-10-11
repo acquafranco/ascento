@@ -42,6 +42,38 @@ anotado en el manifiesto.
 - **Sin la contraseña el `.zip` no se abre.** Guardala en un gestor de
   contraseñas fuera del servidor. Si se pierde, los backups existentes no se
   pueden recuperar.
+- **El `.env` no está en el backup** (tiene las claves). Guardá también fuera
+  del servidor una copia del `.env` de producción: `APP_KEY`,
+  `BACKUP_ARCHIVE_PASSWORD`, las claves VAPID (sin ellas los dispositivos
+  tienen que volver a activar las notificaciones push), Reverb, correo y
+  Mercado Pago. Los datos de la base no están cifrados con `APP_KEY`, así que
+  se restauran igual.
+
+## Si un backup falla
+
+1. `php artisan ascento:check-production` → sección **Backups**: muestra el
+   último intento fallido con la causa en palabras (por ejemplo «MySQL rechazó
+   el usuario o la contraseña» o «el usuario de la base no tiene el permiso
+   PROCESS») y la fecha.
+2. Detalle técnico (sin contraseñas): `grep -i backup storage/logs/laravel.log | tail -20`.
+   La salida de `mysqldump` se guarda en el log con las contraseñas tapadas.
+3. Causas comunes:
+   - **mysqldump no instalado** → `sudo apt install mysql-client` (Forge ya lo trae).
+   - **Permisos del usuario de MySQL** → el usuario que crea Forge suele tener
+     todos los permisos sobre su base. Si el error menciona un permiso, el de
+     `DB_USERNAME` necesita `SELECT`, `SHOW VIEW`, `TRIGGER` y, por
+     `--routines`, `SHOW_ROUTINE` (MySQL 8). Ya se usa `--no-tablespaces` para
+     no pedir `PROCESS`.
+   - **Sin espacio** → el chequeo muestra el espacio libre; cada backup ocupa
+     lo mismo que las fotos, videos y documentos.
+   - **PHP sin cifrado ZIP** (libzip sin AES) → con `BACKUP_ARCHIVE_PASSWORD`
+     cargada, el backup falla a propósito en vez de guardarse sin cifrar.
+4. Corregida la causa: `php artisan backup:run` (o "Crear backup ahora" en el
+   panel) y verificalo con `php artisan backup:verify {id}`.
+
+Los avisos de falla (campanita y `BACKUP_NOTIFY_EMAIL`) se mandan en el
+momento; si uno falla, los demás igual salen y el backup fallido queda
+registrado en el panel y en el chequeo.
 
 ## Comandos
 
@@ -129,6 +161,19 @@ restauración aislada (caso A), con cuidado de no pisar IDs.
   anteriores siguen necesitando la clave anterior. Guardá las dos.
 
 ## Copia externa automática
+
+**Opcional.** Sin ella, todos los backups están en el mismo servidor: si se
+pierde el servidor o el disco, se pierden también. Alternativas, de menor a
+mayor esfuerzo:
+
+- **Gratis, manual:** Panel → Backups → **Descargar** uno por semana y guardarlo
+  en tu computadora o en tu Google Drive/Dropbox personal (ya está cifrado).
+- **Gratis o casi, automático:** proveedores compatibles con S3 con un tramo
+  gratuito (por ejemplo Backblaze B2 o Cloudflare R2 ofrecen algunos GB sin
+  costo; revisá las condiciones vigentes, algunos piden tarjeta). Con 7
+  diarios + 4 semanales, el espacio es unas 11 veces el tamaño de un backup.
+- **DigitalOcean:** los backups semanales del droplet (pago) copian todo el
+  servidor, incluidos estos archivos.
 
 Apagada por defecto. Cuando se configura, cada backup **cifrado** se sube al
 terminar a un almacenamiento externo y se comprueba que llegó entero (mismo
