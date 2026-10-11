@@ -24,6 +24,7 @@ use App\Services\Stock\StockService;
 use Illuminate\Database\Seeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 /**
@@ -68,8 +69,11 @@ class DemoValidationSeeder extends Seeder
         mkdir($this->tmp);
 
         try {
-            $this->north();
-            $this->south();
+            // Todo o nada: si algo falla no quedan empresas demo a medias.
+            DB::transaction(function () {
+                $this->north();
+                $this->south();
+            });
         } finally {
             array_map('unlink', glob($this->tmp.'/*') ?: []);
             @rmdir($this->tmp);
@@ -157,7 +161,7 @@ class DemoValidationSeeder extends Seeder
         Auth::setUser($admin);
         $note->shareWithClient(true);
 
-        $pending = WorkOrder::create(['building_id' => $juncal->id, 'type' => 'repair', 'status' => 'pending', 'priority' => 'medium', 'unit' => 'Ascensor 1', 'component' => 'buttons', 'notes' => 'Reponer pulsador de planta 4.']);
+        $pending = WorkOrder::create(['building_id' => $juncal->id, 'type' => 'claim', 'status' => 'pending', 'priority' => 'medium', 'unit' => 'Ascensor 1', 'component' => 'buttons', 'notes' => 'Reponer pulsador de planta 4.']);
         $pending->users()->attach($lucas->id);
 
         // Reportes con fotos: uno compartido con el cliente, otro interno.

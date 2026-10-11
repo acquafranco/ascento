@@ -26,11 +26,14 @@ class ResetPasswordNotification extends Notification
             'email' => $notifiable->getEmailForPasswordReset(),
         ], false));
 
+        // Mismo diseño que el resto de los correos (tema "ascento").
         return (new MailMessage)
             ->subject('Restablecé tu contraseña - Ascento')
-            ->view('emails.auth.reset-password', [
-                'url' => $url,
-                'user' => $notifiable,
-            ]);
+            ->greeting('Restablecé tu contraseña')
+            ->line('Recibimos un pedido para restablecer la contraseña de tu cuenta en Ascento.')
+            ->action('Elegir una contraseña nueva', $url)
+            ->line('El enlace vence en '.config('auth.passwords.users.expire').' minutos y se puede usar una sola vez.')
+            ->line('Si no lo pediste, ignorá este correo: tu contraseña actual no cambia.')
+            ->salutation('Ascento');
     }
 }

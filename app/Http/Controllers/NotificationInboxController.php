@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\Realtime;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\DatabaseNotification;
 
@@ -66,6 +67,7 @@ class NotificationInboxController extends Controller
         /** @var DatabaseNotification $row */
         $row = $request->user()->notifications()->whereKey($notification)->firstOrFail();
         $row->markAsRead();
+        Realtime::notificationsChanged($request->user()); // otras pestañas
 
         $path = $row->data['path'] ?? null;
 
@@ -86,6 +88,7 @@ class NotificationInboxController extends Controller
         }
 
         $request->user()->unreadNotifications()->update(['read_at' => now()]);
+        Realtime::notificationsChanged($request->user());
 
         return back()->with('status', 'Marcaste todos los avisos como leídos.');
     }

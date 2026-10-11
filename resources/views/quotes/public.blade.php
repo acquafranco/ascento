@@ -1,239 +1,38 @@
+{{-- Presupuesto que abre el cliente por enlace firmado (ver QuoteDocumentController). --}}
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>Presupuesto - {{ $quote->title }}</title>
-
-    @vite(['resources/css/app.css'])
-
+    @include('partials.brand-head')
+    <meta name="robots" content="noindex, nofollow">
+    <title>Presupuesto {{ $quote->numberLabel() }} · {{ $quote->company?->name }}</title>
+    <style>
+        body { margin: 0; background: #F7F7F4; }
+        .q-wrap { max-width: 860px; margin: 0 auto; padding: 24px 16px 48px; }
+        .q-card { background: #fff; border: 1px solid #E6E4DC; border-radius: 18px; padding: 28px; box-shadow: 0 10px 30px -18px rgba(18,21,28,.35); }
+        .q-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0 0; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+        .q-btn { display: inline-flex; align-items: center; gap: 6px; padding: 11px 16px; border-radius: 12px; font-weight: 700; font-size: 15px; text-decoration: none; }
+        .q-btn.primary { background: #FF6A1A; color: #12151C; }
+        .q-btn.secondary { background: #fff; color: #1F2430; border: 1px solid #E6E4DC; }
+        @media (max-width: 600px) { .q-card { padding: 18px; border-radius: 14px; } }
+        @media print { .q-actions { display: none; } .q-card { border: 0; box-shadow: none; } body { background: #fff; } }
+    </style>
 </head>
-
-<body class="bg-slate-100 text-slate-900">
-
-<div class="min-h-screen flex items-center justify-center px-4 py-10">
-
-    <div class="w-full max-w-2xl bg-white shadow-2xl rounded-2xl overflow-hidden">
-
-        {{-- HEADER --}}
-        <div
-            class="rounded-2xl p-6 text-white shadow-lg"
-            style="
-                background-color: {{ $quote->company?->primary_color ?? '#0f172a' }};
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            "
-        >
-            <div class="flex items-center gap-4">
-
-                @if($quote->company?->logo)
-                    <div class="flex items-center justify-center flex-shrink-0">
-                        <img
-                            src="{{ asset('storage/' . $quote->company->logo) }}"
-                            alt="{{ $quote->company->name }}"
-                            class="w-20 h-20 object-contain"
-                        >
-                    </div>
-                @endif
-
-                <div class="flex-1">
-                    <h1 class="text-2xl font-black leading-tight">
-                        Presupuesto
-                    </h1>
-
-                    <p class="text-white/80 text-sm mt-1">
-                        {{ $quote->company?->name ?? 'Detalle del trabajo solicitado' }}
-                    </p>
-                </div>
-
-                <span class="text-4xl leading-none">
-                    🛗
-                </span>
-
-            </div>
+<body>
+    <main class="q-wrap">
+        <div class="q-card">
+            @include('quotes.document', ['quote' => $quote])
         </div>
-
-        {{-- CONTENIDO --}}
-        <div class="p-6 space-y-6">
-
-            {{-- TITULO --}}
-            <div>
-                <h2 class="text-xl font-semibold text-slate-900">
-                    {{ $quote->title }}
-                </h2>
-            </div>
-
-            {{-- DATOS DEL SERVICIO --}}
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-
-                <div class="bg-slate-50 rounded-xl p-4">
-                    <p class="text-xs text-slate-500 uppercase tracking-wider">Cliente</p>
-                    <p class="font-bold text-slate-900 mt-1">
-                        {{ $quote->client?->name ?? 'Sin cliente' }}
-                    </p>
-                </div>
-
-                <div class="bg-slate-50 rounded-xl p-4">
-                    <p class="text-xs text-slate-500 uppercase tracking-wider">Edificio</p>
-                    <p class="font-bold text-slate-900 mt-1">
-                        {{ $quote->building?->name ?? 'Sin edificio' }}
-                    </p>
-                    @if($quote->building?->address)
-                        <p class="text-xs text-slate-500 mt-1">
-                            {{ $quote->building->address }}
-                        </p>
-                    @endif
-                </div>
-
-                <div class="bg-slate-50 rounded-xl p-4">
-                    <p class="text-xs text-slate-500 uppercase tracking-wider">Ascensor a reparar</p>
-                    <p class="font-bold text-slate-900 mt-1">
-                        {{ $quote->unit ?? 'Sin ascensor seleccionado' }}
-                    </p>
-                </div>
-
-            </div>
-
-            {{-- DESCRIPCIÓN --}}
-            @if($quote->description)
-                <div class="text-slate-600 leading-relaxed">
-                    {{ $quote->description }}
-                </div>
+        <div class="q-actions">
+            <a class="q-btn primary" href="{{ $pdfUrl }}" target="_blank" rel="noopener">⬇ Descargar PDF</a>
+            @if($quote->company?->phone)
+                <a class="q-btn secondary" href="tel:{{ preg_replace('/[^\d+]/', '', $quote->company->phone) }}">📞 Llamar a {{ $quote->company->name }}</a>
             @endif
-
-            {{-- ÍTEMS --}}
-            @if($quote->items->isNotEmpty())
-                <div class="overflow-x-auto rounded-xl border border-slate-200">
-                    <table class="w-full text-sm">
-                        <thead class="bg-slate-50 text-slate-500 text-xs uppercase">
-                            <tr>
-                                <th class="text-left p-3">Concepto</th>
-                                <th class="text-right p-3">Cant.</th>
-                                <th class="text-right p-3">Precio unit.</th>
-                                <th class="text-right p-3">Subtotal</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100">
-                            @foreach($quote->items as $item)
-                                <tr>
-                                    <td class="p-3">
-                                        <div class="font-medium text-slate-800">{{ $item->concept }}</div>
-                                        @if($item->description)<div class="text-xs text-slate-500">{{ $item->description }}</div>@endif
-                                    </td>
-                                    <td class="p-3 text-right whitespace-nowrap">{{ rtrim(rtrim(number_format($item->quantity, 2, ',', '.'), '0'), ',') }}</td>
-                                    <td class="p-3 text-right whitespace-nowrap">${{ number_format($item->unit_price, 2, ',', '.') }}</td>
-                                    <td class="p-3 text-right whitespace-nowrap font-semibold">${{ number_format($item->subtotal, 2, ',', '.') }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
+            @if($quote->company?->email)
+                <a class="q-btn secondary" href="mailto:{{ $quote->company->email }}?subject={{ rawurlencode('Presupuesto '.$quote->numberLabel()) }}">✉️ Consultar por correo</a>
             @endif
-
-            @if($quote->conditions)
-                <div>
-                    <p class="text-xs text-slate-500 mb-1">Condiciones</p>
-                    <div class="text-slate-600 text-sm leading-relaxed whitespace-pre-line">{{ $quote->conditions }}</div>
-                </div>
-            @endif
-
-            {{-- GRID INFO --}}
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-                {{-- MONTO --}}
-                <div class="bg-slate-50 rounded-xl p-4">
-                    <p class="text-xs text-slate-500">Total</p>
-                    <p class="text-2xl font-bold text-green-600">
-                        ${{ number_format($quote->amount, 2, ',', '.') }}
-                    </p>
-                </div>
-
-                {{-- ESTADO --}}
-                <div class="bg-slate-50 rounded-xl p-4">
-                    <p class="text-xs text-slate-500">Estado</p>
-
-                    @php
-                        $statusColor = ['approved' => 'text-green-600', 'rejected' => 'text-red-600', 'sent' => 'text-blue-600', 'expired' => 'text-orange-600', 'void' => 'text-slate-500'][$quote->displayStatus()] ?? 'text-slate-600';
-                    @endphp
-                    <span class="{{ $statusColor }} font-semibold">{{ $quote->displayStatusLabel() }}</span>
-                    @if($quote->valid_until)
-                        <p class="text-xs text-slate-500 mt-1">Válido hasta el {{ $quote->valid_until->format('d/m/Y') }}</p>
-                    @endif
-
-                </div>
-
-            </div>
-
-            {{-- PRIORIDAD --}}
-            <div class="bg-slate-50 rounded-xl p-4">
-                <p class="text-xs text-slate-500">Prioridad</p>
-
-                @switch($quote->priority)
-                    @case('urgent')
-                        <span class="text-red-600 font-bold">🔴 Urgente</span>
-                        @break
-
-                    @case('high')
-                        <span class="text-orange-600 font-bold">🟠 Alta</span>
-                        @break
-
-                    @case('normal')
-                        <span class="text-blue-600 font-bold">🔵 Normal</span>
-                        @break
-
-                    @case('low')
-                        <span class="text-gray-600 font-bold">🟢 Baja</span>
-                        @break
-
-                    @default
-                        <span class="text-slate-600 font-bold">
-                            {{ $quote->priority }}
-                        </span>
-                @endswitch
-
-            </div>
-
-            {{-- BOTÓN WHATSAPP --}}
-            @php
-                $telefono = preg_replace('/\D/', '', $quote->client?->phone ?? '');
-                if (str_starts_with($telefono, '0')) {
-                    $telefono = substr($telefono, 1);
-                }
-                $telefono = '549' . $telefono;
-
-                $mensaje =
-                    "Hola 👋\n\n".
-                    "Te enviamos el presupuesto solicitado.\n\n".
-                    "📋 Trabajo: {$quote->title}\n".
-                    "💰 Total: $" . number_format($quote->amount, 0, ',', '.') . "\n\n".
-                    "Podés verlo completo en el siguiente link:\n".
-                    route('quotes.public', [
-                        'company' => $quote->company->slug,
-                        'token' => $quote->public_token,
-                    ]);
-            @endphp
-
-            @if (empty($portal))
-            <a
-                href="https://wa.me/{{ $telefono }}?text={{ urlencode($mensaje) }}"
-                target="_blank"
-                class="block text-center bg-green-500 hover:bg-green-600 text-white font-semibold py-3 rounded-xl transition"
-            >
-                Enviar por WhatsApp
-            </a>
-            @endif
-
         </div>
-
-        {{-- FOOTER --}}
-        <div class="bg-slate-50 text-center text-xs text-slate-500 p-4">
-            Presupuesto generado automáticamente
-        </div>
-
-    </div>
-
-</div>
-
+    </main>
 </body>
 </html>

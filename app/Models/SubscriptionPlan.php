@@ -140,12 +140,53 @@ class SubscriptionPlan extends Model
         return '$'.number_format((float) $this->price, 0, ',', '.');
     }
 
+    /**
+     * Comparativa de planes para la página pública: sale de los límites y las
+     * funciones que el sistema realmente valida (feature_keys), no de un
+     * texto aparte. true/false = incluido o no; string = límite.
+     *
+     * @param  iterable<SubscriptionPlan>  $plans
+     * @return list<array{0: string, 1: array<string, bool|string>}>
+     */
+    public static function comparisonRows(iterable $plans): array
+    {
+        $plans = collect($plans);
+        $limit = fn (PlanLimit $l) => $plans->mapWithKeys(fn (self $p) => [$p->slug => $p->limit($l) === null ? 'Sin límite' : 'Hasta '.$p->limit($l)])->all();
+        $feature = fn (PlanFeature $f) => $plans->mapWithKeys(fn (self $p) => [$p->slug => $p->allows($f)])->all();
+        $all = $plans->mapWithKeys(fn (self $p) => [$p->slug => true])->all();
+
+        return [
+            ['Edificios', $limit(PlanLimit::Buildings)],
+            ['Clientes', $limit(PlanLimit::Clients)],
+            ['Usuarios técnicos u operativos', $limit(PlanLimit::Technicians)],
+            ['Informes por mes', $limit(PlanLimit::ReportsPerMonth)],
+            ['Mantenimientos, inspecciones y agenda mensual', $feature(PlanFeature::Agenda)],
+            ['Órdenes de trabajo y remitos firmados en el celular', $feature(PlanFeature::WorkOrders)],
+            ['Informes con fotos', $feature(PlanFeature::Reports)],
+            ['Mapa de edificios', $feature(PlanFeature::Map)],
+            ['Legajo e historial de cada ascensor', $feature(PlanFeature::ElevatorFile)],
+            ['Centro de atención', $feature(PlanFeature::AttentionCenter)],
+            ['Indicadores básicos', $feature(PlanFeature::Indicators)],
+            ['Stock, servicios y cobranzas', $all],
+            ['Avisos en la app en tiempo real', $all],
+            ['Notificaciones push en el celular', $all],
+            ['Exportación de los datos de tu empresa', $all],
+            ['Presupuestos con PDF y envío por correo', $feature(PlanFeature::Quotes)],
+            ['Remitos digitales para el cliente (PDF y enlace)', $feature(PlanFeature::DigitalDeliveryNotes)],
+            ['Portal para clientes', $feature(PlanFeature::ClientPortal)],
+            ['Video en los informes', $feature(PlanFeature::ReportVideos)],
+            ['Análisis de fallas e historial avanzado', $feature(PlanFeature::FailureAnalysis)],
+            ['Centro de atención avanzado e indicadores de empresa', $feature(PlanFeature::CompanyIndicators)],
+            ['Indicadores avanzados y alertas de tendencias', $feature(PlanFeature::AdvancedIndicators)],
+        ];
+    }
+
     /** Lo que incluye, en palabras, para tarjetas de planes. */
     public function highlights(): array
     {
         $lines = array_map(fn (PlanLimit $limit) => $limit->planLabel($this->limit($limit)), PlanLimit::cases());
 
-        foreach ([PlanFeature::Quotes, PlanFeature::DigitalDeliveryNotes, PlanFeature::ClientPortal, PlanFeature::CompanyIndicators, PlanFeature::FailureAnalysis, PlanFeature::AdvancedIndicators, PlanFeature::AdvancedAlerts] as $feature) {
+        foreach ([PlanFeature::Quotes, PlanFeature::DigitalDeliveryNotes, PlanFeature::ClientPortal, PlanFeature::ReportVideos, PlanFeature::CompanyIndicators, PlanFeature::FailureAnalysis, PlanFeature::AdvancedIndicators, PlanFeature::AdvancedAlerts] as $feature) {
             if ($this->allows($feature)) {
                 $lines[] = $feature->label();
             }

@@ -89,10 +89,56 @@ class ReportPhotoService
             });
         } catch (\Throwable $e) {
             foreach ($written as $data) {
-                Storage::disk('local')->delete($data['path']);
+                Storage::disk('local')->delete(array_filter([$data['path'], $data['thumb_path'] ?? null]));
             }
 
             throw $e;
+        }
+    }
+
+    /**
+     * Imagick si está (lee HEIC de iPhone); si no, GD. Corrige la orientación
+     * y quita los metadatos (EXIF, incluida la ubicación GPS) al re-codificar:
+     * las fotos pueden terminar en el portal del cliente.
+     */
+    public static function manager(): ImageManager
+    {
+        return ImageManager::usingDriver(extension_loaded('imagick') ? ImagickDriver::class : GdDriver::class, autoOrientation: true, strip: true);
+    }
+
+    public static function thumbPathFor(string $path): string
+    {
+        return preg_replace('/\.jpg$/', '', $path).'-thumb.jpg';
+    }
+
+    /**
+     * Miniatura de una foto. Las fotos anteriores a las miniaturas la generan
+     * una sola vez, la primera vez que se pide (no se reprocesa todo).
+     */
+    public function thumbnail(ReportPhoto $photo): ?string
+    {
+        if ($photo->thumb_path && Storage::disk('local')->exists($photo->thumb_path)) {
+            return $photo->thumb_path;
+        }
+
+        $disk = $photo->disk();
+
+        if (! $disk) {
+            return null;
+        }
+
+        $thumb = static::thumbPathFor(preg_replace('/\.[a-z0-9]+$/i', '.jpg', $photo->path));
+
+        try {
+            Storage::disk('local')->makeDirectory(dirname($thumb));
+            static::manager()->decode((string) Storage::disk($disk)->get($photo->path))
+                ->scaleDown(width: (int) config('media.thumb_side', 480), height: (int) config('media.thumb_side', 480))
+                ->encode(new JpegEncoder(quality: 75))->save(Storage::disk('local')->path($thumb));
+            $photo->forceFill(['thumb_path' => $thumb])->saveQuietly();
+
+            return $thumb;
+        } catch (\Throwable) {
+            return null; // se sirve la foto completa
         }
     }
 
@@ -120,22 +166,25 @@ class ReportPhotoService
                 mkdir(dirname($fullPath), 0755, true);
             }
 
-            // Imagick si está (lee HEIC de iPhone); si no, GD.
-            $manager = ImageManager::usingDriver(extension_loaded('imagick') ? ImagickDriver::class : GdDriver::class);
+            $image = static::manager()->decode(fopen($source, 'rb'))
+                ->scaleDown(width: (int) config('media.photo_max_side', self::MAX_SIDE), height: (int) config('media.photo_max_side', self::MAX_SIDE));
 
-            $image = $manager->decode(fopen($source, 'rb'))
-                ->scaleDown(width: self::MAX_SIDE, height: self::MAX_SIDE);
+            $image->encode(new JpegEncoder(quality: (int) config('media.photo_quality', 82)))->save($fullPath);
 
-            $image->encode(new JpegEncoder(quality: 85))->save($fullPath);
+            // Miniatura para listas, el portal y conexiones lentas.
+            $thumbPath = static::thumbPathFor($path);
+            $image->scaleDown(width: (int) config('media.thumb_side', 480), height: (int) config('media.thumb_side', 480))
+                ->encode(new JpegEncoder(quality: 75))->save(Storage::disk('local')->path($thumbPath));
 
             return [
                 'path' => $path,
-                'width' => $image->width(),
-                'height' => $image->height(),
+                'thumb_path' => $thumbPath,
+                'width' => getimagesize($fullPath)[0] ?? null,
+                'height' => getimagesize($fullPath)[1] ?? null,
                 'size' => (int) filesize($fullPath),
             ];
         } catch (\Throwable $e) {
-            Storage::disk('local')->delete($path);
+            Storage::disk('local')->delete([$path, static::thumbPathFor($path)]);
 
             logger()->warning('Foto de reporte inválida', ['message' => $e->getMessage()]);
 

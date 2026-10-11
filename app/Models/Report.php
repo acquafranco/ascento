@@ -11,6 +11,11 @@ use App\Models\Concerns\BelongsToCompany;
 
 class Report extends Model
 {
+    /** Estados del reporte (mismos textos en panel, portal y PDF). */
+    public const STATUS_LABELS = ['pendiente' => 'Pendiente', 'en_revision' => 'En revisión', 'resuelto' => 'Resuelto'];
+
+    public const PRIORITY_LABELS = ['baja' => 'Baja', 'media' => 'Media', 'alta' => 'Alta', 'critica' => 'Crítica'];
+
     use \App\Models\Concerns\SharesWithClient;
 
 
@@ -43,6 +48,12 @@ class Report extends Model
     }
 
     /** Fotos del reporte, en orden. */
+    /** Video del reporte (uno como máximo). */
+    public function video()
+    {
+        return $this->hasOne(ReportVideo::class);
+    }
+
     public function photos()
     {
         return $this->hasMany(ReportPhoto::class)->orderBy('position')->orderBy('id');

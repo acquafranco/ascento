@@ -81,6 +81,25 @@ class Quote extends Model
             $quote->status ??= self::DRAFT;
         });
 
+        // Número correlativo por empresa, asignado con la empresa bloqueada
+        // (dos presupuestos a la vez no comparten número; además hay índice único).
+        static::created(function (Quote $quote) {
+            \Illuminate\Support\Facades\DB::transaction(function () use ($quote) {
+                Company::whereKey($quote->company_id)->lockForUpdate()->first();
+                $next = (int) static::withoutGlobalScopes()->withTrashed()->where('company_id', $quote->company_id)->max('number') + 1;
+                $quote->forceFill(['number' => $next])->saveQuietly();
+            });
+
+            $quote->log('created');
+        });
+
+        static::updated(function (Quote $quote) {
+            if ($quote->wasChanged('status')) {
+                $labels = [...self::STATUSES, 'pending' => 'Borrador'];
+                $quote->log('status', ($labels[$quote->getOriginal('status')] ?? $quote->getOriginal('status')).' → '.($labels[$quote->status] ?? $quote->status));
+            }
+        });
+
         static::saving(function (Quote $quote) {
             // "pending" (código viejo) = borrador.
             if ($quote->status === 'pending') {
@@ -91,6 +110,71 @@ class Quote extends Model
                 $quote->voided_at = $quote->status === self::VOID ? now() : null;
             }
         });
+    }
+
+    /** "P-000123": lo que ve el cliente. */
+    public function numberLabel(): string
+    {
+        return 'P-'.str_pad((string) ($this->number ?? $this->id), 6, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Se puede modificar solo mientras es una propuesta abierta (borrador o
+     * enviado) y sin cobro activo. Aprobado, rechazado o anulado quedan
+     * cerrados para no perder la trazabilidad (se puede duplicar).
+     */
+    public function isEditable(): bool
+    {
+        return in_array($this->status, [self::DRAFT, self::SENT, 'pending'], true) && ! $this->hasActiveReceivable();
+    }
+
+    /** Estados a los que se puede pasar desde el actual. */
+    public function allowedTransitions(): array
+    {
+        return match ($this->status) {
+            self::DRAFT, 'pending' => [self::SENT, self::APPROVED, self::REJECTED, self::VOID],
+            self::SENT => [self::APPROVED, self::REJECTED, self::VOID],
+            self::APPROVED => $this->hasActiveReceivable() ? [] : [self::VOID],
+            self::REJECTED => [self::VOID],
+            default => [],
+        };
+    }
+
+    /** Lo ve el cliente por enlace: solo propuestas emitidas (no borradores ni anulados). */
+    public function isPubliclyVisible(): bool
+    {
+        return in_array($this->status, [self::SENT, self::APPROVED, self::REJECTED], true);
+    }
+
+    /**
+     * Enlace para el cliente: FIRMADO y con vencimiento (no un enlace
+     * permanente). Vence a los 30 días de la validez del presupuesto, con un
+     * mínimo de 30 y un máximo de 120 días desde hoy. "Renovar enlace" cambia
+     * el token y anula los enlaces anteriores.
+     */
+    public function signedPublicUrl(): string
+    {
+        $until = $this->valid_until ? $this->valid_until->copy()->addDays(30)->endOfDay() : now()->addDays(60);
+        $until = $until->max(now()->addDays(30))->min(now()->addDays(120));
+
+        return \Illuminate\Support\Facades\URL::temporarySignedRoute('quotes.public', $until, [
+            'company' => $this->company?->slug ?? Company::whereKey($this->company_id)->value('slug'),
+            'token' => $this->public_token,
+        ]);
+    }
+
+    public function events()
+    {
+        return $this->hasMany(QuoteEvent::class)->orderBy('id');
+    }
+
+    public function log(string $action, ?string $detail = null, ?User $user = null): void
+    {
+        $event = new QuoteEvent;
+        $event->forceFill([
+            'quote_id' => $this->id, 'company_id' => $this->company_id, 'user_id' => ($user ?? auth()->user())?->id,
+            'action' => $action, 'detail' => $detail ? Str::limit($detail, 250, '') : null, 'created_at' => now(),
+        ])->save();
     }
 
     /** Ítems del presupuesto, en orden. */

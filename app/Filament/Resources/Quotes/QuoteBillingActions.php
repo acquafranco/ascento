@@ -51,6 +51,7 @@ class QuoteBillingActions
                     Carbon::parse($data['due_date']),
                     auth()->user(),
                 );
+                $record->log('receivable', '$ '.number_format((float) $data['amount'], 2, ',', '.'));
 
                 Notification::make()
                     ->title('Cobro generado')

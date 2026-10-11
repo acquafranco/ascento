@@ -75,12 +75,76 @@
                         </x-filament::input.wrapper>
                     @endif
 
+                    @php
+                        $zones = $this->zonesInUse();
+                        $technicians = $this->techniciansInUse();
+                    @endphp
+                    @if (count($zones) > 0)
+                        <label class="bm-sr-only" for="bm-zone">Filtrar por zona</label>
+                        <x-filament::input.wrapper>
+                            <x-filament::input.select id="bm-zone" data-map-zone>
+                                <option value="">Todas las zonas</option>
+                                @foreach ($zones as $zone)
+                                    <option value="{{ $zone }}">{{ $zone }}</option>
+                                @endforeach
+                            </x-filament::input.select>
+                        </x-filament::input.wrapper>
+                    @endif
+
+                    @if (count($technicians) > 0)
+                        <label class="bm-sr-only" for="bm-technician">Filtrar por técnico</label>
+                        <x-filament::input.wrapper>
+                            <x-filament::input.select id="bm-technician" data-map-technician>
+                                <option value="">Todos los técnicos</option>
+                                @foreach ($technicians as $id => $name)
+                                    <option value="{{ $id }}">{{ $name }}</option>
+                                @endforeach
+                            </x-filament::input.select>
+                        </x-filament::input.wrapper>
+                    @endif
+
+                    <label class="bm-sr-only" for="bm-status">Filtrar por estado del mes</label>
+                    <x-filament::input.wrapper>
+                        <x-filament::input.select id="bm-status" data-map-status>
+                            <option value="">Cualquier estado del mes</option>
+                            @foreach ($this->statusLegend() as $key => $item)
+                                <option value="{{ $key }}">{{ $item['label'] }}</option>
+                            @endforeach
+                        </x-filament::input.select>
+                    </x-filament::input.wrapper>
+
+                    <label class="bm-sr-only" for="bm-mode">Colorear por</label>
+                    <x-filament::input.wrapper>
+                        <x-filament::input.select id="bm-mode" data-map-mode>
+                            <option value="color">Colorear por: color asignado</option>
+                            <option value="status">Colorear por: estado del mes</option>
+                        </x-filament::input.select>
+                    </x-filament::input.wrapper>
+
                     <x-filament::button color="gray" icon="heroicon-m-arrows-pointing-out" data-map-fit>
                         Ver todos
                     </x-filament::button>
                 </div>
             @endif
         </div>
+
+        {{-- LEYENDA (cambia con "Colorear por") --}}
+        @if (count($markers) > 0)
+            <div class="bm-legend" style="display:flex;flex-wrap:wrap;gap:.4rem 1rem;font-size:.85rem;margin:.25rem 0 .75rem;">
+                <div data-map-legend="color" style="display:contents">
+                    @foreach ($this->colorsInUse() as $key => $color)
+                        <span style="display:inline-flex;align-items:center;gap:.35rem"><span style="width:.75rem;height:.75rem;border-radius:999px;background:{{ $color['hex'] }}"></span>{{ $color['label'] }} ({{ $color['count'] }})</span>
+                    @endforeach
+                    <span style="opacity:.6">El color lo elegís en cada edificio.</span>
+                </div>
+                <div data-map-legend="status" style="display:none">
+                    @foreach ($this->statusLegend() as $item)
+                        <span style="display:inline-flex;align-items:center;gap:.35rem"><span style="width:.75rem;height:.75rem;border-radius:999px;background:{{ $item['hex'] }}"></span>{{ $item['label'] }}</span>
+                    @endforeach
+                    <span style="opacity:.6">Mantenimiento de {{ now()->translatedFormat('F') }}.</span>
+                </div>
+            </div>
+        @endif
 
         {{-- MAPA --}}
         <div wire:ignore class="bm-map-shell">

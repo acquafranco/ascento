@@ -10,6 +10,7 @@ use App\Filament\Resources\DeliveryNotes\Pages\ListDeliveryNotes;
 use App\Models\Building;
 use App\Models\Client;
 use App\Models\DeliveryNote;
+use App\Models\PortalMembership;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
@@ -68,6 +69,11 @@ class PortalAccountsTest extends TestCase
         $tenant['company']->forgetPlan();
     }
 
+    private function membership(User $user): PortalMembership
+    {
+        return PortalMembership::where('user_id', $user->id)->where('client_id', $this->client->id)->sole();
+    }
+
     private function manager()
     {
         $this->actingInPanel($this->a['admin']);
@@ -98,7 +104,7 @@ class PortalAccountsTest extends TestCase
     /** El token tal como llega en el enlace del correo. */
     private function tokenFrom(ResetPasswordNotification $notification, User $user): string
     {
-        return basename(parse_url($notification->toMail($user)->viewData['url'], PHP_URL_PATH));
+        return basename(parse_url($notification->toMail($user)->actionUrl, PHP_URL_PATH));
     }
 
     private function activate(User $user, string $token, string $password = 'una-clave-larga-1')
@@ -114,7 +120,7 @@ class PortalAccountsTest extends TestCase
         $this->assertSame([User::ROLE_CLIENT, $this->client->id, $this->a['company']->id], [$user->role, $user->client_id, $user->company_id]);
         $this->assertNotNull($user->portal_invited_at);
         $this->assertNull($user->portal_activated_at);
-        $this->assertSame('Invitación enviada', PortalUsersRelationManager::status($user));
+        $this->assertSame('Invitación enviada', PortalInvitations::status(PortalMembership::where('user_id', $user->id)->where('client_id', $this->client->id)->sole()));
         $mail = (new PortalInvitationNotification($token, 'X'))->toMail($user);
         $this->assertStringNotContainsString('contraseña:', mb_strtolower(implode(' ', $mail->introLines))); // nunca una contraseña
 
@@ -127,7 +133,7 @@ class PortalAccountsTest extends TestCase
 
         $user->refresh();
         $this->assertNotNull($user->portal_activated_at);
-        $this->assertSame('Activo', PortalUsersRelationManager::status($user));
+        $this->assertSame('Activo', PortalInvitations::status(PortalMembership::where('user_id', $user->id)->where('client_id', $this->client->id)->sole()));
 
         // De un solo uso.
         $this->activate($user, $token, 'otra-clave-larga-2')->assertStatus(410);
@@ -148,12 +154,12 @@ class PortalAccountsTest extends TestCase
         $this->travel(73)->hours();
         $this->get(route('portal.invitation', ['token' => $token, 'email' => $user->email]))->assertStatus(410);
         $this->activate($user, $token)->assertStatus(410);
-        $this->assertSame('Invitación vencida', PortalUsersRelationManager::status($user->fresh()));
+        $this->assertSame('Invitación vencida', PortalInvitations::status(PortalMembership::where('user_id', $user->fresh()->id)->where('client_id', $this->client->id)->sole()));
 
         Notification::fake();
-        $this->manager()->callTableAction('resendInvitation', $user);
+        $this->manager()->callTableAction('resendInvitation', $this->membership($user));
         Notification::assertSentTo($user, PortalInvitationNotification::class);
-        $this->assertSame('Invitación enviada', PortalUsersRelationManager::status($user->fresh()));
+        $this->assertSame('Invitación enviada', PortalInvitations::status(PortalMembership::where('user_id', $user->fresh()->id)->where('client_id', $this->client->id)->sole()));
     }
 
     public function test_a_technician_or_admin_reset_token_cannot_be_used_as_an_invitation(): void
@@ -231,20 +237,20 @@ class PortalAccountsTest extends TestCase
         $this->actingAs($user)->get(route('portal.delivery-note', $note))->assertOk();
 
         // Se le quita el edificio: la URL conocida deja de funcionar.
-        $this->manager()->callTableAction('editBuildings', $user, data: ['building_ids' => [$this->other->id]]);
+        $this->manager()->callTableAction('editBuildings', $this->membership($user), data: ['building_ids' => [$this->other->id]]);
         $this->actingAs($user)->get(route('portal.delivery-note', $note))->assertNotFound();
         $this->get(route('portal.building', $this->authorized))->assertNotFound();
 
         // Desactivado con la sesión abierta: la sesión deja de servir.
-        $this->manager()->callTableAction('editBuildings', $user, data: ['building_ids' => [$this->authorized->id]]);
+        $this->manager()->callTableAction('editBuildings', $this->membership($user), data: ['building_ids' => [$this->authorized->id]]);
         auth()->logout();
         $this->app['auth']->forgetGuards();
         $this->post('/login', ['email' => $user->email, 'password' => 'una-clave-larga-1']); // sesión real
         $this->get(route('portal.home'))->assertOk();
 
         // El admin lo desactiva desde el panel mientras el cliente tiene la sesión abierta.
-        $this->manager()->callTableAction('deactivate', $user);
-        $this->assertSoftDeleted('users', ['id' => $user->id]);
+        $this->manager()->callTableAction('deactivate', $this->membership($user));
+        $this->assertNotNull($this->membership($user)->deactivated_at); // el acceso, no la cuenta global
         $this->app['auth']->forgetGuards(); // nuevo request del cliente: el usuario se lee de nuevo de la base
 
         $this->get(route('portal.home'))->assertRedirect('/login');

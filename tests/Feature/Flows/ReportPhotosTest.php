@@ -73,7 +73,7 @@ class ReportPhotosTest extends TestCase
         $this->assertSame([0, 1, 2], $report->photos->pluck('position')->all());
 
         $this->assertSame(3, Report::count());
-        $this->assertCount(4, Storage::disk('local')->allFiles());
+        $this->assertCount(8, Storage::disk('local')->allFiles()); // 4 fotos + sus miniaturas
         $this->assertSame([], Storage::disk('public')->allFiles());
     }
 

@@ -20,13 +20,19 @@ class TestPushNotification extends Notification
     {
         return (new WebPushMessage)
             ->title('✅ Notificaciones funcionando')
-            ->body($notifiable->isAdmin()
-                ? 'Así te vamos a avisar cuando terminen un trabajo o carguen un reporte.'
-                : 'Así te vamos a avisar cuando te asignen una orden de trabajo.')
+            ->body(match (true) {
+                $notifiable->isAdmin() => 'Así te vamos a avisar cuando terminen un trabajo o carguen un reporte.',
+                $notifiable->isClientUser() => 'Así te vamos a avisar cuando tu empresa de mantenimiento comparta algo de tus edificios.',
+                default => 'Así te vamos a avisar cuando te asignen una orden de trabajo.',
+            })
             ->icon('/images/pwa/icon-192.png')
             ->badge('/images/pwa/badge-96.png')
             ->tag('ascento-test')
-            ->data(['url' => $notifiable->isAdmin() ? '/admin' : route('dashboard', ['company' => $notifiable->company->slug], absolute: false)])
+            ->data(['url' => match (true) {
+                $notifiable->isAdmin() => '/admin',
+                $notifiable->isClientUser() => route('portal.home', absolute: false),
+                default => route('dashboard', ['company' => $notifiable->company->slug], absolute: false),
+            }])
             ->options(['TTL' => 300]);
     }
 }

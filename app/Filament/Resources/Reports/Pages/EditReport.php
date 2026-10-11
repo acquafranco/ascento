@@ -5,9 +5,9 @@ namespace App\Filament\Resources\Reports\Pages;
 use App\Filament\Resources\Reports\ReportResource;
 use App\Services\Reports\ReportPhotoService;
 use Filament\Actions\DeleteAction;
+use Filament\Resources\Pages\EditRecord;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
-use Filament\Resources\Pages\EditRecord;
 
 class EditReport extends EditRecord
 {
@@ -17,6 +17,7 @@ class EditReport extends EditRecord
     {
         return [
             ReportPdfAction::make(),
+            ...ReportVideoActions::make(),
             DeleteAction::make(),
         ];
     }

@@ -97,6 +97,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
             'neighborhood',
 
             'map_color',
+            'map_zone',
         ];
 
         protected $attributes = [

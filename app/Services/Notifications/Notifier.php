@@ -4,10 +4,12 @@ namespace App\Services\Notifications;
 
 use App\Enums\PlanFeature;
 use App\Models\Company;
+use App\Models\PortalMembership;
 use App\Models\User;
 use App\Notifications\AppNotification;
 use App\Notifications\MailOnlyNotification;
 use App\Support\Portal\PortalAccess;
+use App\Support\Realtime;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -35,6 +37,25 @@ use Throwable;
  */
 class Notifier
 {
+    /** @var array<int, array{0: ?Company, 1: bool, 2: bool}>|null memo por empresa, solo dentro de batch() */
+    private ?array $companies = null;
+
+    /**
+     * Varios avisos de una misma acción (p. ej. compartir muchos registros):
+     * empresa, acceso y plan se consultan una sola vez. Fuera del lote, cada
+     * aviso vuelve a mirar el estado actual.
+     */
+    public function batch(callable $callback): mixed
+    {
+        $this->companies = [];
+
+        try {
+            return $callback($this);
+        } finally {
+            $this->companies = null;
+        }
+    }
+
     /**
      * @param  iterable<User>  $users
      * @return list<DatabaseNotification> los avisos creados (sin los ya enviados ni los no permitidos)
@@ -52,7 +73,7 @@ class Notifier
         return $created;
     }
 
-    public function sendTo(User $user, AppNotification $notification, int $companyId, bool $mail = true): ?DatabaseNotification
+    public function sendTo(User $user, AppNotification $notification, int $companyId, bool $mail = true, bool $broadcast = true): ?DatabaseNotification
     {
         // Estado actual (no el que tenía el objeto al dispararse el evento).
         $user = User::find($user->id);
@@ -65,6 +86,12 @@ class Notifier
 
         if (! $row) {
             return null; // ya avisado
+        }
+
+        // En pantalla al instante (campanita / bandeja), si hay tiempo real.
+        // (Los envíos en lote avisan una sola vez al final: ver ClientShareNotifier.)
+        if ($broadcast) {
+            Realtime::notificationsChanged($user, $row);
         }
 
         if ($notification->wantsPush() && $user->canReceivePush() && filled(config('webpush.vapid.public_key'))) {
@@ -84,13 +111,28 @@ class Notifier
 
     public function mayReceive(User $user, AppNotification $notification, int $companyId): bool
     {
-        if ($user->trashed() || $user->isSuperAdmin() || (int) $user->company_id !== $companyId) {
+        if ($user->trashed() || $user->isSuperAdmin()) {
             return false;
         }
 
-        $company = Company::find($companyId);
+        // Personal: de esa empresa. Cliente del portal: con acceso activo en esa empresa.
+        $belongs = $user->isClientUser()
+            ? PortalMembership::where('user_id', $user->id)->where('company_id', $companyId)->active()->exists()
+            : (int) $user->company_id === $companyId;
 
-        if (! $company || ! $company->hasActiveAccess()) {
+        if (! $belongs) {
+            return false;
+        }
+
+        // Empresa, acceso y plan (memo solo dentro de batch()).
+        $load = function () use ($companyId) {
+            $company = Company::find($companyId);
+
+            return [$company, (bool) $company?->hasActiveAccess(), (bool) $company?->plan()->allows(PlanFeature::ClientPortal)];
+        };
+        [$company, $active, $portal] = $this->companies === null ? $load() : ($this->companies[$companyId] ??= $load());
+
+        if (! $company || ! $active) {
             return false;
         }
 
@@ -98,8 +140,8 @@ class Notifier
             $buildingId = $notification->buildingId();
 
             return $buildingId !== null
-                && $company->plan()->allows(PlanFeature::ClientPortal)
-                && PortalAccess::canSeeBuilding($user, $buildingId);
+                && $portal
+                && PortalAccess::buildingIds($user, $companyId)->contains($buildingId);
         }
 
         return true;

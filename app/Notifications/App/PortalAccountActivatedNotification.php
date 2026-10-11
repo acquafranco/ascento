@@ -9,7 +9,7 @@ use App\Notifications\AppNotification;
 /** Al admin: una persona activó su cuenta del portal (una vez por cuenta). */
 class PortalAccountActivatedNotification extends AppNotification
 {
-    public function __construct(public User $portalUser) {}
+    public function __construct(public User $portalUser, public ?int $clientId = null) {}
 
     public function title(): string
     {
@@ -23,14 +23,16 @@ class PortalAccountActivatedNotification extends AppNotification
 
     public function path(): ?string
     {
-        return $this->portalUser->client_id
-            ? parse_url(ClientResource::getUrl('edit', ['record' => $this->portalUser->client_id], panel: 'ascensores_app'), PHP_URL_PATH)
+        $clientId = $this->clientId ?? $this->portalUser->client_id;
+
+        return $clientId
+            ? parse_url(ClientResource::getUrl('edit', ['record' => $clientId], panel: 'ascensores_app'), PHP_URL_PATH)
             : null;
     }
 
     public function dedupeKey(): ?string
     {
-        return 'portal-activated:'.$this->portalUser->id;
+        return 'portal-activated:'.$this->portalUser->id.':'.($this->clientId ?? $this->portalUser->client_id);
     }
 
     public function icon(): string

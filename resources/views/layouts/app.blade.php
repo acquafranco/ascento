@@ -3,15 +3,14 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+    @include('partials.brand-head')
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title>{{ config('app.name', 'Laravel') }}</title>
+        <title>{{ config('app.name', 'Ascento') }}</title>
 
         {{-- PWA: permite instalar Ascento en la pantalla de inicio (en iPhone es
              requisito para recibir notificaciones). --}}
         <link rel="manifest" href="/manifest.webmanifest">
-        <meta name="theme-color" content="#12151C">
-        <link rel="apple-touch-icon" href="/images/pwa/apple-touch-icon.png">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-title" content="Ascento">
@@ -65,7 +64,7 @@
 
             @if(auth()->check() && auth()->user()->role === 'technician')
                 {{-- Contadores de avisos (barra de arriba y menú del celular): se actualizan solos. --}}
-                @include('partials.notification-poll', ['url' => route('notifications.count')])
+                @include('partials.realtime-inbox', ['countUrl' => route('notifications.count'), 'inboxUrl' => route('notifications.index')])
             @endif
 
             <!-- Page Heading -->

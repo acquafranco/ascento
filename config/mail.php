@@ -115,4 +115,21 @@ return [
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Correos con la marca de Ascento
+    |--------------------------------------------------------------------------
+    |
+    | Plantillas publicadas en resources/views/vendor/mail y tema "ascento"
+    | (resources/views/vendor/mail/html/themes/ascento.css).
+    |
+    */
+
+    'markdown' => [
+        'theme' => 'ascento',
+        'paths' => [
+            resource_path('views/vendor/mail'),
+        ],
+    ],
+
 ];

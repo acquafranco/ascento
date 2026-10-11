@@ -199,7 +199,8 @@ class ValidationScenarioTest extends TestCase
         $this->assertSame(4, $rows('Edificios'));
         $this->assertSame(10, $rows('Ascensores'));     // 3+1, 2, 2, 1+1
         $this->assertSame(4, $rows('Contratos'));
-        $this->assertSame(6, $rows('Usuarios'));        // admin, 2 técnicos, 3 portal
+        $this->assertSame(3, $rows('Usuarios'));        // admin y 2 técnicos
+        $this->assertSame(3, $rows('Accesos al portal')); // 3 personas del portal
         $this->assertSame(6, $rows('Asignaciones'));
         $this->assertSame(6, $rows('Mantenimientos'));  // 4 del mes pasado + 2 de este mes
         $this->assertSame(1, $rows('Inspecciones'));
@@ -216,7 +217,7 @@ class ValidationScenarioTest extends TestCase
         // Relaciones legibles: el remito "no realizado" y quién lo compartió.
         $notDone = collect($sheets['Mantenimientos'])->first(fn ($r) => ($r[4] ?? null) === 'Edificio Juncal' && $r[1] === '10/2026');
         $this->assertSame(['No', 'Lucas Fernández'], [$notDone[7], $notDone[5]]);
-        $this->assertSame('Portal del cliente', collect($sheets['Usuarios'])->firstWhere(2, 'encargado@adm-rivadavia.test')[3]);
+        $this->assertSame(['Administración Rivadavia', 'Edificio Juncal', 'Activo'], array_values(array_intersect_key(collect($sheets['Accesos al portal'])->firstWhere(2, 'encargado@adm-rivadavia.test'), array_flip([4, 5, 8]))));
 
         // Adjuntos: 2 fotos + 2 documentos, ninguno de Demo Sur.
         $this->assertSame(2, $zipNames->filter(fn ($n) => str_starts_with($n, 'adjuntos/reportes/'))->count());

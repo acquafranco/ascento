@@ -160,7 +160,7 @@ class QuoteForm
                         Textarea::make('description')->label('Descripción general')->rows(3)->maxLength(5000),
                         Textarea::make('conditions')->label('Condiciones')->rows(3)->maxLength(5000)
                             ->placeholder('Forma de pago, plazo de entrega, garantía…'),
-                        Textarea::make('notes')->label('Observaciones')->rows(2)->maxLength(5000),
+                        Textarea::make('notes')->label('Observaciones internas')->helperText('No las ve el cliente (ni en el enlace ni en el PDF).')->rows(2)->maxLength(5000),
                     ]),
             ]);
     }

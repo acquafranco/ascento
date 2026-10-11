@@ -94,12 +94,19 @@
                     @foreach($report->photos as $photo)
                         <a href="{{ $photo->url() }}" target="_blank" rel="noopener"
                            class="block aspect-square rounded-2xl border border-slate-200 bg-slate-50 overflow-hidden shadow-sm">
-                            <img src="{{ $photo->url() }}" loading="lazy"
+                            <img src="{{ $photo->url() }}?thumb=1" loading="lazy"
                                  class="block w-full h-full object-cover"
                                  alt="Foto {{ $loop->iteration }} del reporte">
                         </a>
                     @endforeach
                 </div>
+            </div>
+        @endif
+
+        @if($report->video)
+            <div class="mt-5">
+                <div class="text-gray-500 text-xs mb-2">Video</div>
+                @include('partials.report-video', ['video' => $report->video, 'src' => route('reports.video', $report)])
             </div>
         @endif
 

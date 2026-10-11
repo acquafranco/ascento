@@ -15,7 +15,7 @@ class ReportPhoto extends Model
 {
     use BelongsToCompany;
 
-    protected $fillable = ['report_id', 'path', 'width', 'height', 'size', 'position'];
+    protected $fillable = ['report_id', 'path', 'thumb_path', 'width', 'height', 'size', 'position'];
 
     protected $casts = [
         'width' => 'integer',
@@ -95,5 +95,9 @@ class ReportPhoto extends Model
 
         Storage::disk('local')->delete($this->path);
         Storage::disk('public')->delete($this->path);
+
+        if ($this->thumb_path && str_starts_with($this->thumb_path, 'reports/') && ! str_contains($this->thumb_path, '..')) {
+            Storage::disk('local')->delete($this->thumb_path);
+        }
     }
 }

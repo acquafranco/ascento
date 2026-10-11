@@ -2,6 +2,7 @@
 
 namespace App\Models\Concerns;
 
+use App\Support\Portal\PortalAccess;
 use Illuminate\Database\Eloquent\Builder;
 
 trait BelongsToCompany
@@ -76,6 +77,11 @@ trait BelongsToCompany
             $selected = session('selected_company_id');
 
             return $selected ? (int) $selected : null;
+        }
+
+        // Cliente del portal: la empresa activa, validada contra sus accesos.
+        if ($user->isClientUser()) {
+            return PortalAccess::currentCompanyId($user);
         }
 
         return $user->company_id ? (int) $user->company_id : null;

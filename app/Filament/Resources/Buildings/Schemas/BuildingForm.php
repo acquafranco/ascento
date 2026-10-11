@@ -302,6 +302,16 @@ class BuildingForm
 
 
 
+            // Zona / sector (texto libre del admin): filtro del mapa.
+            TextInput::make('map_zone')
+                ->label('Zona o sector (opcional)')
+                ->placeholder('Ej.: Zona Norte')
+                ->helperText('Agrupá tus edificios por zona o recorrido para filtrarlos en el mapa.')
+                ->maxLength(60)
+                ->datalist(fn () => Building::query()->whereNotNull('map_zone')->distinct()->orderBy('map_zone')->limit(50)->pluck('map_zone')->all())
+                ->dehydrateStateUsing(fn (?string $state) => filled($state) ? trim($state) : null)
+                ->columnSpanFull(),
+
             // Color del punto en el mapa (paleta fija; ver Building::MAP_COLORS).
             Select::make('map_color')
                 ->label('Color en el mapa')

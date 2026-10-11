@@ -75,6 +75,12 @@ class SharedWithClientNotification extends AppNotification
         return 'shared:'.class_basename($this->recordType).':'.$this->recordId;
     }
 
+    /** Push al celular del cliente (si lo activó en el portal). */
+    public function wantsPush(): bool
+    {
+        return true;
+    }
+
     public function icon(): string
     {
         return 'heroicon-o-document-text';

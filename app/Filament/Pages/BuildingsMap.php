@@ -6,6 +6,7 @@ use App\Filament\Resources\Buildings\BuildingResource;
 use App\Jobs\GeocodePendingBuildings;
 use App\Models\Building;
 use App\Services\Geocoding\BuildingGeocoder;
+use App\Services\Insights\MaintenanceAgenda;
 use App\Support\CompanyContext;
 use Carbon\Carbon;
 use Filament\Notifications\Notification;
@@ -91,6 +92,53 @@ class BuildingsMap extends Page
     |--------------------------------------------------------------------------
     */
 
+    /** Estado del mes (mantenimiento) por edificio, desde la agenda: una consulta para todo el mapa. */
+    public const STATUS_COLORS = [
+        'done' => '#16A34A', 'not_done' => '#DC2626', 'overdue' => '#B91C1C', 'pending' => '#EAB308',
+        'upcoming' => '#0891B2', 'unassigned' => '#6B7280', 'none' => '#CBD5E1',
+    ];
+
+    /** @var array<int, array{status: string, technicians: list<array{id: int, name: string}>}>|null */
+    private ?array $agenda = null;
+
+    private function agenda(): array
+    {
+        if ($this->agenda === null) {
+            $this->agenda = [];
+            if ($this->hasCompany()) {
+                foreach (app(MaintenanceAgenda::class)->rows(now()->month, now()->year, 'maintenance') as $row) {
+                    $this->agenda[$row['building']->id] = [
+                        'status' => $row['status'],
+                        'technicians' => $row['technicians']->map(fn ($t) => ['id' => (int) $t->id, 'name' => $t->name])->values()->all(),
+                    ];
+                }
+            }
+        }
+
+        return $this->agenda;
+    }
+
+    /** Estados posibles con su color y nombre (leyenda del modo "Estado del mes"). */
+    public function statusLegend(): array
+    {
+        return collect(self::STATUS_COLORS)->map(fn ($hex, $key) => [
+            'label' => $key === 'none' ? 'Sin mantenimiento asignado' : (MaintenanceAgenda::STATUSES[$key] ?? $key),
+            'hex' => $hex,
+        ])->all();
+    }
+
+    /** @return list<string> */
+    public function zonesInUse(): array
+    {
+        return $this->buildingsQuery()->whereNotNull('map_zone')->distinct()->orderBy('map_zone')->pluck('map_zone')->all();
+    }
+
+    /** @return array<int, string> técnicos asignados a mantenimiento */
+    public function techniciansInUse(): array
+    {
+        return collect($this->agenda())->flatMap(fn ($a) => $a['technicians'])->unique('id')->sortBy('name')->pluck('name', 'id')->all();
+    }
+
     public function getMarkers(): array
     {
         return $this->markersQuery()->get()->map(fn (Building $b) => $this->toMarker($b))->all();
@@ -105,7 +153,7 @@ class BuildingsMap extends Page
             ->select([
                 'buildings.id', 'client_id', 'name', 'address', 'locality', 'municipality', 'neighborhood',
                 'elevator_count', 'freight_elevator_count', 'is_active',
-                'latitude', 'longitude', 'geocoding_status', 'geocoded_at', 'map_color',
+                'latitude', 'longitude', 'geocoding_status', 'geocoded_at', 'map_color', 'map_zone',
             ]);
     }
 
@@ -125,6 +173,12 @@ class BuildingsMap extends Page
             'manual' => $building->geocoding_status === Building::GEO_MANUAL,
             'color' => $building->mapColorHex(),
             'colorKey' => $building->mapColorKey(),
+            'zone' => $building->map_zone,
+            'status' => $status = $this->agenda()[$building->id]['status'] ?? 'none',
+            'statusLabel' => $this->statusLegend()[$status]['label'] ?? $status,
+            'statusColor' => self::STATUS_COLORS[$status] ?? self::STATUS_COLORS['none'],
+            'technicians' => collect($this->agenda()[$building->id]['technicians'] ?? [])->pluck('name')->implode(', '),
+            'technicianIds' => collect($this->agenda()[$building->id]['technicians'] ?? [])->pluck('id')->all(),
         ];
     }
 

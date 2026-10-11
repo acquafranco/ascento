@@ -16,6 +16,7 @@
         "intervention/image": "^4.2",
         "laravel-notification-channels/webpush": "^13.0.1",
         "laravel/framework": "^13.8",
+        "laravel/reverb": "^1.12",
         "laravel/tinker": "^3.0",
         "mercadopago/dx-php": "^3.13",
         "openspout/openspout": "^4.32"
