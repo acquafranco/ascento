@@ -140,7 +140,7 @@ class BackupManager
         } catch (Throwable $e) {
             @unlink($zipPath);
             Log::error('Falló un backup', ['backup_id' => $backup->id, 'exception' => $e::class, 'message' => $this->redact($e->getMessage()), 'at' => basename($e->getFile()).':'.$e->getLine()]);
-            $backup->forceFill(['status' => Backup::FAILED, 'error' => 'El backup no se pudo generar: '.$this->describeFailure($e), 'completed_at' => now()])->save();
+            $backup->forceFill(['status' => Backup::FAILED, 'error' => 'El backup no se pudo generar: '.$this->redact($this->describeFailure($e)), 'completed_at' => now()])->save();
             $this->notifyFailure($backup);
         } finally {
             File::deleteDirectory($work);
