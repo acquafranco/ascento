@@ -3,15 +3,26 @@
     $labels = \App\Models\QuoteEvent::LABELS;
     $active = $quote->receivables->firstWhere(fn ($r) => $r->status !== \App\Models\Receivable::VOID);
 @endphp
-<div class="space-y-4 text-sm">
-    <dl class="grid grid-cols-2 gap-x-3 gap-y-2">
-        <dt class="text-gray-500 dark:text-gray-400">Estado</dt>
-        <dd class="font-semibold">{{ $quote->displayStatusLabel() }}</dd>
-        <dt class="text-gray-500 dark:text-gray-400">Creado por</dt>
+{{-- Estilos en línea: el panel no compila utilidades de Tailwind propias. --}}
+<style>
+    .asc-qm { display: grid; gap: 1rem; font-size: .875rem; }
+    .asc-qm dl { display: grid; grid-template-columns: max-content 1fr; gap: .45rem .9rem; margin: 0; }
+    .asc-qm dt, .asc-qm .asc-qm-muted { color: var(--gray-500); }
+    .asc-qm dd { margin: 0; }
+    .asc-qm .asc-qm-strong { font-weight: 600; }
+    .asc-qm .asc-qm-closed { border-radius: .5rem; padding: .75rem; background: rgba(245, 158, 11, .12); color: rgb(217, 119, 6); }
+    .asc-qm ol { list-style: none; margin: 0; padding-left: .75rem; border-left: 2px solid rgba(127, 127, 127, .25); display: grid; gap: .55rem; }
+    .asc-qm .asc-qm-small { font-size: .75rem; color: var(--gray-500); }
+</style>
+<div class="asc-qm">
+    <dl>
+        <dt>Estado</dt>
+        <dd class="asc-qm-strong">{{ $quote->displayStatusLabel() }}</dd>
+        <dt>Creado por</dt>
         <dd>{{ $quote->creator?->name ?? '—' }}</dd>
-        <dt class="text-gray-500 dark:text-gray-400">Último envío</dt>
+        <dt>Último envío</dt>
         <dd>{{ $quote->sent_at ? $quote->sent_at->format('d/m/Y H:i').' · '.$quote->sent_to : 'No se envió por correo' }}</dd>
-        <dt class="text-gray-500 dark:text-gray-400">Cobro</dt>
+        <dt>Cobro</dt>
         <dd>
             {{ $active ? 'Generado ($ '.number_format((float) $active->amount, 2, ',', '.').')' : ($quote->status === 'approved' ? 'Pendiente de generar' : 'No corresponde (no está aprobado)') }}
         </dd>
@@ -19,27 +30,27 @@
 
     @if(filled($quote->notes))
         <div>
-            <div class="text-gray-500 dark:text-gray-400">Observaciones internas (el cliente no las ve)</div>
-            <div class="whitespace-pre-line">{{ $quote->notes }}</div>
+            <div class="asc-qm-muted">Observaciones internas (el cliente no las ve)</div>
+            <div style="white-space: pre-line">{{ $quote->notes }}</div>
         </div>
     @endif
 
     @unless($quote->isEditable())
-        <div class="rounded-lg bg-amber-50 p-3 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+        <div class="asc-qm-closed">
             Este presupuesto está cerrado ({{ $quote->displayStatusLabel() }}{{ $quote->hasActiveReceivable() ? ', con cobro' : '' }}): no se edita para no perder la trazabilidad. Usá "Duplicar" para hacer uno nuevo.
         </div>
     @endunless
 
     <div>
-        <div class="mb-2 font-semibold">Historial</div>
-        <ol class="space-y-2 border-l border-gray-200 pl-3 dark:border-white/10">
+        <div class="asc-qm-strong" style="margin-bottom: .5rem">Historial</div>
+        <ol>
             @forelse($quote->events->reverse() as $event)
                 <li>
-                    <div class="font-medium">{{ $labels[$event->action] ?? $event->action }}{{ $event->detail ? ': '.$event->detail : '' }}</div>
-                    <div class="text-xs text-gray-500 dark:text-gray-400">{{ $event->created_at?->format('d/m/Y H:i') }}{{ $event->user ? ' · '.$event->user->name : '' }}</div>
+                    <div style="font-weight: 500">{{ $labels[$event->action] ?? $event->action }}{{ $event->detail ? ': '.$event->detail : '' }}</div>
+                    <div class="asc-qm-small">{{ $event->created_at?->format('d/m/Y H:i') }}{{ $event->user ? ' · '.$event->user->name : '' }}</div>
                 </li>
             @empty
-                <li class="text-gray-500">Sin movimientos registrados (presupuesto anterior al historial).</li>
+                <li class="asc-qm-muted">Sin movimientos registrados (presupuesto anterior al historial).</li>
             @endforelse
         </ol>
     </div>

@@ -154,8 +154,14 @@
                 <label for="videoInput" class="text-sm font-bold text-gray-700">
                     Video del problema <span class="font-normal text-gray-500">(opcional, hasta {{ config('media.video_max_seconds') }} s y {{ config('media.video_max_mb') }} MB)</span>
                 </label>
-                <input id="videoInput" type="file" name="video" accept="video/mp4,video/quicktime,video/webm"
-                       class="mt-2 block w-full text-sm text-gray-700 file:mr-3 file:rounded-xl file:border-0 file:bg-blue-50 file:px-4 file:py-3 file:font-bold file:text-blue-700">
+                <label class="mt-2 flex items-center gap-3 rounded-3xl bg-blue-50 border border-blue-200 px-4 py-4 cursor-pointer active:bg-blue-100">
+                    <span class="text-3xl">🎥</span>
+                    <span class="min-w-0">
+                        <span id="videoLabel" class="block text-base font-bold text-blue-700 truncate">Agregar video</span>
+                        <span class="block text-xs text-gray-500">Grabá uno o elegilo de la galería</span>
+                    </span>
+                    <input id="videoInput" type="file" name="video" accept="video/mp4,video/quicktime,video/webm" class="hidden">
+                </label>
                 <p id="videoHint" class="mt-1 text-xs text-gray-500">Grabá un video corto donde se vea la falla. Con señal débil puede tardar en subir.</p>
                 @error('video')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
             </div>
@@ -332,6 +338,14 @@ document.addEventListener('DOMContentLoaded', () => {
             return file;
         }
     }
+
+    // Muestra el video elegido (nombre y peso) en lugar del texto del navegador.
+    document.getElementById('videoInput')?.addEventListener('change', (event) => {
+        const file = event.target.files?.[0];
+        document.getElementById('videoLabel').textContent = file
+            ? '✓ ' + file.name + ' (' + (file.size / 1048576).toFixed(1) + ' MB)'
+            : 'Agregar video';
+    });
 
     form.addEventListener('submit', async (event) => {
         if (form.dataset.ready === '1') return;
