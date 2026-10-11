@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Report;
 use App\Models\ReportVideo;
 use App\Services\Reports\ReportVideoService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -26,6 +27,21 @@ class ReportVideoController extends Controller
         abort_unless($report->canBeViewedBy($request->user()), 404);
 
         return static::serve($report);
+    }
+
+    /** Estado del procesamiento (para actualizar la pantalla sin recargar). */
+    public function status(Request $request, Report $report): JsonResponse
+    {
+        abort_unless($report->canBeViewedBy($request->user()), 404);
+
+        $video = ReportVideo::withoutGlobalScopes()->where('report_id', $report->id)->where('company_id', $report->company_id)->first();
+        abort_unless($video, 404);
+
+        return response()->json([
+            'status' => $video->status,
+            'note' => $video->processing_note,
+            'label' => $video->status === ReportVideo::FAILED ? null : $video->sizeLabel().($video->duration ? ' · '.$video->duration.' s' : ''),
+        ]);
     }
 
     public function store(Request $request, Report $report): RedirectResponse
@@ -55,7 +71,7 @@ class ReportVideoController extends Controller
     {
         /** @var ReportVideo|null $video */
         $video = ReportVideo::withoutGlobalScopes()->where('report_id', $report->id)->where('company_id', $report->company_id)->first();
-        $path = $video?->fullPath();
+        $path = $video && $video->status !== ReportVideo::FAILED ? $video->fullPath() : null;
         abort_unless($path, 404);
 
         $download = request()->boolean('download');

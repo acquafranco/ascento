@@ -20,13 +20,19 @@ return [
 
     // Video: uno por reporte (planes Profesional y Empresa).
     'video_max_mb' => (int) env('MEDIA_VIDEO_MAX_MB', 50),
-    'video_max_seconds' => (int) env('MEDIA_VIDEO_MAX_SECONDS', 120),
+    'video_max_seconds' => (int) env('MEDIA_VIDEO_MAX_SECONDS', 90),
 
     // FFmpeg es opcional: si está, los videos se comprimen a MP4 H.264 (se ven
     // en cualquier navegador) en segundo plano. Si no, se guardan como llegan.
     'ffmpeg' => env('FFMPEG_BINARY', '/usr/bin/ffmpeg'),
     'ffprobe' => env('FFPROBE_BINARY', '/usr/bin/ffprobe'),
+    // Compresión: 720p, H.264 + AAC, calidad constante (CRF 26) con techo de
+    // bitrate para que un video movido no quede enorme. Alcanza para ver
+    // componentes, desgaste y fallas, y se reproduce fluido en el celular.
     'video_max_height' => 720,
-    'video_crf' => 28,
+    'video_crf' => 26,
+    'video_max_bitrate' => '2500k',
+    'video_max_fps' => 30,
+    'video_threads' => 2,
 
 ];

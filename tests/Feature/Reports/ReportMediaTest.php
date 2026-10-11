@@ -49,10 +49,12 @@ class ReportMediaTest extends TestCase
         $this->a['company']->forgetPlan();
     }
 
-    /** MP4 mínimo válido por contenido (caja ftyp). */
-    private function mp4(string $name = 'falla.mp4', int $kb = 64): UploadedFile
+    /** MP4 mínimo válido por contenido: ftyp + moov/mvhd (duración) + datos. */
+    private function mp4(string $name = 'falla.mp4', int $kb = 64, int $seconds = 10): UploadedFile
     {
-        $bytes = "\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom".str_repeat("\x00", $kb * 1024);
+        $mvhd = "\x00\x00\x00\x00".str_repeat("\x00", 8).pack('N2', 1000, $seconds * 1000).str_repeat("\x00", 80);
+        $moov = pack('N', 8 + 8 + strlen($mvhd)).'moov'.pack('N', 8 + strlen($mvhd)).'mvhd'.$mvhd;
+        $bytes = "\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom".$moov.pack('N', 8 + $kb * 1024).'mdat'.str_repeat("\x00", $kb * 1024);
 
         return UploadedFile::fake()->createWithContent($name, $bytes);
     }

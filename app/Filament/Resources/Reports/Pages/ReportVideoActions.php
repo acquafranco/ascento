@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Reports\Pages;
 
 use App\Models\Company;
 use App\Models\Report;
+use App\Models\ReportVideo;
 use App\Services\Reports\ReportVideoService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
@@ -26,7 +27,7 @@ class ReportVideoActions
                 ->icon('heroicon-o-play-circle')
                 ->color('gray')
                 ->modalHeading('Video del reporte')
-                ->modalContent(fn (Report $record) => view('partials.report-video', ['video' => $record->video, 'src' => route('reports.video', $record)]))
+                ->modalContent(fn (Report $record) => view('partials.report-video', ['video' => $record->video, 'src' => route('reports.video', $record), 'statusUrl' => route('reports.video.status', $record)]))
                 ->modalSubmitAction(false)
                 ->modalCancelActionLabel('Cerrar')
                 ->visible(fn (Report $record) => $record->video !== null),
@@ -54,7 +55,7 @@ class ReportVideoActions
 
                     Notification::make()->title('Video agregado')->success()->send();
                 })
-                ->visible(fn (Report $record) => $record->video === null && ReportVideoService::allowedFor(Company::find($record->company_id))),
+                ->visible(fn (Report $record) => ($record->video === null || $record->video->status === ReportVideo::FAILED) && ReportVideoService::allowedFor(Company::find($record->company_id))),
             Action::make('deleteVideo')
                 ->label('Quitar video')
                 ->icon('heroicon-o-trash')

@@ -168,6 +168,15 @@
         @endif
 
 
+        {{-- Errores y progreso de la subida (sin ventanas emergentes). --}}
+        <div id="formError" role="alert" class="hidden rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"></div>
+        <div id="uploadProgress" class="hidden" aria-live="polite">
+            <div class="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                <div id="uploadBar" class="h-full w-0 rounded-full bg-orange-500 transition-all"></div>
+            </div>
+            <p id="uploadLabel" class="mt-2 text-sm font-semibold text-slate-600">Subiendo…</p>
+        </div>
+
         <button id="submitReport" class="w-full py-4 rounded-2xl bg-blue-600 text-white text-lg font-bold shadow-sm disabled:opacity-60">
             Enviar reporte
         </button>
@@ -347,12 +356,28 @@ document.addEventListener('DOMContentLoaded', () => {
             : 'Agregar video';
     });
 
+    const formError = document.getElementById('formError');
+    const progress = document.getElementById('uploadProgress');
+    const bar = document.getElementById('uploadBar');
+    const progressLabel = document.getElementById('uploadLabel');
+    const showError = (message) => {
+        formError.textContent = message;
+        formError.classList.remove('hidden');
+        formError.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    };
+    const resetSubmit = () => {
+        submit.disabled = false;
+        submit.textContent = 'Enviar reporte';
+        progress.classList.add('hidden');
+    };
+
     form.addEventListener('submit', async (event) => {
-        if (form.dataset.ready === '1') return;
         event.preventDefault();
+        if (submit.disabled) return; // evita el doble envío
+        formError.classList.add('hidden');
 
         if (navigator.onLine === false) {
-            alert('No hay conexión a internet. El reporte NO se envió, pero no se perdió nada: esperá a tener señal y tocá "Enviar reporte" de nuevo.');
+            showError('No hay conexión a internet. El reporte NO se envió, pero no se perdió nada: esperá a tener señal y tocá "Enviar reporte" de nuevo.');
             return;
         }
         // Video: tamaño y duración antes de subir (el servidor lo vuelve a validar).
@@ -360,7 +385,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (video) {
             const maxMb = {{ (int) config('media.video_max_mb') }}, maxSeconds = {{ (int) config('media.video_max_seconds') }};
             if (video.size > maxMb * 1024 * 1024) {
-                alert('El video pesa ' + (video.size / 1048576).toFixed(1) + ' MB. El máximo es ' + maxMb + ' MB: grabá uno más corto.');
+                showError('El video pesa ' + (video.size / 1048576).toFixed(1) + ' MB. El máximo es ' + maxMb + ' MB: grabá uno más corto.');
                 return;
             }
             const seconds = await new Promise((resolve) => {
@@ -372,7 +397,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 setTimeout(() => resolve(0), 4000);
             });
             if (seconds > maxSeconds + 1) {
-                alert('El video dura ' + Math.round(seconds) + ' segundos. El máximo es ' + maxSeconds + ' segundos.');
+                showError('El video dura ' + Math.round(seconds) + ' segundos. El máximo es ' + maxSeconds + ' segundos.');
                 return;
             }
         }
@@ -388,15 +413,47 @@ document.addEventListener('DOMContentLoaded', () => {
             // Navegador muy viejo, sin DataTransfer: no se pueden adjuntar las
             // fotos elegidas. Se avisa en vez de mandar el reporte sin ellas.
             if (photos.length && !confirm('Este navegador no permite adjuntar las fotos. ¿Enviar el reporte sin fotos?')) {
-                submit.disabled = false;
-                submit.textContent = 'Enviar reporte';
+                resetSubmit();
                 return;
             }
         }
 
+        // Envío con progreso real de la subida. El servidor responde JSON:
+        // 422 con el error, o la URL a la que ir cuando el reporte se guardó.
         submit.textContent = 'Enviando…';
-        form.dataset.ready = '1';
-        form.requestSubmit ? form.requestSubmit() : form.submit();
+        bar.style.width = '0%';
+        progressLabel.textContent = 'Subiendo… 0%';
+        progress.classList.remove('hidden');
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', form.action);
+        xhr.setRequestHeader('Accept', 'application/json');
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        xhr.upload.onprogress = (e) => {
+            if (!e.lengthComputable) return;
+            const pct = Math.round(e.loaded / e.total * 100);
+            bar.style.width = pct + '%';
+            progressLabel.textContent = pct < 100 ? 'Subiendo… ' + pct + '%' : 'Guardando el reporte…';
+        };
+        xhr.onload = () => {
+            let body = {};
+            try { body = JSON.parse(xhr.responseText); } catch (e) {}
+            if (xhr.status >= 200 && xhr.status < 300 && body.redirect) {
+                progressLabel.textContent = 'Listo. Abriendo tus reportes…';
+                window.location.assign(body.redirect);
+                return;
+            }
+            resetSubmit();
+            if (xhr.status === 422) showError(body.message || 'Revisá los datos del reporte.');
+            else if (xhr.status === 413) showError('Los archivos pesan más de lo que acepta el servidor. Probá con un video más corto o menos fotos.');
+            else if (xhr.status === 419) showError('La sesión venció. Recargá la página e intentá de nuevo.');
+            else showError('No se pudo enviar el reporte. Probá de nuevo en un momento.');
+        };
+        xhr.onerror = () => {
+            resetSubmit();
+            showError('Se cortó la conexión. El reporte NO se envió: probá de nuevo cuando tengas señal.');
+        };
+        xhr.send(new FormData(form));
     });
 });
 

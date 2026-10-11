@@ -106,7 +106,7 @@
         @if($report->video)
             <div class="mt-5">
                 <div class="text-gray-500 text-xs mb-2">Video</div>
-                @include('partials.report-video', ['video' => $report->video, 'src' => route('reports.video', $report)])
+                @include('partials.report-video', ['video' => $report->video, 'src' => route('reports.video', $report), 'statusUrl' => route('reports.video.status', $report)])
             </div>
         @endif
 

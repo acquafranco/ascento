@@ -112,12 +112,20 @@ class ReportController extends Controller
             403
         );
 
+        // El formulario del técnico envía con XMLHttpRequest para mostrar el
+        // progreso de la subida: los errores vuelven como JSON (422) y el
+        // éxito como la URL a la que ir. Sin JavaScript, el flujo de siempre.
+        $fail = fn (array $errors) => $request->expectsJson()
+            ? response()->json(['message' => collect($errors)->flatten()->first(), 'errors' => $errors], 422)
+            : back()->withErrors($errors)->withInput();
+
         // Antes de procesar la foto: ¿queda cupo de reportes este mes?
         if (! \App\Support\Plans\PlanGuard::for($company)->canAdd(\App\Enums\PlanLimit::ReportsPerMonth)) {
             \App\Jobs\NotifyCompanyAdmins::reportLimitReached($company);
 
-            return redirect()
-                ->route('reports.create', ['company' => $company->slug]);
+            $url = route('reports.create', ['company' => $company->slug]);
+
+            return $request->expectsJson() ? response()->json(['redirect' => $url]) : redirect($url);
         }
 
         $data = $request->validate([
@@ -145,18 +153,12 @@ class ReportController extends Controller
             ->first();
 
         if (! $building) {
-            return back()
-                ->withErrors([
-                    'building_id' => 'El edificio seleccionado no pertenece a esta empresa.',
-                ])
-                ->withInput();
+            return $fail(['building_id' => ['El edificio seleccionado no pertenece a esta empresa.']]);
         }
 
         // El equipo tiene que existir en ese edificio (no se confía en el select).
         if (! in_array($data['elevator_number'], $building->unitLabels(), true)) {
-            return back()
-                ->withErrors(['elevator_number' => 'Elegí un equipo de este edificio.'])
-                ->withInput();
+            return $fail(['elevator_number' => ['Elegí un equipo de este edificio.']]);
         }
 
         // Reporte y fotos juntos: si una foto no se puede procesar, no se
@@ -187,7 +189,7 @@ class ReportController extends Controller
                 return $report;
             });
         } catch (ValidationException $e) {
-            return back()->withErrors($e->errors())->withInput();
+            return $fail($e->errors());
         }
 
         $report->load('building');
@@ -199,17 +201,10 @@ class ReportController extends Controller
 
 
 
-        return redirect()
-            ->route(
-                'reports.index',
-                [
-                    'company'=>$company->slug
-                ]
-            )
-            ->with(
-                'success',
-                'Reporte creado correctamente'
-            );
+        session()->flash('success', 'Reporte creado correctamente');
+        $url = route('reports.index', ['company' => $company->slug]);
+
+        return $request->expectsJson() ? response()->json(['redirect' => $url]) : redirect($url);
 
     }
 

@@ -367,6 +367,7 @@ Route::middleware(['auth', 'subscription'])->whereNumber(['report', 'photo'])->g
     Route::get('/files/reports/{report}/photos/{photo}', [ReportPhotoController::class, 'show'])->name('reports.photos.show');
     Route::get('/files/reports/{report}/pdf', \App\Http\Controllers\ReportPdfController::class)->name('reports.pdf');
     Route::get('/files/reports/{report}/video', [\App\Http\Controllers\ReportVideoController::class, 'show'])->name('reports.video');
+    Route::get('/files/reports/{report}/video/status', [\App\Http\Controllers\ReportVideoController::class, 'status'])->middleware('throttle:30,1')->name('reports.video.status');
     Route::get('/files/quotes/{quote}/pdf', [\App\Http\Controllers\QuoteDocumentController::class, 'adminPdf'])->whereNumber('quote')->name('quotes.pdf');
     Route::post('/files/reports/{report}/video', [\App\Http\Controllers\ReportVideoController::class, 'store'])->middleware('throttle:10,1')->name('reports.video.store');
     Route::delete('/files/reports/{report}/video', [\App\Http\Controllers\ReportVideoController::class, 'destroy'])->name('reports.video.destroy');
