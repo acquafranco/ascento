@@ -141,14 +141,22 @@ class BackupManager
                 ],
                 'completed_at' => now(),
             ])->save();
-
-            $step = 'copia externa';
-            $this->copyOffsite($backup);
         } catch (Throwable $e) {
             @unlink($zipPath);
             $this->recordFailure($backup, $e, $step);
         } finally {
             File::deleteDirectory($work);
+        }
+
+        // Opcional y después de registrar el backup completo: si la copia
+        // externa falla de una forma no prevista, el backup local sigue
+        // completo (antes el catch de arriba lo borraba y lo marcaba fallido).
+        if ($backup->status === Backup::COMPLETED) {
+            try {
+                $this->copyOffsite($backup);
+            } catch (Throwable $e) {
+                Log::warning('No se pudo registrar la copia externa del backup', ['backup_id' => $backup->id] + $this->diagnose($e));
+            }
         }
 
         try {
@@ -171,6 +179,10 @@ class BackupManager
         // La columna `error` es de 255 caracteres: un texto más largo hacía
         // fallar el guardado y tapaba el error original.
         $error = Str::limit('El backup no se pudo generar ('.$step.'): '.$this->describeFailure($e), 250);
+
+        // Si falló al guardar "completo", el modelo tiene en memoria la ruta y
+        // el checksum de un ZIP que ya se borró: no se guardan con el fallo.
+        $backup->forceFill(['path' => null, 'size' => null, 'checksum' => null, 'summary' => null, 'encrypted' => false]);
 
         try {
             $backup->forceFill(['status' => Backup::FAILED, 'error' => $error, 'completed_at' => now()])->save();

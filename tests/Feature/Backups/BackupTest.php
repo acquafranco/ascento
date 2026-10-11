@@ -431,5 +431,46 @@ class BackupTest extends TestCase
             $this->assertStringNotContainsString($secret, $everything);
         }
         $this->assertSame([], Storage::disk('local')->allFiles('backups'), 'no queda un ZIP de un backup fallido');
+        $fresh = Backup::find($backup->id);
+        $this->assertNull($fresh->path, 'no apunta a un ZIP borrado');
+        $this->assertNull($fresh->checksum);
+        $this->assertNull($fresh->summary);
+    }
+
+    public function test_an_unexpected_offsite_error_never_ruins_a_completed_backup(): void
+    {
+        Storage::fake('offsite');
+        config(['backup.offsite_disk' => 'offsite', 'backup.offsite_path' => 'ascento-backups']);
+        Backup::saving(function (Backup $b) {
+            if (isset($b->summary['offsite'])) {
+                throw new RuntimeException('la base dejó de responder');
+            }
+        });
+        Log::spy();
+
+        $backup = $this->backup();
+
+        $this->assertSame(Backup::COMPLETED, $backup->status);
+        $this->assertNull($backup->error);
+        Storage::disk('local')->assertExists($backup->path);
+        $this->assertTrue(app(BackupManager::class)->verify($backup)['ok']);
+        Log::shouldHaveReceived('warning')->withArgs(fn ($message, $context = []) => $message === 'No se pudo registrar la copia externa del backup');
+        Log::shouldNotHaveReceived('error');
+    }
+
+    public function test_an_empty_database_dump_is_never_a_completed_backup(): void
+    {
+        $script = $this->root.'/mysqldump-vacio';
+        file_put_contents($script, "#!/bin/sh\nexit 0\n"); // "termina bien" sin escribir nada
+        chmod($script, 0755);
+        $c = 'database.connections.'.config('database.default');
+        config(["{$c}.driver" => 'mysql', "{$c}.username" => 'forge', "{$c}.database" => 'ascento', 'backup.mysqldump' => $script]);
+
+        $backup = $this->backup();
+
+        $this->assertSame(Backup::FAILED, $backup->status);
+        $this->assertStringContainsString('(volcado de la base)', $backup->error);
+        $this->assertStringContainsString('quedó vacío', $backup->error);
+        $this->assertSame([], Storage::disk('local')->allFiles('backups'));
     }
 }
