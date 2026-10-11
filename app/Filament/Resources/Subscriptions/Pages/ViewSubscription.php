@@ -40,6 +40,7 @@ class ViewSubscription extends ViewRecord
             Action::make('enter')
                 ->label('Entrar a la empresa')
                 ->icon('heroicon-o-arrow-right')
+                ->visible(fn () => $this->record->company && ! $this->record->company->trashed())
                 ->action(function () {
                     session(['selected_company_id' => $this->record->company_id]);
 

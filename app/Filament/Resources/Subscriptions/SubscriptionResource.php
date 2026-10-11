@@ -52,6 +52,22 @@ class SubscriptionResource extends Resource
         return false;
     }
 
+    /**
+     * La empresa se carga aunque esté eliminada (SoftDeletes): sus suscripciones
+     * se conservan y la página "Ver" no debe quedarse sin empresa.
+     */
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with(['company' => fn ($q) => $q->withTrashed()]);
+    }
+
+    public static function companyName(Subscription $record): ?string
+    {
+        $company = $record->company;
+
+        return $company ? $company->name.($company->trashed() ? ' (eliminada)' : '') : null;
+    }
+
     public static function canDelete(Model $record): bool
     {
         return false;
@@ -65,13 +81,15 @@ class SubscriptionResource extends Resource
             ->columns([
                 TextColumn::make('company.name')
                     ->label('Empresa')
+                    ->formatStateUsing(fn ($state, Subscription $record) => static::companyName($record))
+                    ->placeholder(SubscriptionStatus::MISSING_COMPANY)
                     ->searchable()
                     ->sortable(),
 
                 TextColumn::make('estado')
                     ->label('Estado')
-                    ->state(fn (Subscription $record) => $record->company ? SubscriptionStatus::label($record->company) : '—')
-                    ->color(fn (Subscription $record) => $record->company ? SubscriptionStatus::color($record->company) : 'gray')
+                    ->state(fn (Subscription $record) => SubscriptionStatus::label($record->company))
+                    ->color(fn (Subscription $record) => SubscriptionStatus::color($record->company))
                     ->badge(),
 
                 TextColumn::make('plan_name')
@@ -152,7 +170,9 @@ class SubscriptionResource extends Resource
             Section::make('Empresa')
                 ->columns(3)
                 ->schema([
-                    TextEntry::make('company.name')->label('Empresa'),
+                    TextEntry::make('company.name')->label('Empresa')
+                        ->formatStateUsing(fn ($state, Subscription $record) => static::companyName($record))
+                        ->placeholder(SubscriptionStatus::MISSING_COMPANY),
                     TextEntry::make('company_status')
                         ->label('Estado')
                         ->state(fn (Subscription $record) => SubscriptionStatus::label($record->company))

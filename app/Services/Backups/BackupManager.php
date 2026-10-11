@@ -6,6 +6,7 @@ use App\Models\Backup;
 use App\Models\User;
 use App\Notifications\MailOnlyNotification;
 use Filament\Notifications\Notification as FilamentNotification;
+use Illuminate\Database\QueryException;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -69,10 +70,13 @@ class BackupManager
         $relative = config('backup.path').'/ascento-backup-'.now()->format('Ymd-His').'-'.$backup->id.'.zip';
         $zipPath = Storage::disk('local')->path($relative);
         File::ensureDirectoryExists(dirname($zipPath), 0700);
+        $step = 'volcado de la base';
 
         try {
             $sql = $work.'/database.sql';
             $this->dumpDatabase($sql);
+
+            $step = 'conteo de filas';
 
             $manifest = [
                 'app' => 'Ascento',
@@ -86,6 +90,7 @@ class BackupManager
                 'missing_referenced_files' => [],
             ];
 
+            $step = 'armado del ZIP';
             $zip = new ZipArchive;
             if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
                 throw new RuntimeException('No se pudo crear el archivo del backup.');
@@ -120,6 +125,7 @@ class BackupManager
                 throw new RuntimeException('No se pudo cerrar el archivo del backup.');
             }
 
+            $step = 'registro del backup completo';
             $backup->forceFill([
                 'status' => Backup::COMPLETED,
                 'path' => $relative,
@@ -136,17 +142,85 @@ class BackupManager
                 'completed_at' => now(),
             ])->save();
 
+            $step = 'copia externa';
             $this->copyOffsite($backup);
         } catch (Throwable $e) {
             @unlink($zipPath);
-            Log::error('Falló un backup', ['backup_id' => $backup->id, 'exception' => $e::class, 'message' => $this->redact($e->getMessage()), 'at' => basename($e->getFile()).':'.$e->getLine()]);
-            $backup->forceFill(['status' => Backup::FAILED, 'error' => 'El backup no se pudo generar: '.$this->redact($this->describeFailure($e)), 'completed_at' => now()])->save();
-            $this->notifyFailure($backup);
+            $this->recordFailure($backup, $e, $step);
         } finally {
             File::deleteDirectory($work);
         }
 
-        return $backup->fresh();
+        try {
+            return $backup->fresh() ?? $backup;
+        } catch (Throwable) {
+            return $backup; // la base no responde: se devuelve lo que se sabe
+        }
+    }
+
+    /**
+     * Registra un fallo sin perder el error original: primero el log (con el
+     * paso y el detalle técnico sin secretos), después el estado en la tabla.
+     * Si guardar el estado también falla, se registra aparte y los avisos
+     * igual salen con el error original.
+     */
+    private function recordFailure(Backup $backup, Throwable $e, string $step): void
+    {
+        Log::error('Falló un backup', ['backup_id' => $backup->id, 'step' => $step] + $this->diagnose($e));
+
+        // La columna `error` es de 255 caracteres: un texto más largo hacía
+        // fallar el guardado y tapaba el error original.
+        $error = Str::limit('El backup no se pudo generar ('.$step.'): '.$this->describeFailure($e), 250);
+
+        try {
+            $backup->forceFill(['status' => Backup::FAILED, 'error' => $error, 'completed_at' => now()])->save();
+        } catch (Throwable $saveError) {
+            Log::critical('No se pudo registrar el fallo del backup', [
+                'backup_id' => $backup->id,
+                'original' => ['step' => $step] + $this->diagnose($e),
+                'al_guardar' => $this->diagnose($saveError),
+            ]);
+            $backup->forceFill(['status' => Backup::FAILED, 'error' => $error]); // para el aviso
+        }
+
+        $this->notifyFailure($backup);
+    }
+
+    /**
+     * Detalle técnico para el log, sin secretos: de una QueryException solo el
+     * SQLSTATE, el código del motor, la consulta con "?" (sin valores) y el
+     * mensaje del motor con los valores entre comillas tapados.
+     *
+     * @return array<string, mixed>
+     */
+    private function diagnose(Throwable $e): array
+    {
+        $appFrame = collect($e->getTrace())->first(fn ($f) => str_starts_with($f['file'] ?? '', app_path()));
+        $info = [
+            'exception' => $e::class,
+            'at' => $appFrame ? str_replace(base_path().'/', '', $appFrame['file']).':'.$appFrame['line'] : basename($e->getFile()).':'.$e->getLine(),
+        ];
+
+        if ($e instanceof QueryException) {
+            return $info + [
+                'sqlstate' => (string) $e->getCode(),
+                'driver_code' => $e->errorInfo[1] ?? null,
+                'driver_message' => $this->safeDriverMessage($e),
+                'sql' => Str::limit($e->getSql(), 300),
+            ];
+        }
+
+        return $info + ['message' => $this->redact($e->getMessage())];
+    }
+
+    /** Mensaje del motor de base sin valores: 'persona@correo' → '***'; los nombres de tabla o columna quedan. */
+    private function safeDriverMessage(QueryException $e): string
+    {
+        $message = (string) ($e->errorInfo[2] ?? $e->getPrevious()?->getMessage() ?? '');
+        $message = preg_replace('/\s*\(Connection: .*$/s', '', $message); // host, base y SQL con valores
+        $message = preg_replace_callback("/'([^']*)'/", fn ($m) => preg_match('/^[A-Za-z0-9_.$`-]{1,128}$/', $m[1]) ? $m[0] : "'***'", (string) $message);
+
+        return $this->redact((string) $message);
     }
 
     public function processPending(): int
@@ -528,7 +602,10 @@ class BackupManager
     /** @return array<string, int> */
     private function tableCounts(): array
     {
-        $tables = collect(Schema::getTables())->pluck('name')
+        // Solo las tablas de la base de la app: sin esquema, Schema::getTables()
+        // lista también las de las otras bases que el usuario de MySQL puede
+        // ver, y contarlas en esta base da "Table doesn't exist".
+        $tables = collect(Schema::getTables(Schema::getCurrentSchemaName()))->pluck('name')
             ->reject(fn ($t) => in_array($t, ['sqlite_sequence', 'cache', 'cache_locks', 'sessions', 'jobs', 'job_batches'], true))
             ->sort()->values();
 
@@ -619,7 +696,8 @@ class BackupManager
     {
         return match (true) {
             $e instanceof ProcessTimedOutException => 'El volcado de la base tardó demasiado y se cortó.',
-            $e instanceof RuntimeException => $e->getMessage(),
+            $e instanceof QueryException => 'error de la base de datos (SQLSTATE '.$e->getCode().'): '.$this->safeDriverMessage($e),
+            $e instanceof RuntimeException => $this->redact($e->getMessage()),
             default => 'Error inesperado ('.class_basename($e).').',
         };
     }

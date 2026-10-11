@@ -223,6 +223,31 @@ servidor. No hace falta Pusher ni ningún servicio pago.
 4. `php artisan ascento:check-production` comprueba que haya un proceso
    escuchando, que la app pueda publicar y que los orígenes estén restringidos.
 
+**Leer el resultado de «La app publicó un mensaje de prueba en Reverb»**
+
+El chequeo publica un mensaje vacío en el canal público `ascento-diagnostico`,
+que nadie escucha, y muestra adónde (`https://HOST:PUERTO`, sin secretos). Si
+falla, dice de qué tipo es el problema y dónde se arregla:
+
+| Mensaje | Qué significa | Dónde mirar |
+|---|---|---|
+| «no pudo armar el cliente de Reverb (configuración, no red)» | Falta una variable `REVERB_*` o tiene un valor inválido. | El `.env` del sitio; después `php artisan optimize`. |
+| «no pudo conectarse a Reverb en …» + `cURL error 6` | No se resuelve `REVERB_HOST`. | DNS del host. |
+| … + `cURL error 7` | Nada atiende en ese host y puerto. | Que el daemon esté corriendo; que `REVERB_HOST`/`REVERB_PORT` sean los públicos. |
+| … + `cURL error 28` o un error SSL | El puerto no responde o no habla https (por ejemplo, https contra el puerto interno de Reverb). | `REVERB_PORT`/`REVERB_SCHEME`: la app usa los **mismos** valores que el navegador, así que tienen que ser los públicos (con Forge, normalmente 443 y https a través de Nginx). |
+| «respondió con error» + HTTP 401 | Reverb rechazó la firma: la clave o el secreto de la app no son los que cargó el proceso de Reverb. | Reiniciar el daemon de Reverb después de cambiar `REVERB_APP_*`. |
+| … + HTTP 404 | Reverb no conoce ese `REVERB_APP_ID`, o `REVERB_HOST` apunta a un sitio que no es Reverb. | `REVERB_APP_ID` y `REVERB_HOST`. |
+| … + HTTP 502/504 | Nginx no llega al proceso de Reverb. | Daemon caído o puerto distinto entre el daemon y el proxy del sitio. |
+
+Hasta esta versión el chequeo mostraba `TypeError` **aunque todo estuviera
+bien**: con ningún canal ocupado, Reverb responde una lista vacía y la librería
+de Pusher fallaba al leerla. Ese `TypeError` indicaba que Reverb había
+respondido y aceptado la firma.
+
+Cuando falla un aviso real, el log dice `No se pudo emitir el aviso en tiempo
+real` con `kind` (config, connection, http o app), `detail` y `target`:
+`grep "tiempo real" storage/logs/laravel.log | tail -5`.
+
 **Probarlo:** abrí el panel de admin en una pestaña y, desde otra cuenta, cargá
 un reporte como técnico. El aviso aparece sin recargar.
 

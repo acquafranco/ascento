@@ -56,8 +56,18 @@ anotado en el manifiesto.
    el usuario o la contraseña» o «el usuario de la base no tiene el permiso
    PROCESS») y la fecha.
 2. Detalle técnico (sin contraseñas): `grep -i backup storage/logs/laravel.log | tail -20`.
-   La salida de `mysqldump` se guarda en el log con las contraseñas tapadas.
+   - `Falló un backup` trae el **paso** (`volcado de la base`, `conteo de filas`,
+     `armado del ZIP`, `registro del backup completo`) y, si fue un error de la
+     base, el `sqlstate`, el código del motor, la consulta con `?` en lugar de
+     los valores y el mensaje del motor con los valores tapados.
+   - La salida de `mysqldump` se guarda con las contraseñas tapadas.
+   - `No se pudo registrar el fallo del backup` (nivel critical): falló también
+     el guardado del estado; trae el error original y el del guardado. El
+     registro queda «Generando» y a las 3 horas pasa a «se interrumpió».
 3. Causas comunes:
+   - **Otras bases en el mismo MySQL** (corregido en esta versión): el conteo
+     de filas listaba también las tablas de las otras bases que el usuario de
+     MySQL puede ver y fallaba con `QueryException` («Table … doesn't exist»).
    - **mysqldump no instalado** → `sudo apt install mysql-client` (Forge ya lo trae).
    - **Permisos del usuario de MySQL** → el usuario que crea Forge suele tener
      todos los permisos sobre su base. Si el error menciona un permiso, el de
@@ -74,6 +84,42 @@ anotado en el manifiesto.
 Los avisos de falla (campanita y `BACKUP_NOTIFY_EMAIL`) se mandan en el
 momento; si uno falla, los demás igual salen y el backup fallido queda
 registrado en el panel y en el chequeo.
+
+## Primer backup completo después del deploy
+
+Todo esto es de solo lectura, salvo el paso 3, que genera un backup nuevo.
+No borra ni cambia registros ni backups existentes.
+
+1. Espacio: `df -h /home/forge` y `du -sh storage/app/private storage/app/public`.
+   Hace falta, como mínimo, lo que pesan esas carpetas más la base, libre.
+2. `php artisan ascento:check-production` → **Backups**: mysqldump disponible,
+   cifrado AES-256 soportado y contraseña cargada (sin `✗` en esa sección).
+3. En un horario tranquilo: Panel → **Backups** → «Crear backup ahora» (lo
+   toma `backup:process` en menos de un minuto). `mysqldump
+   --single-transaction` no bloquea la app.
+4. Seguilo con `tail -f storage/logs/laravel.log | grep -i backup` y el panel.
+5. Si queda **Completo**:
+   - comprobá que diga «· cifrado»;
+   - `php artisan backup:verify {id}` (íntegro);
+   - descargalo una vez desde el panel y guardalo fuera del servidor;
+   - opcional: `backup:restore {id} --database=ascento_restore_test` en una
+     base aparte (restaurable) y borrala al terminar.
+6. Si **falla**: no lo repitas en bucle ni borres el registro. Leé la causa
+   (paso 1 y 2 de «Si un backup falla») y corregí eso antes del siguiente.
+
+### Confirmar la causa del fallo del 11/10/2026 (solo lectura)
+
+La versión de ese momento guardó solo «QueryException», sin la causa. Estos
+comandos no cambian nada:
+
+```bash
+# Tablas que ve el usuario de MySQL, por base. Si aparece otra base además de
+# la de DB_DATABASE, esa era la causa (ya corregida).
+php artisan tinker --execute="dump(collect(Schema::getTables())->groupBy('schema')->map->count()->all());"
+
+# Último backup registrado (estado y error, sin datos sensibles).
+php artisan tinker --execute="dump(App\Models\Backup::latest('id')->first(['id','status','error','started_at','completed_at'])?->toArray());"
+```
 
 ## Comandos
 
