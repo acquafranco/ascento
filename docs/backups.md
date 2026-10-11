@@ -122,10 +122,45 @@ restauración aislada (caso A), con cuidado de no pisar IDs.
   fallidos y de borrados, pero **no de perder el servidor o el disco**.
   Mientras no haya copia externa, descargá un backup al menos una vez por
   semana desde el panel y guardalo fuera.
-  - Opción recomendada cuando se autorice: copiar cada `.zip` a S3 o Backblaze
-    B2 (de pago bajo, por GB) con un disco `s3` de Laravel. Ya están cifrados
-    antes de salir.
+  - **Copia externa automática (opcional, `BACKUP_OFFSITE_DISK`)**: ver abajo.
 - **Espacio en disco.** Cada backup ocupa lo mismo que las fotos, videos y
   documentos. `ascento:check-production` avisa por debajo de 2 GB libres.
 - **Contraseña.** Si se cambia `BACKUP_ARCHIVE_PASSWORD`, los backups
   anteriores siguen necesitando la clave anterior. Guardá las dos.
+
+## Copia externa automática
+
+Apagada por defecto. Cuando se configura, cada backup **cifrado** se sube al
+terminar a un almacenamiento externo y se comprueba que llegó entero (mismo
+tamaño). Un backup sin cifrar nunca sale del servidor.
+
+1. Crear un bucket **privado** en un proveedor compatible con S3 (Backblaze B2,
+   Cloudflare R2, DigitalOcean Spaces o AWS S3). Tiene costo por GB: revisá el
+   precio del proveedor antes. Conviene una clave con permiso solo sobre ese
+   bucket (leer, escribir y borrar).
+2. En el `.env` de producción (no se muestran nunca en el panel):
+
+   ```env
+   BACKUP_OFFSITE_DISK=s3
+   BACKUP_OFFSITE_PATH=ascento-backups
+   AWS_ACCESS_KEY_ID=...
+   AWS_SECRET_ACCESS_KEY=...
+   AWS_DEFAULT_REGION=...        # p. ej. us-east-005 (B2) o auto (R2)
+   AWS_BUCKET=...
+   AWS_ENDPOINT=https://...      # vacío solo para AWS S3
+   AWS_USE_PATH_STYLE_ENDPOINT=false
+   ```
+
+3. `php artisan optimize`, después `php artisan backup:run` y revisar en el
+   panel de Backups que diga «Copia externa: lista». `ascento:check-production`
+   también lo controla.
+
+- **Retención:** la misma que los locales (al borrar uno viejo se borra
+  también su copia). Si querés guardar más tiempo afuera, configuralo en el
+  bucket (reglas de ciclo de vida), no en Ascento.
+- **Si falla** (credenciales, red): el backup local queda igual, se avisa una
+  vez a los SuperAdmin (y a `BACKUP_NOTIFY_EMAIL`) y se reintenta solo cada 30
+  minutos con `backup:process`.
+- **Restaurar desde la copia externa:** descargar el `.zip` del bucket, ponerlo
+  en `storage/app/backups/` y seguir los pasos de restauración de arriba (pide
+  `BACKUP_ARCHIVE_PASSWORD`).

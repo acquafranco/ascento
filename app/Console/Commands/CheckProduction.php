@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Backup;
 use App\Notifications\MailOnlyNotification;
+use App\Services\Backups\BackupManager;
 use App\Services\Reports\ReportVideoService;
 use Illuminate\Console\Command;
 use Illuminate\Database\Migrations\Migrator;
@@ -119,6 +120,17 @@ class CheckProduction extends Command
             $this->check(false, '', 'No se pudo leer la tabla de backups (¿falta migrar?)');
         }
         $this->check(filled(config('backup.password')), 'Backups cifrados (BACKUP_ARCHIVE_PASSWORD cargada, no se muestra)', 'BACKUP_ARCHIVE_PASSWORD vacía: los backups quedan SIN cifrar. Cargala y guardala también fuera del servidor');
+        if ($offsite = BackupManager::offsiteDisk()) {
+            try {
+                $last = Backup::where('status', Backup::COMPLETED)->latest('completed_at')->first();
+                $this->check(! empty($last?->summary['offsite']['copied_at']), "Copia externa de backups (disco {$offsite}): el último está copiado",
+                    'El último backup no tiene copia externa'.(($error = $last?->summary['offsite']['error'] ?? null) ? ": {$error}" : ' todavía'));
+            } catch (Throwable) {
+                // ya avisado arriba
+            }
+        } else {
+            $this->check(false, '', 'Sin copia externa de backups (BACKUP_OFFSITE_DISK vacío): si se pierde el servidor se pierden también los backups');
+        }
         if (in_array(config('database.connections.'.config('database.default').'.driver'), ['mysql', 'mariadb'], true)) {
             $dump = new Process([(string) config('backup.mysqldump'), '--version']);
             $dump->run();

@@ -33,6 +33,10 @@ use ZipArchive;
  *
  * La contraseña de la base nunca va en la línea de comandos ni en los logs
  * (archivo temporal de opciones con permisos 0600).
+ *
+ * Copia externa (BACKUP_OFFSITE_DISK): al terminar, el ZIP cifrado se sube a
+ * ese disco y se comprueba el tamaño. El resultado queda en summary.offsite
+ * (copiado o el error); si falla se avisa y se reintenta con backup:process.
  */
 class BackupManager
 {
@@ -128,6 +132,8 @@ class BackupManager
                 ],
                 'completed_at' => now(),
             ])->save();
+
+            $this->copyOffsite($backup);
         } catch (Throwable $e) {
             @unlink($zipPath);
             Log::error('Falló un backup', ['backup_id' => $backup->id, 'exception' => $e::class, 'at' => basename($e->getFile()).':'.$e->getLine()]);
@@ -154,6 +160,15 @@ class BackupManager
             $this->run($b);
             $done++;
         });
+
+        // Copia externa que falló: se reintenta el último backup (cada 30 min).
+        if (static::offsiteDisk() && ! $done) {
+            $last = Backup::where('status', Backup::COMPLETED)->whereNull('file_deleted_at')->latest('completed_at')->first();
+            $offsite = $last?->summary['offsite'] ?? [];
+            if ($last && empty($offsite['copied_at']) && (empty($offsite['attempted_at']) || now()->subMinutes(30)->gt($offsite['attempted_at']))) {
+                $this->copyOffsite($last);
+            }
+        }
 
         return $done;
     }
@@ -282,6 +297,7 @@ class BackupManager
             if ($backup->hasSafePath()) {
                 Storage::disk('local')->delete($backup->path);
             }
+            $this->deleteOffsite($backup);
             $backup->forceFill(['file_deleted_at' => now(), 'path' => null])->save();
             $deleted++;
         }
@@ -289,6 +305,73 @@ class BackupManager
         File::deleteDirectory(storage_path('app/backups-tmp'), true);
 
         return $deleted;
+    }
+
+    /** Disco de la copia externa (null = no configurada). */
+    public static function offsiteDisk(): ?string
+    {
+        $disk = trim((string) config('backup.offsite_disk'));
+
+        return $disk !== '' && $disk !== 'local' && $disk !== 'public' ? $disk : null;
+    }
+
+    /**
+     * Sube el ZIP al disco externo y comprueba que llegó entero (tamaño).
+     * Nunca sube un backup sin cifrar. Devuelve true si quedó copiado.
+     */
+    public function copyOffsite(Backup $backup): bool
+    {
+        $disk = static::offsiteDisk();
+        if (! $disk || $backup->status !== Backup::COMPLETED || ! $backup->isDownloadable()) {
+            return false;
+        }
+
+        $remote = trim((string) config('backup.offsite_path'), '/').'/'.basename((string) $backup->path);
+        $record = fn (array $offsite) => $backup->forceFill(['summary' => [...($backup->summary ?? []), 'offsite' => $offsite]])->save();
+
+        if (! $backup->encrypted) {
+            $record(['disk' => $disk, 'attempted_at' => now()->toIso8601String(), 'error' => 'No se copia afuera un backup sin cifrar (falta BACKUP_ARCHIVE_PASSWORD).']);
+
+            return false;
+        }
+
+        $stream = null;
+        try {
+            $stream = fopen(Storage::disk('local')->path($backup->path), 'rb');
+            if (! Storage::disk($disk)->writeStream($remote, $stream) || Storage::disk($disk)->size($remote) !== (int) $backup->size) {
+                throw new RuntimeException('La copia externa no quedó completa.');
+            }
+            $record(['disk' => $disk, 'path' => $remote, 'copied_at' => now()->toIso8601String()]);
+
+            return true;
+        } catch (Throwable $e) {
+            Log::warning('No se pudo copiar el backup afuera', ['backup_id' => $backup->id, 'disk' => $disk, 'exception' => $e::class]);
+            $first = empty($backup->summary['offsite']['error']);
+            $record(['disk' => $disk, 'attempted_at' => now()->toIso8601String(), 'error' => 'No se pudo copiar afuera ('.class_basename($e).'). Se reintenta solo; revisá las credenciales del disco.']);
+            if ($first) {
+                $backup->error = 'El backup se generó, pero la copia externa falló ('.class_basename($e).'). Se reintenta cada 30 minutos.';
+                $this->notifyFailure($backup);
+                $backup->error = null;
+            }
+
+            return false;
+        } finally {
+            is_resource($stream) && fclose($stream);
+        }
+    }
+
+    private function deleteOffsite(Backup $backup): void
+    {
+        $offsite = $backup->summary['offsite'] ?? [];
+        if (empty($offsite['path']) || empty($offsite['disk']) || $offsite['disk'] !== static::offsiteDisk()) {
+            return;
+        }
+
+        try {
+            Storage::disk($offsite['disk'])->delete($offsite['path']);
+        } catch (Throwable $e) {
+            Log::warning('No se pudo borrar la copia externa de un backup viejo', ['backup_id' => $backup->id, 'exception' => $e::class]);
+        }
     }
 
     // ---------------------------------------------------------------------
