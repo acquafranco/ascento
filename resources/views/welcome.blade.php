@@ -341,36 +341,56 @@
                         <div class="pointer-events-none absolute inset-y-0 right-0 w-16 sm:w-24 z-10 bg-gradient-to-l from-paper to-transparent"></div>
 
                         <div class="overflow-hidden">
+                            {{-- Capturas REALES de la app con datos ficticios de demo (tools/landing-screenshots, docs/landing-capturas.md). --}}
+                            @php
+                                $phoneShots = [
+                                    ['tecnico-inicio', 'App del técnico', 'Lo próximo que tiene que hacer'],
+                                    ['tecnico-trabajos', 'Órdenes de trabajo', 'Tomar y finalizar con el remito'],
+                                    ['tecnico-visitas', 'Visitas del mes', 'Mantenimientos e inspecciones'],
+                                    ['tecnico-reporte', 'Nuevo reporte', 'Edificio, fotos y video'],
+                                    ['portal-inicio', 'Portal del cliente', 'Lo que la empresa comparte'],
+                                    ['portal-documentos', 'Documentos del cliente', 'Remitos, reportes y presupuestos'],
+                                ];
+                            @endphp
                             <div class="flex w-max animate-marquee gap-5 sm:gap-6">
-                                @php
-                                    $shots = [
-                                        'screenshot-1.jpg',
-                                        'screenshot-2.jpg',
-                                        'screenshot-3.jpg',
-                                        'screenshot-4.jpg',
-                                        'screenshot-5.jpg',
-                                        'screenshot-6.jpg',
-                                        'screenshot-7.jpg',
-                                    ];
-                                @endphp
-
-                                {{-- Duplicamos la lista para que el loop sea infinito y sin cortes --}}
-                                @foreach (array_merge($shots, $shots) as $shot)
-                                    <div class="shrink-0 w-[170px] sm:w-[200px] lg:w-[220px] rounded-2xl overflow-hidden border border-ink/10 shadow-card bg-white">
-                                        <img
-                                            src="{{ asset('images/' . $shot) }}"
-                                            alt="Captura de la app Ascento"
-                                            width="640"
-                                            height="1141"
-                                            loading="lazy"
-                                            class="w-full h-full object-cover"
-                                        >
-                                    </div>
+                                {{-- La lista va dos veces para que el loop sea continuo. --}}
+                                @foreach (array_merge($phoneShots, $phoneShots) as $i => [$file, $title, $caption])
+                                    <figure class="shrink-0 w-[180px] sm:w-[210px] lg:w-[230px]" @if($i >= count($phoneShots)) aria-hidden="true" @endif>
+                                        <div class="rounded-[22px] overflow-hidden border border-ink/10 shadow-card bg-white aspect-[640/1247]">
+                                            <img src="{{ asset('images/landing/'.$file.'.jpg') }}" alt="{{ $title }}: {{ mb_strtolower($caption) }}"
+                                                 width="640" height="1247" loading="lazy" decoding="async" class="block w-full h-full object-cover object-top">
+                                        </div>
+                                        <figcaption class="mt-3 px-1">
+                                            <span class="block text-sm font-semibold text-ink">{{ $title }}</span>
+                                            <span class="block text-xs text-ink/50">{{ $caption }}</span>
+                                        </figcaption>
+                                    </figure>
                                 @endforeach
                             </div>
                         </div>
                     </div>
                 </div>
+
+                {{-- Panel de la empresa (escritorio) --}}
+                <div class="mt-12 -mx-5 px-5 sm:mx-0 sm:px-0 flex sm:grid sm:grid-cols-3 gap-5 overflow-x-auto snap-x snap-mandatory scroll-px-5 sm:scroll-px-0 pb-2" data-reveal>
+                    @foreach ([
+                        ['admin-inicio', 'Panel de la empresa', 'Pendientes, en curso y completados, al día.'],
+                        ['admin-mapa', 'Mapa de edificios', 'Toda la cartera, por zona, técnico y estado del mes.'],
+                        ['admin-presupuesto', 'Presupuestos', 'Documento listo para enviar por correo con PDF.'],
+                    ] as [$file, $title, $caption])
+                        <figure class="snap-start shrink-0 w-[85%] sm:w-auto">
+                            <div class="rounded-2xl overflow-hidden border border-ink/10 shadow-card bg-white aspect-[16/10]">
+                                <img src="{{ asset('images/landing/'.$file.'.jpg') }}" alt="{{ $title }}: {{ mb_strtolower($caption) }}"
+                                     width="1280" height="800" loading="lazy" decoding="async" class="block w-full h-full object-cover object-top">
+                            </div>
+                            <figcaption class="mt-3">
+                                <span class="block text-sm font-semibold text-ink">{{ $title }}</span>
+                                <span class="block text-xs text-ink/50">{{ $caption }}</span>
+                            </figcaption>
+                        </figure>
+                    @endforeach
+                </div>
+                <p class="mt-6 text-center text-xs text-ink/40">Capturas de la aplicación real con datos de ejemplo.</p>
 
             </div>
         </section>
@@ -618,6 +638,9 @@
                     }
                     .animate-marquee:hover {
                         animation-play-state: paused;
+                    }
+                    @media (prefers-reduced-motion: reduce) {
+                        .animate-marquee { animation: none; }
                     }
                 </style>
 
