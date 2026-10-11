@@ -80,9 +80,25 @@ registrado en el panel y en el chequeo.
 | Comando | Qué hace |
 |---|---|
 | `php artisan backup:run` | Hace un backup ahora (desde la terminal). |
-| `php artisan backup:verify {id}` | Abre el `.zip`, comprueba la contraseña, el hash del volcado y que el manifiesto sea legible. |
+| `php artisan backup:verify [id]` | Comprueba que el archivo está íntegro (detalle abajo). `id` es el número del backup; sin número, el último completo. |
 | `php artisan backup:restore {id} --database=NOMBRE [--files=CARPETA]` | Restaura en una base y una carpeta **aisladas** y compara las filas tabla por tabla. Se niega a usar la base de la app. |
 | `php artisan backup:prune` | Aplica la retención. |
+
+### Qué garantiza cada paso
+
+| Estado | Cómo se sabe | Qué garantiza |
+|---|---|---|
+| **Creado** | Panel → Backups: «Completo» | `mysqldump` terminó sin error y el `.zip` se guardó con su SHA-256. |
+| **Cifrado** | Panel: «· cifrado» | Se generó con `BACKUP_ARCHIVE_PASSWORD` (AES-256). Sin contraseña dice «· sin cifrar». |
+| **Íntegro** | `backup:verify` OK; el panel muestra «Verificado» | El archivo existe y no cambió (SHA-256); la contraseña actual lo abre; el manifiesto se lee; el volcado coincide con su hash; la cantidad de archivos coincide con el manifiesto. |
+| **Restaurable** | `backup:restore` en una base aparte | El SQL se importa y las filas de cada tabla coinciden con el manifiesto. |
+
+`backup:verify` **no** importa el SQL ni comprueba que el `.zip` esté cifrado:
+un backup sin cifrar también pasa (para eso está «· cifrado»). Tampoco cubre
+los archivos que la base menciona y ya faltaban en el disco: el panel los
+muestra aparte («N archivos que la base menciona no estaban en el disco»).
+**La única prueba de que se puede recuperar es restaurarlo** en una base
+aparte (`backup:restore`, caso A de Recuperación).
 
 ## Prueba de restauración realizada
 
@@ -207,5 +223,5 @@ tamaño). Un backup sin cifrar nunca sale del servidor.
   vez a los SuperAdmin (y a `BACKUP_NOTIFY_EMAIL`) y se reintenta solo cada 30
   minutos con `backup:process`.
 - **Restaurar desde la copia externa:** descargar el `.zip` del bucket, ponerlo
-  en `storage/app/backups/` y seguir los pasos de restauración de arriba (pide
+  en `storage/app/private/backups/` y seguir los pasos de restauración de arriba (pide
   `BACKUP_ARCHIVE_PASSWORD`).

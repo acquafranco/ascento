@@ -30,46 +30,91 @@ antes de volver a chequear.
 ### `APP_NAME` es "Laravel"
 
 El código ya usa "Ascento" por defecto; el valor viene del `.env` de
-producción. Ojo: el nombre de la **cookie de sesión** y el **prefijo de la
-caché** se arman con `APP_NAME`. Si lo cambiás solo, todos (técnicos incluidos)
-tienen que volver a ingresar una vez y la caché arranca vacía. Para evitarlo,
-en Forge → sitio → **Environment**, cambiá estas tres líneas juntas:
+producción. Ojo: si `SESSION_COOKIE` y `CACHE_PREFIX` **no** están en el
+`.env`, se arman con `APP_NAME`:
 
-```env
-APP_NAME=Ascento
-SESSION_COOKIE=laravel-session
-CACHE_PREFIX=laravel-cache-
-```
+| Variable | Si no está en el `.env` | Con `APP_NAME=Laravel` | Con `APP_NAME=Ascento` |
+|---|---|---|---|
+| `SESSION_COOKIE` | `Str::slug(APP_NAME)-session` | `laravel-session` | `ascento-session` |
+| `CACHE_PREFIX` | `Str::slug(APP_NAME)-cache-` | `laravel-cache-` | `ascento-cache-` |
 
-(`laravel-session` y `laravel-cache-` son los nombres que salían de
-`APP_NAME=Laravel`.) Si preferís nombres nuevos, omití las dos últimas y avisá
-que hay que volver a ingresar. Después: `php artisan optimize`. Los nombres de
-cada empresa no dependen de esto.
+Si cambiás solo `APP_NAME`, el navegador sigue mandando la cookie vieja, la app
+busca la nueva y **todos (técnicos incluidos) tienen que volver a ingresar una
+vez** (quien tildó "Recordarme" vuelve a entrar solo: esa cookie no depende de
+`APP_NAME`). La caché también arranca vacía: se pierden los contadores de
+intentos de ingreso y las marcas de "aviso ya enviado", con riesgo de algún
+aviso repetido.
+
+Para cambiar el nombre sin esos efectos:
+
+1. Forge → sitio → **Environment**: fijate si ya existen `SESSION_COOKIE` o
+   `CACHE_PREFIX`. **Si existen, no los toques**: el nombre de la app ya no
+   los afecta. Cambiá solo `APP_NAME=Ascento`.
+2. Si no existen, cambiá estas tres líneas juntas:
+
+   ```env
+   APP_NAME=Ascento
+   SESSION_COOKIE=laravel-session
+   CACHE_PREFIX=laravel-cache-
+   ```
+
+   Comprobado el 11/10/2026: la cookie de sesión que manda
+   `https://ascento.online` se llama `laravel-session` (DevTools → Application
+   → Cookies). Si ves otro nombre, usá ese.
+3. `php artisan optimize` (la configuración está cacheada: sin esto el cambio
+   no se aplica). El deploy de Forge lo hace si el script lo incluye.
+4. `VITE_APP_NAME` se fija al compilar: el próximo `npm run build` lo toma.
+
+Los nombres de cada empresa no dependen de esto. `MAIL_FROM_NAME="${APP_NAME}"`
+pasa a decir "Ascento"; si está fijo como `MAIL_FROM_NAME=Ascento`, no cambia.
 
 ### `SESSION_SECURE_COOKIE`
 
 Desde esta versión, si la variable **no está** en el `.env`, la cookie de
-sesión es segura cuando `APP_URL` empieza con `https://` (en local con http no
-cambia nada). Si en Forge figura `SESSION_SECURE_COOKIE=false`, borrala o poné
-`true`, y corré `php artisan optimize`.
+sesión es segura cuando `APP_URL` empieza con `https://`. En local con
+`APP_URL=http://...` queda como antes (no segura) y se puede ingresar por http.
+
+- Comprobado el 11/10/2026: la cookie de `https://ascento.online` ya sale con
+  `secure`. Si el chequeo igual lo marca, es configuración cacheada vieja:
+  `php artisan optimize` y volver a correrlo.
+- Si en Forge figura `SESSION_SECURE_COOKIE=false`, cambiala a `true` (o
+  borrala: con `APP_URL` en https da lo mismo). No cierra sesiones: la cookie
+  se vuelve a mandar como segura en la siguiente visita.
+- Con la cookie segura **solo se puede ingresar por https**. Si alguna vez
+  `APP_URL` dice https y entrás por http (por ejemplo una copia local), no vas
+  a poder iniciar sesión: poné `SESSION_SECURE_COOKIE=false` en ese entorno.
 
 ### Límite de subida de PHP y Nginx (videos de 50 MB)
 
-Hace falta **≥ 60 MB** (video de 50 MB + fotos + margen). Recomendado: 64 MB.
+Son tres capas independientes; un envío pasa solo si las tres lo aceptan:
+
+| Capa | Ajuste | Si falta |
+|---|---|---|
+| Nginx | `client_max_body_size` (si no está, 1 MB) | error 413 antes de llegar a PHP |
+| PHP-FPM (la web) | `upload_max_filesize` (por archivo) y `post_max_size` (envío entero, ≥ `upload_max_filesize`) | el archivo llega vacío o el formulario sin datos |
+| PHP CLI (comandos) | los mismos | no afecta las subidas; es lo que muestra `ini_get` en la terminal |
+
+Hace falta **≥ 60 MB** en Nginx y en PHP-FPM (video de 50 MB + fotos +
+margen). Recomendado: 64 MB. `memory_limit` de PHP-FPM: 128M alcanza (los
+archivos no se cargan en memoria); 256M da margen para achicar fotos grandes.
 
 1. Forge → servidor → **PHP** → *Max File Upload Size*: `64` → **Update**.
-   Forge cambia `upload_max_filesize` y `post_max_size` de PHP-FPM y de la
-   CLI, y `client_max_body_size` de Nginx, y recarga los servicios.
-2. Si el sitio tiene un `client_max_body_size` propio más chico: Forge → sitio
-   → **Nginx** (Edit Nginx Configuration) → `client_max_body_size 64M;` dentro
-   del bloque `server` → guardar (Forge recarga Nginx).
-3. Comprobar:
-   - Panel → Inicio del SuperAdmin → **Subida de archivos (PHP de la web)**:
-     tiene que decir `64 MB / 64 MB` (es el valor real de PHP-FPM).
-   - `php artisan ascento:check-production` → sección **Fotos y videos**.
-   - Opcional, por SSH: `grep -E "upload_max_filesize|post_max_size" /etc/php/*/fpm/php.ini`
-     y `grep -R client_max_body_size /etc/nginx/`.
-4. `memory_limit` de PHP-FPM: con 128M alcanza; 256M da margen para fotos grandes.
+   Según la documentación de Forge, esto ajusta PHP y Nginx, pero **no está
+   verificado en este servidor**: comprobá cada capa con el paso 3.
+2. Si Nginx sigue en un valor menor: Forge → sitio → **Nginx** (Edit Nginx
+   Configuration) → `client_max_body_size 64M;` dentro del bloque `server` →
+   guardar (Forge recarga Nginx).
+3. Comprobar cada capa por separado:
+   - **PHP-FPM (lo que usa la web):** Panel → Inicio del SuperAdmin → **Subida
+     de archivos (PHP de la web)** tiene que decir `64 MB / 64 MB`. Es el valor
+     real del proceso que atiende la web. Si no cambió, Forge → servidor →
+     PHP → reiniciar PHP-FPM.
+   - **Nginx:** `sudo grep -R client_max_body_size /etc/nginx/` → ningún valor
+     menor a `64M`. Prueba real: subir desde el celular un video de unos 40 MB.
+   - **PHP CLI:** `php -i | grep -E "upload_max_filesize|post_max_size"`
+     (informativo).
+   - `php artisan ascento:check-production` → **Fotos y videos** resume las tres;
+     lo que no puede leer lo marca `?` en vez de darlo por bueno.
 
 Mientras PHP de la web acepte menos que `MEDIA_VIDEO_MAX_MB`, el formulario del
 técnico ya muestra y valida el límite real (no deja subir un video que va a
@@ -283,9 +328,13 @@ presupuestos recorre cada fila una vez. **No se ejecutaron contra producción.**
    con el logo y el remitente "Ascento".
 3. Panel → **Backups** (SuperAdmin) → "Crear backup ahora". En 1 a 2 minutos
    queda "Completo". Después, en el servidor:
-   - `php artisan backup:verify {id}`;
-   - `php artisan backup:restore {id} --database=ascento_restore_test` en una base aparte;
-   - borrá esa base al terminar.
+   - `php artisan backup:verify {id}` (el `{id}` es el número del backup; sin
+     número verifica el último completo). Confirma que el archivo está
+     **íntegro**, no que se pueda restaurar;
+   - para comprobar que es **restaurable**: `php artisan backup:restore {id} --database=ascento_restore_test`
+     en una base aparte (se niega a usar la base de la app; crea la base antes
+     si tu usuario de MySQL no puede crearla);
+   - borrá esa base y la carpeta de archivos al terminar.
 4. **Tiempo real:** la prueba de la sección 3.
 5. **Push:** "Activar avisos" en el panel o en el portal y, en el portal, "Probar".
 6. **Portal:** con un usuario de portal de prueba, compartí un remito y
