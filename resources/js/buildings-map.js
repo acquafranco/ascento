@@ -32,12 +32,16 @@ function normalize(value) {
 
 const SAFE_COLOR = /^#[0-9a-fA-F]{6}$/;
 
+// "color" = color asignado por el admin; "status" = estado del mantenimiento del mes.
+let colorMode = 'color';
+
 function pinIcon(marker) {
     const classes = ['bm-pin'];
     if (!marker.active) classes.push('is-inactive');
 
     // El color viene de la paleta del servidor; igual se valida el formato.
-    const color = SAFE_COLOR.test(marker.color ?? '') ? marker.color : '';
+    const raw = colorMode === 'status' ? marker.statusColor : marker.color;
+    const color = SAFE_COLOR.test(raw ?? '') ? raw : '';
 
     return L.divIcon({
         className: '',
@@ -95,6 +99,14 @@ function initMap(container) {
         }
 
         if (marker.area) root.append(el('div', 'bm-popup-meta', marker.area));
+        if (marker.zone) root.append(el('div', 'bm-popup-meta', `Zona: ${marker.zone}`));
+
+        const status = el('div', 'bm-popup-meta');
+        const dot = el('span');
+        dot.style.cssText = `display:inline-block;width:.6rem;height:.6rem;border-radius:999px;margin-right:.35rem;background:${SAFE_COLOR.test(marker.statusColor ?? '') ? marker.statusColor : '#CBD5E1'}`;
+        status.append(dot, document.createTextNode(`Mantenimiento del mes: ${marker.statusLabel ?? '—'}`));
+        root.append(status);
+        if (marker.technicians) root.append(el('div', 'bm-popup-meta', `Técnico: ${marker.technicians}`));
 
         const units = [];
         if (marker.elevators) units.push(`${marker.elevators} ${marker.elevators === 1 ? 'ascensor' : 'ascensores'}`);
@@ -168,17 +180,35 @@ function initMap(container) {
     const searchInput = document.querySelector('[data-map-search]');
     const clientSelect = document.querySelector('[data-map-client]');
     const colorSelect = document.querySelector('[data-map-color]');
+    const zoneSelect = document.querySelector('[data-map-zone]');
+    const techSelect = document.querySelector('[data-map-technician]');
+    const statusSelect = document.querySelector('[data-map-status]');
+    const modeSelect = document.querySelector('[data-map-mode]');
+    const legends = document.querySelectorAll('[data-map-legend]');
+
+    // Colorear por color asignado o por estado del mes: se redibujan los pines y la leyenda.
+    function applyMode() {
+        colorMode = modeSelect?.value === 'status' ? 'status' : 'color';
+        for (const { data, layer } of markersById.values()) layer.setIcon(pinIcon(data));
+        legends.forEach((legend) => { legend.style.display = legend.dataset.mapLegend === colorMode ? 'contents' : 'none'; });
+    }
 
     function applyFilters() {
         const term = normalize(searchInput?.value).trim();
         const clientId = clientSelect?.value ?? '';
         const colorKey = colorSelect?.value ?? '';
+        const zone = zoneSelect?.value ?? '';
+        const techId = techSelect?.value ?? '';
+        const status = statusSelect?.value ?? '';
 
         const visible = [];
         for (const { data, layer } of markersById.values()) {
             const matchesClient = (!clientId || String(data.clientId) === clientId)
-                && (!colorKey || data.colorKey === colorKey);
-            const matchesTerm = !term || normalize(`${data.title} ${data.client} ${data.area}`).includes(term);
+                && (!colorKey || data.colorKey === colorKey)
+                && (!zone || data.zone === zone)
+                && (!techId || (data.technicianIds ?? []).map(String).includes(techId))
+                && (!status || data.status === status);
+            const matchesTerm = !term || normalize(`${data.title} ${data.client} ${data.area} ${data.zone ?? ''} ${data.technicians ?? ''}`).includes(term);
             if (matchesClient && matchesTerm) visible.push(layer);
         }
 
@@ -194,6 +224,8 @@ function initMap(container) {
     });
     clientSelect?.addEventListener('change', applyFilters);
     colorSelect?.addEventListener('change', applyFilters);
+    [zoneSelect, techSelect, statusSelect].forEach((select) => select?.addEventListener('change', applyFilters));
+    modeSelect?.addEventListener('change', applyMode);
     document.querySelector('[data-map-fit]')?.addEventListener('click', fitVisible);
 
     /* ---------------------------------------------------------------
