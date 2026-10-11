@@ -11,6 +11,7 @@ use App\Models\PortalMembership;
 use App\Services\Portal\PortalInvitations;
 use App\Support\Plans\PlanGuard;
 use App\Support\Plans\PlanUpsell;
+use App\Support\VerifiedSender;
 use Filament\Actions\Action;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\TextInput;
@@ -87,6 +88,18 @@ class PortalUsersRelationManager extends RelationManager
             ->helperText('Solo ve los remitos, reportes, presupuestos y documentos que compartas de estos edificios.');
     }
 
+    /** Cuenta nueva sin correo confirmado: no manda correos a terceros (VerifiedSender). */
+    private function blockedUntilVerified(): bool
+    {
+        if (! VerifiedSender::required(auth()->user())) {
+            return false;
+        }
+
+        Notification::make()->title('Confirmá tu correo')->body(VerifiedSender::MESSAGE)->warning()->persistent()->send();
+
+        return true;
+    }
+
     private function mailResult(bool $mailed, string $email, bool $existing): void
     {
         if (! $mailed) {
@@ -148,6 +161,9 @@ class PortalUsersRelationManager extends RelationManager
                     ])
                     ->action(function (array $data) {
                         $this->ensurePortalAllowed();
+                        if ($this->blockedUntilVerified()) {
+                            return;
+                        }
 
                         /** @var Client $client */
                         $client = $this->getOwnerRecord();
@@ -175,7 +191,10 @@ class PortalUsersRelationManager extends RelationManager
                     ->modalDescription('El enlace anterior deja de funcionar.')
                     ->action(function (PortalMembership $record) {
                         $this->ensurePortalAllowed();
-                        $this->mailResult(app(PortalInvitations::class)->send($this->ownMembership($record)), (string) $record->user?->email, false);
+                        if ($this->blockedUntilVerified()) {
+                            return;
+                        }
+                        $this->mailResult(app(PortalInvitations::class)->send($this->ownMembership($record), auth()->user()), (string) $record->user?->email, false);
                     })
                     ->visible(fn (PortalMembership $record) => $allowed && $record->isActive() && $record->user?->portal_activated_at === null),
                 Action::make('sendPasswordReset')
@@ -185,6 +204,9 @@ class PortalUsersRelationManager extends RelationManager
                     ->modalDescription('Le mandamos un enlace para que elija una contraseña nueva. Vos no la ves.')
                     ->action(function (PortalMembership $record) {
                         $this->ensurePortalAllowed();
+                        if ($this->blockedUntilVerified()) {
+                            return;
+                        }
 
                         try {
                             $status = Password::sendResetLink(['email' => $this->ownMembership($record)->user->email]);

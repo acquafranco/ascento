@@ -124,4 +124,17 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Correo confirmado para mandar correos a terceros
+    |--------------------------------------------------------------------------
+    |
+    | Las cuentas creadas desde esta fecha tienen que confirmar su correo antes
+    | de enviar presupuestos o invitaciones al portal (App\Support\VerifiedSender).
+    | Las anteriores no se bloquean. Vacío = desactivado.
+    |
+    */
+
+    'verified_sender_since' => env('ASCENTO_VERIFIED_SENDER_SINCE', '2026-10-12'),
+
 ];

@@ -9,6 +9,7 @@ use App\Models\Quote;
 use App\Models\User;
 use App\Notifications\QuoteSentNotification;
 use App\Support\Plans\PlanGuard;
+use App\Support\VerifiedSender;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
@@ -31,6 +32,7 @@ class QuoteSender
     {
         $company = Company::findOrFail($quote->company_id);
         PlanGuard::for($company)->ensureFeature(PlanFeature::Quotes);
+        VerifiedSender::ensure($user);
 
         if (! in_array($quote->status, [Quote::DRAFT, Quote::SENT, 'pending'], true)) {
             throw ValidationException::withMessages(['email' => 'Solo se envían presupuestos en borrador o enviados. Para un presupuesto cerrado, duplicalo.']);

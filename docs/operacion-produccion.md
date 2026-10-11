@@ -39,6 +39,7 @@ y revisa casi todo lo que sigue. Usalo antes y después de cada deploy.
 | `BACKUP_MYSQLDUMP` / `BACKUP_MYSQL` | opcional | Ruta de los binarios si no están en el `PATH`. |
 | `MEDIA_VIDEO_MAX_MB` / `MEDIA_VIDEO_MAX_SECONDS` | `50` / `90` | Límites del video de un reporte. Se validan siempre en el servidor. |
 | `ASCENTO_ADMIN_NOTIFICATION_EMAIL` | correo del equipo de Ascento | Aviso por correo de cada empresa nueva. Vacío: solo campanita, push y Telegram de los SuperAdmin. |
+| `ASCENTO_VERIFIED_SENDER_SINCE` | `2026-10-12` (por defecto) | Las cuentas creadas desde esa fecha confirman su correo antes de enviar presupuestos o invitaciones al portal. Las anteriores no se bloquean. Vacío: desactivado. |
 | `ASCENTO_WHATSAPP_NUMBER` | `5491173728421` (por defecto) | WhatsApp del formulario de contacto público. |
 | `SUPER_ADMIN_EMAIL` | ya no tiene un valor por defecto en el código | Lo exige el seeder del SuperAdmin. |
 | `FFMPEG_BINARY` / `FFPROBE_BINARY` | `/usr/bin/ffmpeg` / `/usr/bin/ffprobe` | Opcional: comprimir videos y medir su duración. |
