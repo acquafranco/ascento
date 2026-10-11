@@ -29,6 +29,13 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
+        // Venía de abrir el enlace de confirmación del correo sin sesión:
+        // vuelve a ese enlace (el resto de los destinos los decide el rol).
+        $intended = (string) $request->session()->get('url.intended', '');
+        if (str_starts_with((string) parse_url($intended, PHP_URL_PATH), '/verify-email/') && $request->user()->homeUrl() !== null) {
+            return redirect()->intended();
+        }
+
         // Sin destino válido (ej. empresa eliminada) no se lo deja entrar.
         return HomeRedirect::to();
     }

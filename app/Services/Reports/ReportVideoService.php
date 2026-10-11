@@ -29,7 +29,10 @@ use Throwable;
  *   bitrate) en segundo plano (scheduler: media:process-videos), sin demorar
  *   la carga. Se escribe en un temporal y se renombra; el original se borra.
  *   Si FFmpeg no puede leerlo (dañado), el video queda "falló" y se borra.
- *   Sin FFmpeg se guarda tal como llegó (dentro de los límites).
+ *   Al comprimir se mide la duración REAL (lo que FFmpeg decodifica, no el
+ *   encabezado): si un encabezado manipulado declaraba menos, se rechaza.
+ *   Sin FFmpeg se guarda tal como llegó (dentro de los límites; el tamaño
+ *   máximo acota el daño de un encabezado falso).
  */
 class ReportVideoService
 {
@@ -381,6 +384,8 @@ class ReportVideoService
         $temp = $targetFull.'.part';
         $height = (int) config('media.video_max_height');
         $fps = (int) config('media.video_max_fps');
+        $maxSeconds = (int) config('media.video_max_seconds');
+        $tooLong = false;
 
         try {
             $process = new Process([
@@ -390,7 +395,9 @@ class ReportVideoService
                 '-c:v', 'libx264', '-preset', 'veryfast', '-crf', (string) config('media.video_crf'),
                 '-maxrate', (string) config('media.video_max_bitrate'), '-bufsize', ((int) config('media.video_max_bitrate') * 2).'k',
                 '-pix_fmt', 'yuv420p', '-threads', (string) config('media.video_threads'),
-                '-c:a', 'aac', '-b:a', '96k', '-ac', '2', '-movflags', '+faststart', '-f', 'mp4', $temp,
+                '-c:a', 'aac', '-b:a', '96k', '-ac', '2', '-movflags', '+faststart', '-f', 'mp4',
+                // Nunca más que el máximo (+2 s para detectar si el original era más largo).
+                '-t', (string) ($maxSeconds + 2), $temp,
             ]);
             $process->setTimeout(600)->run();
 
@@ -398,7 +405,17 @@ class ReportVideoService
                 throw new \RuntimeException('ffmpeg falló');
             }
 
-            rename($temp, $targetFull);
+            // Duración real: la del MP4 que escribió FFmpeg (no la que declaraba el archivo subido).
+            $real = $this->mp4Duration($temp);
+            if ($real === null || $real > $maxSeconds + 1) {
+                $tooLong = $real !== null;
+
+                throw new \RuntimeException('duración real fuera de límite');
+            }
+
+            if (! rename($temp, $targetFull)) {
+                throw new \RuntimeException('no se pudo mover el temporal');
+            }
 
             // Se queda la versión comprimida (MP4 H.264: se ve en todos los
             // navegadores), salvo que el original ya sea MP4/WEBM y más liviano.
@@ -419,7 +436,9 @@ class ReportVideoService
             $video->deleteFile();
             $video->forceFill([
                 'status' => ReportVideo::FAILED, 'processed_at' => now(),
-                'processing_note' => 'No se pudo procesar el video (archivo dañado o formato no compatible). Subilo de nuevo.',
+                'processing_note' => $tooLong
+                    ? 'El video dura más de '.$maxSeconds.' segundos. Subí uno más corto.'
+                    : 'No se pudo procesar el video (archivo dañado o formato no compatible). Subilo de nuevo.',
             ])->save();
         }
     }

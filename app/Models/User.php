@@ -95,6 +95,13 @@ class User extends Authenticatable implements FilamentUser, \Illuminate\Contract
         static::deleting(fn (User $user) => auth()->id() !== $user->id);
 
         static::updating(function (User $user) {
+            // Correo nuevo = correo sin confirmar (desde cualquier pantalla:
+            // perfil, usuarios del panel, SuperAdmin), salvo que quien guarda
+            // marque la confirmación explícitamente (p. ej. activación del portal).
+            if ($user->isDirty('email') && ! $user->isDirty('email_verified_at')) {
+                $user->email_verified_at = null;
+            }
+
             $actor = auth()->user();
 
             if (! $actor || $actor->isSuperAdmin()) {

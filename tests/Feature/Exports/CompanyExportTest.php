@@ -13,6 +13,7 @@ use App\Models\MaintenanceService;
 use App\Models\Quote;
 use App\Models\Report;
 use App\Models\ReportPhoto;
+use App\Models\ReportVideo;
 use App\Models\StockItem;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
@@ -395,5 +396,19 @@ class CompanyExportTest extends TestCase
         $this->actingInPanel($this->a['admin'])->get(CompanyExports::getUrl())->assertOk()
             ->assertSee('solo los datos de tu empresa')
             ->assertSee('No es un backup del servidor');
+    }
+
+    public function test_a_video_that_failed_processing_is_not_reported_as_a_missing_attachment(): void
+    {
+        $report = Report::withoutGlobalScopes()->where('company_id', $this->a['company']->id)->first();
+        (new ReportVideo)->forceFill([
+            'company_id' => $this->a['company']->id, 'report_id' => $report->id, 'path' => 'reports/'.$this->a['company']->id.'/videos/borrado.mp4',
+            'original_name' => 'x.mp4', 'mime' => 'video/mp4', 'size' => 1, 'duration' => 3, 'status' => ReportVideo::FAILED,
+        ])->save();
+
+        $export = $this->generate();
+
+        $this->assertSame(CompanyExport::COMPLETED, $export->status);
+        $this->assertSame([], (array) $export->warnings);
     }
 }

@@ -177,4 +177,31 @@ class ReportVideoProcessingTest extends TestCase
         $this->post(route('reports.video.store', $report), ['video' => $this->fixture('corto.mp4')])->assertSessionHasNoErrors();
         $this->assertSame(ReportVideo::PENDING, ReportVideo::withoutGlobalScopes()->sole()->status);
     }
+
+    public function test_a_header_that_lies_about_the_duration_is_caught_when_compressing(): void
+    {
+        $this->ffmpeg();
+
+        // 95 s reales con la caja mvhd editada para declarar 10 s.
+        $bytes = (string) file_get_contents(base_path('tests/Fixtures/videos/largo.mp4'));
+        $at = strpos($bytes, 'mvhd') + 4;
+        $version = ord($bytes[$at]);
+        $scaleAt = $at + ($version === 1 ? 20 : 12);
+        $scale = unpack('N', substr($bytes, $scaleAt, 4))[1];
+        $bytes = $version === 1
+            ? substr_replace($bytes, pack('N2', 0, 10 * $scale), $scaleAt + 4, 8)
+            : substr_replace($bytes, pack('N', 10 * $scale), $scaleAt + 4, 4);
+
+        config(['media.ffprobe' => '']); // sin ffprobe, la carga solo puede leer el encabezado
+        $this->send(UploadedFile::fake()->createWithContent('trucho.mp4', $bytes))->assertSessionHasNoErrors();
+        $this->assertSame(10, ReportVideo::withoutGlobalScopes()->sole()->duration);
+        $this->ffmpeg();
+
+        $this->artisan('media:process-videos')->assertSuccessful();
+
+        $video = ReportVideo::withoutGlobalScopes()->sole();
+        $this->assertSame(ReportVideo::FAILED, $video->status);
+        $this->assertStringContainsString('dura más de 90 segundos', $video->processing_note);
+        $this->assertSame([], Storage::disk('local')->allFiles()); // ni el original ni temporales
+    }
 }
