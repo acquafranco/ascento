@@ -72,126 +72,77 @@
                 </div>
             </x-slot>
 
+            {{--
+                Cada aviso (ver App\Livewire\DatabaseNotifications):
+                - "Abrir" pasa por /notificaciones/{id}: marca leído en el servidor y redirige.
+                - "Marcar como leída" en todos los que no se leyeron (también sin destino).
+                - data-bell-notification / data-notification-unread: los usa el "visto al cerrar"
+                  (filament/partials/notifications-seen).
+            --}}
             @foreach ($notifications as $notification)
+                @php
+                    $n = $this->getNotification($notification);
+                    $data = $notification->data;
+                    $unread = $notification->unread();
+                    $priority = $data['priority'] ?? null;
+                    $priorityLabels = [
+                        'baja' => 'Baja', 'media' => 'Media', 'alta' => 'Alta', 'critica' => 'Crítica', 'crítica' => 'Crítica',
+                        'low' => 'Baja', 'medium' => 'Media', 'high' => 'Alta', 'critical' => 'Crítica',
+                    ];
+                    $priorityColor = match ($priority) {
+                        'baja', 'low' => 'rgb(34 197 94)',
+                        'media', 'medium' => 'rgb(234 179 8)',
+                        'alta', 'high' => 'rgb(239 68 68)',
+                        'critica', 'crítica', 'critical' => 'rgb(168 85 247)',
+                        default => 'rgb(107 114 128)',
+                    };
+                    $hasDestination = \App\Http\Controllers\NotificationInboxController::destinationFor($notification) !== null;
+                    $openLabel = isset($data['report_id']) ? 'Ver reporte' : (collect($data['actions'] ?? [])->pluck('label')->filter()->first() ?? 'Abrir');
+                @endphp
                 <div
+                    wire:key="bell-{{ $notification->getKey() }}"
+                    data-bell-notification
+                    data-notification-id="{{ $notification->getKey() }}"
+                    @if ($unread) data-notification-unread @endif
                     @class([
-                        'fi-no-notification-read-ctn' => ! $notification->unread(),
-                        'fi-no-notification-unread-ctn' => $notification->unread(),
+                        'fi-no-notification-read-ctn' => ! $unread,
+                        'fi-no-notification-unread-ctn' => $unread,
                     ])
                 >
-    @php
-        $n = $this->getNotification($notification);
+                    <div class="fi-no-notification fi-inline" style="display:flex;visibility:visible;">
+                        <div class="fi-no-notification-main" style="width:100%;">
+                            <div class="fi-no-notification-text">
+                                <h3 class="fi-no-notification-title">
+                                    @if ($unread)<span class="fi-sr-only">{{ __('filament-notifications::database.modal.unread_label') }}</span>@endif
+                                    {{ $n->getTitle() }}
+                                </h3>
+                                <time class="fi-no-notification-date">{{ $notification->created_at?->diffForHumans() }}</time>
+                                @if (filled($n->getBody()))
+                                    <div class="fi-no-notification-body">{{ $n->getBody() }}</div>
+                                @endif
+                            </div>
 
-        $data = $notification->data;
+                            <div style="margin-top:10px; display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px;">
+                                @if ($hasDestination)
+                                    <x-filament::button tag="a" :href="route('notifications.open', $notification->getKey())" size="sm" color="primary" icon="heroicon-m-eye">
+                                        {{ $openLabel }}
+                                    </x-filament::button>
+                                @endif
 
-        $priority = $data['priority'] ?? null;
+                                @if ($unread)
+                                    <x-filament::link tag="button" color="gray" size="sm" wire:click="markNotificationAsRead('{{ $notification->getKey() }}')">
+                                        Marcar como leída
+                                    </x-filament::link>
+                                @endif
 
-        $priorityColors = [
-            'baja' => 'success',
-            'media' => 'warning',
-            'alta' => 'danger',
-            'critica' => 'gray',
-            'crítica' => 'gray',
-            'low' => 'success',
-            'medium' => 'warning',
-            'high' => 'danger',
-            'critical' => 'gray',
-        ];
-
-        $priorityLabels = [
-            'baja' => 'Baja',
-            'media' => 'Media',
-            'alta' => 'Alta',
-            'critica' => 'Crítica',
-            'crítica' => 'Crítica',
-            'low' => 'Baja',
-            'medium' => 'Media',
-            'high' => 'Alta',
-            'critical' => 'Crítica',
-        ];
-    @endphp
-
-    <div class="fi-no-notification fi-inline" style="display:flex;visibility:visible;">
-        <div class="fi-no-notification-main" style="width:100%;">
-            <div class="fi-no-notification-text">
-                <h3 class="fi-no-notification-title">
-                    {{ $n->getTitle() }}
-                </h3>
-
-                <div class="fi-no-notification-body">
-                    {{ $n->getBody() }}
-                </div>
-
-                @if(isset($data['report_id']))
-                    <div style="margin-top:12px; display:flex; align-items:center; justify-content:space-between; gap:12px;">
-                        <x-filament::button
-                            tag="a"
-                            href="{{ route('filament.ascensores_app.resources.reports.view', ['record' => $data['report_id']]) }}"
-                            size="sm"
-                            color="primary"
-                            icon="heroicon-m-eye"
-                        >
-                            Ver reporte
-                        </x-filament::button>
-
-                        @if($priority)
-                            <span style="
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    min-width:90px;
-    padding:6px 14px;
-    border-radius:9999px;
-    font-size:0.875rem;
-    font-weight:600;
-    line-height:1.25rem;
-    background-color:
-        {{ match($priority) {
-            'baja' => 'rgb(34 197 94)',
-            'media' => 'rgb(234 179 8)',
-            'alta' => 'rgb(239 68 68)',
-            'critica', 'crítica' => 'rgb(168 85 247)',
-            default => 'rgb(107 114 128)',
-        } }};
-    color:white;
-    box-shadow:0 1px 2px rgba(0,0,0,.15);
-">
-    {{ $priorityLabels[$priority] ?? ucfirst($priority) }}
-</span>
-                        @endif
+                                @if ($priority)
+                                    <span style="margin-left:auto; display:inline-flex; align-items:center; justify-content:center; min-width:90px; padding:6px 14px; border-radius:9999px; font-size:0.875rem; font-weight:600; line-height:1.25rem; background-color: {{ $priorityColor }}; color:white; box-shadow:0 1px 2px rgba(0,0,0,.15);">
+                                        {{ $priorityLabels[$priority] ?? ucfirst($priority) }}
+                                    </span>
+                                @endif
+                            </div>
+                        </div>
                     </div>
-                @elseif($priority)
-                    <div style="margin-top:12px; display:flex; justify-content:flex-end;">
-                        <span style="
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    min-width:90px;
-    padding:6px 14px;
-    border-radius:9999px;
-    font-size:0.875rem;
-    font-weight:600;
-    line-height:1.25rem;
-    background-color:
-        {{ match($priority) {
-            'baja' => 'rgb(34 197 94)',
-            'media' => 'rgb(234 179 8)',
-            'alta' => 'rgb(239 68 68)',
-            'critica', 'crítica' => 'rgb(168 85 247)',
-            default => 'rgb(107 114 128)',
-        } }};
-    color:white;
-    box-shadow:0 1px 2px rgba(0,0,0,.15);
-">
-    {{ $priorityLabels[$priority] ?? ucfirst($priority) }}
-</span>
-                    </div>
-                @endif
-            </div>
-        </div>
-    </div>
-
-
                 </div>
             @endforeach
 

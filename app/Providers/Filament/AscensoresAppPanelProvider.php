@@ -118,6 +118,11 @@ class AscensoresAppPanelProvider extends PanelProvider
                     : '',
             )
 
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn (): string => auth()->check() ? view('filament.partials.notifications-seen')->render() : '',
+            )
+
             // Avisos push del admin (trabajo terminado, reportes nuevos).
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
@@ -152,7 +157,9 @@ class AscensoresAppPanelProvider extends PanelProvider
 
             ->globalSearch(false)
 
-            ->databaseNotifications()
+            // Campanita propia: abrir marca leído en el servidor, "Marcar como
+            // leída" en cada aviso y "visto" al cerrar (ver App\Livewire\DatabaseNotifications).
+            ->databaseNotifications(livewireComponent: \App\Livewire\DatabaseNotifications::class)
             // Con tiempo real (Reverb) la campanita se actualiza al instante; la
             // consulta periódica queda solo como respaldo si se corta la conexión.
             ->databaseNotificationsPolling(Realtime::enabled() ? '120s' : '30s')
