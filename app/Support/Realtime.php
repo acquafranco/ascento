@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Events\UserNotificationsChanged;
 use App\Models\User;
+use App\Support\Diagnostics\ReverbProbe;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -59,7 +60,12 @@ class Realtime
         try {
             broadcast(new UserNotificationsChanged($user, $latest));
         } catch (Throwable $e) {
-            Log::warning('No se pudo emitir el aviso en tiempo real', ['user_id' => $user->id, 'exception' => $e::class]);
+            // Sin secretos: tipo de fallo, destino y mensaje corto (ver ReverbProbe).
+            $probe = ReverbProbe::classify($e);
+            Log::warning('No se pudo emitir el aviso en tiempo real', [
+                'user_id' => $user->id, 'exception' => $e::class, 'kind' => $probe['kind'],
+                'detail' => $probe['detail'], 'target' => ReverbProbe::target(),
+            ]);
         }
     }
 }

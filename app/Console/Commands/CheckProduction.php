@@ -6,12 +6,12 @@ use App\Models\Backup;
 use App\Notifications\MailOnlyNotification;
 use App\Services\Backups\BackupManager;
 use App\Services\Reports\ReportVideoService;
+use App\Support\Diagnostics\ReverbProbe;
 use App\Support\Diagnostics\ServerLimits;
 use Illuminate\Console\Command;
 use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
@@ -197,12 +197,17 @@ class CheckProduction extends Command
         $socket = @fsockopen('127.0.0.1', $port, $errno, $errstr, 2);
         $this->check((bool) $socket, "Proceso de Reverb escuchando en el puerto {$port}", "No hay un proceso de Reverb en el puerto {$port}. En Forge: Application → Laravel Reverb (daemon)", critical: false);
         $socket && fclose($socket);
-        try {
-            Broadcast::connection('reverb')->getPusher()->getChannels();
-            $this->info('  ✓ La app puede publicar en Reverb por '.config('broadcasting.connections.reverb.options.host'));
-        } catch (Throwable $e) {
-            $this->check(false, '', 'La app no puede publicar en Reverb ('.$e::class.'). Revisá REVERB_HOST/REVERB_PORT y el proxy de Nginx', critical: false);
-        }
+        // Publica de verdad (como un aviso). Antes se usaba getChannels(): con
+        // ningún canal ocupado Reverb responde {"channels":[]} y la librería
+        // de Pusher tiraba TypeError aunque la conexión estuviera bien.
+        $target = ReverbProbe::target();
+        $probe = ReverbProbe::publish();
+        $this->check($probe['ok'], "La app publicó un mensaje de prueba en Reverb ({$target})", match ($probe['kind']) {
+            'config' => 'La app no pudo armar el cliente de Reverb (configuración, no red)',
+            'connection' => "La app no pudo conectarse a Reverb en {$target}",
+            'http' => "Reverb o el proxy en {$target} respondió con error",
+            default => 'Error de la app al publicar en Reverb',
+        }.": {$probe['detail']}. {$probe['hint']}", critical: false);
         $origins = (array) config('reverb.apps.apps.0.allowed_origins');
         $this->check($origins !== ['*'], 'REVERB_ALLOWED_ORIGINS='.implode(',', $origins), 'REVERB_ALLOWED_ORIGINS=* (cualquier sitio puede conectarse). Poné REVERB_ALLOWED_ORIGINS=ascento.online', critical: false);
     }
