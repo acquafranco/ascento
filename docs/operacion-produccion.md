@@ -8,6 +8,89 @@ hay que hacerlo cuando se autorice el merge.
 `php artisan ascento:check-production` es de solo lectura, no muestra secretos
 y revisa casi todo lo que sigue. Usalo antes y después de cada deploy.
 
+| Marca | Qué significa | ¿Hace fallar el comando? |
+|---|---|---|
+| `✓` | Comprobado y bien | No |
+| `✗` crítico | Algo no funciona o se pueden perder datos | Sí (sale con error) |
+| `!` advertencia | Conviene corregirlo; Ascento funciona igual | No |
+| `?` no verificable | La consola no lo puede ver: dice dónde mirarlo (Forge o el panel) | No |
+| `·` informativo | Contexto | No |
+
+La consola corre con la **PHP CLI**, que no es la que atiende la web
+(**PHP-FPM**). Por eso los límites de subida se leen de los archivos de PHP-FPM
+y de Nginx (si son legibles), y el valor que realmente usa la web se ve en el
+panel: Inicio del SuperAdmin → **Subida de archivos (PHP de la web)**.
+
+Si la configuración está cacheada (`php artisan optimize`), el comando y la app
+ven lo cacheado: después de cambiar el `.env`, corré `php artisan optimize`
+antes de volver a chequear.
+
+## Corregir lo que marca el chequeo
+
+### `APP_NAME` es "Laravel"
+
+El código ya usa "Ascento" por defecto; el valor viene del `.env` de
+producción. Ojo: el nombre de la **cookie de sesión** y el **prefijo de la
+caché** se arman con `APP_NAME`. Si lo cambiás solo, todos (técnicos incluidos)
+tienen que volver a ingresar una vez y la caché arranca vacía. Para evitarlo,
+en Forge → sitio → **Environment**, cambiá estas tres líneas juntas:
+
+```env
+APP_NAME=Ascento
+SESSION_COOKIE=laravel-session
+CACHE_PREFIX=laravel-cache-
+```
+
+(`laravel-session` y `laravel-cache-` son los nombres que salían de
+`APP_NAME=Laravel`.) Si preferís nombres nuevos, omití las dos últimas y avisá
+que hay que volver a ingresar. Después: `php artisan optimize`. Los nombres de
+cada empresa no dependen de esto.
+
+### `SESSION_SECURE_COOKIE`
+
+Desde esta versión, si la variable **no está** en el `.env`, la cookie de
+sesión es segura cuando `APP_URL` empieza con `https://` (en local con http no
+cambia nada). Si en Forge figura `SESSION_SECURE_COOKIE=false`, borrala o poné
+`true`, y corré `php artisan optimize`.
+
+### Límite de subida de PHP y Nginx (videos de 50 MB)
+
+Hace falta **≥ 60 MB** (video de 50 MB + fotos + margen). Recomendado: 64 MB.
+
+1. Forge → servidor → **PHP** → *Max File Upload Size*: `64` → **Update**.
+   Forge cambia `upload_max_filesize` y `post_max_size` de PHP-FPM y de la
+   CLI, y `client_max_body_size` de Nginx, y recarga los servicios.
+2. Si el sitio tiene un `client_max_body_size` propio más chico: Forge → sitio
+   → **Nginx** (Edit Nginx Configuration) → `client_max_body_size 64M;` dentro
+   del bloque `server` → guardar (Forge recarga Nginx).
+3. Comprobar:
+   - Panel → Inicio del SuperAdmin → **Subida de archivos (PHP de la web)**:
+     tiene que decir `64 MB / 64 MB` (es el valor real de PHP-FPM).
+   - `php artisan ascento:check-production` → sección **Fotos y videos**.
+   - Opcional, por SSH: `grep -E "upload_max_filesize|post_max_size" /etc/php/*/fpm/php.ini`
+     y `grep -R client_max_body_size /etc/nginx/`.
+4. `memory_limit` de PHP-FPM: con 128M alcanza; 256M da margen para fotos grandes.
+
+Mientras PHP de la web acepte menos que `MEDIA_VIDEO_MAX_MB`, el formulario del
+técnico ya muestra y valida el límite real (no deja subir un video que va a
+fallar al terminar).
+
+### Trabajos pendientes en la cola
+
+**Ninguna función de Ascento necesita un worker de colas**: los avisos y
+correos se mandan al terminar cada request o desde el scheduler. Se revisaron
+todas las rutas que podrían encolar: no hay clases `ShouldQueue` propias, ni
+`Mail::queue`, ni exportaciones/importaciones de Filament, y los eventos de
+tiempo real son `ShouldBroadcastNow`.
+
+La única excepción era el aviso de **"Falló un backup"** a la campanita del
+SuperAdmin: usaba una notificación de Filament que se encola, y sin worker
+quedaba en la tabla `jobs` sin llegar nunca. Esta versión lo manda en el
+momento. Los trabajos que hayan quedado de antes aparecen en el chequeo como
+`Filament\Notifications\DatabaseNotification`. No hace falta hacer nada; si
+querés entregarlos, `php artisan queue:work --stop-when-empty` los procesa y
+termina. **No cambies a `QUEUE_CONNECTION=sync` ni borres la tabla.**
+
 ## 1. Antes del deploy
 
 1. **Backup de producción.** Hasta que esta versión esté desplegada no existe
@@ -111,10 +194,8 @@ un reporte como técnico. El aviso aparece sin recargar.
 
 ## 5. Videos y fotos
 
-- **PHP-FPM:** `upload_max_filesize` y `post_max_size` de al menos `64M`
-  (Forge → Server → PHP).
-- **Nginx:** `client_max_body_size 64M;`.
-- El chequeo lee los límites de la CLI; confirmá también los de FPM.
+- **PHP-FPM y Nginx:** al menos `64M` (pasos en «Corregir lo que marca el
+  chequeo» → Límite de subida).
 - **FFmpeg (recomendado):** `sudo apt install ffmpeg` (instala también `ffprobe`).
   - Con FFmpeg, `media:process-videos` (cada minuto, en el scheduler) pasa los videos a:
     - H.264 720p, calidad constante CRF 26 con techo de 2,5 Mbps;
@@ -195,8 +276,9 @@ presupuestos recorre cada fila una vez. **No se ejecutaron contra producción.**
 
 ## 9. Después del deploy (verificación)
 
-1. `php artisan ascento:check-production`: todo en verde salvo lo que sea
-   decisión tuya (por ejemplo FFmpeg).
+1. `php artisan ascento:check-production`: sin `✗` (críticos). Las `!` y `?`
+   se revisan una por una (algunas son decisiones tuyas, como FFmpeg o la
+   copia externa).
 2. `php artisan ascento:check-production --mail-to=tu@correo`: llega el correo
    con el logo y el remitente "Ascento".
 3. Panel → **Backups** (SuperAdmin) → "Crear backup ahora". En 1 a 2 minutos
