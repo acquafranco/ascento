@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\User;
 use App\Rules\Cuit;
+use App\Support\Auth\PasswordPolicy;
+use App\Support\Auth\RegistrationChallenge;
 use App\Support\Provinces;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -16,14 +18,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules;
 use Illuminate\View\View;
 
 class RegisteredUserController extends Controller
 {
-    public function create(): View
+    public function create(Request $request): View
     {
-        return view('auth.register');
+        return view('auth.register', ['challenge' => RegistrationChallenge::prepare($request)]);
     }
 
     /**
@@ -37,8 +38,13 @@ class RegisteredUserController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        // Campo trampa y tiempo mínimo (ver RegistrationChallenge).
+        RegistrationChallenge::ensureHuman($request);
 
         $request->validate([
+
+            // Desafío del ascensor (o su pregunta alternativa), validado acá.
+            'challenge' => [RegistrationChallenge::rule($request)],
 
             /*
             |--------------------------------------------------------------------------
@@ -99,11 +105,7 @@ class RegisteredUserController extends Controller
                 'unique:'.User::class,
             ],
 
-            'password' => [
-                'required',
-                'confirmed',
-                Rules\Password::defaults(),
-            ],
+            'password' => PasswordPolicy::rules([$request->input('name'), $request->input('email'), $request->input('company_name')]),
 
         ]);
 
@@ -185,6 +187,8 @@ class RegisteredUserController extends Controller
                 ->withInput($request->except('password', 'password_confirmation'))
                 ->withErrors([$field => $field === 'cuit' ? static::cuitTakenMessage() : 'Ese email ya tiene una cuenta. Ingresá o recuperá tu contraseña.']);
         }
+
+        RegistrationChallenge::complete($request); // un solo uso
 
         event(new Registered($user));
 

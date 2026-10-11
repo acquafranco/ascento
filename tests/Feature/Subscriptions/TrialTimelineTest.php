@@ -19,7 +19,7 @@ use Tests\TestCase;
  */
 class TrialTimelineTest extends TestCase
 {
-    use InteractsWithMercadoPago, RefreshDatabase;
+    use InteractsWithMercadoPago, RefreshDatabase, \Tests\Concerns\PassesRegistrationChallenge;
 
     private Company $company;
 
@@ -34,6 +34,7 @@ class TrialTimelineTest extends TestCase
         $this->travelTo(Carbon::parse('2026-10-01 10:00'));
 
         $this->post('/register', [
+            ...$this->registrationProof(),
             'company_name' => 'Ascensores Prueba',
             'name' => 'Dueña',
             'email' => 'duena@prueba.test',
