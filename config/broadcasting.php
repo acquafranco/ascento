@@ -47,7 +47,10 @@ return [
                 'useTLS' => env('REVERB_SCHEME', 'https') === 'https',
             ],
             'client_options' => [
-                // Guzzle client options: https://docs.guzzlephp.org/en/stable/request-options.html
+                // Si Reverb no responde, la acción del usuario no queda esperando:
+                // el aviso igual queda guardado (ver App\Support\Realtime).
+                'connect_timeout' => 1,
+                'timeout' => 2,
             ],
         ],
 

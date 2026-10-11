@@ -7,7 +7,9 @@ use App\Models\Company;
 use App\Models\PortalMembership;
 use App\Models\User;
 use App\Notifications\App\SharedWithClientNotification;
+use App\Support\Realtime;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Notifications\Messages\MailMessage;
 
 /**
@@ -26,6 +28,11 @@ class ClientShareNotifier
     /** @param iterable<Model> $records registros recién compartidos */
     public function shared(iterable $records): void
     {
+        $this->notifier->batch(fn () => $this->share($records));
+    }
+
+    private function share(iterable $records): void
+    {
         /** @var array<int, array{user: User, rows: list<string>, items: list<string>}> $digest */
         $digest = [];
 
@@ -38,7 +45,7 @@ class ClientShareNotifier
             }
 
             foreach ($this->recipients($notification->buildingId(), $company->id) as $user) {
-                if ($row = $this->notifier->sendTo($user, $notification, $company->id, mail: false)) {
+                if ($row = $this->notifier->sendTo($user, $notification, $company->id, mail: false, broadcast: false)) {
                     $digest[$user->id]['user'] = $user;
                     $digest[$user->id]['company'] = $company->name;
                     $digest[$user->id]['rows'][] = $row->id;
@@ -48,6 +55,8 @@ class ClientShareNotifier
         }
 
         foreach ($digest as $entry) {
+            // Un solo aviso en tiempo real y un solo correo por persona y por acción.
+            Realtime::notificationsChanged($entry['user'], DatabaseNotification::find(end($entry['rows'])));
             $this->notifier->mail($entry['user'], $entry['rows'], $this->digestMail($entry['company'], $entry['items']));
         }
     }
