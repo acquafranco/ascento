@@ -169,7 +169,10 @@ return [
     |
     */
 
-    'secure' => env('SESSION_SECURE_COOKIE'),
+    // Ascento: si no se define, la cookie es segura cuando APP_URL usa https
+    // (producción) y normal con http (desarrollo local). SESSION_SECURE_COOKIE
+    // explícito siempre manda.
+    'secure' => env('SESSION_SECURE_COOKIE', str_starts_with((string) env('APP_URL'), 'https://') ? true : null),
 
     /*
     |--------------------------------------------------------------------------
