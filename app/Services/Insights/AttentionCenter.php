@@ -157,7 +157,8 @@ class AttentionCenter
                 "{$expired} vencidos y {$expiring} que vencen en los próximos 30 días.", $expired + $expiring, ElevatorResource::getUrl()));
         }
 
-        $incomplete = Elevator::active()->get()->filter(fn (Elevator $e) => $e->missingEssentials() !== [])->count();
+        // Contado en la base (antes se traían todos los ascensores para contarlos).
+        $incomplete = Elevator::active()->incomplete()->count();
         if ($incomplete > 0) {
             $items->push($this->item('info', 'Ascensores con la ficha técnica incompleta',
                 'Faltan datos básicos (fabricante, modelo, número de serie, año, capacidad o paradas).', $incomplete,

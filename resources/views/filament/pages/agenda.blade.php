@@ -68,6 +68,9 @@
                     </tbody>
                 </table>
             </div>
+            @if($rows->hasPages())
+                <div style="margin-top: 1rem"><x-filament::pagination :paginator="$rows" /></div>
+            @endif
         @endif
     </x-filament::section>
 </x-filament-panels::page>
