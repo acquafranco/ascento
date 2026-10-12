@@ -9,11 +9,16 @@ use App\Models\DeliveryNote;
 use App\Models\Quote;
 use App\Models\User;
 use App\Models\WorkOrder;
+use App\Observers\ActivityObserver;
+use App\Services\Activity\ActivityLogger;
 use App\Services\Portal\PortalInvitations;
+use App\Support\Access\ActionGuard;
+use App\Support\Access\PanelAccessHook;
 use App\Support\Auth\PasswordPolicy;
 use App\Support\Realtime;
 use App\Support\RealtimeCounters;
 use Carbon\Carbon;
+use Filament\Actions\Action;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\Events\Registered;
@@ -25,6 +30,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Livewire\Livewire;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -36,6 +42,19 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Carbon::setLocale('es');
+
+        // Etapa 6: toda acción de Filament pasa por el control de permisos
+        // (para el dueño y el SuperAdmin devuelve lo mismo que antes), y cada
+        // pedido de Livewire de un administrativo vuelve a verificar la página.
+        Action::configureUsing(
+            fn (Action $action) => $action->authorize(fn (Action $action) => ActionGuard::response($action))
+        );
+        Livewire::componentHook(PanelAccessHook::class);
+
+        // Registro de actividad de las acciones sensibles hechas desde el panel.
+        foreach (array_keys(ActivityLogger::FIELDS) as $audited) {
+            $audited::observe(ActivityObserver::class);
+        }
 
         // Una sola política para crear o cambiar contraseñas (ver PasswordPolicy).
         Password::defaults(fn () => PasswordPolicy::defaults());

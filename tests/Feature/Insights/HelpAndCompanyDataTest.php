@@ -90,6 +90,7 @@ class HelpAndCompanyDataTest extends TestCase
 
         // Otro admin de la misma empresa sigue viendo sus ayudas.
         $this->a['admin']->dismissHelp('agenda_intro');
+        auth()->logout(); // un admin no crea otro dueño desde la app: lo crea el sistema
         $other = User::factory()->admin()->create(['company_id' => $this->a['company']->id, 'onboarding_completed_at' => now()]);
         $this->actingInPanel($other)->get(Agenda::getUrl())->assertSee(self::AGENDA_TEXT);
     }

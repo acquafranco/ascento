@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\Maintenances;
 
+use App\Enums\PermissionArea;
+use App\Filament\Concerns\GuardedByPermission;
 use App\Filament\Resources\Maintenances\Pages\CreateMaintenance;
 use App\Filament\Resources\Maintenances\Pages\EditMaintenance;
 use App\Filament\Resources\Maintenances\Pages\ListMaintenances;
@@ -9,18 +11,26 @@ use App\Filament\Resources\Maintenances\Pages\ViewMaintenance;
 use App\Filament\Resources\Maintenances\Schemas\MaintenanceForm;
 use App\Filament\Resources\Maintenances\Schemas\MaintenanceInfolist;
 use App\Filament\Resources\Maintenances\Tables\MaintenancesTable;
+use App\Models\DeliveryNote;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use App\Models\DeliveryNote;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Database\Eloquent\Model;
 
 class MaintenanceResource extends Resource
 {
-protected static ?string $model = DeliveryNote::class;
+    use GuardedByPermission;
+
+    /** Área de permisos de administrativos (Etapa 6). */
+    public static function permissionArea(): ?PermissionArea
+    {
+        return PermissionArea::Visits;
+    }
+
+    protected static ?string $model = DeliveryNote::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
@@ -33,9 +43,6 @@ protected static ?string $model = DeliveryNote::class;
     protected static ?string $modelLabel = 'Mantenimiento';
 
     protected static ?string $pluralModelLabel = 'Mantenimientos';
-
-
-
 
     public static function form(Schema $schema): Schema
     {
@@ -108,21 +115,21 @@ protected static ?string $model = DeliveryNote::class;
         ];
     }
 
-  public static function shouldRegisterNavigation(): bool
+    public static function shouldRegisterNavigation(): bool
     {
-        return auth()->check();
+        return static::canAccess();
     }
 
     public static function canAccess(): bool
     {
-        return auth()->check();
+        return static::canViewAny();
     }
 
     /**
      * Los remitos (y por lo tanto mantenimientos e inspecciones) son
      * historial firmado: no se eliminan. El modelo también lo impide.
      */
-    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    public static function canDelete(Model $record): bool
     {
         return false;
     }

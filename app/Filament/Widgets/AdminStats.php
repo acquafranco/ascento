@@ -7,6 +7,7 @@ use App\Models\DeliveryNote;
 use App\Models\Quote;
 use App\Models\User;
 use App\Models\WorkOrder;
+use App\Support\Access\Access;
 use App\Support\CompanyContext;
 use App\Support\Realtime;
 use Filament\Widgets\StatsOverviewWidget;
@@ -22,6 +23,12 @@ use Illuminate\Support\Facades\DB;
  */
 class AdminStats extends StatsOverviewWidget
 {
+    /** Números de toda la empresa: dueño y SuperAdmin (un administrativo, no por ahora). */
+    public static function canView(): bool
+    {
+        return ! Access::isStaff(auth()->user());
+    }
+
     protected function getPollingInterval(): ?string
     {
         return Realtime::enabled() ? '120s' : '60s';
@@ -66,7 +73,7 @@ class AdminStats extends StatsOverviewWidget
             ->count();
 
         $totalTecnicos = User::where('company_id', CompanyContext::currentId())
-            ->whereNotIn('role', ['admin', 'client'])
+            ->whereNotIn('role', ['admin', 'client', 'staff'])
             ->count();
 
         $tecnicosDisponibles = max(0, $totalTecnicos - $tecnicosOcupados);

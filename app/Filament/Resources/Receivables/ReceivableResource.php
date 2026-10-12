@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\Receivables;
 
+use App\Enums\PermissionArea;
+use App\Filament\Concerns\GuardedByPermission;
 use App\Filament\Concerns\ScopedToCurrentCompany;
 use App\Filament\Resources\Receivables\Pages\ListReceivables;
 use App\Filament\Resources\Receivables\Pages\ViewReceivable;
@@ -25,6 +27,14 @@ use Illuminate\Database\Eloquent\Model;
 /** Cobranzas: obligaciones de cobro (cuenta corriente interna). */
 class ReceivableResource extends Resource
 {
+    use GuardedByPermission;
+
+    /** Área de permisos de administrativos (Etapa 6). */
+    public static function permissionArea(): ?PermissionArea
+    {
+        return PermissionArea::Receivables;
+    }
+
     use ScopedToCurrentCompany;
 
     protected static ?string $model = Receivable::class;

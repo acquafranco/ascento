@@ -16,7 +16,7 @@ class DashboardController extends Controller
     {
         $user = $request->user();
 
-        if ($user->role === 'admin') {
+        if ($user->role === 'admin' || $user->isStaff()) {
             return redirect('/admin');
         }
 

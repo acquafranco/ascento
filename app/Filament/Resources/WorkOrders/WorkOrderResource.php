@@ -2,23 +2,33 @@
 
 namespace App\Filament\Resources\WorkOrders;
 
+use App\Enums\PermissionArea;
+use App\Filament\Concerns\GuardedByPermission;
 use App\Filament\Resources\WorkOrders\Pages\CreateWorkOrder;
 use App\Filament\Resources\WorkOrders\Pages\EditWorkOrder;
 use App\Filament\Resources\WorkOrders\Pages\ListWorkOrders;
 use App\Filament\Resources\WorkOrders\Schemas\WorkOrderForm;
 use App\Models\WorkOrder;
+use App\Support\WorkOrderLabels;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables;
 use Filament\Tables\Table;
-use App\Support\WorkOrderLabels;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 class WorkOrderResource extends Resource
 {
+    use GuardedByPermission;
+
+    /** Área de permisos de administrativos (Etapa 6). */
+    public static function permissionArea(): ?PermissionArea
+    {
+        return PermissionArea::WorkOrders;
+    }
+
     protected static ?string $model = WorkOrder::class;
 
     protected static string|BackedEnum|null $navigationIcon =
@@ -43,16 +53,14 @@ class WorkOrderResource extends Resource
     {
         return $table
             // Eager loading de lo que usan las columnas/acciones (evita N+1).
-            ->modifyQueryUsing(fn (\Illuminate\Database\Eloquent\Builder $query) => $query->with(['building', 'users']))
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['building', 'users']))
             ->columns([
 
                 Tables\Columns\TextColumn::make('building.name')
                     ->label('Edificio')
-                    ->formatStateUsing(fn ($state, $record) =>
+                    ->formatStateUsing(fn ($state, $record) => "{$record->building?->name} {$record->building?->address}"
 
-                            "{$record->building?->name} {$record->building?->address}"
-
-                        )
+                    )
                     ->searchable(query: function ($query, $search) {
                         $query->whereHas('building', function ($query) use ($search) {
                             $query
@@ -67,16 +75,16 @@ class WorkOrderResource extends Resource
                     ->badge()
                     ->placeholder('—'),
 
-               Tables\Columns\TextColumn::make('users')
-    ->label('Técnicos')
-    ->getStateUsing(function ($record) {
+                Tables\Columns\TextColumn::make('users')
+                    ->label('Técnicos')
+                    ->getStateUsing(function ($record) {
 
-        return $record->users
-            ->pluck('name')
-            ->unique()
-            ->implode(', ');
+                        return $record->users
+                            ->pluck('name')
+                            ->unique()
+                            ->implode(', ');
 
-    })
+                    })
                     ->searchable(),
 
                 // 🔥 TIPOS EN ESPAÑOL
@@ -122,8 +130,7 @@ class WorkOrderResource extends Resource
             ->defaultSort('created_at', 'desc')
 
             ->recordUrl(
-                fn ($record) =>
-                    static::getUrl('edit', ['record' => $record])
+                fn ($record) => static::getUrl('edit', ['record' => $record])
             )
 
             ->bulkActions([]);
@@ -145,43 +152,43 @@ class WorkOrderResource extends Resource
         ];
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
 
-public static function getEloquentQuery(): Builder
-{
-    $query = parent::getEloquentQuery();
+        $user = auth()->user();
 
-    $user = auth()->user();
+        if ($user->isSuperAdmin()) {
 
-    if ($user->isSuperAdmin()) {
+            $companyId = session('selected_company_id');
 
-        $companyId = session('selected_company_id');
+            if ($companyId) {
+                return $query->where('company_id', $companyId);
+            }
 
-        if ($companyId) {
-            return $query->where('company_id', $companyId);
+            return $query->whereRaw('1 = 0');
         }
 
-        return $query->whereRaw('1 = 0');
+        return $query->where(
+            'company_id',
+            $user->company_id
+        );
     }
 
-    return $query->where(
-        'company_id',
-        $user->company_id
-    );
-}
-public static function shouldRegisterNavigation(): bool
+    public static function shouldRegisterNavigation(): bool
     {
-        return auth()->check();
+        return static::canAccess();
     }
 
     public static function canAccess(): bool
     {
-        return auth()->check();
+        return static::canViewAny();
     }
 
     /**
      * Solo órdenes sin historial (pendientes/fallidas y sin remito).
      */
-    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    public static function canDelete(Model $record): bool
     {
         return $record->canBeDeleted();
     }

@@ -5,6 +5,8 @@ use App\Exceptions\PlanLimitReachedException;
 use App\Http\Middleware\AdminMiddleware;
 use App\Http\Middleware\EnsureActiveSubscription;
 use App\Http\Middleware\EnsurePortalUser;
+use App\Http\Middleware\KeepStaffInPanel;
+use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetCompany;
 use App\Http\Middleware\SetCompanyRouteDefaults;
 use App\Support\HomeRedirect;
@@ -14,6 +16,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Exceptions\PostTooLargeException;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Exceptions\InvalidSignatureException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -31,10 +34,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'company.defaults' => SetCompanyRouteDefaults::class,
             'subscription' => EnsureActiveSubscription::class,
             'portal' => EnsurePortalUser::class,
+            'staff.panel' => KeepStaffInPanel::class,
         ]);
 
         // Cabeceras de seguridad en todas las respuestas web.
-        $middleware->web(append: [\App\Http\Middleware\SecurityHeaders::class]);
+        $middleware->web(append: [SecurityHeaders::class]);
 
         $middleware->redirectUsersTo(function () {
             if (! auth()->check()) {
@@ -49,7 +53,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions): void {
         // Enlace de confirmación de correo vencido o alterado: pantalla para
         // pedir otro (en lugar de un 403 genérico). No dice nada de la cuenta.
-        $exceptions->render(function (\Illuminate\Routing\Exceptions\InvalidSignatureException $e, Request $request) {
+        $exceptions->render(function (InvalidSignatureException $e, Request $request) {
             if ($request->routeIs('verification.verify') && $request->user()) {
                 return redirect()->route('verification.notice')->with('status', 'verification-link-expired');
             }

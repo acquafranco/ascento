@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\Inspections;
 
+use App\Enums\PermissionArea;
+use App\Filament\Concerns\GuardedByPermission;
 use App\Filament\Resources\Inspections\Pages\CreateInspection;
 use App\Filament\Resources\Inspections\Pages\EditInspection;
 use App\Filament\Resources\Inspections\Pages\ListInspections;
@@ -9,17 +11,25 @@ use App\Filament\Resources\Inspections\Pages\ViewInspection;
 use App\Filament\Resources\Inspections\Schemas\InspectionForm;
 use App\Filament\Resources\Inspections\Schemas\InspectionInfolist;
 use App\Filament\Resources\Inspections\Tables\InspectionsTable;
+use App\Models\DeliveryNote;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use App\Models\DeliveryNote;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Database\Eloquent\Model;
 
 class InspectionResource extends Resource
 {
+    use GuardedByPermission;
+
+    /** Área de permisos de administrativos (Etapa 6). */
+    public static function permissionArea(): ?PermissionArea
+    {
+        return PermissionArea::Inspections;
+    }
+
     protected static ?string $model = DeliveryNote::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
@@ -34,42 +44,39 @@ class InspectionResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Inspecciones';
 
-
-
-
     public static function form(Schema $schema): Schema
     {
         return InspectionForm::configure($schema);
     }
 
-public static function getEloquentQuery(): Builder
-{
-    $query = parent::getEloquentQuery();
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
 
-    $user = auth()->user();
+        $user = auth()->user();
 
-    if ($user->isSuperAdmin()) {
-        $companyId = session('selected_company_id');
+        if ($user->isSuperAdmin()) {
+            $companyId = session('selected_company_id');
 
-        if (! $companyId) {
-            return $query->whereRaw('1 = 0');
+            if (! $companyId) {
+                return $query->whereRaw('1 = 0');
+            }
+
+            $query->where('company_id', $companyId);
+        } else {
+            $query->where('company_id', $user->company_id);
         }
 
-        $query->where('company_id', $companyId);
-    } else {
-        $query->where('company_id', $user->company_id);
+        return $query->where(function (Builder $query) {
+            $query->where('assignment_type', 'inspection')
+                ->orWhere(function (Builder $query) {
+                    $query->where('assignment_type', 'work_order')
+                        ->whereHas('workOrder', function (Builder $query) {
+                            $query->where('type', 'inspection');
+                        });
+                });
+        });
     }
-
-    return $query->where(function (Builder $query) {
-        $query->where('assignment_type', 'inspection')
-            ->orWhere(function (Builder $query) {
-                $query->where('assignment_type', 'work_order')
-                    ->whereHas('workOrder', function (Builder $query) {
-                        $query->where('type', 'inspection');
-                    });
-            });
-    });
-}
 
     public static function infolist(Schema $schema): Schema
     {
@@ -108,21 +115,21 @@ public static function getEloquentQuery(): Builder
         ];
     }
 
- public static function shouldRegisterNavigation(): bool
+    public static function shouldRegisterNavigation(): bool
     {
-        return auth()->check();
+        return static::canAccess();
     }
 
     public static function canAccess(): bool
     {
-        return auth()->check();
+        return static::canViewAny();
     }
 
     /**
      * Los remitos (y por lo tanto mantenimientos e inspecciones) son
      * historial firmado: no se eliminan. El modelo también lo impide.
      */
-    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    public static function canDelete(Model $record): bool
     {
         return false;
     }

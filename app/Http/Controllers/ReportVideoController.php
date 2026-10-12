@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\PermissionArea;
 use App\Models\Report;
 use App\Models\ReportVideo;
 use App\Services\Reports\ReportVideoService;
+use App\Support\Access\Access;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -47,6 +49,9 @@ class ReportVideoController extends Controller
     public function store(Request $request, Report $report): RedirectResponse
     {
         abort_unless($report->canBeViewedBy($request->user()), 404);
+        // Un administrativo solo modifica el video si gestiona «Inspecciones y reportes».
+        abort_if(Access::isStaff($request->user())
+            && ! Access::can($request->user(), PermissionArea::Inspections, PermissionArea::MANAGE), 403);
 
         $request->validate(ReportVideoService::rules(), ReportVideoService::messages());
         abort_unless($request->hasFile('video'), 422);
@@ -59,6 +64,9 @@ class ReportVideoController extends Controller
     public function destroy(Request $request, Report $report): RedirectResponse
     {
         abort_unless($report->canBeViewedBy($request->user()), 404);
+        // Un administrativo solo modifica el video si gestiona «Inspecciones y reportes».
+        abort_if(Access::isStaff($request->user())
+            && ! Access::can($request->user(), PermissionArea::Inspections, PermissionArea::MANAGE), 403);
 
         if ($video = $report->video) {
             app(ReportVideoService::class)->delete($video);

@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\PermissionArea;
 use App\Models\Company;
 use App\Models\Quote;
+use App\Support\Access\Access;
 use App\Support\Portal\PortalAccess;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -75,7 +77,8 @@ class QuoteDocumentController extends Controller
     /** Admin de la empresa (el scope de empresa ya filtra: otra empresa → 404). */
     public function adminPdf(Request $request, Quote $quote): Response
     {
-        abort_unless($request->user()?->isAdmin() || $request->user()?->isSuperAdmin(), 404);
+        // Dueño y SuperAdmin; un administrativo, con «Presupuestos».
+        abort_unless(Access::can($request->user(), PermissionArea::Quotes), 404);
 
         return static::pdf(static::load($quote));
     }

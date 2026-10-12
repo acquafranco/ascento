@@ -2,7 +2,10 @@
 
 namespace App\Filament\Resources\Clients;
 
+use App\Enums\PermissionArea;
+use App\Filament\Concerns\GuardedByPermission;
 use App\Filament\RelationManagers\AccountStatementRelationManager;
+use App\Filament\RelationManagers\PortalUsersRelationManager;
 use App\Filament\RelationManagers\ServicesRelationManager;
 use App\Filament\Resources\Clients\Pages\CreateClient;
 use App\Filament\Resources\Clients\Pages\EditClient;
@@ -15,12 +18,18 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Builder;
-
 
 class ClientResource extends Resource
 {
+    use GuardedByPermission;
+
+    /** Área de permisos de administrativos (Etapa 6). */
+    public static function permissionArea(): ?PermissionArea
+    {
+        return PermissionArea::Clients;
+    }
+
     protected static ?string $model = Client::class;
 
     protected static string|BackedEnum|null $navigationIcon =
@@ -54,7 +63,7 @@ class ClientResource extends Resource
         return [
             ServicesRelationManager::class,
             AccountStatementRelationManager::class,
-            \App\Filament\RelationManagers\PortalUsersRelationManager::class,
+            PortalUsersRelationManager::class,
         ];
     }
 
@@ -67,36 +76,36 @@ class ClientResource extends Resource
         ];
     }
 
-  public static function getEloquentQuery(): Builder
-{
-    $query = parent::getEloquentQuery();
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
 
-    $user = auth()->user();
+        $user = auth()->user();
 
-    if ($user->isSuperAdmin()) {
+        if ($user->isSuperAdmin()) {
 
-        $companyId = session('selected_company_id');
+            $companyId = session('selected_company_id');
 
-        if (!$companyId) {
-            return $query->whereRaw('1 = 0');
+            if (! $companyId) {
+                return $query->whereRaw('1 = 0');
+            }
+
+            return $query->where('company_id', $companyId);
         }
 
-        return $query->where('company_id', $companyId);
+        return $query->where(
+            'company_id',
+            $user->company_id
+        );
     }
 
-    return $query->where(
-        'company_id',
-        $user->company_id
-    );
-}
-
- public static function shouldRegisterNavigation(): bool
+    public static function shouldRegisterNavigation(): bool
     {
-        return auth()->check();
+        return static::canAccess();
     }
 
     public static function canAccess(): bool
     {
-        return auth()->check();
+        return static::canViewAny();
     }
 }

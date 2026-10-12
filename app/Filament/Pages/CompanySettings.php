@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Enums\PlanFeature;
 use App\Models\Company;
 use App\Rules\Cuit;
+use App\Support\Access\Access;
 use App\Support\Help\HelpTopics;
 use App\Support\Plans\PlanUpsell;
 use App\Support\Provinces;
@@ -308,7 +309,7 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
     {
         $user = Auth::user();
 
-        if ($user->isSuperAdmin()) {
+        if ($user->isSuperAdmin() || ! Access::isOwner($user)) {
             abort(403);
         }
 
@@ -390,13 +391,16 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->check()
-            && ! auth()->user()->isSuperAdmin();
+        return static::canAccess();
     }
 
+    /**
+     * «Mi empresa» es del dueño (Etapa 6). Hasta ahora solo admins y el
+     * SuperAdmin entraban al panel, así que para ellos no cambia nada; un
+     * administrativo nunca la abre, aunque tenga todos los permisos.
+     */
     public static function canAccess(): bool
     {
-        return auth()->check()
-            && ! auth()->user()->isSuperAdmin();
+        return Access::isOwner(auth()->user());
     }
 }

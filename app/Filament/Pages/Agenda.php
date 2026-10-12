@@ -2,12 +2,14 @@
 
 namespace App\Filament\Pages;
 
+use App\Enums\PermissionArea;
 use App\Enums\PlanFeature;
 use App\Filament\Concerns\RequiresPlanFeature;
 use App\Models\Company;
 use App\Models\User;
 use App\Services\Insights\MaintenanceAgenda;
 use App\Services\Visits\VisitService;
+use App\Support\Access\Access;
 use App\Support\CompanyContext;
 use Carbon\Carbon;
 use Filament\Pages\Page;
@@ -22,6 +24,12 @@ use Livewire\WithPagination;
  */
 class Agenda extends Page
 {
+    /** Área de permisos de administrativos (Etapa 6). */
+    public static function permissionArea(): ?PermissionArea
+    {
+        return PermissionArea::Visits;
+    }
+
     use RequiresPlanFeature;
     use WithPagination;
 
@@ -74,7 +82,8 @@ class Agenda extends Page
     {
         $user = auth()->user();
 
-        return $user !== null && ($user->isAdmin() || $user->isSuperAdmin());
+        // Dueño y SuperAdmin, como siempre; un administrativo, con el área habilitada.
+        return Access::can($user, PermissionArea::Visits);
     }
 
     public function getSubheading(): ?string
@@ -141,7 +150,7 @@ class Agenda extends Page
             'progress' => MaintenanceAgenda::progress($unfiltered),
             // Visitas en curso (sin remito): el admin de la empresa las abre en
             // la app para ver sus fotos o descartarlas (el SuperAdmin, no).
-            'visitsSlug' => auth()->user()?->isAdmin() ? Company::whereKey(CompanyContext::currentId())->value('slug') : null,
+            'visitsSlug' => (auth()->user()?->isAdmin() || Access::isActiveStaff(auth()->user())) ? Company::whereKey(CompanyContext::currentId())->value('slug') : null,
             // Visitas en curso hace más de 7 días (de cualquier mes): se avisan, nunca se cierran solas.
             'staleVisits' => app(VisitService::class)->stale(CompanyContext::currentId()),
         ];

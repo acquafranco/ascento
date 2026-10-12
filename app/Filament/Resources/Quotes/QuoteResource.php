@@ -2,7 +2,9 @@
 
 namespace App\Filament\Resources\Quotes;
 
+use App\Enums\PermissionArea;
 use App\Enums\PlanFeature;
+use App\Filament\Concerns\GuardedByPermission;
 use App\Filament\Resources\Quotes\Pages\CreateQuote;
 use App\Filament\Resources\Quotes\Pages\EditQuote;
 use App\Filament\Resources\Quotes\Pages\ListQuotes;
@@ -23,6 +25,14 @@ use Illuminate\Database\Eloquent\Model;
 
 class QuoteResource extends Resource
 {
+    use GuardedByPermission;
+
+    /** Área de permisos de administrativos (Etapa 6). */
+    public static function permissionArea(): ?PermissionArea
+    {
+        return PermissionArea::Quotes;
+    }
+
     protected static ?string $model = Quote::class;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Comercial';
@@ -102,12 +112,12 @@ class QuoteResource extends Resource
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->check();
+        return static::canAccess();
     }
 
     public static function canAccess(): bool
     {
-        return auth()->check();
+        return static::canViewAny();
     }
 
     /**

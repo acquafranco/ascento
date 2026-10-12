@@ -273,6 +273,7 @@ class CompanyEraser
 
         $n += $of('portal_memberships')->delete();
         $n += $of('notifications')->delete();
+        $n += $of('activity_logs')->delete();
         $n += $of('company_export_downloads')->delete();
         $n += $of('company_exports')->delete();
         $n += $of('subscription_payments')->delete();

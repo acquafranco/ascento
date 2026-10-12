@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Enums\PermissionArea;
 use App\Models\Concerns\BelongsToCompany;
 use App\Services\Visits\PhotoTarget;
 use App\Services\Visits\VisitPhotoService;
+use App\Support\Access\Access;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 
@@ -127,7 +129,8 @@ class VisitPhoto extends Model
             return false;
         }
 
-        if ($user->isAdmin() || $user->isSuperAdmin() || (int) $this->uploaded_by === (int) $user->id) {
+        // Dueño y SuperAdmin; un administrativo, con el área del trabajo (Access).
+        if (Access::can($user, PermissionArea::forJobType($this->assignment_type)) || (int) $this->uploaded_by === (int) $user->id) {
             return true;
         }
 

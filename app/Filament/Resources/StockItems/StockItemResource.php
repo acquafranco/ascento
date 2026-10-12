@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\StockItems;
 
+use App\Enums\PermissionArea;
+use App\Filament\Concerns\GuardedByPermission;
 use App\Filament\Concerns\ScopedToCurrentCompany;
 use App\Filament\Resources\StockItems\Pages\CreateStockItem;
 use App\Filament\Resources\StockItems\Pages\EditStockItem;
@@ -33,6 +35,14 @@ use Illuminate\Validation\Rule;
 
 class StockItemResource extends Resource
 {
+    use GuardedByPermission;
+
+    /** Área de permisos de administrativos (Etapa 6). */
+    public static function permissionArea(): ?PermissionArea
+    {
+        return PermissionArea::Stock;
+    }
+
     use ScopedToCurrentCompany;
 
     protected static ?string $model = StockItem::class;

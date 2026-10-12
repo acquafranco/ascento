@@ -2,7 +2,9 @@
 
 namespace App\Filament\Resources\Elevators;
 
+use App\Enums\PermissionArea;
 use App\Enums\PlanFeature;
+use App\Filament\Concerns\GuardedByPermission;
 use App\Filament\Concerns\ScopedToCurrentCompany;
 use App\Filament\Resources\Elevators\Pages\EditElevator;
 use App\Filament\Resources\Elevators\Pages\ListElevators;
@@ -40,6 +42,14 @@ use Illuminate\Database\Eloquent\Model;
  */
 class ElevatorResource extends Resource
 {
+    use GuardedByPermission;
+
+    /** Área de permisos de administrativos (Etapa 6). */
+    public static function permissionArea(): ?PermissionArea
+    {
+        return PermissionArea::Buildings;
+    }
+
     use ScopedToCurrentCompany;
 
     protected static ?string $model = Elevator::class;

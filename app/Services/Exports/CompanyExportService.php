@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Models\CompanyExport;
 use App\Models\User;
 use App\Notifications\App\ExportFinishedNotification;
+use App\Services\Activity\ActivityLogger;
 use App\Services\Notifications\Notifier;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -42,6 +43,7 @@ class CompanyExportService
 
             $export = new CompanyExport;
             $export->forceFill(['company_id' => $user->company_id, 'requested_by' => $user->id, 'status' => CompanyExport::REQUESTED])->save();
+            ActivityLogger::record('company_export.requested', $export, label: 'Exportación completa de datos');
 
             return $export;
         });
