@@ -54,8 +54,19 @@
     @view-transition { navigation: none; }
 }
 
+/* Área segura de iOS. La app usa viewport-fit=cover y la barra de estado
+   "black-translucent": instalada en la pantalla de inicio del iPhone, la
+   página se dibuja DEBAJO de la barra de estado. La barra superior reserva
+   ese espacio (y el de la muesca en horizontal). En Android y en los
+   navegadores comunes env() vale 0: no agrega espacio. */
+.t-nav-top {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+}
+
 /* Barra de carga al navegar o enviar un formulario. */
-#t-progress { position: fixed; inset: 0 0 auto 0; height: 3px; z-index: 100; pointer-events: none; transform: scaleX(0); transform-origin: left; background: #FF6600; opacity: 0; transition: opacity .2s; }
+#t-progress { position: fixed; inset: env(safe-area-inset-top, 0px) 0 auto 0; height: 3px; z-index: 100; pointer-events: none; transform: scaleX(0); transform-origin: left; background: #FF6600; opacity: 0; transition: opacity .2s; }
 #t-progress.is-active { opacity: 1; animation: t-progress 8s cubic-bezier(.1,.7,.2,1) forwards; }
 @keyframes t-progress { from { transform: scaleX(0); } 20% { transform: scaleX(.45); } to { transform: scaleX(.92); } }
 
@@ -70,5 +81,5 @@
 /* Celular: al saltar a un campo, un error o un botón, que no quede tapado
    por la barra inferior fija ni por la superior. */
 @media (max-width: 1023px) {
-    html { scroll-padding-bottom: calc(88px + env(safe-area-inset-bottom)); scroll-padding-top: 72px; }
+    html { scroll-padding-bottom: calc(88px + env(safe-area-inset-bottom)); scroll-padding-top: calc(72px + env(safe-area-inset-top, 0px)); }
 }

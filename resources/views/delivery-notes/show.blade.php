@@ -1,602 +1,104 @@
-<x-delivery-note-layout>
-
-    <div class="min-h-screen bg-slate-100 py-4 md:py-6">
-        <div class="max-w-2xl mx-auto px-4">
-
-            {{-- Header --}}
-                <div
-                    class="pdf-header rounded-2xl p-5 md:p-6 text-white shadow-lg mb-5"
-                    style="
-                        background-color: {{ $deliveryNote->company->primary_color ?? '#0f172a' }};
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
-                    "
-                >
-                <div class="flex items-center gap-4">
-
-        {{-- Logo empresa --}}
-        @if($deliveryNote->company?->logo)
-            <div class="flex items-center justify-center flex-shrink-0">
-                <img
-                    src="{{ asset('storage/' . $deliveryNote->company->logo) }}"
-                    alt="{{ $deliveryNote->company->name }}"
-                    class="w-20 h-20 md:w-24 md:h-24 object-contain"
-                >
-            </div>
-        @endif
-
-
-        {{-- Títulos --}}
-        <div class="flex-1">
-            <h1 class="text-2xl md:text-3xl font-black leading-tight">
-                Remito #{{ str_pad($deliveryNote->number, 6, '0', STR_PAD_LEFT) }}
-            </h1>
-
-            @if($deliveryNote->workOrder)
-
-                <div class="mt-3 inline-flex items-center gap-2
-                    bg-orange-200 text-orange-900
-                    border border-orange-300
-                    px-3 py-1.5 rounded-xl text-xs font-black">
-
-                    🔧
-                    <span>
-                        Orden de trabajo:
-                        {{ \App\Support\WorkOrderLabels::type($deliveryNote->workOrder->type) }}
-                    </span>
-
-                </div>
-
-
-            @elseif($deliveryNote->buildingVisit)
-
-                @if($deliveryNote->buildingVisit->assignment_type === 'maintenance')
-
-                    <div class="mt-3 inline-flex items-center gap-2
-                        bg-blue-100 text-blue-900
-                        border border-blue-200
-                        px-3 py-1.5 rounded-xl text-xs font-black">
-
-                        🔄 Mantenimiento mensual
-
-                    </div>
-
-
-                @elseif($deliveryNote->buildingVisit->assignment_type === 'inspection')
-
-                    <div class="mt-3 inline-flex items-center gap-2
-                        bg-violet-200 text-violet-950
-                        border border-violet-300
-                        px-3 py-1.5 rounded-xl text-xs font-black">
-
-                        🔍 Inspección
-
-                    </div>
-
-                @endif
-
-            @endif
-        </div>
-
-
-        {{-- Icono remito --}}
-        <span class="text-4xl md:text-5xl leading-none">
-            📄
-        </span>
-
-    </div>
-        </div>
-
-        {{-- Tarjeta Principal --}}
-        <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
-            <div class="p-4 md:p-7 space-y-4 md:space-y-5">
-
-                {{-- 1. Cliente / Dirección / Fecha --}}
-
-                <div class="grid grid-cols-3 gap-3">
-                    <div class="bg-slate-50 rounded-xl p-3 md:p-4">
-                        <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">Cliente</div>
-                        <div class="font-bold text-sm md:text-base leading-snug">{{ $deliveryNote->building?->client?->name }}</div>
-                    </div>
-                    <div class="bg-slate-50 rounded-xl p-3 md:p-4">
-                        <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">Dirección</div>
-                        <div class="font-semibold text-xs md:text-sm leading-snug">{{ $deliveryNote->building?->name }} {{ $deliveryNote->building?->address }}</div>
-                    </div>
-                    <div class="bg-slate-50 rounded-xl p-3 md:p-4">
-                <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">
-                    Fecha
-                </div>
-
-                <div class="font-bold text-sm md:text-base leading-snug">
-                    {{ $deliveryNote->created_at->format('d/m/Y') }}
-                </div>
-            </div>
-                </div>
-
-                {{-- 2. Período / Equipos --}}
-                <div class="grid grid-cols-2 gap-3">
-                    <div class="bg-slate-50 rounded-xl p-3 md:p-4">
-                        <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">Período del servicio</div>
-                        {{-- Período del servicio --}}
-
-                            <div class="font-bold text-sm md:text-base capitalize leading-snug">
-                                @if($deliveryNote->month && $deliveryNote->year)
-                                    {{ \Carbon\Carbon::create()
-                                        ->month($deliveryNote->month)
-                                        ->locale('es')
-                                        ->monthName
-                                    }}
-
-                                @else
-                                    Sin período asignado
-                                @endif
-                            </div>
-                    </div>
-                    <div class="bg-slate-50 rounded-xl p-3 md:p-4">
-                        <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">Equipos</div>
-                        <div class="font-semibold text-xs md:text-sm leading-snug">
-                            @if($deliveryNote->workOrder)
-                                {{ $deliveryNote->workOrder->unit ?? 'Sin equipo asignado' }}
-                            @else
-                                {{ $deliveryNote->building->elevator_count }} Asc. / {{ $deliveryNote->building->freight_elevator_count }} Mont.
-                            @endif
-                        </div>
-                    </div>
-                </div>
-
-                {{-- 3. Técnico / Estado --}}
-                <div class="grid grid-cols-2 gap-3">
-                    <div class="bg-slate-50 rounded-xl p-3 md:p-4">
-                        <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">Técnico</div>
-                        <div class="font-bold text-sm md:text-base leading-snug">{{ $deliveryNote->user?->name }}</div>
-                    </div>
-                    <div class="bg-slate-50 rounded-xl p-3 md:p-4">
-                        <div class="text-xs text-slate-500 uppercase tracking-wider mb-0.5">Estado</div>
-                        @if($deliveryNote->performed)
-                            <div class="text-green-600 font-black text-sm md:text-base">✓ Realizado</div>
-                        @else
-                            <div class="text-red-500 font-black text-sm md:text-base">✕ No realizado</div>
-                        @endif
-                    </div>
-                </div>
-
-
-                {{-- 4. Descripción --}}
-                <div>
-                    <label class="block text-xs text-slate-500 uppercase tracking-wider mb-1.5">Trabajo realizado</label>
-                    <div class="bg-slate-50 rounded-xl p-3 md:p-4 text-xs md:text-sm leading-relaxed whitespace-pre-line text-slate-800 max-h-32 overflow-y-auto">
-                        {{ $deliveryNote->description }}
-                    </div>
-                </div>
-
-                {{-- Materiales usados en la orden (cantidades, sin costos: el remito lo ve el cliente). --}}
-                @if($deliveryNote->workOrder?->materials?->isNotEmpty())
-                    <div>
-                        <label class="block text-xs text-slate-500 uppercase tracking-wider mb-1.5">Materiales utilizados</label>
-                        <ul class="bg-slate-50 rounded-xl p-3 md:p-4 text-xs md:text-sm text-slate-800 space-y-1">
-                            @foreach($deliveryNote->workOrder->materials as $material)
-                                <li class="flex justify-between gap-3">
-                                    <span>{{ $material->stockItem?->name ?? 'Material' }}</span>
-                                    <span class="font-semibold whitespace-nowrap">{{ $material->stockItem?->formatQuantity($material->quantity) ?? $material->quantity }}</span>
-                                </li>
-                            @endforeach
-                        </ul>
-                    </div>
-                @endif
-              @php
-    $participants = collect();
-
-    if ($deliveryNote->workOrder) {
-        $participants = $deliveryNote->workOrder->participants()->get();
-    }
-
-    if ($deliveryNote->buildingVisit) {
-        $participants = $deliveryNote->buildingVisit->participants()->get();
-    }
+{{--
+    Remito en pantalla para el técnico / admin ($audience = 'internal') y para
+    quien abre el enlace público ($audience = 'public'). El portal tiene su
+    propia vista (portal.delivery-note).
+    - El documento (delivery-notes.partials.document) es el mismo para todos y
+      solo tiene datos que puede ver el cliente.
+    - Interno: "Compartir" (WhatsApp, correo, PDF real, copiar enlace) desde el
+      plan Profesional; si el plan no lo incluye, el aviso de siempre.
+    - Público: solo "Descargar PDF".
+    $deliveryNote, $doc, $audience, $pdfUrl (público)
+--}}
+@php
+    $audience = $audience ?? 'internal';
+    $canShareDigitally = $audience === 'internal' && ($deliveryNote->company?->plan()->allows(\App\Enums\PlanFeature::DigitalDeliveryNotes) ?? false);
+    $color = $doc['company']['color'];
+    $onColor = $doc['company']['on_color'];
 @endphp
+<x-delivery-note-layout :title="'Remito #'.$doc['number'].' · '.$doc['company']['name']">
+    <style>
+        .rm-page { min-height: 100vh; background: #F1F3F6; padding: 16px 16px calc(32px + env(safe-area-inset-bottom)); }
+        .rm-wrap { max-width: 720px; margin: 0 auto; }
+        .rm-actions { margin-top: 14px; display: grid; gap: 10px; }
+        .rm-btn { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 12px 16px; border-radius: 14px; font: 700 15px/1.2 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; text-decoration: none; border: 0; cursor: pointer; width: 100%; }
+        .rm-btn:focus-visible { outline: 3px solid #FF6600; outline-offset: 2px; }
+        .rm-locked { margin-top: 14px; background: #fff; border: 1px solid #E7E9EE; border-radius: 14px; padding: 12px 14px; font: 14px/1.45 system-ui, sans-serif; color: #4B5563; }
+        .rm-modal { display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(15,23,42,.72); }
+        .rm-sheet { position: absolute; left: 0; right: 0; bottom: 0; margin: 0 auto; max-width: 440px; background: #fff; border-radius: 20px 20px 0 0; padding: 22px 18px calc(24px + env(safe-area-inset-bottom)); font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+        .rm-sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+        .rm-sheet-head strong { font-size: 18px; color: #11161D; }
+        .rm-close { width: 40px; height: 40px; border: 0; background: #F1F5F9; border-radius: 50%; cursor: pointer; font-size: 24px; color: #64748B; }
+        .rm-option { display: flex; align-items: center; gap: 14px; padding: 14px; border: 1.5px solid #E2E8F0; border-radius: 14px; text-decoration: none; color: #11161D; font-weight: 700; font-size: 15px; background: #fff; width: 100%; cursor: pointer; margin-top: 10px; text-align: left; }
+        .rm-option-icon { width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex: none; color: #fff; font-size: 20px; }
+        @media print { .rm-actions, .rm-locked, .rm-modal { display: none !important; } .rm-page { background: #fff; padding: 0; } }
+    </style>
 
-
-@if($participants->count())
-
-<div class="bg-slate-50 rounded-xl p-4">
-
-    <div class="text-xs text-slate-500 uppercase tracking-wider mb-2">
-        Técnicos participantes
-    </div>
-
-
-    <div class="flex flex-wrap gap-2">
-
-        @foreach($participants as $participant)
-
-            <span class="px-3 py-1 rounded-full bg-slate-200 text-slate-700 text-sm font-semibold">
-
-                {{ $participant->name }}
-
-                @if($participant->pivot?->role === 'creator')
-                    <span class="text-xs text-slate-500">
-                        (Responsable)
-                    </span>
-                @endif
-
-            </span>
-
-        @endforeach
-
-    </div>
-
-</div>
-
-@endif
-                {{-- 5. Firmas Compactas --}}
-                <div>
-                    <div class="text-xs text-slate-500 uppercase tracking-wider mb-2.5">Firmas</div>
-
-                    <div class="grid grid-cols-2 gap-3">
-
-                        {{-- Firma técnico --}}
-                        <div class="border border-slate-200 rounded-xl overflow-hidden">
-                            <div class="bg-slate-50 px-3 py-1.5 border-b border-slate-200 flex items-center gap-1.5">
-                                <span class="w-2 h-2 rounded-full bg-slate-700 flex-shrink-0"></span>
-                                <span class="text-xs font-bold text-slate-700 uppercase tracking-wider">Técnico</span>
-                            </div>
-                            <div class="h-24 md:h-28 flex items-center justify-center bg-white px-2">
-                                @if($deliveryNote->safeSignature('signature'))
-                                    <img src="{{ $deliveryNote->safeSignature('signature') }}" alt="Firma técnico"
-                                        class="max-h-20 md:max-h-24 max-w-full object-contain">
-                                @else
-                                    <span class="text-slate-300 text-xs">Sin firma</span>
-                                @endif
-                            </div>
-                            <div class="bg-slate-50 px-3 py-2 border-t border-slate-200">
-                                <div class="text-xs text-slate-400 mb-0.5">Aclaración</div>
-                                <div class="font-semibold text-xs md:text-sm text-slate-800 truncate">
-                                    {{ $deliveryNote->signature_name ?: '—' }}
-                                </div>
-                            </div>
-                        </div>
-
-                        {{-- Firma cliente --}}
-                        <div class="border border-slate-200 rounded-xl overflow-hidden">
-                            <div class="bg-slate-50 px-3 py-1.5 border-b border-slate-200 flex items-center gap-1.5">
-                                <span class="w-2 h-2 rounded-full bg-slate-400 flex-shrink-0"></span>
-                                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Cliente</span>
-                            </div>
-                            <div class="h-24 md:h-28 flex items-center justify-center bg-white px-2">
-                                @if($deliveryNote->safeSignature('client_signature'))
-                                    <img src="{{ $deliveryNote->safeSignature('client_signature') }}" alt="Firma cliente"
-                                        class="max-h-20 md:max-h-24 max-w-full object-contain">
-                                @else
-                                    <span class="text-slate-300 text-xs">Sin firma</span>
-                                @endif
-                            </div>
-                            <div class="bg-slate-50 px-3 py-2 border-t border-slate-200">
-                                <div class="text-xs text-slate-400 mb-0.5">Aclaración</div>
-                                <div class="font-semibold text-xs md:text-sm text-slate-800 truncate">
-                                    {{ $deliveryNote->client_signature_name ?: '—' }}
-                                </div>
-                            </div>
-                        </div>
-
-                    </div>
-                </div>
-
-            </div>
-
-            @php
-                // Remito digital para el cliente (PDF, link, WhatsApp, email): desde Profesional.
-                // En el portal del cliente no hay acciones de la empresa.
-                $canShareDigitally = empty($portal) && ($deliveryNote->company?->plan()->allows(\App\Enums\PlanFeature::DigitalDeliveryNotes) ?? false);
-            @endphp
+    <main class="rm-page">
+        <div class="rm-wrap">
+            @include('delivery-notes.partials.document', ['doc' => $doc])
 
             @if ($canShareDigitally)
-            {{-- Acciones --}}
-        <div class="pdf-actions border-t border-slate-100 bg-slate-50 px-4 py-3 md:px-7 md:py-4">
+                <div class="rm-actions">
+                    <button id="btn-share" type="button" class="rm-btn" style="background: {{ $color }}; color: {{ $onColor }};" aria-haspopup="dialog">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+                        Compartir
+                    </button>
+                </div>
 
-            <button
-                id="btn-share"
-                type="button"
-                style="background-color: {{ $deliveryNote->company->primary_color ?? '#0f172a' }};"
-                class="w-full flex items-center justify-center gap-2 text-white font-bold text-sm md:text-base py-2 rounded-xl transition"
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none"
-                    viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round"
-                    d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                </svg>
+                <div id="share-modal" class="rm-modal" role="dialog" aria-modal="true" aria-labelledby="share-title">
+                    <div class="rm-sheet">
+                        <div class="rm-sheet-head">
+                            <strong id="share-title">Compartir remito</strong>
+                            <button id="share-close" type="button" class="rm-close" aria-label="Cerrar">&times;</button>
+                        </div>
+                        <a id="share-wpp" href="#" target="_blank" rel="noopener" class="rm-option"><span class="rm-option-icon" style="background:#25D366">💬</span> Enviar por WhatsApp</a>
+                        <a id="share-mail" href="#" class="rm-option"><span class="rm-option-icon" style="background:#3B82F6">✉️</span> Enviar por correo</a>
+                        {{-- El PDF del enlace público: el mismo que recibe el cliente (los técnicos no usan la ruta de admin). --}}
+                        <a id="share-pdf" href="{{ route('delivery-notes.public.pdf', ['company' => $deliveryNote->company?->slug, 'token' => $deliveryNote->public_token]) }}" target="_blank" rel="noopener" class="rm-option"><span class="rm-option-icon" style="background:#EF4444">📄</span> Descargar PDF</a>
+                        <button id="share-copy" type="button" class="rm-option"><span class="rm-option-icon" style="background:#64748B">🔗</span> <span id="copy-label">Copiar enlace</span></button>
+                    </div>
+                </div>
 
-                Compartir
-            </button>
+                <script>
+                    document.addEventListener('DOMContentLoaded', function () {
+                        var pageURL = @json(route('delivery-notes.public', ['company' => $deliveryNote->company?->slug, 'token' => $deliveryNote->public_token]));
+                        var noteNum = @json($doc['number']);
+                        var date = @json($doc['date']);
+                        var state = @json($doc['performed'] ? 'Realizado' : 'No realizado');
+                        document.getElementById('share-wpp').href = 'https://wa.me/?text=' + encodeURIComponent('📄 *Remito de servicio*\nNúmero: #' + noteNum + '\nFecha: ' + date + '\n\n🔗 Ver remito:\n' + pageURL);
+                        document.getElementById('share-mail').href = 'mailto:?subject=' + encodeURIComponent('Remito #' + noteNum) + '&body=' + encodeURIComponent('REMITO DE SERVICIO\n\nNúmero: #' + noteNum + '\nFecha: ' + date + '\nEstado: ' + state + '\n\nVer remito:\n' + pageURL + '\n');
 
-        </div>
+                        var modal = document.getElementById('share-modal');
+                        var open = function () { modal.style.display = 'block'; document.body.style.overflow = 'hidden'; document.getElementById('share-close').focus(); };
+                        var close = function () { modal.style.display = 'none'; document.body.style.overflow = ''; document.getElementById('btn-share').focus(); };
+                        document.getElementById('btn-share').addEventListener('click', open);
+                        document.getElementById('share-close').addEventListener('click', close);
+                        modal.addEventListener('click', function (e) { if (e.target === modal) { close(); } });
+                        document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && modal.style.display === 'block') { close(); } });
 
-{{-- ═══════════════════════════ MODAL COMPARTIR ═══════════════════════════ --}}
-<div id="share-modal" role="dialog" aria-modal="true"
-    style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(15,23,42,0.72);">
-    <div style="display:flex; min-height:100%; align-items:flex-end; justify-content:center; padding:0;">
-
-        <div style="background:#fff; border-radius:20px 20px 0 0; width:100%; max-width:440px; padding:24px 20px 32px;">
-
-            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
-                <span style="font-size:18px; font-weight:900; color:#1e293b;">Compartir remito</span>
-                <button id="share-close" type="button"
-                    style="width:36px; height:36px; border:none; background:#f1f5f9; border-radius:50%;
-                           cursor:pointer; font-size:24px; color:#64748b; flex-shrink:0;">
-                    &times;
-                </button>
-            </div>
-
-            <div style="display:flex; flex-direction:column; gap:12px;">
-
-                {{-- WhatsApp --}}
-                <a id="share-wpp" href="#" target="_blank" rel="noopener"
-                    style="display:flex; align-items:center; gap:14px; padding:16px;
-                           border:1.5px solid #e2e8f0; border-radius:14px; text-decoration:none;
-                           color:#1e293b; font-weight:700; font-size:15px; background:#fff;">
-                    <span style="width:44px; height:44px; border-radius:50%; background:#25D366;
-                                 display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                        <svg viewBox="0 0 32 32" width="22" height="22" fill="#fff">
-                            <path d="M16 2C8.268 2 2 8.268 2 16c0 2.47.648 4.786 1.776 6.79L2 30l7.42-1.746A13.94 13.94 0 0016 30c7.732 0 14-6.268 14-14S23.732 2 16 2zm0 25.6a11.556 11.556 0 01-5.89-1.609l-.422-.252-4.402 1.036 1.053-4.287-.276-.44A11.558 11.558 0 014.4 16C4.4 9.596 9.596 4.4 16 4.4S27.6 9.596 27.6 16 22.404 27.6 16 27.6zm6.306-8.666c-.346-.173-2.044-1.008-2.362-1.123-.317-.115-.548-.173-.778.173-.23.346-.892 1.123-1.094 1.354-.202.23-.403.259-.749.086-.346-.173-1.46-.537-2.78-1.712-1.028-.914-1.72-2.043-1.922-2.389-.202-.346-.022-.533.152-.705.156-.155.346-.403.52-.605.172-.202.229-.346.344-.577.115-.23.058-.432-.029-.605-.086-.173-.778-1.873-1.066-2.563-.28-.672-.565-.58-.778-.591l-.663-.012c-.23 0-.605.086-.921.432-.317.346-1.21 1.18-1.21 2.879s1.238 3.339 1.411 3.569c.172.23 2.436 3.716 5.901 5.21.825.356 1.469.569 1.972.728.828.264 1.582.227 2.178.138.664-.1 2.044-.835 2.333-1.641.289-.806.289-1.497.202-1.641-.086-.144-.317-.23-.663-.403z"/>
-                        </svg>
-                    </span>
-                    <span>Enviar por WhatsApp</span>
-                </a>
-
-                {{-- Email --}}
-                <a id="share-mail" href="#"
-                    style="display:flex; align-items:center; gap:14px; padding:16px;
-                           border:1.5px solid #e2e8f0; border-radius:14px; text-decoration:none;
-                           color:#1e293b; font-weight:700; font-size:15px; background:#fff;">
-                    <span style="width:44px; height:44px; border-radius:50%; background:#3b82f6;
-                                 display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round"
-                                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-                        </svg>
-                    </span>
-                    <span>Enviar por Email</span>
-                </a>
-                {{-- PDF --}}
-                <button id="share-pdf" type="button"
-                    style="display:flex; align-items:center; gap:14px; padding:16px;
-                        border:1.5px solid #e2e8f0; border-radius:14px; cursor:pointer;
-                        color:#1e293b; font-weight:700; font-size:15px; background:#fff; width:100%;">
-
-                    <span style="width:44px; height:44px; border-radius:50%; background:#ef4444;
-                                display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-
-                        <svg xmlns="http://www.w3.org/2000/svg"
-                            width="22" height="22"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="white"
-                            stroke-width="2">
-                            <path stroke-linecap="round"
-                                stroke-linejoin="round"
-                                d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-                        </svg>
-
-                    </span>
-
-                    <span>Generar PDF</span>
-
-                </button>
-                {{-- Copiar enlace --}}
-                <button id="share-copy" type="button"
-                    style="display:flex; align-items:center; gap:14px; padding:16px;
-                           border:1.5px solid #e2e8f0; border-radius:14px; cursor:pointer;
-                           color:#1e293b; font-weight:700; font-size:15px; background:#fff; width:100%;">
-                    <span style="width:44px; height:44px; border-radius:50%; background:#64748b;
-                                 display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round"
-                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-                        </svg>
-                    </span>
-                    <span id="copy-label">Copiar enlace</span>
-                </button>
-
-            </div>
-        </div>
-    </div>
-</div>
-            @elseif (auth()->check() && empty($portal))
-        <div class="border-t border-slate-100 bg-slate-50 px-4 py-3 md:px-7 md:py-4 text-sm text-slate-600" data-plan-locked="digital_delivery_notes">
-            📄 Compartir el remito con el cliente (PDF, WhatsApp o email) está disponible desde el plan <strong>Profesional</strong>.
-            @if (auth()->user()->isAdmin())
-                <a href="{{ \App\Support\Plans\PlanUpsell::url(feature: \App\Enums\PlanFeature::DigitalDeliveryNotes) }}" class="font-semibold underline">Ver planes</a>
+                        var label = document.getElementById('copy-label');
+                        var copied = function () { label.textContent = '¡Enlace copiado!'; setTimeout(function () { label.textContent = 'Copiar enlace'; }, 2500); };
+                        document.getElementById('share-copy').addEventListener('click', function () {
+                            if (navigator.clipboard && navigator.clipboard.writeText) {
+                                navigator.clipboard.writeText(pageURL).then(copied).catch(function () { window.prompt('Copiá el enlace:', pageURL); });
+                            } else {
+                                window.prompt('Copiá el enlace:', pageURL);
+                            }
+                        });
+                    });
+                </script>
+            @elseif ($audience === 'public')
+                <div class="rm-actions">
+                    <a class="rm-btn" href="{{ $pdfUrl }}" target="_blank" rel="noopener" style="background: {{ $color }}; color: {{ $onColor }};">⬇ Descargar PDF</a>
+                </div>
+            @elseif (auth()->check())
+                <div class="rm-locked" data-plan-locked="digital_delivery_notes">
+                    📄 Compartir el remito con el cliente (PDF, WhatsApp o correo) está disponible desde el plan <strong>Profesional</strong>.
+                    @if (auth()->user()->isAdmin())
+                        <a href="{{ \App\Support\Plans\PlanUpsell::url(feature: \App\Enums\PlanFeature::DigitalDeliveryNotes) }}" style="font-weight:600;text-decoration:underline">Ver planes</a>
+                    @endif
+                </div>
             @endif
         </div>
-            @endif
-
-{{-- Estilos de impresión para PDF --}}
-<style>
-@media print {
-
-
-    .pdf-header {
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-        color: white !important;
-    }
-
-    .pdf-header * {
-        color: white !important;
-    }
-
-
-    .inline-flex.rounded-full {
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-    }
-
-
-    .bg-orange-100 {
-        background-color: #ffedd5 !important;
-    }
-
-    .text-orange-800 {
-        color: #9a3412 !important;
-    }
-
-
-    .bg-blue-100 {
-        background-color: #dbeafe !important;
-    }
-
-    .text-blue-800 {
-        color: #1e40af !important;
-    }
-
-
-    .bg-violet-200 {
-        background-color: #ddd6fe !important;
-    }
-
-    .text-violet-950 {
-        color: #3b0764 !important;
-    }
-
-
-    .border-violet-300 {
-        border-color: #c4b5fd !important;
-    }
-}
-@page {
-
-    margin: 10mm;
-
-}
-@media print {
-
-    .pdf-actions {
-        display: none !important;
-    }
-
-}
-@media print {
-
-    #share-modal {
-        display: none !important;
-    }
-
-}
-</style>
-
-@if ($canShareDigitally)
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-
-    const pageURL = "{{ $deliveryNote ? route('delivery-notes.public', [
-        'company' => $deliveryNote->company?->slug,
-        'token' => $deliveryNote->public_token,
-    ]) : '#' }}";
-    const noteNum = '{{ str_pad($deliveryNote->number, 6, "0", STR_PAD_LEFT) }}';
-    const subject = encodeURIComponent('Remito #' + noteNum);
-
-    // WhatsApp
-    document.getElementById('share-wpp').href =
-    'https://wa.me/?text=' + encodeURIComponent(
-        "📄 *Remito de Servicio*\n" +
-        "Número: #" + noteNum + "\n" +
-        "Fecha: {{ $deliveryNote->created_at->format('d/m/Y') }}\n\n" +
-        "🔗 Ver remito:\n" + pageURL
-    );
-
-    // Email
-    document.getElementById('share-mail').href =
-    'mailto:?subject=' + subject + '&body=' + encodeURIComponent(
-        "📄 REMITO DE SERVICIO\n\n" +
-        "Número: #" + noteNum + "\n" +
-        "Fecha: {{ $deliveryNote->created_at->format('d/m/Y') }}\n" +
-        "Estado: {{ $deliveryNote->performed ? 'Realizado' : 'No realizado' }}\n\n" +
-        "🔗 Ver remito:\n" + pageURL + "\n"
-    );
-
-    // Modal
-    const modal      = document.getElementById('share-modal');
-    const btnShare   = document.getElementById('btn-share');
-    const btnPDF = document.getElementById('share-pdf');
-    const btnClose   = document.getElementById('share-close');
-    const btnCopy    = document.getElementById('share-copy');
-    const copyLabel  = document.getElementById('copy-label');
-
-    function openShare() {
-        modal.style.display = 'block';
-        document.body.style.overflow = 'hidden';
-    }
-
-    function closeShare() {
-        modal.style.display = 'none';
-        document.body.style.overflow = '';
-    }
-
-    btnShare.addEventListener('click', openShare);
-    btnClose.addEventListener('click', closeShare);
-    modal.addEventListener('click', function (e) {
-
-    if (!e.target.closest('#share-modal > div > div')) {
-        closeShare();
-    }
-
-    });
-
-    // Copiar enlace - versión mejorada
-    btnCopy.addEventListener('click', function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-
-        const textToCopy = pageURL;
-
-        // Intentar con Clipboard API
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(textToCopy)
-                .then(function () {
-                    copyLabel.textContent = '¡Enlace copiado!';
-                    setTimeout(function () { copyLabel.textContent = 'Copiar enlace'; }, 2500);
-                })
-                .catch(function (err) {
-                    console.error('Error con clipboard:', err);
-                    fallbackCopy(textToCopy);
-                });
-        } else {
-            fallbackCopy(textToCopy);
-        }
-    });
-
-    function fallbackCopy(text) {
-        const textarea = document.createElement('textarea');
-        textarea.value = text;
-        textarea.style.position = 'fixed';
-        textarea.style.opacity = '0';
-        document.body.appendChild(textarea);
-
-        try {
-            textarea.select();
-            const successful = document.execCommand('copy');
-            if (successful) {
-                copyLabel.textContent = '¡Enlace copiado!';
-                setTimeout(function () { copyLabel.textContent = 'Copiar enlace'; }, 2500);
-            }
-        } catch (err) {
-            console.error('Error:', err);
-        } finally {
-            document.body.removeChild(textarea);
-        }
-    }
-
-    // PDF via print
-    // PDF via print
-btnPDF.addEventListener('click', function () {
-    closeShare();
-
-    setTimeout(function () {
-        window.print();
-    }, 300);
-});
-
-});
-</script>
-@endif
-
+    </main>
 </x-delivery-note-layout>

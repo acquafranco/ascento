@@ -1,0 +1,118 @@
+<?php
+
+namespace App\Support\DeliveryNotes;
+
+use App\Models\DeliveryNote;
+use App\Support\WorkOrderLabels;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Storage;
+
+/**
+ * Los datos de un remito, armados una sola vez para la web (técnico, portal,
+ * enlace público) y el PDF: así nunca dicen cosas distintas.
+ *
+ * Es lo mismo que el remito mostraba antes (nada se quitó ni cambió de
+ * significado) y es todo lo que puede ver el cliente:
+ * - SÍ: empresa, número, tipo, cliente, edificio, fecha, período, equipos,
+ *   técnico, estado, trabajo realizado, materiales (solo cantidades),
+ *   técnicos participantes y firmas.
+ * - NUNCA: las observaciones internas de la orden de trabajo (notes), costos
+ *   de materiales, datos de contacto del técnico ni acciones de la empresa.
+ */
+final class DeliveryNoteDocument
+{
+    /** @return array<string, mixed> */
+    public static function for(DeliveryNote $note, bool $pdf = false): array
+    {
+        $company = $note->company;
+        $building = $note->building;
+        $order = $note->workOrder;
+        $visit = $note->buildingVisit;
+        $color = self::color($company?->primary_color);
+
+        $kind = match (true) {
+            $order !== null => ['label' => 'Orden de trabajo: '.WorkOrderLabels::type((string) $order->type), 'icon' => '🔧', 'tone' => 'order'],
+            $visit?->assignment_type === 'maintenance' => ['label' => 'Mantenimiento mensual', 'icon' => '🔄', 'tone' => 'maintenance'],
+            $visit?->assignment_type === 'inspection' => ['label' => 'Inspección', 'icon' => '🔍', 'tone' => 'inspection'],
+            default => null,
+        };
+
+        // Como antes: los participantes de la orden; si es una visita, los de la visita.
+        $participants = collect();
+        if ($order) {
+            $participants = $order->participants;
+        }
+        if ($visit) {
+            $participants = $visit->participants;
+        }
+
+        return [
+            'number' => str_pad((string) $note->number, 6, '0', STR_PAD_LEFT),
+            'company' => [
+                'name' => $company?->name,
+                'logo' => self::logo($company?->logo, $pdf),
+                'color' => $color,
+                'on_color' => self::readableOn($color),
+            ],
+            'kind' => $kind,
+            'client' => $building?->client?->name,
+            'building' => trim(($building?->name ?? '').' '.($building?->address ?? '')),
+            'date' => $note->created_at?->format('d/m/Y'),
+            'period' => $note->month && $note->year
+                ? ucfirst(Carbon::create()->month($note->month)->locale('es')->monthName)
+                : 'Sin período asignado',
+            'equipment' => $order
+                ? ($order->unit ?? 'Sin equipo asignado')
+                : (int) $building?->elevator_count.' Asc. / '.(int) $building?->freight_elevator_count.' Mont.',
+            'technician' => $note->user?->name,
+            'performed' => (bool) $note->performed,
+            'description' => (string) $note->description,
+            'materials' => $order?->materials?->map(fn ($m) => [
+                'name' => $m->stockItem?->name ?? 'Material',
+                'quantity' => $m->stockItem?->formatQuantity($m->quantity) ?? (string) $m->quantity,
+            ])->values()->all() ?? [],
+            'participants' => $participants->map(fn ($p) => [
+                'name' => $p->name,
+                'responsible' => $p->pivot?->role === 'creator',
+            ])->values()->all(),
+            'signatures' => [
+                ['who' => 'Técnico', 'image' => $note->safeSignature('signature'), 'name' => $note->signature_name ?: null],
+                ['who' => 'Cliente', 'image' => $note->safeSignature('client_signature'), 'name' => $note->client_signature_name ?: null],
+            ],
+        ];
+    }
+
+    /** Color de marca válido (#RRGGBB) o el oscuro de Ascento. */
+    public static function color(?string $value): string
+    {
+        return is_string($value) && preg_match('/^#[0-9a-f]{6}$/i', $value) ? strtoupper($value) : '#11161D';
+    }
+
+    /** Texto legible sobre el color de marca (blanco u oscuro, según el contraste). */
+    public static function readableOn(string $hex): string
+    {
+        [$r, $g, $b] = array_map(fn ($c) => hexdec($c) / 255, str_split(substr($hex, 1), 2));
+        $lin = fn ($c) => $c <= 0.03928 ? $c / 12.92 : (($c + 0.055) / 1.055) ** 2.4;
+        $luminance = 0.2126 * $lin($r) + 0.7152 * $lin($g) + 0.0722 * $lin($b);
+
+        return $luminance > 0.45 ? '#11161D' : '#FFFFFF';
+    }
+
+    /**
+     * Logo (disco "public", donde lo guarda "Mi empresa"): URL pública en la
+     * web; en el PDF, embebido (dompdf no descarga URLs). Sin archivo, sin logo.
+     */
+    private static function logo(?string $path, bool $pdf): ?string
+    {
+        $path = ltrim((string) $path, '/');
+        $disk = Storage::disk('public');
+
+        if ($path === '' || str_contains($path, '..') || ! $disk->exists($path)) {
+            return null;
+        }
+
+        return $pdf
+            ? 'data:'.($disk->mimeType($path) ?: 'image/png').';base64,'.base64_encode((string) $disk->get($path))
+            : asset('storage/'.$path);
+    }
+}
