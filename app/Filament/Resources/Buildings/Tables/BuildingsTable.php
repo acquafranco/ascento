@@ -2,29 +2,37 @@
 
 namespace App\Filament\Resources\Buildings\Tables;
 
+use App\Enums\PlanLimit;
+use App\Models\Building;
+use App\Models\BuildingVisitPlan;
 use App\Models\User;
-use Filament\Tables\Table;
-use Filament\Actions\Action;
-use Filament\Actions\EditAction;
-use Filament\Forms\Components\Select;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\RestoreAction;
-use Filament\Actions\RestoreBulkAction;
-use Filament\Tables\Filters\TrashedFilter;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\IconColumn;
-use Filament\Tables\Filters\SelectFilter;
 use App\Services\Buildings\BulkAssignmentService;
+use App\Services\Notifications\AssignmentNotifier;
 use App\Services\Visits\VisitPlanService;
 use App\Support\CompanyContext;
+use App\Support\Plans\PlanRestoreGuard;
+use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\RestoreAction;
+use Filament\Actions\RestoreBulkAction;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Radio;
+use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Components\Wizard\Step;
+use Filament\Support\Colors\Color;
+use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
@@ -32,11 +40,10 @@ class BuildingsTable
 {
     public static function configure(
         Table $table
-    ): Table
-    {
+    ): Table {
         return $table
             // Eager loading de lo que usan las columnas/acciones (evita N+1).
-            ->modifyQueryUsing(fn (\Illuminate\Database\Eloquent\Builder $query) => $query->with(['client', 'users', 'visitPlans']))
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['client', 'users', 'visitPlans']))
             ->columns([
 
                 TextColumn::make('name')
@@ -65,9 +72,9 @@ class BuildingsTable
                 TextColumn::make('map_color')
                     ->label('Color')
                     ->state(fn ($record) => $record->mapColorKey())
-                    ->formatStateUsing(fn ($state) => \App\Models\Building::MAP_COLORS[$state][0] ?? '')
+                    ->formatStateUsing(fn ($state) => Building::MAP_COLORS[$state][0] ?? '')
                     ->icon('heroicon-s-map-pin')
-                    ->iconColor(fn ($record) => \Filament\Support\Colors\Color::hex($record->mapColorHex()))
+                    ->iconColor(fn ($record) => Color::hex($record->mapColorHex()))
                     ->toggleable(),
 
                 TextColumn::make('elevator_count')
@@ -83,28 +90,28 @@ class BuildingsTable
                     ->boolean(),
 
                 TextColumn::make('technicians')
-                ->label('Técnico')
-                ->state(function ($record) {
+                    ->label('Técnico')
+                    ->state(function ($record) {
 
-                    if ($record->users->isEmpty()) {
-                        return 'Sin asignar';
-                    }
+                        if ($record->users->isEmpty()) {
+                            return 'Sin asignar';
+                        }
 
-                    return $record->users
-                        ->map(function ($user) {
+                        return $record->users
+                            ->map(function ($user) {
 
-                            $tipo = match ($user->pivot->type) {
-                                'maintenance' => 'Mantenimiento',
-                                'inspection' => 'Inspección',
-                                default => '',
-                            };
+                                $tipo = match ($user->pivot->type) {
+                                    'maintenance' => 'Mantenimiento',
+                                    'inspection' => 'Inspección',
+                                    default => '',
+                                };
 
-                            return "{$user->name} ({$tipo})";
-                        })
-                        ->implode(', ');
-                })
-                ->badge()
-                ->color('success'),
+                                return "{$user->name} ({$tipo})";
+                            })
+                            ->implode(', ');
+                    })
+                    ->badge()
+                    ->color('success'),
 
                 // Frecuencia de VISITAS (no la de cobro del servicio).
                 TextColumn::make('visit_frequency')
@@ -116,7 +123,7 @@ class BuildingsTable
             ])
 
             ->recordActions([
-                RestoreAction::make()->before(\App\Support\Plans\PlanRestoreGuard::before(\App\Enums\PlanLimit::Buildings))->label('Reactivar'),
+                RestoreAction::make()->before(PlanRestoreGuard::before(PlanLimit::Buildings))->label('Reactivar'),
 
                 EditAction::make(),
 
@@ -153,121 +160,118 @@ class BuildingsTable
                                     ->toArray();
                             }),
 
-                                                Select::make('type')
-                                                    ->label('Trabajo')
-                                                    ->options([
-                                                        'maintenance'
-                                                            => 'Mantenimiento',
+                        Select::make('type')
+                            ->label('Trabajo')
+                            ->options([
+                                'maintenance' => 'Mantenimiento',
 
-                                                        'inspection'
-                                                            => 'Inspección',
-                                                    ])
-                                                    ->required(),
+                                'inspection' => 'Inspección',
+                            ])
+                            ->required(),
 
-                                            ])
+                    ])
+                    ->action(function (array $data, $record) {
 
-                                        ->action(function (array $data, $record) {
+                        /*
+                        |--------------------------------------------------------------------------
+                        | INSPECCIÓN
+                        |--------------------------------------------------------------------------
+                        */
 
-                            /*
-                            |--------------------------------------------------------------------------
-                            | INSPECCIÓN
-                            |--------------------------------------------------------------------------
-                            */
+                        if ($data['type'] === 'inspection') {
 
-                            if ($data['type'] === 'inspection') {
+                            if (count($data['user_ids']) > 1) {
 
-                                if (count($data['user_ids']) > 1) {
+                                Notification::make()
+                                    ->title('Solo puede existir un inspector por edificio.')
+                                    ->danger()
+                                    ->send();
 
-                                    \Filament\Notifications\Notification::make()
-                                        ->title('Solo puede existir un inspector por edificio.')
-                                        ->danger()
-                                        ->send();
-
-                                    return;
-                                }
-
-                                if (
-                                    $record->users()
-                                        ->wherePivot('type', 'inspection')
-                                        ->exists()
-                                ) {
-
-                                    \Filament\Notifications\Notification::make()
-                                        ->title('Este edificio ya tiene un inspector asignado.')
-                                        ->danger()
-                                        ->send();
-
-                                    return;
-                                }
+                                return;
                             }
 
-                            /*
-                            |--------------------------------------------------------------------------
-                            | MANTENIMIENTO
-                            |--------------------------------------------------------------------------
-                            */
+                            if (
+                                $record->users()
+                                    ->wherePivot('type', 'inspection')
+                                    ->exists()
+                            ) {
 
-                            if ($data['type'] === 'maintenance') {
+                                Notification::make()
+                                    ->title('Este edificio ya tiene un inspector asignado.')
+                                    ->danger()
+                                    ->send();
 
-                                if (count($data['user_ids']) > 2) {
+                                return;
+                            }
+                        }
 
-                                    \Filament\Notifications\Notification::make()
-                                        ->title('Solo pueden asignarse hasta dos técnicos de mantenimiento.')
-                                        ->danger()
-                                        ->send();
+                        /*
+                        |--------------------------------------------------------------------------
+                        | MANTENIMIENTO
+                        |--------------------------------------------------------------------------
+                        */
 
-                                    return;
-                                }
+                        if ($data['type'] === 'maintenance') {
 
-                                $actuales = $record->users()
-                                    ->wherePivot('type', 'maintenance')
-                                    ->count();
+                            if (count($data['user_ids']) > 2) {
 
-                                if ($actuales + count($data['user_ids']) > 2) {
+                                Notification::make()
+                                    ->title('Solo pueden asignarse hasta dos técnicos de mantenimiento.')
+                                    ->danger()
+                                    ->send();
 
-                                    \Filament\Notifications\Notification::make()
-                                        ->title('Este edificio ya tiene el máximo de técnicos de mantenimiento.')
-                                        ->danger()
-                                        ->send();
-
-                                    return;
-                                }
+                                return;
                             }
 
-                            /*
-                            |--------------------------------------------------------------------------
-                            | ASIGNAR
-                            |--------------------------------------------------------------------------
-                            */
+                            $actuales = $record->users()
+                                ->wherePivot('type', 'maintenance')
+                                ->count();
 
-                            foreach ($data['user_ids'] as $userId) {
+                            if ($actuales + count($data['user_ids']) > 2) {
 
-                                $existe = $record->users()
-                                    ->where('users.id', $userId)
-                                    ->wherePivot('type', $data['type'])
-                                    ->exists();
+                                Notification::make()
+                                    ->title('Este edificio ya tiene el máximo de técnicos de mantenimiento.')
+                                    ->danger()
+                                    ->send();
 
-                                if (! $existe) {
+                                return;
+                            }
+                        }
 
-                                    $record->users()->attach(
-                                        $userId,
-                                        [
-                                            'type' => $data['type'],
-                                        ]
-                                    );
+                        /*
+                        |--------------------------------------------------------------------------
+                        | ASIGNAR
+                        |--------------------------------------------------------------------------
+                        */
 
-                                    app(\App\Services\Notifications\AssignmentNotifier::class)->building($record, (int) $userId, $data['type'], true);
+                        foreach ($data['user_ids'] as $userId) {
 
-                                }
+                            $existe = $record->users()
+                                ->where('users.id', $userId)
+                                ->wherePivot('type', $data['type'])
+                                ->exists();
+
+                            if (! $existe) {
+
+                                $record->users()->attach(
+                                    $userId,
+                                    [
+                                        'type' => $data['type'],
+                                    ]
+                                );
+
+                                app(AssignmentNotifier::class)->building($record, (int) $userId, $data['type'], true);
 
                             }
 
-                                    \Filament\Notifications\Notification::make()
-                                        ->title('Empleados asignados correctamente.')
-                                        ->success()
-                                        ->send();
+                        }
 
-                                }),
+                        Notification::make()
+                            ->title('Empleados asignados correctamente.')
+                            ->success()
+                            ->send();
+
+                    }),
                 /*
                 |--------------------------------------------------------------------------
                 | FRECUENCIA DE VISITAS
@@ -297,90 +301,87 @@ class BuildingsTable
 
                         Notification::make()
                             ->title($changed ? 'Frecuencia guardada' : 'Sin cambios: ya tenía esa frecuencia')
-                            ->body(\App\Models\BuildingVisitPlan::TYPES[$data['type']].': '.\App\Models\BuildingVisitPlan::labelFor($perMonth, $every).' desde '.$from->locale('es')->translatedFormat('F Y').'.'
+                            ->body(BuildingVisitPlan::TYPES[$data['type']].': '.BuildingVisitPlan::labelFor($perMonth, $every).' desde '.$from->locale('es')->translatedFormat('F Y').'.'
                                 .($from->equalTo($start->startOfMonth()) ? '' : ' El mes elegido cae en medio del período en curso: el cambio rige desde el siguiente período, así no se altera el anterior.'))
                             ->success()
                             ->send();
                     }),
 
-                                                /*
+                /*
                                                 |--------------------------------------------------------------------------
                                                 | QUITAR EMPLEADO
                                                 |--------------------------------------------------------------------------
                                                 */
 
-                                                Action::make('removeTechnician')
-                                                    ->label('Quitar asignación')
-                                                    ->icon('heroicon-o-user-minus')
-                                                    ->color('danger')
+                Action::make('removeTechnician')
+                    ->label('Quitar asignación')
+                    ->icon('heroicon-o-user-minus')
+                    ->color('danger')
 
-                                                    ->form([
+                    ->form([
 
-                                    Select::make('assignment')
-                                        ->label('Asignación')
-                                        ->searchable()
-                                        ->required()
-                                        ->options(function ($record) {
+                        Select::make('assignment')
+                            ->label('Asignación')
+                            ->searchable()
+                            ->required()
+                            ->options(function ($record) {
 
-                                            return $record->users
-                                                ->mapWithKeys(function ($user) {
+                                return $record->users
+                                    ->mapWithKeys(function ($user) {
 
-                                                    return [
+                                        return [
 
-                                                        $user->id.'-'.$user->pivot->type =>
+                                            $user->id.'-'.$user->pivot->type => $user->name.' • '.
 
-                                                            $user->name.' • '.
+                                                (
+                                                    $user->pivot->type === 'maintenance'
+                                                        ? 'Mantenimiento'
+                                                        : 'Inspección'
+                                                ),
 
-                                                            (
-                                                                $user->pivot->type === 'maintenance'
-                                                                    ? 'Mantenimiento'
-                                                                    : 'Inspección'
-                                                            ),
+                                        ];
 
-                                                    ];
+                                    });
 
-                                                });
+                            }),
 
-                                        }),
+                    ])
+                    ->action(function (array $data, $record) {
 
-                                ])
+                        [$userId, $type] = explode('-', $data['assignment']);
 
-                                        ->action(function (array $data, $record) {
+                        $removed = $record->users()
+                            ->wherePivot('type', $type)
+                            ->detach($userId);
 
-                            [$userId, $type] = explode('-', $data['assignment']);
+                        if ($removed) {
+                            app(AssignmentNotifier::class)->building($record, (int) $userId, $type, false);
+                        }
 
-                            $removed = $record->users()
-                                ->wherePivot('type', $type)
-                                ->detach($userId);
-
-                            if ($removed) {
-                                app(\App\Services\Notifications\AssignmentNotifier::class)->building($record, (int) $userId, $type, false);
-                            }
-
-                        })
+                    })
 
                     ->successNotificationTitle(
                         'Asignación eliminada'
                     ),
             ])
-                ->filters([
+            ->filters([
                 TrashedFilter::make()->label('Desactivados'),
-                    SelectFilter::make('locality')
-                        ->label('Localidad')
-                        ->options(function () {
-                            $user = auth()->user();
+                SelectFilter::make('locality')
+                    ->label('Localidad')
+                    ->options(function () {
+                        $user = auth()->user();
 
-                            $companyId = $user->isSuperAdmin()
-                                ? session('selected_company_id')
-                                : $user->company_id;
+                        $companyId = $user->isSuperAdmin()
+                            ? session('selected_company_id')
+                            : $user->company_id;
 
-                            return \App\Models\Building::query()
-                                ->where('company_id', $companyId)
-                                ->whereNotNull('locality')
-                                ->pluck('locality', 'locality')
-                                ->toArray();
-                        })
-                ])
+                        return Building::query()
+                            ->where('company_id', $companyId)
+                            ->whereNotNull('locality')
+                            ->pluck('locality', 'locality')
+                            ->toArray();
+                    }),
+            ])
             ->toolbarActions([
 
                 BulkActionGroup::make([
@@ -389,7 +390,7 @@ class BuildingsTable
                         ->label('Desactivar seleccionados')
                         ->modalHeading('Desactivar seleccionados')
                         ->modalSubmitActionLabel('Desactivar'),
-                    RestoreBulkAction::make()->before(\App\Support\Plans\PlanRestoreGuard::beforeBulk(\App\Enums\PlanLimit::Buildings))->label('Reactivar seleccionados'),
+                    RestoreBulkAction::make()->before(PlanRestoreGuard::beforeBulk(PlanLimit::Buildings))->label('Reactivar seleccionados'),
                 ]),
 
             ]);
@@ -400,6 +401,10 @@ class BuildingsTable
      * conservar) y, si se quiere, la frecuencia; después un resumen de lo que
      * va a pasar en cada edificio; al confirmar, el servidor revalida todo y
      * aplica en una sola transacción (BulkAssignmentService).
+     *
+     * Dos entradas al mismo asistente: tildando edificios en la lista
+     * (acción masiva) o con el botón «Asignar técnicos» de arriba de la lista
+     * (assignAction), que pide los edificios en el primer paso.
      */
     private static function bulkAssignAction(): BulkAction
     {
@@ -410,93 +415,133 @@ class BuildingsTable
             ->modalHeading('Asignar técnicos a los edificios seleccionados')
             ->modalSubmitActionLabel('Confirmar asignación')
             ->deselectRecordsAfterCompletion()
-            ->steps(fn (Collection $records) => [
-                Step::make('Asignación')
-                    ->description($records->count().' '.($records->count() === 1 ? 'edificio seleccionado' : 'edificios seleccionados'))
-                    ->schema([
-                        Select::make('type')
-                            ->label('Trabajo')
-                            ->options(\App\Models\BuildingVisitPlan::TYPES)
-                            ->default('maintenance')
-                            ->required()
-                            ->live()
-                            ->afterStateUpdated(fn (Set $set) => $set('user_ids', [])),
-                        Select::make('user_ids')
-                            ->label('Técnicos')
+            ->steps(fn (Collection $records) => self::assignmentSteps(fn () => $records->pluck('id')->all(), $records->count()))
+            ->action(fn (array $data, Collection $records) => self::runAssignment($data, $records->pluck('id')->all()));
+    }
+
+    /** Botón visible arriba de la lista de edificios: el mismo asistente, eligiendo los edificios en el primer paso. */
+    public static function assignAction(): Action
+    {
+        return Action::make('assignTechnicians')
+            ->label('Asignar técnicos')
+            ->icon('heroicon-o-user-group')
+            ->color('success')
+            ->modalHeading('Asignar técnicos a varios edificios')
+            ->modalSubmitActionLabel('Confirmar asignación')
+            ->steps(fn () => self::assignmentSteps(fn (Get $get) => array_map('intval', (array) ($get('building_ids') ?? [])), null))
+            ->action(fn (array $data) => self::runAssignment($data, array_map('intval', (array) ($data['building_ids'] ?? []))));
+    }
+
+    /**
+     * @param  \Closure  $ids  ids de los edificios (recibe Get cuando se eligen en el paso 1)
+     * @param  ?int  $selected  cuántos vienen tildados de la lista (null: se eligen acá)
+     */
+    private static function assignmentSteps(\Closure $ids, ?int $selected): array
+    {
+        return [
+            Step::make('Asignación')
+                ->description($selected === null ? 'Elegí los edificios, el trabajo y los técnicos' : $selected.' '.($selected === 1 ? 'edificio seleccionado' : 'edificios seleccionados'))
+                ->schema([
+                    ...($selected === null ? [
+                        Select::make('building_ids')
+                            ->label('Edificios')
                             ->multiple()
                             ->searchable()
                             ->preload()
-                            ->options(fn () => User::query()
+                            ->required()
+                            ->options(fn () => Building::query()
                                 ->where('company_id', CompanyContext::currentId())
-                                ->where('role', 'technician')
                                 ->orderBy('name')
                                 ->pluck('name', 'id')
                                 ->all())
-                            ->maxItems(fn (Get $get) => BulkAssignmentService::LIMITS[$get('type')] ?? 2)
-                            ->helperText(fn (Get $get) => $get('type') === 'inspection'
-                                ? 'Un inspector por edificio. Dejalo vacío si solo querés cambiar la frecuencia.'
-                                : 'Hasta dos técnicos de mantenimiento por edificio. Dejalo vacío si solo querés cambiar la frecuencia.'),
-                        Radio::make('mode')
-                            ->label('Si el edificio ya tiene técnicos de ese trabajo')
-                            ->options(BulkAssignmentService::MODES)
-                            ->default('add')
-                            ->required(),
-                        ...self::frequencyFields(withKeep: true, withType: false),
-                    ])
-                    // Huella del resumen que va a ver el admin: al confirmar se
-                    // compara con lo que el servidor calcula en ese momento.
-                    ->afterValidation(function (Get $get, Set $set) use ($records) {
-                        try {
-                            $set('preview_fingerprint', BulkAssignmentService::fingerprint(app(BulkAssignmentService::class)->plan((int) CompanyContext::currentId(), $records->pluck('id'), self::bulkInput($get))));
-                        } catch (ValidationException) {
-                            $set('preview_fingerprint', null);
-                        }
-                    }),
-                Step::make('Revisar')
-                    ->description('Qué va a cambiar antes de confirmar')
-                    ->schema([
-                        \Filament\Forms\Components\Hidden::make('preview_fingerprint'),
-                        View::make('filament.buildings.bulk-assignment-preview')
-                            ->viewData(function (Get $get) use ($records) {
-                                try {
-                                    return ['plan' => app(BulkAssignmentService::class)->plan((int) CompanyContext::currentId(), $records->pluck('id'), self::bulkInput($get))];
-                                } catch (ValidationException $e) {
-                                    return ['error' => collect($e->errors())->flatten()->first()];
-                                }
-                            }),
-                    ]),
-            ])
-            ->action(function (array $data, Collection $records) {
-                if (blank($data['preview_fingerprint'] ?? null)) {
-                    Notification::make()->title('No se aplicó la asignación')->body('Revisá el resumen antes de confirmar.')->danger()->send();
+                            ->helperText('También podés tildar edificios en la lista y usar «Asignar técnicos» del menú de seleccionados.'),
+                    ] : []),
+                    Select::make('type')
+                        ->label('Trabajo')
+                        ->options(BuildingVisitPlan::TYPES)
+                        ->default('maintenance')
+                        ->required()
+                        ->live()
+                        ->afterStateUpdated(fn (Set $set) => $set('user_ids', [])),
+                    Select::make('user_ids')
+                        ->label('Técnicos')
+                        ->multiple()
+                        ->searchable()
+                        ->preload()
+                        ->options(fn () => User::query()
+                            ->where('company_id', CompanyContext::currentId())
+                            ->where('role', 'technician')
+                            ->orderBy('name')
+                            ->pluck('name', 'id')
+                            ->all())
+                        ->maxItems(fn (Get $get) => BulkAssignmentService::LIMITS[$get('type')] ?? 2)
+                        ->helperText(fn (Get $get) => $get('type') === 'inspection'
+                            ? 'Un inspector por edificio. Dejalo vacío si solo querés cambiar la frecuencia.'
+                            : 'Hasta dos técnicos de mantenimiento por edificio. Dejalo vacío si solo querés cambiar la frecuencia.'),
+                    Radio::make('mode')
+                        ->label('Si el edificio ya tiene técnicos de ese trabajo')
+                        ->options(BulkAssignmentService::MODES)
+                        ->default('add')
+                        ->required(),
+                    ...self::frequencyFields(withKeep: true, withType: false),
+                ])
+                // Huella del resumen que va a ver el admin: al confirmar se
+                // compara con lo que el servidor calcula en ese momento.
+                ->afterValidation(function (Get $get, Set $set) use ($ids) {
+                    try {
+                        $set('preview_fingerprint', BulkAssignmentService::fingerprint(app(BulkAssignmentService::class)->plan((int) CompanyContext::currentId(), collect($ids($get)), self::bulkInput($get))));
+                    } catch (ValidationException) {
+                        $set('preview_fingerprint', null);
+                    }
+                }),
+            Step::make('Revisar')
+                ->description('Qué va a cambiar antes de confirmar')
+                ->schema([
+                    Hidden::make('preview_fingerprint'),
+                    View::make('filament.buildings.bulk-assignment-preview')
+                        ->viewData(function (Get $get) use ($ids) {
+                            try {
+                                return ['plan' => app(BulkAssignmentService::class)->plan((int) CompanyContext::currentId(), collect($ids($get)), self::bulkInput($get))];
+                            } catch (ValidationException $e) {
+                                return ['error' => collect($e->errors())->flatten()->first()];
+                            }
+                        }),
+                ]),
+        ];
+    }
 
-                    return;
-                }
+    /** Aplica lo confirmado (el servidor revalida empresa, límites y que el resumen no haya cambiado). */
+    private static function runAssignment(array $data, array $ids): void
+    {
+        if (blank($data['preview_fingerprint'] ?? null)) {
+            Notification::make()->title('No se aplicó la asignación')->body('Revisá el resumen antes de confirmar.')->danger()->send();
 
-                try {
-                    $result = app(BulkAssignmentService::class)->apply((int) CompanyContext::currentId(), $records->pluck('id'), $data, $data['preview_fingerprint']);
-                } catch (ValidationException $e) {
-                    Notification::make()->title('No se aplicó la asignación')->body(collect($e->errors())->flatten()->first())->danger()->send();
+            return;
+        }
 
-                    return;
-                }
+        try {
+            $result = app(BulkAssignmentService::class)->apply((int) CompanyContext::currentId(), collect($ids), $data, $data['preview_fingerprint']);
+        } catch (ValidationException $e) {
+            Notification::make()->title('No se aplicó la asignación')->body(collect($e->errors())->flatten()->first())->danger()->send();
 
-                $skipped = collect($result['rows'])->where('outcome', 'skipped');
+            return;
+        }
 
-                Notification::make()
-                    ->title('Asignación aplicada')
-                    ->body(collect([
-                        $result['counts']['change'].' con cambios de técnicos',
-                        $result['counts']['unchanged'].' sin cambios de técnicos',
-                        $result['frequency'] ? 'frecuencia: '.$result['frequency']['label'] : null,
-                        $skipped->isNotEmpty() ? $skipped->count().' salteados ('.$skipped->take(5)->map(fn ($r) => $r['name'].': '.$r['reason'])->implode('; ').($skipped->count() > 5 ? '…' : '').')' : null,
-                        ($result['notices_failed'] ?? 0) > 0 ? 'no se pudieron enviar '.$result['notices_failed'].' avisos a los técnicos (la asignación quedó guardada)' : null,
-                    ])->filter()->implode(' · ').'.')
-                    ->color($skipped->isNotEmpty() ? 'warning' : 'success')
-                    ->icon($skipped->isNotEmpty() ? 'heroicon-o-exclamation-triangle' : 'heroicon-o-check-circle')
-                    ->persistent($skipped->isNotEmpty())
-                    ->send();
-            });
+        $skipped = collect($result['rows'])->where('outcome', 'skipped');
+
+        Notification::make()
+            ->title('Asignación aplicada')
+            ->body(collect([
+                $result['counts']['change'].' con cambios de técnicos',
+                $result['counts']['unchanged'].' sin cambios de técnicos',
+                $result['frequency'] ? 'frecuencia: '.$result['frequency']['label'] : null,
+                $skipped->isNotEmpty() ? $skipped->count().' salteados ('.$skipped->take(5)->map(fn ($r) => $r['name'].': '.$r['reason'])->implode('; ').($skipped->count() > 5 ? '…' : '').')' : null,
+                ($result['notices_failed'] ?? 0) > 0 ? 'no se pudieron enviar '.$result['notices_failed'].' avisos a los técnicos (la asignación quedó guardada)' : null,
+            ])->filter()->implode(' · ').'.')
+            ->color($skipped->isNotEmpty() ? 'warning' : 'success')
+            ->icon($skipped->isNotEmpty() ? 'heroicon-o-exclamation-triangle' : 'heroicon-o-check-circle')
+            ->persistent($skipped->isNotEmpty())
+            ->send();
     }
 
     /** Lo elegido en el paso 1 de la asignación masiva. */
@@ -511,12 +556,12 @@ class BuildingsTable
     /** Campos de frecuencia de visitas (acción individual y masiva). */
     private static function frequencyFields(bool $withKeep, bool $withType = true): array
     {
-        $options = collect(\App\Models\BuildingVisitPlan::FREQUENCIES)->map(fn ($f) => $f[0])->all();
+        $options = collect(BuildingVisitPlan::FREQUENCIES)->map(fn ($f) => $f[0])->all();
 
         return array_values(array_filter([
             $withType ? Select::make('type')
                 ->label('Trabajo')
-                ->options(\App\Models\BuildingVisitPlan::TYPES)
+                ->options(BuildingVisitPlan::TYPES)
                 ->default('maintenance')
                 ->required() : null,
             Select::make('frequency')
@@ -528,7 +573,7 @@ class BuildingsTable
                 ->helperText('Cada cuánto se visita el edificio. No cambia la frecuencia de cobro del servicio.'),
             Select::make('every_months')
                 ->label('Cada cuántos meses')
-                ->options(collect(range(2, 12))->mapWithKeys(fn ($n) => [$n => \App\Models\BuildingVisitPlan::labelFor(1, $n)])->all())
+                ->options(collect(range(2, 12))->mapWithKeys(fn ($n) => [$n => BuildingVisitPlan::labelFor(1, $n)])->all())
                 ->default(3)
                 ->visible(fn (Get $get) => $get('frequency') === 'months')
                 ->required(fn (Get $get) => $get('frequency') === 'months'),

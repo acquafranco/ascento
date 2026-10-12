@@ -194,6 +194,42 @@ class BulkAssignmentTest extends TestCase
         $this->assertStringContainsString('data-outcome="change"', $preview);
     }
 
+    public function test_the_visible_assign_button_lets_the_admin_pick_buildings_preview_and_apply(): void
+    {
+        // Botón arriba de la lista: no hace falta tildar edificios para encontrarlo.
+        $page = Livewire::test(ListBuildings::class)->assertActionVisible('assignTechnicians');
+
+        Livewire::test(ListBuildings::class)
+            ->mountAction('assignTechnicians')
+            ->fillForm(['building_ids' => $this->ids(), 'type' => 'maintenance', 'user_ids' => [$this->t2->id], 'mode' => 'add', 'frequency' => 'keep'])
+            ->call('callSchemaComponentMethod', 'mountedActionSchema0.mountedActions.0.data::wizard', 'nextStep', ['currentStepIndex' => 0])
+            ->callMountedAction()
+            ->assertHasNoActionErrors()
+            ->assertNotified('Asignación aplicada');
+
+        foreach ($this->buildings as $building) {
+            $this->assertContains($this->t2->id, $this->techsOf($building));
+        }
+
+        // Un edificio de otra empresa: no es una opción válida y nunca se toca.
+        auth()->logout();
+        $foreign = $this->makeTenant();
+        $this->actingInPanel($this->a['admin']);
+        Livewire::test(ListBuildings::class)
+            ->mountAction('assignTechnicians')
+            ->fillForm(['building_ids' => [$foreign['building']->id], 'type' => 'maintenance', 'user_ids' => [$this->t2->id], 'mode' => 'replace', 'frequency' => 'keep'])
+            ->call('callSchemaComponentMethod', 'mountedActionSchema0.mountedActions.0.data::wizard', 'nextStep', ['currentStepIndex' => 0])
+            ->assertHasActionErrors(['building_ids.0']);
+        $this->assertSame([$foreign['technician']->id], $this->techsOf($foreign['building']));
+
+        // Sin elegir edificios no avanza.
+        Livewire::test(ListBuildings::class)
+            ->mountAction('assignTechnicians')
+            ->fillForm(['building_ids' => [], 'type' => 'maintenance', 'user_ids' => [$this->t2->id], 'mode' => 'add', 'frequency' => 'keep'])
+            ->call('callSchemaComponentMethod', 'mountedActionSchema0.mountedActions.0.data::wizard', 'nextStep', ['currentStepIndex' => 0])
+            ->assertHasActionErrors(['building_ids' => 'required']);
+    }
+
     /** Asignación masiva abierta en el paso de resumen (como al tocar «Siguiente»). */
     private function wizard(array $data)
     {

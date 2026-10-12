@@ -118,27 +118,24 @@
                                 <p class="mt-1.5 text-xs font-semibold text-ink-700" data-no-equipment>Sin ascensores ni montacargas registrados: no hay visitas para hacer. Avisale a la oficina.</p>
                             @endif
 
-                            {{-- Visita en curso (abierta desde acá para cargar fotos) --}}
+                            {{-- Visita en curso (abierta para cargar fotos) --}}
                             @if($openVisit)
-                                <div class="mt-2 space-y-2" data-open-visit>
+                                <div class="mt-1.5" data-open-visit>
                                     <span class="t-chip-pending">{{ $expected > 1 ? 'Visita '.$openVisit->slot.': ' : '' }}En curso · sin remito</span>
-                                    <a href="{{ route('visits.show', ['company' => $slug, 'visit' => $openVisit->id]) }}" class="t-btn-secondary t-btn-sm w-full" data-work-photos-link>
-                                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                                        Fotos del trabajo ({{ $photoCounts[$openVisit->id] ?? 0 }})
-                                    </a>
                                 </div>
-                            @elseif($photosOn && ($row['pending'] ?? 0) > 0 && $status !== 'no_equipment')
-                                <form method="POST" action="{{ route('visits.start', ['company' => $slug]) }}" class="mt-1.5">
-                                    @csrf
-                                    <input type="hidden" name="building_id" value="{{ $building->id }}">
-                                    <input type="hidden" name="assignment_type" value="{{ $type }}">
-                                    <input type="hidden" name="month" value="{{ $month }}">
-                                    <input type="hidden" name="year" value="{{ $year }}">
-                                    <button type="submit" class="t-btn-secondary t-btn-sm mt-1 w-full" data-start-visit>
-                                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                                        Fotos del trabajo
-                                    </button>
-                                </form>
+                            @endif
+
+                            {{-- Fotos de antes y después, acá mismo: Tomar foto / Elegir de la galería (si la empresa las habilitó para este trabajo) --}}
+                            @if($photosOn && $photoSections->isNotEmpty() && $status !== 'no_equipment' && ($openVisit || ($row['pending'] ?? 0) > 0))
+                                @include('photos.quick', [
+                                    'slug' => $slug,
+                                    'sections' => $photoSections,
+                                    'label' => $label,
+                                    'visitId' => $openVisit?->id,
+                                    'start' => ['building_id' => $building->id, 'assignment_type' => $type, 'month' => (int) $month, 'year' => (int) $year],
+                                    'allUrl' => $openVisit ? route('visits.show', ['company' => $slug, 'visit' => $openVisit->id]) : null,
+                                    'count' => $openVisit ? ($photoCounts[$openVisit->id] ?? 0) : 0,
+                                ])
                             @endif
 
                             {{-- Visitas ya registradas en el período --}}

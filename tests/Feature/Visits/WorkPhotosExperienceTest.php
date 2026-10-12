@@ -201,7 +201,7 @@ class WorkPhotosExperienceTest extends TestCase
                 $list = $this->actingAs($this->a['technician'])->get($this->url('buildings'))->assertOk()->getContent();
                 $start = strpos($list, 'data-visit-row="'.$type.'"');
                 $end = strpos($list, 'data-visit-row=', $start + 10) ?: strpos($list, '</article>', $start);
-                $this->assertSame($type === $enabled, str_contains(substr($list, $start, $end - $start), 'data-start-visit'), "{$enabled} / {$type}");
+                $this->assertSame($type === $enabled, str_contains(substr($list, $start, $end - $start), 'data-quick-photos-for='), "{$enabled} / {$type}");
             }
 
             $orderPage = $this->actingAs($this->a['technician'])->get($this->url("work-orders/{$order->id}"))->assertOk();
@@ -230,12 +230,69 @@ class WorkPhotosExperienceTest extends TestCase
         $this->upload(['work_order_id' => $order->id], 'before')->assertStatus(422);
     }
 
+    public function test_the_technician_takes_photos_from_the_building_card_and_they_reach_the_admin_detail(): void
+    {
+        $this->enable(['maintenance']);
+
+        // En Visitas, dentro de la tarjeta del edificio: Antes/Después, Tomar foto (cámara) y Galería.
+        $list = $this->actingAs($this->a['technician'])->get($this->url('buildings'))->assertOk()
+            ->assertSee('data-quick-photos-for="maintenance"', false)->assertDontSee('data-quick-photos-for="inspection"', false)
+            ->assertSee('data-quick-stage', false)->assertSee('capture="environment"', false)
+            ->assertSee('aria-label="Tomar foto"', false)->assertSee('aria-label="Elegir de la galería"', false);
+
+        // La primera foto abre la visita en curso sin cambiar de pantalla (siempre la misma).
+        $start = ['building_id' => $this->a['building']->id, 'assignment_type' => 'maintenance', 'month' => 10, 'year' => 2026];
+        $first = $this->actingAs($this->a['technician'])->postJson($this->url('visits/start'), $start)->assertOk()->json();
+        $again = $this->actingAs($this->a['technician'])->postJson($this->url('visits/start'), $start)->assertOk()->json();
+        $this->assertSame($first['visit_id'], $again['visit_id']);
+        $this->assertStringEndsWith('/visits/'.$first['visit_id'], $first['url']);
+        $this->upload(['visit_id' => $first['visit_id']], 'before')->assertCreated();
+        $this->upload(['visit_id' => $first['visit_id']], 'after')->assertCreated();
+
+        // Con la visita abierta, la tarjeta la usa (y cuenta sus fotos).
+        $this->actingAs($this->a['technician'])->get($this->url('buildings'))->assertOk()
+            ->assertSee('data-visit-id="'.$first['visit_id'].'"', false)->assertSee('Ver todas (<span data-quick-count>2</span>)', false);
+
+        // El remito completa esa misma visita y el admin las ve en el mantenimiento.
+        $this->sign('maintenance')->assertSessionHasNoErrors();
+        $note = DeliveryNote::sole();
+        $this->assertSame($first['visit_id'], $note->building_visit_id);
+        $this->assertSame(1, BuildingVisit::count());
+        $this->actingInPanel($this->a['admin']);
+        $page = $this->get(DeliveryNoteResource::getUrl('view', ['record' => $note]))->assertOk();
+        VisitPhoto::withoutGlobalScopes()->get()->each(fn ($p) => $page->assertSee($p->thumbUrl(), false));
+        $this->assertSame(2, substr_count($page->getContent(), 'data-work-photo="'));
+
+        // Apagado: la apertura por JSON también se rechaza.
+        $this->enable([]);
+        $this->actingAs($this->a['technician'])->postJson($this->url('visits/start'), [...$start, 'month' => 11])->assertStatus(422);
+    }
+
+    public function test_the_work_order_card_in_the_list_has_the_capture_buttons_only_when_enabled_and_assigned(): void
+    {
+        $order = $this->workOrder();
+        $other = WorkOrder::create(['building_id' => $this->a['building']->id, 'type' => 'claim', 'priority' => 'medium', 'status' => 'in_progress']);
+        $coworker = User::factory()->technician()->create(['company_id' => $this->a['company']->id]);
+        $other->users()->attach($coworker->id);
+        $list = fn () => $this->actingAs($this->a['technician'])->get($this->url('work-orders?status=in_progress'))->assertOk();
+
+        $list()->assertDontSee('data-quick-photos-for=', false);
+        $this->enable(['work_order']);
+        $html = $list()->getContent();
+        $this->assertSame(1, substr_count($html, 'data-quick-photos-for="work_order"'));
+        $this->assertStringContainsString('data-work-order-id="'.$order->id.'"', $html);
+        $this->assertStringNotContainsString('data-work-order-id="'.$other->id.'"', $html);
+        $this->assertStringContainsString('aria-label="Tomar foto"', $html);
+    }
+
     public function test_the_remito_form_offers_the_job_photos_without_mixing_them_into_the_remito(): void
     {
         $this->enable(['maintenance']);
         $form = fn (string $type) => $this->actingAs($this->a['technician'])->get($this->url("delivery-notes/create/building/{$this->a['building']->id}?assignment_type={$type}&month=10&year=2026"))->assertOk();
 
-        $form('maintenance')->assertSee('data-remito-photos', false)->assertDontSee('data-file aria-label', false);
+        // Los botones están en la pantalla del remito, pero fuera del formulario que se firma.
+        $html = $form('maintenance')->assertSee('data-remito-photos', false)->assertSee('aria-label="Tomar foto"', false)->assertDontSee('data-file aria-label', false)->getContent();
+        $this->assertLessThan(strpos($html, 'id="remito-form"'), strpos($html, 'data-quick-photos-for="maintenance"'));
         $form('inspection')->assertDontSee('data-remito-photos', false);
     }
 

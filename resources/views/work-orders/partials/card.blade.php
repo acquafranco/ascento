@@ -1,6 +1,8 @@
 {{--
     Tarjeta de una orden de trabajo (listado y detalle). Requiere $workOrder.
     Opcional $linkToDetail (true en el listado): el encabezado abre el detalle.
+    Opcional $quickPhotos (listado): «Tomar foto» / «Elegir de la galería» en
+    la tarjeta, si la empresa habilitó las fotos de órdenes.
     Acciones: "Tomar trabajo" (pendiente) y "Hacer remito y finalizar" (en
     curso y asignado). Las reglas las vuelve a validar el servidor.
 --}}
@@ -58,6 +60,18 @@
 
     @if($workOrder->status === 'pending' || ($workOrder->status === 'in_progress' && $workOrder->users->contains(auth()->id())))
         <div class="border-t border-ink-100 bg-ink-50/60 p-3">
+            {{-- Fotos de antes y después de la orden, sin salir de la lista (si la empresa las habilitó). --}}
+            @if(($quickPhotos['sections'] ?? collect())->isNotEmpty() && $workOrder->users->contains(auth()->id()))
+                <div class="mb-3 -mt-2">
+                    @include('photos.quick', [
+                        'slug' => $slug,
+                        'sections' => $quickPhotos['sections'],
+                        'workOrderId' => $workOrder->id,
+                        'allUrl' => $detail.'#visitPhotos',
+                        'count' => $quickPhotos['count'] ?? 0,
+                    ])
+                </div>
+            @endif
             @if($workOrder->status === 'pending')
                 <form method="POST" action="{{ route('work-orders.start', ['company' => $slug, 'workOrder' => $workOrder]) }}">
                     @csrf

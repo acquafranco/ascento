@@ -42,7 +42,19 @@ class VisitController extends Controller
         try {
             $visit = $visits->start($request->user(), $building, $data['assignment_type'], (int) $data['month'], (int) $data['year']);
         } catch (ValidationException $e) {
+            if ($request->wantsJson()) {
+                throw $e;
+            }
+
             return back()->withErrors(['general' => collect($e->errors())->flatten()->first()]);
+        }
+
+        // Desde la tarjeta del edificio (primera foto): la visita en curso, sin cambiar de pantalla.
+        if ($request->wantsJson()) {
+            return response()->json([
+                'visit_id' => $visit->id,
+                'url' => route('visits.show', ['company' => $company->slug, 'visit' => $visit->id]),
+            ]);
         }
 
         return redirect()->route('visits.show', ['company' => $company->slug, 'visit' => $visit->id]);
