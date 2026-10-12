@@ -144,15 +144,15 @@ Cuando exista la 8.4, se suman como un área de permisos más.
 
 ## 6. Las 46 comprobaciones de `isAdmin()`
 
-Criterio: lo que hoy significa «dueño» sigue igual; lo que significa «puede operar el panel en X» pasa al permiso del área. Para el dueño, todos los reemplazos devuelven lo mismo que hoy (lo verifica una prueba que recorre todos los casos con el dueño actual).
+Suma: 13 + 5 + 6 + 15 + 2 + 5 = 46. Criterio: lo que hoy significa «dueño» sigue igual; lo que significa «puede operar el panel en X» pasa al permiso del área. Para el dueño, todos los reemplazos devuelven lo mismo que hoy (lo verifica una prueba que recorre todos los casos con el dueño actual).
 
 | Grupo | Comprobaciones | Cambio |
 |---|---|---|
 | **Reservado al dueño** (13) | `Subscription` (×2), `CompanySettings`, `CompanyExports`, `CompanyExportService` (×2), `CompanyExportDownloadController`, `WhatsAppController`, `User::canUseOnboarding`, `NotifyNewCompanyRegistration`, `EnsureActiveSubscription` (redirección a pagar), `Gate view-user-template`, `TemplateController` | Sin cambios |
-| **Entrada al panel** (4) | `User::canAccessPanel`, `User::homeUrl`, `AdminMiddleware`, `NotificationInboxController` (×2) | Pasan a `Access::panelUser` (dueño, SuperAdmin o administrativo con acceso vigente) |
+| **Entrada al panel** (5) | `User::canAccessPanel`, `User::homeUrl`, `AdminMiddleware`, `NotificationInboxController` (×2) | Pasan a `Access::panelUser` (dueño, SuperAdmin o administrativo con acceso vigente) |
 | **Pantallas del panel** (6) | `Agenda` (×2), `AttentionCenterPage`, `IndicatorsPage`, `BuildingsMap`, `ScopedToCurrentCompany` | `Access::can` con el permiso de cada pantalla o recurso |
 | **Datos y archivos** (15) | `Report`, `VisitPhoto`, `VisitPhotoService`, `VisitService` (×2), `InspectionReportService` (×2), `DeliveryNoteController` (×4), `ElevatorDocumentController`, `QuoteDocumentController`, `WorkOrderController` (×2, la vista y «tomar trabajo») | Dueño, o administrativo con el permiso del área (ver o gestionar según la operación) |
-| **App del técnico** (3) | `WorkOrderController::finish`, más 2 condiciones de remitos que solo aplican a quien firma | Sin cambios: el administrativo no usa la app del técnico |
+| **App del técnico** (2) | `WorkOrderController::finish`, `User::canReceiveWorkOrderPush` | Sin cambios: el administrativo no usa la app del técnico ni recibe avisos de órdenes |
 | **Avisos y textos** (5) | `User::canReceiveAdminPush`, `TestPushNotification` (×2), `TelegramWebhookController`, más la definición de `isAdmin()` | PR 1: sin cambios (los avisos siguen yendo solo al dueño). Avisos por permiso, en el PR 2 |
 
 Las 34 comparaciones directas con `role` se revisan igual. Las que buscan «técnicos» con `role = 'technician'` no cambian.
