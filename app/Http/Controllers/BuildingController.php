@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Support\Facades\DB;
+
 use App\Models\Building;
 use Illuminate\Http\Request;
 use App\Models\BuildingVisit;
@@ -76,93 +78,28 @@ public function index(Request $request)
         ->where('status', 'done')
         ->count();
 
-   $totalMachines = Building::where('company_id', $user->company_id)->whereHas('users', function ($query) use ($user) {
-        $query->where('users.id', $user->id);
-    })
-    ->get()
-    ->sum(function ($building) {
-        return $building->elevator_count + $building->freight_elevator_count;
-    });
+    // Máquinas (ascensores + montacargas) asignadas, hechas y pendientes del
+    // mes. Se suman en la base: antes se traían todos los edificios asignados
+    // (tres veces) y las visitas con su edificio solo para sumar.
+    $machines = 'COALESCE(SUM(elevator_count + freight_elevator_count), 0)';
+    $assigned = fn (?string $type) => Building::where('company_id', $user->company_id)
+        ->whereHas('users', fn ($q) => $q->where('users.id', $user->id)->when($type, fn ($q) => $q->where('building_user.type', $type)));
+    // Hecho = hay una visita "done" de ese tipo en el mes (una por edificio,
+    // aunque haya más de un remito).
+    $done = fn (string $type) => $assigned($type)->whereHas('visits', fn ($v) => $v
+        ->where('company_id', $user->company_id)
+        ->where('status', 'done')
+        ->where('assignment_type', $type)
+        ->where('month', $month)
+        ->where('year', $year));
 
-// =============================
-// MÁQUINAS DE MANTENIMIENTO ASIGNADAS
-// =============================
+    $totalMachines = (int) $assigned(null)->value(DB::raw($machines));
 
-$maintenanceBuildings = Building::where('company_id', $user->company_id)->whereHas('users', function ($query) use ($user) {
-        $query->where('users.id', $user->id)
-              ->where('building_user.type', 'maintenance');
-    })
-    ->get();
+    $maintenanceTotalMachines = (int) $assigned('maintenance')->value(DB::raw($machines));
+    $maintenanceRemaining = max($maintenanceTotalMachines - (int) $done('maintenance')->value(DB::raw($machines)), 0);
 
-$maintenanceTotalMachines = $maintenanceBuildings->sum(function ($building) {
-    return $building->elevator_count + $building->freight_elevator_count;
-});
-
-// realizados
-$maintenanceCompletedMachines = BuildingVisit::where('status', 'done')
-    ->where('company_id', $user->company_id)
-    ->where(function ($q) {
-        $q->where('assignment_type', 'maintenance');
-    })
-    ->whereHas('building.users', function ($q) use ($user) {
-        $q->where('users.id', $user->id)
-          ->where('building_user.type', 'maintenance');
-    })
-    ->where('month', $month)
-->where('year', $year)
-
-    ->with('building')
-    ->get()
-->unique(function ($visit) {
-    return $visit->building_id . '-' . $visit->assignment_type . '-' . $visit->month . '-' . $visit->year;
-})
-->sum(function ($visit) {
-        return ($visit->building?->elevator_count ?? 0)
-            + ($visit->building?->freight_elevator_count ?? 0);
-    });
-
-$maintenanceRemaining = max(
-    $maintenanceTotalMachines - $maintenanceCompletedMachines,
-    0
-);
-
-// =============================
-// MÁQUINAS DE INSPECCIÓN ASIGNADAS
-// =============================
-
-$inspectionBuildings = Building::where('company_id', $user->company_id)->whereHas('users', function ($query) use ($user) {
-        $query->where('users.id', $user->id)
-              ->where('building_user.type', 'inspection');
-    })
-    ->get();
-
-$inspectionTotalMachines = $inspectionBuildings->sum(function ($building) {
-    return $building->elevator_count + $building->freight_elevator_count;
-});
-
-// realizados
-$inspectionCompletedMachines = BuildingVisit::where('status', 'done')
-    ->where('company_id', $user->company_id)
-    ->where('assignment_type', 'inspection')
-    // Solo los edificios donde ESTE técnico es el inspector (como en
-    // mantenimiento): si no, las inspecciones de otros le descontaban máquinas.
-    ->whereIn('building_id', $inspectionBuildings->pluck('id'))
-    ->where('month', $month)
-->where('year', $year)
-    ->with('building')
-    ->get()
-->unique(function ($visit) {
-    return $visit->building_id . '-' . $visit->assignment_type . '-' . $visit->month . '-' . $visit->year;
-})
-->sum(function ($visit) {
-        return ($visit->building?->elevator_count ?? 0)
-            + ($visit->building?->freight_elevator_count ?? 0);
-    });
-
-$inspectionRemaining = max(
-    $inspectionTotalMachines - $inspectionCompletedMachines,
-    0
-);
+    $inspectionTotalMachines = (int) $assigned('inspection')->value(DB::raw($machines));
+    $inspectionRemaining = max($inspectionTotalMachines - (int) $done('inspection')->value(DB::raw($machines)), 0);
 
 return view('buildings.index', compact(
     'buildings',
