@@ -304,3 +304,19 @@
 ## Exportación de datos
 
 - La hoja «Reportes» incluye todos los reportes, también los de inspección (columnas «Tipo» y «Visita ID»), y sus fotos van en los adjuntos, con cualquier plan.
+
+## Despliegue y reversión (PR #37, merge `579e4f7`)
+
+Estado verificado (solo lectura) el 12/10/2026: producción corre `579e4f7` (release `80008438`); `2026_11_20_100000_system_photo_zones_and_inspection_reports` en el lote 20 y `2026_11_20_100100_add_work_photos_to_empresa_plan` en el lote 21. No queda ninguna migración pendiente de esta etapa.
+
+### Verificación después del deploy
+1. `php artisan migrate:status`: sin pendientes.
+2. `php artisan schedule:list | grep prune-erased`: `companies:prune-erased-files` a las 03:45.
+3. Una empresa en prueba gratis ve «Tomar foto» (con el interruptor activado) y «Crear reporte»; una en Inicial o Profesional ve el aviso del plan.
+4. Una inspección con foto en el panel: miniatura y visor al tocarla.
+
+### Reversión (no ejecutar sin decidirlo)
+- `php artisan migrate:rollback --step=1` revierte **solo** `2026_11_20_100100_add_work_photos_to_empresa_plan` (la última del lote 21): quita la clave `work_photos` de los planes. No borra fotos, reportes, archivos ni interruptores.
+- No revertir solo la migración: con el código de `579e4f7` dejaría a todas las empresas (Empresa y prueba gratis) sin funciones fotográficas. Primero volver al release anterior en Forge (`80003698`, código `c9fe4c4`) y, si hace falta, después la migración. Ese código no usa la clave, así que funciona con ella o sin ella.
+- `2026_11_20_100000` (zonas y reportes de inspección) no se revierte en este caso: su reversión haría que los reportes de inspección pasen a contarse como fallas.
+- Antes de revertir: que no haya exportaciones en curso (`company_exports` con estado `requested` o `generating`).
