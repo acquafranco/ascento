@@ -30,7 +30,9 @@ class PanelAccessHook extends ComponentHook
 
         $allowed = match (true) {
             $component instanceof ResourcePage => $this->resourcePageAllowed($component),
-            $component instanceof RelationManager => $component->pageClass ? $component->pageClass::getResource()::canAccess() : false,
+            $component instanceof RelationManager => $component->pageClass
+                && $component->pageClass::getResource()::canAccess()
+                && (! method_exists($component, 'permissionArea') || Access::can($user, $component::permissionArea())),
             $component instanceof Page => $component::canAccess(),
             default => true, // componentes que no son del panel (campanita, etc.): sus propias reglas
         };

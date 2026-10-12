@@ -242,6 +242,11 @@ class CompanyEraser
         $erased = array_values(array_diff($users, array_keys($shared)));
 
         // Fotos, reportes y sus archivos (filas; los archivos van después).
+        // Tareas e historial de contactos (referencian clientes, edificios, presupuestos, órdenes y usuarios).
+        foreach (['tasks', 'client_interactions'] as $table) {
+            $n += $of($table)->delete();
+        }
+
         foreach (['visit_photos', 'report_videos', 'report_photos', 'reports'] as $table) {
             $n += $of($table)->delete();
         }

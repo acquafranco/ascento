@@ -20,7 +20,10 @@ trait OwnerRecordOfCurrentCompany
 
     public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
     {
-        return static::ownerRecordIsOfCurrentCompany($ownerRecord) && parent::canViewForRecord($ownerRecord, $pageClass);
+        // Además, el área propia de la relación para un administrativo (GuardedRelation).
+        return static::ownerRecordIsOfCurrentCompany($ownerRecord)
+            && (! method_exists(static::class, 'relationAreaAllows') || static::relationAreaAllows())
+            && parent::canViewForRecord($ownerRecord, $pageClass);
     }
 
     protected static function ownerRecordIsOfCurrentCompany(Model $ownerRecord): bool

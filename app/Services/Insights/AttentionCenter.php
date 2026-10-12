@@ -10,6 +10,7 @@ use App\Filament\Resources\Quotes\QuoteResource;
 use App\Filament\Resources\Receivables\ReceivableResource;
 use App\Filament\Resources\Reports\ReportResource;
 use App\Filament\Resources\StockItems\StockItemResource;
+use App\Filament\Resources\Tasks\TaskResource;
 use App\Filament\Resources\WorkOrders\WorkOrderResource;
 use App\Models\Company;
 use App\Models\Elevator;
@@ -19,6 +20,7 @@ use App\Models\Quote;
 use App\Models\Receivable;
 use App\Models\Report;
 use App\Models\StockItem;
+use App\Models\Task;
 use App\Models\WorkOrder;
 use App\Services\Visits\VisitService;
 use App\Support\Plans\PlanGuard;
@@ -132,6 +134,12 @@ class AttentionCenter
         $low = StockItem::active()->low()->count();
         if ($low > 0) {
             $items->push($this->item('warning', 'Materiales con stock bajo', 'Están en el mínimo o por debajo.', $low, StockItemResource::getUrl()));
+        }
+
+        // Tareas administrativas vencidas (Etapa 6).
+        $overdueTasks = Task::overdue()->count();
+        if ($overdueTasks > 0) {
+            $items->push($this->item('warning', 'Tareas vencidas', 'Tareas abiertas con el vencimiento pasado.', $overdueTasks, TaskResource::getUrl('index', ['tab' => 'overdue'])));
         }
 
         $overdueReceivables = Receivable::overdue()->count();

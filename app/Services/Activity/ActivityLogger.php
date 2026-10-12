@@ -5,6 +5,7 @@ namespace App\Services\Activity;
 use App\Models\ActivityLog;
 use App\Models\Building;
 use App\Models\Client;
+use App\Models\ClientInteraction;
 use App\Models\Elevator;
 use App\Models\ElevatorDocument;
 use App\Models\MaintenanceService;
@@ -12,6 +13,7 @@ use App\Models\Quote;
 use App\Models\Receivable;
 use App\Models\ReceivablePayment;
 use App\Models\StockMovement;
+use App\Models\Task;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Support\Access\Access;
@@ -44,6 +46,8 @@ final class ActivityLogger
         Receivable::class => ['concept', 'amount', 'due_date'],
         ReceivablePayment::class => ['amount', 'paid_at', 'method'],
         StockMovement::class => ['type', 'quantity', 'stock_item_id', 'reason'],
+        Task::class => ['title', 'priority', 'status', 'due_at', 'remind_at', 'assigned_to', 'client_id', 'building_id'],
+        ClientInteraction::class => ['client_id', 'type', 'result', 'occurred_at', 'building_id', 'quote_id', 'work_order_id'],
     ];
 
     /** Nombres que nunca se guardan, aunque alguien los sume a FIELDS por error. */

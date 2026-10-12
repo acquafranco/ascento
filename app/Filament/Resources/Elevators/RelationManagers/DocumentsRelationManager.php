@@ -2,7 +2,10 @@
 
 namespace App\Filament\Resources\Elevators\RelationManagers;
 
+use App\Enums\PermissionArea;
+use App\Filament\Concerns\GuardedRelation;
 use App\Filament\Concerns\OwnerRecordOfCurrentCompany;
+use App\Filament\Support\ClientSharing;
 use App\Models\ElevatorDocument;
 use App\Services\Elevators\ElevatorDocumentService;
 use Filament\Actions\Action;
@@ -18,6 +21,14 @@ use Filament\Tables\Table;
 /** Planos, manuales, certificados y fotos del legajo (disco privado). */
 class DocumentsRelationManager extends RelationManager
 {
+    use GuardedRelation;
+
+    /** Área de permisos de administrativos (Etapa 6). */
+    public static function permissionArea(): ?PermissionArea
+    {
+        return PermissionArea::Documents;
+    }
+
     use OwnerRecordOfCurrentCompany;
 
     protected static string $relationship = 'documents';
@@ -39,7 +50,7 @@ class DocumentsRelationManager extends RelationManager
                     ->color(fn (ElevatorDocument $record) => $record->isExpired() ? 'danger' : ($record->expiresSoon() ? 'warning' : null))
                     ->description(fn (ElevatorDocument $record) => $record->isExpired() ? 'Vencido' : ($record->expiresSoon() ? 'Vence pronto' : null)),
                 TextColumn::make('created_at')->label('Subido')->date('d/m/Y'),
-                \App\Filament\Support\ClientSharing::column(),
+                ClientSharing::column(),
             ])
             ->emptyStateHeading('Sin documentación')
             ->emptyStateDescription('Subí planos, manuales, certificados o fotos del equipo. Los certificados con fecha de vencimiento avisan en el Centro de atención.')

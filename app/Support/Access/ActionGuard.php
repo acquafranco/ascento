@@ -100,6 +100,8 @@ final class ActionGuard
     {
         return match (true) {
             $component instanceof ResourcePage => $component::getResource(),
+            // Una relación con área propia (por ejemplo, contactos dentro de Clientes) usa la suya.
+            $component instanceof RelationManager && method_exists($component, 'permissionArea') => $component::class,
             $component instanceof RelationManager => $component->pageClass ? $component->pageClass::getResource() : null,
             is_object($component) => $component::class,
             default => null,

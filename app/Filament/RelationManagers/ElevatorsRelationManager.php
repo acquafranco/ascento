@@ -2,6 +2,8 @@
 
 namespace App\Filament\RelationManagers;
 
+use App\Enums\PermissionArea;
+use App\Filament\Concerns\GuardedRelation;
 use App\Filament\Concerns\OwnerRecordOfCurrentCompany;
 use App\Filament\Resources\Elevators\ElevatorResource;
 use App\Models\Elevator;
@@ -13,6 +15,14 @@ use Filament\Tables\Table;
 /** Equipos del edificio con acceso a su legajo. */
 class ElevatorsRelationManager extends RelationManager
 {
+    use GuardedRelation;
+
+    /** Área de permisos de administrativos (Etapa 6). */
+    public static function permissionArea(): ?PermissionArea
+    {
+        return PermissionArea::Buildings;
+    }
+
     use OwnerRecordOfCurrentCompany;
 
     protected static string $relationship = 'elevators';

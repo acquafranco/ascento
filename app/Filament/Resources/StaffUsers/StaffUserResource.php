@@ -125,10 +125,10 @@ class StaffUserResource extends Resource
         ]);
     }
 
-    /** Áreas que hoy habilitan algo (tareas e historial de contactos llegan en el PR 3). */
+    /** Áreas que se ofrecen en el formulario (todas desde el PR 3). */
     public static function offeredAreas(): array
     {
-        return array_values(array_filter(PermissionArea::cases(), fn (PermissionArea $area) => ! in_array($area, [PermissionArea::Tasks, PermissionArea::Contacts], true)));
+        return PermissionArea::cases();
     }
 
     public static function table(Table $table): Table

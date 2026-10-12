@@ -110,12 +110,19 @@ class StaffManager
         return $staff;
     }
 
-    /** Permisos (el registro de quién, a quién y cuándo lo deja UserAccessObserver). */
+    /**
+     * Permisos (el registro de quién, a quién y cuándo lo deja UserAccessObserver).
+     * Solo cambian las áreas que vienen en $levels: las demás se conservan
+     * (un formulario que no muestra un área no la borra).
+     */
     public function setPermissions(User $owner, User $staff, array $levels): User
     {
         $this->guardTarget($owner, $staff);
 
-        $staff->forceFill(['permissions' => self::keysFromLevels($levels)])->save();
+        $submitted = array_values(array_filter(PermissionArea::cases(), fn (PermissionArea $area) => array_key_exists($area->value, $levels)));
+        $kept = array_values(array_filter(Access::permissionsOf($staff), fn (string $key) => ! in_array(explode('.', $key)[0], array_map(fn ($a) => $a->value, $submitted), true)));
+
+        $staff->forceFill(['permissions' => array_values(array_unique([...$kept, ...self::keysFromLevels($levels)]))])->save();
 
         return $staff->fresh();
     }
