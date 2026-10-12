@@ -25,6 +25,29 @@
         </select>
     </div>
 
+    @if($staleVisits->isNotEmpty())
+        {{-- Visitas en curso hace más de 7 días: la oficina decide si se continúan o se descartan (nada se cierra ni se borra solo). --}}
+        <div class="asc-tip" id="visitas-en-curso" role="status" data-stale-visits style="display: block;">
+            <p class="asc-tip-title">⚠️ {{ $staleVisits->count() === 1 ? '1 visita en curso' : $staleVisits->count().' visitas en curso' }} hace más de {{ \App\Services\Visits\VisitService::STALE_DAYS }} días, sin remito</p>
+            <p class="asc-tip-body">Se empezaron para cargar fotos y nadie firmó el remito. Abrí cada una para ver sus fotos y decidir: que el técnico la continúe y haga el remito, o descartarla. No se cierran ni se borran solas.</p>
+            <ul style="margin: .6rem 0 0; padding: 0; list-style: none;">
+                @foreach($staleVisits as $stale)
+                    @php $since = $stale->started_at ?? $stale->created_at; @endphp
+                    <li data-stale-visit="{{ $stale->id }}" style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem .75rem; padding: .6rem 0; border-top: 1px solid rgba(245, 158, 11, .35);">
+                        <div style="min-width: 0; flex: 1 1 14rem;">
+                            <div style="font-weight: 600;">{{ $stale->building?->name ?? '—' }} · {{ $types[$stale->assignment_type] ?? $stale->assignment_type }} <span class="asc-small" style="font-weight: 400;">({{ \Carbon\Carbon::create($stale->year, $stale->month, 1)->locale('es')->translatedFormat('F Y') }})</span></div>
+                            <div class="asc-small">Inicio: {{ $since?->format('d/m/Y') }} (hace {{ (int) $since?->diffInDays(now()) }} días) · {{ $stale->user?->name }}</div>
+                            <div class="asc-small">Estado: <strong>En curso · sin remito</strong> · {{ $stale->photos_count }} {{ $stale->photos_count === 1 ? 'foto' : 'fotos' }}</div>
+                        </div>
+                        @if($visitsSlug ?? null)
+                            <a class="asc-btn" href="{{ route('visits.show', ['company' => $visitsSlug, 'visit' => $stale->id]) }}" target="_blank" rel="noopener">Abrir la visita</a>
+                        @endif
+                    </li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     @if($progress)
         {{-- Progreso por visitas previstas (no por máquinas), separado por tipo --}}
         <div class="asc-progress-grid">

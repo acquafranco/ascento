@@ -14,6 +14,7 @@ use App\Models\WorkOrder;
 use App\Services\Media\PhotoProcessor;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -81,6 +82,29 @@ class VisitPhotoService
     public function canUpload(?User $user, PhotoTarget $target): bool
     {
         return $this->canWorkOn($user, $target) && (bool) Company::find($target->companyId)?->photosEnabledFor($target->type);
+    }
+
+    /**
+     * Lo que necesita «Fotos del trabajo» en el celular (la visita o la
+     * orden): sus fotos, las secciones activas (más las de fotos históricas
+     * aunque estén desactivadas), los equipos del edificio y si puede cargar.
+     *
+     * @return array{photos: Collection, sections: Collection, elevators: Collection, canUpload: bool}
+     */
+    public function managerData(User $user, PhotoTarget $target): array
+    {
+        $photos = (clone $target->photos())->with(['uploader:id,name', 'elevator:id,label'])->orderBy('id')->get();
+        $sections = PhotoSection::forCompany($target->companyId);
+        $legacy = $photos->whereNotIn('photo_section_id', $sections->pluck('id'))->unique('photo_section_id')
+            ->map(fn (VisitPhoto $p) => (new PhotoSection)->forceFill(['id' => $p->photo_section_id, 'name' => $p->section_name, 'is_active' => false]));
+
+        return [
+            'photos' => $photos,
+            'sections' => $sections->concat($legacy->values()),
+            'elevators' => Elevator::withoutGlobalScopes()->where('building_id', $target->buildingId)->where('company_id', $target->companyId)
+                ->where('is_active', true)->orderBy('label')->get(['id', 'label']),
+            'canUpload' => $this->canUpload($user, $target),
+        ];
     }
 
     /*

@@ -120,9 +120,12 @@
 
                             {{-- Visita en curso (abierta desde acá para cargar fotos) --}}
                             @if($openVisit)
-                                <div class="mt-1.5 flex flex-wrap items-center gap-2" data-open-visit>
+                                <div class="mt-2 space-y-2" data-open-visit>
                                     <span class="t-chip-pending">{{ $expected > 1 ? 'Visita '.$openVisit->slot.': ' : '' }}En curso · sin remito</span>
-                                    <a href="{{ route('visits.show', ['company' => $slug, 'visit' => $openVisit->id]) }}" class="text-xs font-semibold text-brand-700 underline">Fotos ({{ $photoCounts[$openVisit->id] ?? 0 }})</a>
+                                    <a href="{{ route('visits.show', ['company' => $slug, 'visit' => $openVisit->id]) }}" class="t-btn-secondary t-btn-sm w-full" data-work-photos-link>
+                                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                                        Fotos del trabajo ({{ $photoCounts[$openVisit->id] ?? 0 }})
+                                    </a>
                                 </div>
                             @elseif($photosOn && ($row['pending'] ?? 0) > 0 && $status !== 'no_equipment')
                                 <form method="POST" action="{{ route('visits.start', ['company' => $slug]) }}" class="mt-1.5">
@@ -131,7 +134,10 @@
                                     <input type="hidden" name="assignment_type" value="{{ $type }}">
                                     <input type="hidden" name="month" value="{{ $month }}">
                                     <input type="hidden" name="year" value="{{ $year }}">
-                                    <button type="submit" class="text-xs font-semibold text-brand-700 underline" data-start-visit>Empezar visita y cargar fotos</button>
+                                    <button type="submit" class="t-btn-secondary t-btn-sm mt-1 w-full" data-start-visit>
+                                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                                        Fotos del trabajo
+                                    </button>
                                 </form>
                             @endif
 
@@ -148,7 +154,7 @@
                                         {{ $visit->visited_at?->format('d/m') }}{{ ((int) $visit->month !== (int) $month || (int) $visit->year !== (int) $year) ? ' · corresponde a '.\Carbon\Carbon::create($visit->year, $visit->month, 1)->locale('es')->translatedFormat('F') : '' }}{{ $visit->deliveryNote ? ' · Remito #'.$visit->deliveryNote->number : '' }}
                                     </span>
                                     @if($photosOn || ($photoCounts[$visit->id] ?? 0) > 0)
-                                        <a href="{{ route('visits.show', ['company' => $slug, 'visit' => $visit->id]) }}" class="text-xs font-semibold text-brand-700 underline">Fotos ({{ $photoCounts[$visit->id] ?? 0 }})</a>
+                                        <a href="{{ route('visits.show', ['company' => $slug, 'visit' => $visit->id]) }}" class="text-xs font-semibold text-brand-700 underline" data-work-photos-link>Fotos del trabajo ({{ $photoCounts[$visit->id] ?? 0 }})</a>
                                     @endif
                                 </div>
                                 @if($notDone)

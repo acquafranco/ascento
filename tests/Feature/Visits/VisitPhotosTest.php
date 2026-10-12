@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\Visits;
 
+use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
 use App\Filament\Resources\PhotoSections\Pages\ManagePhotoSections;
-use App\Filament\Resources\VisitPhotos\Pages\ListVisitPhotos;
 use App\Models\Building;
 use App\Models\BuildingVisit;
 use App\Models\Company;
@@ -291,13 +291,16 @@ class VisitPhotosTest extends TestCase
         $this->get('/'.$photo->path)->assertNotFound();
     }
 
-    public function test_the_admin_lists_every_photo_of_the_company_and_nothing_else(): void
+    public function test_the_admin_sees_every_photo_of_a_job_inside_it_and_nothing_from_another_company(): void
     {
         $visit = $this->openVisit();
         $this->upload(['visit_id' => $visit->id])->assertCreated();
         $coworker = User::factory()->technician()->create(['company_id' => $this->a['company']->id]);
         $this->a['building']->users()->attach($coworker->id, ['type' => 'maintenance']);
         $this->upload(['visit_id' => $visit->id], ['stage' => 'after'], $coworker)->assertCreated();
+        $this->sign()->assertSessionHasNoErrors();
+        $note = DeliveryNote::sole();
+        [$before, $after] = VisitPhoto::withoutGlobalScopes()->orderBy('id')->get()->all();
 
         auth()->logout();
         $b = $this->makeTenant();
@@ -307,12 +310,21 @@ class VisitPhotosTest extends TestCase
         $this->actingAs($b['technician'])->postJson("/{$b['company']->slug}/visit-photos", [
             'visit_id' => $foreign->id, 'photo_section_id' => $this->section('Pozo', $b['company']->id)->id, 'stage' => 'before', 'photo' => UploadedFile::fake()->image('x.jpg'),
         ])->assertCreated();
+        $foreignPhoto = VisitPhoto::withoutGlobalScopes()->where('company_id', $b['company']->id)->sole();
 
+        // Dentro del mantenimiento (su remito): Antes y Después, de las dos personas.
         $this->actingInPanel($this->a['admin']);
-        Livewire::test(ListVisitPhotos::class)
-            ->assertCanSeeTableRecords(VisitPhoto::withoutGlobalScopes()->where('company_id', $this->a['company']->id)->get())
-            ->assertCanNotSeeTableRecords(VisitPhoto::withoutGlobalScopes()->where('company_id', $b['company']->id)->get())
-            ->assertCountTableRecords(2);
+        $this->get(DeliveryNoteResource::getUrl('view', ['record' => $note]))->assertOk()
+            ->assertSee('Fotos del trabajo')
+            ->assertSee('data-work-photos-stage="before"', false)->assertSee('data-work-photos-stage="after"', false)
+            ->assertSee($before->thumbUrl(), false)->assertSee($after->downloadUrl(), false)
+            ->assertDontSee($foreignPhoto->thumbUrl(), false);
+        $this->get($before->downloadUrl())->assertOk()->assertDownload();
+
+        // Otra empresa: ni el remito ni la foto.
+        $this->actingInPanel($b['admin']);
+        $this->get(DeliveryNoteResource::getUrl('view', ['record' => $note]))->assertNotFound();
+        $this->get($before->url())->assertNotFound();
     }
 
     public function test_manipulated_requests_never_cross_companies_buildings_or_types(): void
@@ -413,8 +425,9 @@ class VisitPhotosTest extends TestCase
         $order = WorkOrder::create(['building_id' => $this->a['building']->id, 'title' => 'Cambio de cable', 'type' => 'claim', 'priority' => 'medium', 'status' => 'in_progress']);
         $order->users()->attach($this->a['technician']->id);
 
-        $this->actingAs($this->a['technician'])->get("/{$this->a['company']->slug}/work-orders/{$order->id}")->assertOk()->assertSee('data-work-order-photos', false);
-        $this->actingAs($this->a['technician'])->get("/{$this->a['company']->slug}/work-orders/{$order->id}/photos")->assertOk()->assertSee('data-file aria-label', false);
+        // «Fotos del trabajo» dentro de la orden, con sus botones.
+        $this->actingAs($this->a['technician'])->get("/{$this->a['company']->slug}/work-orders/{$order->id}")->assertOk()
+            ->assertSee('data-work-order-photos', false)->assertSee('data-file aria-label="Tomar foto"', false)->assertSee('data-file aria-label="Elegir de la galería"', false);
         $this->upload(['work_order_id' => $order->id])->assertCreated();
         $photo = VisitPhoto::withoutGlobalScopes()->sole();
         $this->assertSame([$order->id, null], [$photo->work_order_id, $photo->building_visit_id]);

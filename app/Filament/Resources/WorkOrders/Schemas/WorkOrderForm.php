@@ -2,11 +2,15 @@
 
 namespace App\Filament\Resources\WorkOrders\Schemas;
 
-use Filament\Forms;
-use Filament\Schemas\Schema;
-use App\Models\User;
-use Illuminate\Support\Facades\Auth;
 use App\Models\Building;
+use App\Models\WorkOrder;
+use App\Services\Visits\WorkPhotoGallery;
+use App\Support\ElevatorComponents;
+use Filament\Forms;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\View;
+use Filament\Schemas\Schema;
+use Illuminate\Support\Facades\Auth;
 
 class WorkOrderForm
 {
@@ -49,7 +53,7 @@ class WorkOrderForm
 
                         $buildingId = $get('building_id');
 
-                        if (!$buildingId) {
+                        if (! $buildingId) {
                             return [];
                         }
 
@@ -64,7 +68,7 @@ class WorkOrderForm
                             ->where('company_id', $companyId)
                             ->first();
 
-                        if (!$building) {
+                        if (! $building) {
                             return [];
                         }
 
@@ -130,7 +134,7 @@ class WorkOrderForm
 
                 Forms\Components\Select::make('component')
                     ->label('Componente afectado (opcional)')
-                    ->options(\App\Support\ElevatorComponents::LIST)
+                    ->options(ElevatorComponents::LIST)
                     ->helperText('Para reclamos: sirve para detectar fallas que se repiten.'),
 
                 Forms\Components\Select::make('users')
@@ -161,20 +165,15 @@ class WorkOrderForm
                     'type'
                 )
                     ->options([
-                        'maintenance' =>
-                            'Mantenimiento',
+                        'maintenance' => 'Mantenimiento',
 
-                        'inspection' =>
-                            'Inspección',
+                        'inspection' => 'Inspección',
 
-                        'claim' =>
-                            'Reclamo',
+                        'claim' => 'Reclamo',
 
-                        'installation' =>
-                            'Instalación',
+                        'installation' => 'Instalación',
 
-                        'modernization' =>
-                            'Modernización',
+                        'modernization' => 'Modernización',
                     ])
                     ->required()
                     ->label('Tipo'),
@@ -183,17 +182,13 @@ class WorkOrderForm
                     'priority'
                 )
                     ->options([
-                        'low' =>
-                            'Baja',
+                        'low' => 'Baja',
 
-                        'medium' =>
-                            'Media',
+                        'medium' => 'Media',
 
-                        'high' =>
-                            'Alta',
+                        'high' => 'Alta',
 
-                        'urgent' =>
-                            'Urgente',
+                        'urgent' => 'Urgente',
                     ])
                     ->default('medium')
                     ->required()
@@ -203,17 +198,13 @@ class WorkOrderForm
                     'status'
                 )
                     ->options([
-                        'pending' =>
-                            'Pendiente',
+                        'pending' => 'Pendiente',
 
-                        'in_progress' =>
-                            'En progreso',
+                        'in_progress' => 'En progreso',
 
-                        'completed' =>
-                            'Completado',
+                        'completed' => 'Completado',
 
-                        'failed' =>
-                            'No realizado',
+                        'failed' => 'No realizado',
                     ])
                     ->default('pending')
                     ->required(),
@@ -223,6 +214,19 @@ class WorkOrderForm
                 )
                     ->columnSpanFull()
                     ->label('Detalle'),
+
+                // Fotos de antes y después de ESTA orden (solo lectura; las
+                // carga el técnico desde la orden en su celular).
+                Section::make('Fotos del trabajo')
+                    ->columnSpanFull()
+                    ->visible(fn (?WorkOrder $record) => $record !== null)
+                    ->schema([
+                        View::make('filament.partials.work-photos')
+                            ->viewData(fn (?WorkOrder $record) => [
+                                'photos' => $record ? app(WorkPhotoGallery::class)->forWorkOrder($record, Auth::user()) : collect(),
+                                'emptyText' => 'Esta orden no tiene fotos.',
+                            ]),
+                    ]),
             ]);
     }
 }

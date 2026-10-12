@@ -6,8 +6,6 @@ use App\Models\Building;
 use App\Models\BuildingVisit;
 use App\Models\Company;
 use App\Models\DeliveryNote;
-use App\Models\PhotoSection;
-use App\Models\VisitPhoto;
 use App\Models\WorkOrder;
 use App\Services\Visits\PhotoTarget;
 use App\Services\Visits\VisitPhotoService;
@@ -85,11 +83,6 @@ class VisitController extends Controller
         abort_unless($photos->canWorkOn($user, $target), 404);
 
         $building = Building::withoutGlobalScopes()->withTrashed()->findOrFail($target->buildingId);
-        $all = (clone $target->photos())->with(['uploader:id,name', 'elevator:id,label'])->orderBy('id')->get();
-        // Secciones activas más las de fotos históricas (aunque estén desactivadas).
-        $sections = PhotoSection::forCompany($company->id);
-        $legacy = $all->whereNotIn('photo_section_id', $sections->pluck('id'))->unique('photo_section_id')
-            ->map(fn (VisitPhoto $p) => (new PhotoSection)->forceFill(['id' => $p->photo_section_id, 'name' => $p->section_name, 'is_active' => false]));
         $note = $target->visit ? DeliveryNote::withoutGlobalScopes()->where('building_visit_id', $target->visit->id)->first(['id', 'number', 'performed']) : null;
 
         return view('visits.show', [
@@ -99,10 +92,7 @@ class VisitController extends Controller
             'visit' => $target->visit,
             'workOrder' => $target->workOrder,
             'deliveryNote' => $note,
-            'photos' => $all,
-            'sections' => $sections->concat($legacy->values()),
-            'elevators' => $building->elevators()->withoutGlobalScopes()->where('is_active', true)->orderBy('label')->get(['id', 'label']),
-            'canUpload' => $photos->canUpload($user, $target),
+            ...$photos->managerData($user, $target),
             'period' => $target->visit && $target->type !== 'work_order'
                 ? VisitSchedule::load([$building->id], (int) $target->visit->month, (int) $target->visit->year, (int) $building->company_id)
                     ->period($building->id, $target->type, (int) $target->visit->month, (int) $target->visit->year)
