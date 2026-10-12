@@ -80,6 +80,12 @@ class ReportPhoto extends Model
         return route('reports.photos.show', ['report' => $this->report_id, 'photo' => $this->id]);
     }
 
+    /** Miniatura (misma ruta autenticada): para listas y vistas previas; la original se abre al tocarla. */
+    public function thumbUrl(): string
+    {
+        return $this->url().'?thumb=1';
+    }
+
     public function deleteFile(): void
     {
         if (! $this->hasSafePath()) {

@@ -34,7 +34,8 @@ class ReportsTable
 
                 ImageColumn::make('first_photo')
                     ->label('Foto')
-                    ->state(fn ($record) => $record->photos->first()?->url())
+                    // Miniatura: la tabla mostraba la foto original (hasta 2000 px) en 60 px.
+                    ->state(fn ($record) => $record->photos->first()?->thumbUrl())
                     ->size(60)
                     ->square(),
 
