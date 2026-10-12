@@ -20,6 +20,7 @@ use App\Models\Receivable;
 use App\Models\Report;
 use App\Models\StockItem;
 use App\Models\WorkOrder;
+use App\Services\Visits\VisitService;
 use App\Support\Plans\PlanGuard;
 use Illuminate\Support\Collection;
 
@@ -90,6 +91,13 @@ class AttentionCenter
         if ($notDone->isNotEmpty()) {
             $items->push($this->item('danger', 'Visitas marcadas como no realizadas', 'El técnico firmó el remito pero indicó que el trabajo no se pudo hacer. Para volver, creá una orden de trabajo.', $notDone->count(),
                 Agenda::getUrl(['status' => 'not_done']), $notDone->take(3)->map(fn ($r) => $r['building']->name.' ('.MaintenanceAgenda::TYPES[$r['type']].')')->all()));
+        }
+
+        // Visitas en curso (empezadas para cargar fotos) sin remito hace más de 7 días.
+        $staleVisits = app(VisitService::class)->stale((int) $company->id);
+        if ($staleVisits->isNotEmpty()) {
+            $items->push($this->item('warning', 'Visitas en curso hace más de '.VisitService::STALE_DAYS.' días', 'Se empezaron y no tienen remito firmado. Abrilas desde la Agenda para continuarlas o descartarlas: no se cierran solas.', $staleVisits->count(),
+                Agenda::getUrl().'#visitas-en-curso', $staleVisits->take(3)->map(fn ($v) => ($v->building?->name ?? '—').' ('.MaintenanceAgenda::TYPES[$v->assignment_type].', desde el '.($v->started_at ?? $v->created_at)->format('d/m').')')->all()));
         }
 
         $unassigned = $this->agenda->rows($now->month, $now->year, status: 'unassigned');

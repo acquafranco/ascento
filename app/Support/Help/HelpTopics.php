@@ -38,7 +38,6 @@ class HelpTopics
         'receivables_intro' => ['Cobranzas', 'Lo que te deben tus clientes: cobros de servicios, de presupuestos aprobados y manuales. Registrá los pagos (también parciales) a medida que entran.', null],
         'map_intro' => ['Mapa', null, 'map'],
         'photo_sections_intro' => ['Secciones de fotos', 'Las partes del equipo que el técnico puede fotografiar antes y después del trabajo, desde la visita o la orden (Pozo, Techo, Sala de máquinas y las que agregues). Las fotos se habilitan por tipo de trabajo en «Mi empresa» (vienen apagadas). Hasta 3 fotos por sección en «Antes» y 3 en «Después». Desactivá las secciones que no uses: las fotos ya cargadas se conservan. Las ven vos y los técnicos de cada trabajo, nunca el cliente.', null],
-        'visit_photos_intro' => ['Fotos de trabajos', 'Todas las fotos de antes y después de tus visitas y órdenes, cargue quien las cargue. Abrilas o descargalas desde acá. Nunca se muestran al cliente, en el enlace público ni en el PDF del remito.', null],
         'attention_center' => ['Centro de atención', 'Solo lo que necesita que hagas algo hoy: mantenimientos vencidos, trabajos trabados, reportes graves, presupuestos por vencer. Si está vacío, está todo en orden.', null],
         'exports_intro' => ['Exportar datos', 'Generá un ZIP con un Excel y los adjuntos de tu empresa para tener tus datos. Se prepara en uno o dos minutos y queda disponible unos días; acá ves quién lo pidió y quién lo descargó.', null],
         'indicators' => ['Indicadores', 'Cada número responde una pregunta sobre tu empresa (¿cumplimos los mantenimientos?, ¿entran más reclamos?). Sirven para mirar la tendencia, no para controlar el día a día.', null],
@@ -114,7 +113,6 @@ class HelpTopics
             'resources.maintenance-services.' => 'services_intro',
             'resources.receivables.' => 'receivables_intro',
             'resources.secciones-de-fotos.' => 'photo_sections_intro',
-            'resources.fotos-de-trabajos.' => 'visit_photos_intro',
         ];
 
         foreach ($map as $needle => $key) {

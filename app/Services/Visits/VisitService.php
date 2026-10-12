@@ -8,6 +8,7 @@ use App\Models\Company;
 use App\Models\DeliveryNote;
 use App\Models\User;
 use App\Models\VisitPhoto;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -27,6 +28,9 @@ use Illuminate\Validation\ValidationException;
 class VisitService
 {
     public const TYPES = VisitSchedule::TYPES;
+
+    /** Días sin completarse a partir de los cuales una visita en curso se avisa a la oficina. */
+    public const STALE_DAYS = 7;
 
     /**
      * Número de visita libre del período (1 o 2), o el motivo por el que no
@@ -181,6 +185,32 @@ class VisitService
 
             $fresh->delete();
         });
+    }
+
+    /**
+     * Visitas en curso (abiertas para cargar fotos, sin remito) que llevan
+     * más de STALE_DAYS días sin completarse, de UNA empresa. Solo se
+     * informan: nunca se cierran ni se borran solas (cerrarla inventaría un
+     * trabajo sin remito; descartarla borraría fotos). La oficina las abre y
+     * decide si se continúan o se descartan.
+     *
+     * @return Collection<int, BuildingVisit>
+     */
+    public function stale(int $companyId, int $days = self::STALE_DAYS): Collection
+    {
+        $cutoff = now()->subDays($days);
+
+        return BuildingVisit::withoutGlobalScopes()
+            ->where('company_id', $companyId)
+            ->where('visit_type', 'fixed')
+            ->whereIn('assignment_type', self::TYPES)
+            ->where('in_progress', true)
+            ->where(fn ($q) => $q->where('started_at', '<=', $cutoff)
+                ->orWhere(fn ($w) => $w->whereNull('started_at')->where('created_at', '<=', $cutoff)))
+            ->with(['building' => fn ($q) => $q->withoutGlobalScopes()->withTrashed()->select('id', 'name'), 'user:id,name'])
+            ->withCount(['photos' => fn ($q) => $q->withoutGlobalScopes()->reorder()])
+            ->orderByRaw('coalesce(started_at, created_at)')
+            ->get();
     }
 
     /**

@@ -77,13 +77,23 @@
 
 ## Fotos de antes y después
 
-- **Se gestionan desde Visitas, no desde el remito.** El remito es el documento que se firma al terminar y ya no tiene carga de fotos (ni la bloquea).
-  - En Visitas, «Empezar visita y cargar fotos» abre la **visita en curso** del período (`building_visits.in_progress`). Abrirla de nuevo, con un doble toque, un reintento u otro técnico, devuelve la misma.
+- **Se gestionan dentro de cada trabajo, no desde el remito.** El remito es el documento que se firma al terminar y no tiene carga de fotos (ni la bloquea); solo ofrece un acceso «Fotos» a la visita o la orden.
+- **En el celular del técnico, «Fotos del trabajo»** (`resources/views/photos/manager.blade.php`, el mismo en la visita y en la orden):
+  1. elegir «Antes» o «Después»;
+  2. elegir la parte (sección), si hay más de una;
+  3. «Tomar foto» (`<input type="file" accept="image/*" capture="environment">`: en la mayoría de los celulares abre la cámara trasera; si el navegador no soporta `capture`, ofrece elegir) o «Elegir de la galería» (sin `capture`, varias a la vez);
+  4. cada foto muestra «Subiendo…», después «✓ Foto guardada en …» o un error con «Reintentar».
+- **Dónde está el botón:**
+  - mantenimiento e inspección: en Visitas, cada edificio tiene el botón «Fotos del trabajo» (abre la visita en curso o la crea); también desde el formulario del remito;
+  - orden de trabajo: dentro de la orden, la sección «Fotos del trabajo».
+  - Solo aparece si la empresa habilitó las fotos para ese tipo de trabajo.
+- **Visita en curso:** «Fotos del trabajo» abre la **visita en curso** del período (`building_visits.in_progress`). Abrirla de nuevo, con un doble toque, un reintento u otro técnico, devuelve la misma.
   - La visita en curso ocupa su lugar (identidad única) pero **no cuenta como realizada** ni aparece en el historial, el portal, las planillas ni los indicadores.
   - El remito de ese período **completa esa misma visita**: no se crea otra. Sin visita en curso, el remito crea la visita como siempre.
   - Las fotos se pueden cargar antes, durante o **después** del remito, desde la pantalla de la visita.
   - Una visita en curso sin remito se puede descartar con sus fotos. Un técnico solo puede descartarla si todas sus fotos las cargó él; si hay fotos de otra persona, la descarta la oficina.
   - La oficina ve las visitas en curso en la Agenda («en curso desde el …, sin remito») con un enlace para abrirlas y descartarlas.
+  - **Más de 7 días sin completarse** (`VisitService::STALE_DAYS`): la Agenda muestra arriba una alerta con edificio, tipo de trabajo, fecha de inicio, estado y «Abrir la visita», y el Centro de atención la cuenta («Visitas en curso hace más de 7 días»). Nunca se cierran, se marcan realizadas ni se borran solas: el admin decide si se continúa o se descarta.
 - **Órdenes de trabajo:** desde la orden, «Fotos de antes y después». Antes del remito quedan colgadas de la orden (`visit_photos.work_order_id`); al firmar, pasan también a la visita de la orden y al remito.
 - **Cada foto se guarda al subirla** (de a una, achicada en el celular), así un error del remito, un reintento o un corte de señal no la pierde.
   - Cada foto lleva una identidad que genera el celular (`client_key`, única por visita y por orden): «Reintentar» tras una respuesta perdida no la duplica.
@@ -111,13 +121,18 @@
   - el técnico no ve controles de carga para ese tipo;
   - el servidor rechaza cargas nuevas aunque se fuerce la petición;
   - tampoco se pueden quitar fotos ni cambiar el equipo o la observación de una sección: lo cargado queda como está;
+  - al volver a habilitarlo, las fotos siguen ahí con sus relaciones y se pueden volver a completar o quitar (quien las subió);
   - las fotos ya cargadas no se borran y las siguen viendo los mismos usuarios;
   - no cambia ninguna visita, remito ni orden.
 - **Una visita tiene un solo tipo de trabajo:** rige el interruptor de ese tipo. Los permisos de un tipo no dan acceso a fotos de otro (un inspector del edificio no ve las fotos del mantenimiento).
 
 ### Quién las ve (siempre verificado en el servidor)
 
-- **El admin de la empresa:** todas, cargue quien las cargue. En el panel, «Operaciones → Fotos de trabajos» las lista con filtros, y se pueden abrir y descargar.
+- **El admin de la empresa:** todas las de su empresa, cargue quien las cargue, **dentro de cada trabajo** (no hay una galería global):
+  - mantenimientos e inspecciones: al abrir uno (su remito), la sección «Fotos del trabajo»;
+  - órdenes de trabajo: al abrir la orden, la sección «Fotos del trabajo»;
+  - separadas en «Antes» y «Después», por sección, con equipo, observación, quién y cuándo; «Ver» y «Descargar»;
+  - una visita en curso (todavía sin remito) se abre desde la Agenda.
 - **Quien la subió.**
 - **Quien trabaja en esa visita u orden:**
   - técnico asignado al edificio para ese tipo de trabajo;

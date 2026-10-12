@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Company;
 use App\Models\WorkOrder;
+use App\Services\Visits\PhotoTarget;
+use App\Services\Visits\VisitPhotoService;
 use App\Services\WorkOrderService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -46,7 +49,21 @@ class WorkOrderController extends Controller
             ], 403);
         }
 
-        return view('work-orders.show', compact('workOrder'));
+        // «Fotos del trabajo» dentro de la orden: con las fotos habilitadas
+        // para órdenes (botones de carga) o si ya tiene fotos (solo lectura).
+        $photoManager = null;
+        $photoService = app(VisitPhotoService::class);
+        $target = PhotoTarget::forWorkOrder($workOrder);
+
+        if ($photoService->canWorkOn($user, $target)) {
+            $data = $photoService->managerData($user, $target);
+
+            if ($data['canUpload'] || $data['photos']->isNotEmpty()) {
+                $photoManager = [...$data, 'target' => $target, 'company' => Company::findOrFail($workOrder->company_id)];
+            }
+        }
+
+        return view('work-orders.show', compact('workOrder', 'photoManager'));
     }
 
     public function index(Request $request)

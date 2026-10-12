@@ -7,6 +7,7 @@ use App\Filament\Concerns\RequiresPlanFeature;
 use App\Models\Company;
 use App\Models\User;
 use App\Services\Insights\MaintenanceAgenda;
+use App\Services\Visits\VisitService;
 use App\Support\CompanyContext;
 use Carbon\Carbon;
 use Filament\Pages\Page;
@@ -115,7 +116,7 @@ class Agenda extends Page
     protected function getViewData(): array
     {
         if (! CompanyContext::currentId()) {
-            return ['rows' => collect(), 'summary' => [], 'period' => $this->period(), 'progress' => null];
+            return ['rows' => collect(), 'summary' => [], 'period' => $this->period(), 'progress' => null, 'staleVisits' => collect()];
         }
 
         $period = $this->period();
@@ -141,6 +142,8 @@ class Agenda extends Page
             // Visitas en curso (sin remito): el admin de la empresa las abre en
             // la app para ver sus fotos o descartarlas (el SuperAdmin, no).
             'visitsSlug' => auth()->user()?->isAdmin() ? Company::whereKey(CompanyContext::currentId())->value('slug') : null,
+            // Visitas en curso hace más de 7 días (de cualquier mes): se avisan, nunca se cierran solas.
+            'staleVisits' => app(VisitService::class)->stale(CompanyContext::currentId()),
         ];
     }
 }

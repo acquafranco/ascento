@@ -3,16 +3,15 @@
 namespace App\Filament\Resources\DeliveryNotes\Schemas;
 
 use App\Models\DeliveryNote;
+use App\Services\Visits\WorkPhotoGallery;
 use App\Support\WorkOrderLabels;
-
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Filament\Forms\Components\View;
-use Filament\Forms\Components\TextInput;
 
 class DeliveryNoteForm
 {
@@ -28,21 +27,21 @@ class DeliveryNoteForm
                     ->columnSpanFull()
                     ->schema([
 
-                    Grid::make('1')
-                        ->columnSpanFull()
-                        ->schema([
+                        Grid::make('1')
+                            ->columnSpanFull()
+                            ->schema([
 
-                          TextInput::make('cliente')
-                            ->label('Cliente')
-                            ->disabled()
-                            ->dehydrated(false)
-                            ->afterStateHydrated(function ($component, $record) {
-                                $component->state(
-                                    $record?->building?->client?->name
-                                );
-                            })
+                                TextInput::make('cliente')
+                                    ->label('Cliente')
+                                    ->disabled()
+                                    ->dehydrated(false)
+                                    ->afterStateHydrated(function ($component, $record) {
+                                        $component->state(
+                                            $record?->building?->client?->name
+                                        );
+                                    }),
 
-                        ]),
+                            ]),
 
                         Grid::make(12)
                             ->schema([
@@ -133,23 +132,34 @@ class DeliveryNoteForm
                             ->label('Trabajo realizado'),
                     ]),
 
-
+                // Fotos de antes y después de este trabajo (mantenimiento,
+                // inspección u orden): solo las suyas y de esta empresa.
+                Section::make('Fotos del trabajo')
+                    ->columnSpanFull()
+                    ->visible(fn (?DeliveryNote $record) => $record !== null)
+                    ->schema([
+                        \Filament\Schemas\Components\View::make('filament.partials.work-photos')
+                            ->viewData(fn (?DeliveryNote $record) => [
+                                'photos' => $record ? app(WorkPhotoGallery::class)->forDeliveryNote($record, auth()->user()) : collect(),
+                                'emptyText' => 'Este trabajo no tiene fotos.',
+                            ]),
+                    ]),
 
                 Section::make('Datos de aclaraciones')
                     ->columnSpanFull()
                     ->schema([
 
                         Grid::make(2)
-    ->schema([
+                            ->schema([
 
-        TextInput::make('signature_name')
-            ->label('Aclaración técnico')
-            ->disabled(),
+                                TextInput::make('signature_name')
+                                    ->label('Aclaración técnico')
+                                    ->disabled(),
 
-        TextInput::make('client_signature_name')
-            ->label('Aclaración cliente')
-            ->disabled(),
-    ])
+                                TextInput::make('client_signature_name')
+                                    ->label('Aclaración cliente')
+                                    ->disabled(),
+                            ]),
 
                     ]),
             ]);

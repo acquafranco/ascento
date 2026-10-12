@@ -17,16 +17,11 @@
 
     @include('work-orders.partials.card', ['workOrder' => $workOrder])
 
-    {{-- Fotos de la orden (si la empresa las habilitó, o si ya tiene) --}}
-    @php
-        $woPhotos = \App\Models\VisitPhoto::withoutGlobalScopes()->where('company_id', $workOrder->company_id)->where('work_order_id', $workOrder->id)->count();
-        $woPhotosOn = (bool) \App\Models\Company::find($workOrder->company_id)?->photosEnabledFor('work_order');
-    @endphp
-    @if($woPhotosOn || $woPhotos)
-        <a href="{{ route('work-orders.photos', ['company' => $slug, 'workOrder' => $workOrder->id]) }}" class="t-card mt-3 flex min-h-[52px] items-center justify-between px-4 py-3 font-semibold text-ink" data-work-order-photos>
-            <span>Fotos de antes y después <span class="text-xs font-normal text-ink-500">(opcional)</span></span>
-            <span class="text-sm text-ink-500">{{ $woPhotos }} {{ $woPhotos === 1 ? 'foto' : 'fotos' }} ›</span>
-        </a>
+    {{-- Fotos del trabajo (si la empresa las habilitó para órdenes, o si ya tiene) --}}
+    @if($photoManager)
+        <div class="mt-3" data-work-order-photos>
+            @include('photos.manager', $photoManager)
+        </div>
     @endif
 
     @if($building)
