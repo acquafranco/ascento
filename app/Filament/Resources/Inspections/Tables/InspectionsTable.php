@@ -2,23 +2,25 @@
 
 namespace App\Filament\Resources\Inspections\Tables;
 
-use Filament\Tables\Table;
-use Filament\Tables\Columns\TextColumn;
-use App\Filament\Resources\Inspections\InspectionResource;
 use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
-
+use App\Filament\Support\ClientSharing;
+use Filament\Actions\BulkActionGroup;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Table;
 
 class InspectionsTable
 {
     public static function configure(Table $table): Table
     {
         return $table
+            // Lo más reciente primero (antes no había orden y lo último quedaba en otra página).
+            ->defaultSort('number', 'desc')
             ->columns([
 
                 TextColumn::make('number')
                     ->label('Remito')
                     ->formatStateUsing(
-                        fn ($state) => '#' . str_pad($state, 6, '0', STR_PAD_LEFT)
+                        fn ($state) => '#'.str_pad($state, 6, '0', STR_PAD_LEFT)
                     )
                     ->searchable(),
 
@@ -76,11 +78,11 @@ class InspectionsTable
                     }),
 
             ])
-           ->recordUrl(fn ($record) => DeliveryNoteResource::getUrl('view', [
-            'record' => $record,
-        ]))
+            ->recordUrl(fn ($record) => DeliveryNoteResource::getUrl('view', [
+                'record' => $record,
+            ]))
             // Compartir con el portal del cliente (privado por defecto).
-            ->pushColumns([\App\Filament\Support\ClientSharing::column()])
-            ->pushToolbarActions([\Filament\Actions\BulkActionGroup::make(\App\Filament\Support\ClientSharing::bulkActions())->label('Portal del cliente')]);
+            ->pushColumns([ClientSharing::column()])
+            ->pushToolbarActions([BulkActionGroup::make(ClientSharing::bulkActions())->label('Portal del cliente')]);
     }
 }

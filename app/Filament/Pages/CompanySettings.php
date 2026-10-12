@@ -2,6 +2,10 @@
 
 namespace App\Filament\Pages;
 
+use App\Models\Company;
+use App\Rules\Cuit;
+use App\Support\Help\HelpTopics;
+use App\Support\Provinces;
 use Filament\Forms;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\FileUpload;
@@ -118,8 +122,8 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
                         TextInput::make('cuit')
                             ->label('CUIT')
                             ->maxLength(20)
-                            ->rule(new \App\Rules\Cuit)
-                            ->dehydrateStateUsing(fn (?string $state) => \App\Rules\Cuit::format($state))
+                            ->rule(new Cuit)
+                            ->dehydrateStateUsing(fn (?string $state) => Cuit::format($state))
                             ->placeholder('30-12345678-9')
                             ->prefixIcon('heroicon-o-identification')
                             ->columnSpan(4),
@@ -149,7 +153,7 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
 
                         Forms\Components\Select::make('province')
                             ->label('Provincia')
-                            ->options(\App\Support\Provinces::options())
+                            ->options(Provinces::options())
                             ->searchable()
                             ->columnSpan(2),
 
@@ -202,13 +206,17 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
 
                 // Documentación fotográfica por tipo de trabajo (apagada por defecto).
                 Section::make('Fotos de los trabajos')
-                    ->description('Fotos de antes y después que el técnico carga desde la visita o la orden. Son opcionales para el técnico y nunca las ve el cliente. Apagar un tipo solo impide cargar fotos nuevas: las ya cargadas se conservan y se siguen viendo.')
+                    ->description('Fotos de antes y después que el técnico carga desde la visita o la orden. Vienen apagadas. Cada interruptor se guarda al tocarlo. Son opcionales para el técnico y nunca las ve el cliente. Apagar un tipo solo impide cargar fotos nuevas: las ya cargadas se conservan y se siguen viendo.')
                     ->icon('heroicon-o-camera')
                     ->columns(3)
                     ->schema([
-                        Forms\Components\Toggle::make('photos_maintenance')->label('Mantenimientos'),
-                        Forms\Components\Toggle::make('photos_inspection')->label('Inspecciones'),
-                        Forms\Components\Toggle::make('photos_work_order')->label('Órdenes de trabajo'),
+                        // Se guardan al tocarlos (antes había que bajar hasta
+                        // «Guardar cambios»; si no, el cambio se perdía al salir).
+                        ...collect(['photos_maintenance' => 'Mantenimientos', 'photos_inspection' => 'Inspecciones', 'photos_work_order' => 'Órdenes de trabajo'])
+                            ->map(fn (string $label, string $column) => Forms\Components\Toggle::make($column)->label($label)
+                                ->live()
+                                ->afterStateUpdated(fn ($livewire, $state) => $livewire->savePhotoSetting($column, (bool) $state)))
+                            ->values()->all(),
                     ]),
 
                 Section::make('Apariencia')
@@ -243,6 +251,25 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
                 //             ->columnSpanFull(),
                 //     ]),
             ]);
+    }
+
+    /** Un interruptor de fotos, guardado en el momento (solo el admin de la empresa, solo esas columnas). */
+    public function savePhotoSetting(string $column, bool $on): void
+    {
+        $user = Auth::user();
+
+        abort_unless(in_array($column, Company::PHOTO_SETTINGS, true), 404);
+        abort_if($user->isSuperAdmin() || ! $user->isAdmin() || ! $user->company, 403);
+
+        $user->company->forceFill([$column => $on])->save();
+
+        $label = ['photos_maintenance' => 'mantenimientos', 'photos_inspection' => 'inspecciones', 'photos_work_order' => 'órdenes de trabajo'][$column];
+
+        Notification::make()
+            ->title('Fotos de '.$label.': '.($on ? 'activadas' : 'desactivadas'))
+            ->body($on ? 'El técnico ya ve «Tomar foto» y «Elegir de la galería» en esos trabajos.' : 'No se cargan fotos nuevas de ese tipo; las ya cargadas se conservan.')
+            ->success()
+            ->send();
     }
 
     public function save(): void
@@ -281,14 +308,14 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
     {
         $seen = Auth::user()->helpDismissals()->pluck('key')->flip();
 
-        return collect(\App\Support\Help\HelpTopics::all())
+        return collect(HelpTopics::all())
             ->map(fn ($topic, $key) => ['title' => $topic['title'], 'seen' => $seen->has($key)])
             ->all();
     }
 
     public function resetHelp(string $key): void
     {
-        abort_unless(\App\Support\Help\HelpTopics::exists($key), 404);
+        abort_unless(HelpTopics::exists($key), 404);
 
         Auth::user()->resetHelp($key);
 

@@ -119,7 +119,7 @@ class VisitPhotosTest extends TestCase
         // En A solo está habilitado mantenimiento: inspección no muestra ni acepta cargas.
         $this->a['building']->users()->attach($this->a['technician']->id, ['type' => 'inspection']);
         $page = $this->actingAs($this->a['technician'])->get("/{$this->a['company']->slug}/buildings")->assertOk();
-        $this->assertSame(1, substr_count($page->getContent(), 'data-start-visit'));
+        $this->assertSame(1, substr_count($page->getContent(), 'data-quick-photos-for='));
         $this->start(type: 'inspection')->assertSessionHasErrors('general');
         $this->assertSame(0, BuildingVisit::withoutGlobalScope('completed')->count());
 
@@ -383,7 +383,7 @@ class VisitPhotosTest extends TestCase
             ->assertSee($photo->thumbUrl(), false)->assertDontSee('data-file aria-label', false);
         $this->assertSame($visit->id, DeliveryNote::sole()->building_visit_id);
         // Sin el botón para empezar visitas nuevas con fotos.
-        $this->actingAs($this->a['technician'])->get("/{$this->a['company']->slug}/buildings?month=11&year=2026")->assertDontSee('data-start-visit', false);
+        $this->actingAs($this->a['technician'])->get("/{$this->a['company']->slug}/buildings?month=11&year=2026")->assertDontSee('data-quick-photos-for=', false);
     }
 
     public function test_photos_and_visits_in_progress_never_reach_the_portal_the_public_link_or_the_pdf(): void

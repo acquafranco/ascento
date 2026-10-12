@@ -40,30 +40,32 @@
         </div>
     @endif
 
-    {{-- Fotos del trabajo: se cargan en la visita (o en la orden), no en el remito. Fuera del formulario; el borrador del remito se conserva. --}}
+    {{-- Fotos de antes y después: se suben acá mismo pero NO son parte del remito (quedan en la visita o la orden y no tocan la firma). Fuera del formulario. --}}
     @php
-        $photosOn = (bool) \App\Models\Company::find(auth()->user()->company_id)?->photosEnabledFor($workOrder ? 'work_order' : $assignmentType);
+        $photoType = $workOrder ? 'work_order' : $assignmentType;
+        $photoSections = \App\Models\Company::find(auth()->user()->company_id)?->photosEnabledFor($photoType)
+            ? \App\Models\PhotoSection::forCompany(auth()->user()->company_id)->where('is_active', true)->values()
+            : collect();
         $openForPhotos = $workOrder ? null : ($visitInfo['open_visit'] ?? null);
+        $slugForPhotos = auth()->user()->company->slug;
     @endphp
-    @if($photosOn && ! ($visitInfo['blocked'] ?? null))
-        <section class="t-card mb-4 flex items-center gap-3 p-4" data-remito-photos>
-            <div class="min-w-0 flex-1">
-                <div class="font-semibold text-ink">Fotos del trabajo</div>
-                <p class="text-xs text-ink-500">Antes o después de firmar. Lo que escribiste en el remito queda guardado.</p>
-            </div>
+    @if($photoSections->isNotEmpty() && ! ($visitInfo['blocked'] ?? null))
+        <section class="mb-4" data-remito-photos>
             @if($workOrder)
-                <a href="{{ route('work-orders.show', ['company' => auth()->user()->company->slug, 'workOrder' => $workOrder]) }}#visitPhotos" class="t-btn-secondary t-btn-sm shrink-0"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Fotos</a>
-            @elseif($openForPhotos)
-                <a href="{{ route('visits.show', ['company' => auth()->user()->company->slug, 'visit' => $openForPhotos->id]) }}" class="t-btn-secondary t-btn-sm shrink-0"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Fotos ({{ $visitInfo['open_photos'] }})</a>
+                @include('photos.quick', [
+                    'slug' => $slugForPhotos, 'sections' => $photoSections, 'workOrderId' => $workOrder->id,
+                    'allUrl' => route('work-orders.show', ['company' => $slugForPhotos, 'workOrder' => $workOrder]).'#visitPhotos',
+                    'count' => \App\Models\VisitPhoto::withoutGlobalScopes()->where('company_id', $workOrder->company_id)->where('work_order_id', $workOrder->id)->count(),
+                ])
             @else
-                <form method="POST" action="{{ route('visits.start', ['company' => auth()->user()->company->slug]) }}" class="shrink-0">
-                    @csrf
-                    <input type="hidden" name="building_id" value="{{ $building->id }}">
-                    <input type="hidden" name="assignment_type" value="{{ $assignmentType }}">
-                    <input type="hidden" name="month" value="{{ $month }}">
-                    <input type="hidden" name="year" value="{{ $year }}">
-                    <button type="submit" class="t-btn-secondary t-btn-sm"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Fotos</button>
-                </form>
+                @include('photos.quick', [
+                    'slug' => $slugForPhotos, 'sections' => $photoSections,
+                    'label' => $assignmentType === 'inspection' ? 'Inspección' : 'Mantenimiento',
+                    'visitId' => $openForPhotos?->id,
+                    'start' => ['building_id' => $building->id, 'assignment_type' => $assignmentType, 'month' => (int) $month, 'year' => (int) $year],
+                    'allUrl' => $openForPhotos ? route('visits.show', ['company' => $slugForPhotos, 'visit' => $openForPhotos->id]) : null,
+                    'count' => $visitInfo['open_photos'] ?? 0,
+                ])
             @endif
         </section>
     @endif

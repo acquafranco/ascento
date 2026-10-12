@@ -2,15 +2,18 @@
 
 namespace App\Filament\Resources\Buildings\Pages;
 
+use App\Enums\PlanLimit;
+use App\Filament\Concerns\ShowsPlanUsage;
 use App\Filament\Resources\Buildings\BuildingResource;
+use App\Filament\Resources\Buildings\Tables\BuildingsTable;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 
 class ListBuildings extends ListRecords
 {
-    use \App\Filament\Concerns\ShowsPlanUsage;
+    use ShowsPlanUsage;
 
-    protected static \App\Enums\PlanLimit $planLimit = \App\Enums\PlanLimit::Buildings;
+    protected static PlanLimit $planLimit = PlanLimit::Buildings;
 
     protected static string $resource = BuildingResource::class;
 
@@ -18,6 +21,8 @@ class ListBuildings extends ListRecords
     {
         return [
             $this->planUsageAction(),
+            // Asignación masiva visible sin tener que tildar edificios primero.
+            BuildingsTable::assignAction(),
             CreateAction::make(),
         ];
     }

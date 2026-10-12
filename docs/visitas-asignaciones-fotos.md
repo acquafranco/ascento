@@ -55,6 +55,8 @@
 
 ## Asignación masiva
 
+- **Dónde:** Edificios → botón «Asignar técnicos» arriba de la lista (se eligen los edificios en el primer paso). También tildando edificios y eligiendo «Asignar técnicos» en el menú de seleccionados. Mismo asistente, mismo resumen y mismas validaciones del servidor (hasta 2 de mantenimiento y 1 inspector por edificio; edificios de otra empresa no son opciones válidas y el servicio los ignora).
+
 - **Dónde:** Edificios → tildar varios → «Asignar técnicos».
 - **Paso 1:**
   - tipo (mantenimiento o inspección);
@@ -83,10 +85,12 @@
   2. elegir la parte (sección), si hay más de una;
   3. «Tomar foto» (`<input type="file" accept="image/*" capture="environment">`: en la mayoría de los celulares abre la cámara trasera; si el navegador no soporta `capture`, ofrece elegir) o «Elegir de la galería» (sin `capture`, varias a la vez);
   4. cada foto muestra «Subiendo…», después «✓ Foto guardada en …» o un error con «Reintentar».
-- **Dónde está el botón:**
-  - mantenimiento e inspección: en Visitas, cada edificio tiene el botón «Fotos del trabajo» (abre la visita en curso o la crea); también desde el formulario del remito;
-  - orden de trabajo: dentro de la orden, la sección «Fotos del trabajo».
-  - Solo aparece si la empresa habilitó las fotos para ese tipo de trabajo.
+- **Dónde están los botones (sin cambiar de pantalla)** — `resources/views/photos/quick.blade.php`:
+  - Visitas: en la tarjeta de cada edificio, debajo de «Marcar mantenimiento» / «Marcar inspección», el recuadro «Fotos de mantenimiento» / «Fotos de inspección» con Antes / Después, la parte, «Tomar foto» y «Elegir de la galería». La primera foto abre la visita en curso del período (`POST visits/start` en JSON); el remito después completa esa misma visita.
+  - Trabajos: en la tarjeta de cada orden asignada al técnico, arriba de «Hacer remito y finalizar».
+  - Pantalla del remito (a la que lleva Inicio): el mismo recuadro arriba del formulario, fuera de él (no toca la firma).
+  - Cada recuadro muestra las fotos que se van subiendo con su estado, «✓ Foto guardada», el error con «Reintentar» y «Ver todas (N)» (la visita o la orden con todas sus fotos, observación y equipo).
+  - Solo aparecen si la empresa habilitó las fotos para ese tipo de trabajo y hay trabajo pendiente o una visita en curso. Un trabajo ya hecho conserva «Fotos del trabajo (N)» para ver o agregar fotos después.
 - **Visita en curso:** «Fotos del trabajo» abre la **visita en curso** del período (`building_visits.in_progress`). Abrirla de nuevo, con un doble toque, un reintento u otro técnico, devuelve la misma.
   - La visita en curso ocupa su lugar (identidad única) pero **no cuenta como realizada** ni aparece en el historial, el portal, las planillas ni los indicadores.
   - El remito de ese período **completa esa misma visita**: no se crea otra. Sin visita en curso, el remito crea la visita como siempre.
@@ -116,6 +120,7 @@
 ### Habilitación por tipo de trabajo
 
 - **Dónde:** «Mi empresa» → «Fotos de los trabajos», con tres interruptores (mantenimientos, inspecciones, órdenes de trabajo). Vienen **apagados** para todas las empresas, también las existentes.
+- **Se guardan al tocarlos** (con un aviso «Fotos de …: activadas/desactivadas»). Antes había que bajar hasta «Guardar cambios» y, si no, el cambio se perdía al salir.
 - **Es por empresa**, no global. Sin restricciones por plan.
 - **Apagado:**
   - el técnico no ve controles de carga para ese tipo;

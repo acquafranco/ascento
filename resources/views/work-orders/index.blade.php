@@ -5,6 +5,13 @@
 @php
     $slug = auth()->user()->company->slug;
     $status = request('status');
+    // Fotos de órdenes (si la empresa las habilitó): «Tomar foto» en cada tarjeta.
+    $woPhotoSections = \App\Models\Company::find(auth()->user()->company_id)?->photosEnabledFor('work_order')
+        ? \App\Models\PhotoSection::forCompany(auth()->user()->company_id)->where('is_active', true)->values()
+        : collect();
+    $woPhotoCounts = $woPhotoSections->isEmpty() || $workOrders->isEmpty() ? [] : \App\Models\VisitPhoto::withoutGlobalScopes()
+        ->where('company_id', auth()->user()->company_id)->whereIn('work_order_id', $workOrders->pluck('id'))
+        ->selectRaw('work_order_id, count(*) as total')->groupBy('work_order_id')->pluck('total', 'work_order_id')->all();
     $counts = app(\App\Services\Technicians\TechnicianWorkload::class)->counts(auth()->user());
     $tabs = [
         ['value' => 'pending', 'label' => 'Pendientes', 'count' => $counts['pending']],
@@ -71,7 +78,7 @@
 
     <div class="space-y-3">
         @forelse($workOrders as $workOrder)
-            @include('work-orders.partials.card', ['workOrder' => $workOrder, 'linkToDetail' => true])
+            @include('work-orders.partials.card', ['workOrder' => $workOrder, 'linkToDetail' => true, 'quickPhotos' => ['sections' => $woPhotoSections, 'count' => (int) ($woPhotoCounts[$workOrder->id] ?? 0)]])
         @empty
             <div class="t-empty">
                 <p class="font-semibold text-ink">
