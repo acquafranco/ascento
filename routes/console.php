@@ -35,6 +35,9 @@ Schedule::command('companies:prune-erased-files')->dailyAt('03:45')->withoutOver
 
 // Recordatorios de la agenda (pendientes desde el día 20, vencidos del mes
 // anterior los días 1 a 5). Cada aviso sale una sola vez por mes.
+// Recordatorios de tareas (Etapa 6): cada 5 minutos, uno por tarea y fecha.
+Schedule::command('tasks:remind')->everyFiveMinutes()->withoutOverlapping(10);
+
 Schedule::command('notifications:visits')->dailyAt('08:00')->withoutOverlapping();
 
 // Fotos de visitas subidas para un remito que nunca se firmó (24 h).

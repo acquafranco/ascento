@@ -2,6 +2,9 @@
 
 namespace App\Filament\Resources\StockItems\RelationManagers;
 
+use App\Enums\PermissionArea;
+use App\Filament\Concerns\GuardedRelation;
+use App\Filament\Concerns\OwnerRecordOfCurrentCompany;
 use App\Filament\Resources\StockMovements\StockMovementResource;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Table;
@@ -9,7 +12,15 @@ use Filament\Tables\Table;
 /** Historial de un material (solo lectura). */
 class MovementsRelationManager extends RelationManager
 {
-    use \App\Filament\Concerns\OwnerRecordOfCurrentCompany;
+    use GuardedRelation;
+
+    /** Área de permisos de administrativos (Etapa 6). */
+    public static function permissionArea(): ?PermissionArea
+    {
+        return PermissionArea::Stock;
+    }
+
+    use OwnerRecordOfCurrentCompany;
 
     protected static string $relationship = 'movements';
 

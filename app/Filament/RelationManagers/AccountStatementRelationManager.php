@@ -2,6 +2,9 @@
 
 namespace App\Filament\RelationManagers;
 
+use App\Enums\PermissionArea;
+use App\Filament\Concerns\GuardedRelation;
+use App\Filament\Concerns\OwnerRecordOfCurrentCompany;
 use App\Filament\Resources\Receivables\ReceivableActions;
 use App\Filament\Resources\Receivables\ReceivableResource;
 use App\Models\Building;
@@ -14,7 +17,15 @@ use Filament\Tables\Table;
 /** Cuenta corriente / estado de cuenta de un cliente o edificio. */
 class AccountStatementRelationManager extends RelationManager
 {
-    use \App\Filament\Concerns\OwnerRecordOfCurrentCompany;
+    use GuardedRelation;
+
+    /** Área de permisos de administrativos (Etapa 6). */
+    public static function permissionArea(): ?PermissionArea
+    {
+        return PermissionArea::Receivables;
+    }
+
+    use OwnerRecordOfCurrentCompany;
 
     protected static string $relationship = 'receivables';
 

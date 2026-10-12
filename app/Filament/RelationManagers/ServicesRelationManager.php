@@ -2,6 +2,9 @@
 
 namespace App\Filament\RelationManagers;
 
+use App\Enums\PermissionArea;
+use App\Filament\Concerns\GuardedRelation;
+use App\Filament\Concerns\OwnerRecordOfCurrentCompany;
 use App\Filament\Resources\MaintenanceServices\MaintenanceServiceResource;
 use App\Models\MaintenanceService;
 use Filament\Actions\Action;
@@ -12,7 +15,15 @@ use Filament\Tables\Table;
 /** Servicios de un cliente o edificio (se gestionan en "Servicios"). */
 class ServicesRelationManager extends RelationManager
 {
-    use \App\Filament\Concerns\OwnerRecordOfCurrentCompany;
+    use GuardedRelation;
+
+    /** Área de permisos de administrativos (Etapa 6). */
+    public static function permissionArea(): ?PermissionArea
+    {
+        return PermissionArea::Receivables;
+    }
+
+    use OwnerRecordOfCurrentCompany;
 
     protected static string $relationship = 'maintenanceServices';
 

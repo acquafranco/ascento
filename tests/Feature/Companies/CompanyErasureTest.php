@@ -114,6 +114,8 @@ class CompanyErasureTest extends TestCase
         $quote = $this->row('quotes', ['company_id' => $c, 'building_id' => $bld, 'client_id' => $client, 'created_by' => $t['admin']->id, ...$now]);
         $this->row('quote_items', ['company_id' => $c, 'quote_id' => $quote, ...$now]);
         $this->row('quote_events', ['company_id' => $c, 'quote_id' => $quote, ...$now]);
+        $this->row('tasks', ['company_id' => $c, 'title' => 'Tarea', 'assigned_to' => $t['admin']->id, 'created_by' => $t['admin']->id, 'client_id' => $client, 'building_id' => $bld, 'quote_id' => $quote, 'work_order_id' => $order, ...$now]);
+        $this->row('client_interactions', ['company_id' => $c, 'client_id' => $client, 'building_id' => $bld, 'quote_id' => $quote, 'type' => 'call', 'result' => 'resolved', 'occurred_at' => now(), 'user_id' => $t['admin']->id, ...$now]);
         $receivable = $this->row('receivables', ['company_id' => $c, 'client_id' => $client, 'building_id' => $bld, 'quote_id' => $quote, 'maintenance_service_id' => $service, ...$now]);
         $this->row('receivable_payments', ['company_id' => $c, 'receivable_id' => $receivable, ...$now]);
         $item = $this->row('stock_items', ['company_id' => $c, ...$now]);

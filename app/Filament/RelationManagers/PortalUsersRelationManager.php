@@ -2,7 +2,9 @@
 
 namespace App\Filament\RelationManagers;
 
+use App\Enums\PermissionArea;
 use App\Enums\PlanFeature;
+use App\Filament\Concerns\GuardedRelation;
 use App\Filament\Concerns\OwnerRecordOfCurrentCompany;
 use App\Models\Building;
 use App\Models\Client;
@@ -38,6 +40,14 @@ use Throwable;
  */
 class PortalUsersRelationManager extends RelationManager
 {
+    use GuardedRelation;
+
+    /** Área de permisos de administrativos (Etapa 6). */
+    public static function permissionArea(): ?PermissionArea
+    {
+        return PermissionArea::Clients;
+    }
+
     use OwnerRecordOfCurrentCompany;
 
     protected static string $relationship = 'portalMemberships';

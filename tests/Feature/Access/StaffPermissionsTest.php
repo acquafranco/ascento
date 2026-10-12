@@ -17,6 +17,7 @@ use App\Filament\Pages\Subscription as SubscriptionPage;
 use App\Filament\Pages\SystemBackups;
 use App\Filament\Resources\Buildings\BuildingResource;
 use App\Filament\Resources\Buildings\Pages\ListBuildings;
+use App\Filament\Resources\ClientInteractions\ClientInteractionResource;
 use App\Filament\Resources\Clients\ClientResource;
 use App\Filament\Resources\Clients\Pages\EditClient;
 use App\Filament\Resources\Companies\CompanyResource;
@@ -32,6 +33,7 @@ use App\Filament\Resources\StaffUsers\StaffUserResource;
 use App\Filament\Resources\StockItems\StockItemResource;
 use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Filament\Resources\Subscriptions\SubscriptionResource;
+use App\Filament\Resources\Tasks\TaskResource;
 use App\Filament\Resources\Users\UserResource;
 use App\Filament\Resources\WorkOrders\WorkOrderResource;
 use App\Filament\Widgets\AdminStats;
@@ -90,6 +92,8 @@ class StaffPermissionsTest extends TestCase
         StockMovementResource::class => PermissionArea::Stock,
         UserResource::class => PermissionArea::Technicians,
         WorkOrderResource::class => PermissionArea::WorkOrders,
+        TaskResource::class => PermissionArea::Tasks,
+        ClientInteractionResource::class => PermissionArea::Contacts,
     ];
 
     private const PAGES = [
@@ -612,6 +616,13 @@ class StaffPermissionsTest extends TestCase
                     continue;
                 }
                 $checked++;
+                // Únicas excepciones declaradas: el responsable completa o reabre SU tarea
+                // (TaskService::setStatus lo verifica en el servidor; ver la prueba de tareas).
+                if (in_array(class_basename($resource).':'.$action->getName(), ['TaskResource:complete', 'TaskResource:reopen'], true)) {
+                    $this->assertSame(PermissionArea::VIEW, ActionGuard::levelOf($action));
+
+                    continue;
+                }
                 $this->assertTrue(ActionGuard::response($action)->denied(), "{$resource}: «{$action->getName()}» se puede ejecutar solo con «ver»");
             }
         }

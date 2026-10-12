@@ -39,6 +39,12 @@ class Client extends Model
         return $this->hasMany(User::class)->where('role', User::ROLE_CLIENT);
     }
 
+    /** Historial de contactos (Etapa 6). */
+    public function interactions(): HasMany
+    {
+        return $this->hasMany(ClientInteraction::class);
+    }
+
     public function buildings(): HasMany
     {
         return $this->hasMany(Building::class);

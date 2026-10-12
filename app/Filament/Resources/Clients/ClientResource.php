@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Clients;
 use App\Enums\PermissionArea;
 use App\Filament\Concerns\GuardedByPermission;
 use App\Filament\RelationManagers\AccountStatementRelationManager;
+use App\Filament\RelationManagers\InteractionsRelationManager;
 use App\Filament\RelationManagers\PortalUsersRelationManager;
 use App\Filament\RelationManagers\ServicesRelationManager;
 use App\Filament\Resources\Clients\Pages\CreateClient;
@@ -64,6 +65,7 @@ class ClientResource extends Resource
             ServicesRelationManager::class,
             AccountStatementRelationManager::class,
             PortalUsersRelationManager::class,
+            InteractionsRelationManager::class,
         ];
     }
 

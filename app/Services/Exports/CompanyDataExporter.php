@@ -5,6 +5,7 @@ namespace App\Services\Exports;
 use App\Models\Building;
 use App\Models\BuildingVisit;
 use App\Models\Client;
+use App\Models\ClientInteraction;
 use App\Models\Company;
 use App\Models\CompanyExport;
 use App\Models\DeliveryNote;
@@ -21,6 +22,7 @@ use App\Models\ReportPhoto;
 use App\Models\ReportVideo;
 use App\Models\StockItem;
 use App\Models\StockMovement;
+use App\Models\Task;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderMaterial;
@@ -332,6 +334,16 @@ class CompanyDataExporter
 
         $this->sheet('Materiales usados', ['Orden ID', 'Material', 'Cantidad', 'Costo unitario', 'Declarado por', 'Descontado del stock'],
             $this->scoped(WorkOrderMaterial::class), fn ($m) => [$m->work_order_id, $this->name('stock', $m->stock_item_id), (float) $m->quantity, $this->money($m->unit_cost), $this->name('users', $m->declared_by) ?? 'Oficina', $m->stock_movement_id !== null]);
+
+        // Tareas y recordatorios, e historial de contactos (Etapa 6).
+        $this->sheet('Tareas', ['ID', 'Título', 'Detalle', 'Prioridad', 'Estado', 'Vence', 'Recordatorio', 'Responsable', 'Creada por', 'Completada', 'Completada por', 'Cliente ID', 'Edificio ID', 'Ascensor ID', 'Presupuesto ID', 'Orden ID'],
+            $this->scoped(Task::class),
+            fn ($t) => [$t->id, $t->title, $t->description, Task::PRIORITIES[$t->priority] ?? $t->priority, Task::STATUSES[$t->status] ?? $t->status, $t->due_at, $t->remind_at,
+                $this->name('users', $t->assigned_to), $this->name('users', $t->created_by), $t->completed_at, $this->name('users', $t->completed_by), $t->client_id, $t->building_id, $t->elevator_id, $t->quote_id, $t->work_order_id]);
+
+        $this->sheet('Historial de contactos', ['ID', 'Fecha', 'Cliente ID', 'Tipo', 'Resultado', 'Observaciones', 'Registró', 'Edificio ID', 'Presupuesto ID', 'Orden ID'],
+            $this->scoped(ClientInteraction::class),
+            fn ($i) => [$i->id, $i->occurred_at, $i->client_id, ClientInteraction::TYPES[$i->type] ?? $i->type, ClientInteraction::RESULTS[$i->result] ?? $i->result, $i->notes, $i->user_name, $i->building_id, $i->quote_id, $i->work_order_id]);
 
         $photoIndex = [];
         // Todos los reportes, también los de inspección (son datos de la empresa, con cualquier plan).

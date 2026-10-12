@@ -2,6 +2,9 @@
 
 namespace App\Filament\Resources\Receivables\RelationManagers;
 
+use App\Enums\PermissionArea;
+use App\Filament\Concerns\GuardedRelation;
+use App\Filament\Concerns\OwnerRecordOfCurrentCompany;
 use App\Models\ReceivablePayment;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
@@ -9,7 +12,15 @@ use Filament\Tables\Table;
 
 class PaymentsRelationManager extends RelationManager
 {
-    use \App\Filament\Concerns\OwnerRecordOfCurrentCompany;
+    use GuardedRelation;
+
+    /** Área de permisos de administrativos (Etapa 6). */
+    public static function permissionArea(): ?PermissionArea
+    {
+        return PermissionArea::Receivables;
+    }
+
+    use OwnerRecordOfCurrentCompany;
 
     protected static string $relationship = 'payments';
 

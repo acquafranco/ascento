@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\Reports\RelationManagers;
 
+use App\Enums\PermissionArea;
+use App\Filament\Concerns\GuardedRelation;
 use App\Filament\Concerns\OwnerRecordOfCurrentCompany;
 use App\Models\ReportPhoto;
 use App\Services\Reports\ReportPhotoService;
@@ -14,6 +16,14 @@ use Filament\Tables\Table;
 /** Fotos del reporte: se ven en grande y se borran (con su archivo). */
 class PhotosRelationManager extends RelationManager
 {
+    use GuardedRelation;
+
+    /** Área de permisos de administrativos (Etapa 6). */
+    public static function permissionArea(): ?PermissionArea
+    {
+        return PermissionArea::Inspections;
+    }
+
     use OwnerRecordOfCurrentCompany;
 
     protected static string $relationship = 'photos';

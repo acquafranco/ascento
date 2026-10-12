@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\MaintenanceServices\RelationManagers;
 
+use App\Enums\PermissionArea;
+use App\Filament\Concerns\GuardedRelation;
 use App\Filament\Concerns\OwnerRecordOfCurrentCompany;
 use App\Models\BuildingVisit;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -15,6 +17,14 @@ use Filament\Tables\Table;
  */
 class VisitsRelationManager extends RelationManager
 {
+    use GuardedRelation;
+
+    /** Área de permisos de administrativos (Etapa 6). */
+    public static function permissionArea(): ?PermissionArea
+    {
+        return PermissionArea::Visits;
+    }
+
     use OwnerRecordOfCurrentCompany;
 
     protected static string $relationship = 'visits';

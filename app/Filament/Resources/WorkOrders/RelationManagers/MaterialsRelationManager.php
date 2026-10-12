@@ -2,6 +2,9 @@
 
 namespace App\Filament\Resources\WorkOrders\RelationManagers;
 
+use App\Enums\PermissionArea;
+use App\Filament\Concerns\GuardedRelation;
+use App\Filament\Concerns\OwnerRecordOfCurrentCompany;
 use App\Models\StockItem;
 use App\Models\WorkOrderMaterial;
 use App\Support\CompanyContext;
@@ -24,7 +27,15 @@ use Filament\Tables\Table;
  */
 class MaterialsRelationManager extends RelationManager
 {
-    use \App\Filament\Concerns\OwnerRecordOfCurrentCompany;
+    use GuardedRelation;
+
+    /** Área de permisos de administrativos (Etapa 6). */
+    public static function permissionArea(): ?PermissionArea
+    {
+        return PermissionArea::WorkOrders;
+    }
+
+    use OwnerRecordOfCurrentCompany;
 
     protected static string $relationship = 'materials';
 

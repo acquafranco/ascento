@@ -293,3 +293,25 @@ Todo eso va en el PR 2. Los administrativos solo existen en las pruebas.
   - descargar PDF y ver el video son enlaces o modales sin acción, así que se permiten con «ver»;
   - «Copiar enlace para el cliente» y «Enviar por WhatsApp» del presupuesto quedan declaradas como «gestionar» (`ActionGuard::managing()`), porque envían.
 - **Registro (corrección del PR 1):** cambios de rol y de permisos con quién, a quién y cuándo (`UserAccessObserver`).
+
+## 13. PR 3 implementado: tareas, recordatorios e historial de contactos
+
+- **Tareas** (Gestión → Tareas, área «Tareas y recordatorios»):
+  - Datos: título, detalle, responsable, prioridad (baja, media, alta, urgente), estado (pendiente, en curso, completada, cancelada), vencimiento, recordatorio y vínculo opcional a cliente, edificio, ascensor, presupuesto u orden. Todo de la misma empresa (`TaskService`).
+  - Pestañas: Mis tareas, Pendientes, Vencidas (con número en el menú), Completadas (quién y cuándo) y Todas. No se borran: se cancelan.
+  - **Responsable:** el dueño o un administrativo vigente con acceso a tareas; nunca un técnico ni otra empresa. Recibe un aviso al ser asignado.
+  - **Recordatorio:** comando `tasks:remind` cada 5 minutos. Avisa una sola vez por tarea y fecha (bajo bloqueo) y vuelve a avisar si se cambia la fecha. Sin responsable, avisa a quien la creó.
+  - **Permisos:** «gestionar» crea, edita, asigna y cambia el estado; el responsable con «ver» puede completar o reabrir la suya (no cancelarla).
+  - Las vencidas aparecen en el Centro de atención.
+- **Historial de contactos** (Gestión → Historial de contactos, y pestaña «Contactos» en la ficha del cliente, área «Historial de contactos»):
+  - Datos: fecha, tipo (llamada, correo, WhatsApp, visita, reunión, nota), resultado (resuelto, requiere seguimiento, esperando respuesta, sin respuesta, informativo), observaciones y quién lo registró, con copia del nombre.
+  - Puede referenciar un edificio del cliente, un presupuesto o una orden, sin copiar sus datos.
+  - No se borra; las correcciones quedan en el registro de actividad.
+- **Corrección del PR 1:** las relaciones dentro de una ficha usaban el área de la ficha. Ahora cada una tiene la suya:
+  - en el cliente, Servicios y Cuenta corriente piden Cobranzas, y Contactos pide Historial de contactos;
+  - los documentos del ascensor piden Documentos;
+  - las visitas del contrato piden Visitas.
+- **Permisos:** guardar el formulario de un administrativo solo cambia las áreas que trae; las demás se conservan.
+- **Integración:** exportación (hojas «Tareas» e «Historial de contactos»), registro de actividad y borrado definitivo de empresas.
+- **Sin límites comerciales nuevos**, en todos los planes.
+- **Para el PR 4:** un administrativo con Clientes en «ver» puede listar clientes pero no abrir la ficha (Clientes no tiene página de solo lectura); hoy ve los contactos desde «Historial de contactos». La ficha CRM de lectura se resuelve en el PR 4.
