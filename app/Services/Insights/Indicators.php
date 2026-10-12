@@ -2,42 +2,112 @@
 
 namespace App\Services\Insights;
 
+use App\Enums\PermissionArea as Area;
 use App\Enums\PlanFeature;
 use App\Models\Building;
 use App\Models\BuildingVisit;
 use App\Models\Client;
 use App\Models\Company;
+use App\Models\DeliveryNote;
 use App\Models\Elevator;
 use App\Models\MaintenanceService;
 use App\Models\Quote;
 use App\Models\Report;
 use App\Models\User;
 use App\Models\WorkOrder;
+use App\Support\Access\Access;
 use App\Support\Plans\PlanGuard;
+use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
 /**
- * Indicadores para el dueño de la empresa. Cada uno responde una pregunta
- * concreta. Solo se calculan las secciones que el plan incluye.
- * Las consultas pasan por el scope de empresa.
+ * Indicadores de la empresa. Cada uno responde una pregunta concreta. Solo
+ * se calculan las secciones que el plan incluye. Las consultas pasan por el
+ * scope de empresa.
+ *
+ * Permisos (Etapa 6, PR 5): cada número declara las áreas de las que sale.
+ * Para un administrativo, un número se calcula SOLO si tiene «ver» en todas
+ * esas áreas; si no, ni se consulta ni se devuelve. El dueño y el SuperAdmin
+ * ven todo, como antes.
  */
 class Indicators
 {
+    /** Primer mes elegible en el selector de período. */
+    public const FIRST_PERIOD = '2024-01';
+
+    private ?User $viewer = null;
+
+    private bool $filtered = false;
+
     public function __construct(
         private MaintenanceAgenda $agenda,
         private FailureAnalysis $failures,
     ) {}
 
-    public function sections(Company $company): array
+    /**
+     * @param  User|null  $user  quién mira (por defecto, el usuario autenticado)
+     * @param  string|null  $period  mes «AAAA-MM» de los indicadores del período (por defecto, el actual)
+     */
+    public function sections(Company $company, ?User $user = null, ?string $period = null): array
     {
         $guard = PlanGuard::for($company);
+        $this->viewer = $user ?? auth()->user();
+        $this->filtered = Access::isStaff($this->viewer);
 
         return [
             'basic' => $this->basic(),
+            'period' => $guard->allows(PlanFeature::CompanyIndicators) ? $this->period($company, self::month($period), $guard->allows(PlanFeature::Quotes)) : null,
             'company' => $guard->allows(PlanFeature::CompanyIndicators) ? $this->company($company, $guard->allows(PlanFeature::Quotes)) : null,
             'advanced' => $guard->allows(PlanFeature::AdvancedIndicators) ? $this->advanced() : null,
         ];
+    }
+
+    /** ¿Puede ver un número que sale de estas áreas? */
+    public function allows(Area ...$areas): bool
+    {
+        if (! $this->filtered) {
+            return true;
+        }
+
+        foreach ($areas as $area) {
+            if (! Access::can($this->viewer, $area)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Mes calendario elegido («AAAA-MM»), en la zona horaria de la
+     * aplicación. Un valor inválido, futuro o anterior a FIRST_PERIOD vuelve
+     * al mes actual.
+     */
+    public static function month(?string $period): Carbon
+    {
+        $current = now()->startOfMonth();
+
+        if (! is_string($period) || ! preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $period)) {
+            return $current;
+        }
+
+        $month = Carbon::createFromFormat('Y-m-d H:i:s', $period.'-01 00:00:00');
+
+        return $month->gt($current) || $month->lt(Carbon::createFromFormat('Y-m-d H:i:s', self::FIRST_PERIOD.'-01 00:00:00')) ? $current : $month;
+    }
+
+    /** Meses del selector, del actual hacia atrás (máximo 24). */
+    public static function periodOptions(): array
+    {
+        $first = Carbon::createFromFormat('Y-m-d H:i:s', self::FIRST_PERIOD.'-01 00:00:00');
+        $options = [];
+
+        for ($m = now()->startOfMonth(); $m->gte($first) && count($options) < 24; $m = $m->copy()->subMonthNoOverflow()) {
+            $options[$m->format('Y-m')] = ucfirst($m->locale('es')->translatedFormat('F Y'));
+        }
+
+        return $options;
     }
 
     private function pct(int|float $part, int|float $total): ?int
@@ -107,62 +177,142 @@ class Indicators
     public function basic(): array
     {
         $now = now();
-        $summary = $this->agenda->summary($now->month, $now->year, 'maintenance');
-        // VISITAS previstas y realizadas, con la misma cuenta que la Agenda y
-        // la app del técnico (MaintenanceAgenda::progress): un edificio
-        // quincenal suma 2, uno trimestral solo en el mes que le toca.
-        $visits = MaintenanceAgenda::progress($this->agenda->rows($now->month, $now->year, 'maintenance'))['maintenance'];
+        $items = [];
 
-        $open = WorkOrder::whereIn('status', ['pending', 'in_progress'])->get(['created_at']);
-        $thisMonth = $this->claims($now->copy()->startOfMonth(), $now);
-        $lastMonthSamePoint = $this->claims($now->copy()->subMonthNoOverflow()->startOfMonth(), $now->copy()->subMonthNoOverflow());
-
-        return [
-            [
+        if ($this->allows(Area::Visits)) {
+            $summary = $this->agenda->summary($now->month, $now->year, 'maintenance');
+            // VISITAS previstas y realizadas, con la misma cuenta que la Agenda y
+            // la app del técnico (MaintenanceAgenda::progress): un edificio
+            // quincenal suma 2, uno trimestral solo en el mes que le toca.
+            $visits = MaintenanceAgenda::progress($this->agenda->rows($now->month, $now->year, 'maintenance'))['maintenance'];
+            $items[] = [
                 'question' => '¿Estamos cumpliendo los mantenimientos de este mes?',
                 'value' => $visits['percent'] !== null ? $visits['percent'].'%' : '—',
                 'context' => "{$visits['done']} de {$visits['expected']} visitas realizadas".($visits['not_done'] ? " · {$visits['not_done']} no realizadas" : '').($summary['unassigned'] ? " · {$summary['unassigned']} sin técnico" : ''),
-            ],
-            [
+            ];
+        }
+
+        if ($this->allows(Area::WorkOrders)) {
+            $open = WorkOrder::whereIn('status', ['pending', 'in_progress'])->get(['created_at']);
+            $items[] = [
                 'question' => '¿Cuánto trabajo tenemos abierto?',
                 'value' => (string) $open->count(),
                 'context' => $open->isEmpty() ? 'No hay órdenes abiertas' : 'Antigüedad promedio: '.round($open->avg(fn ($o) => $o->created_at->diffInDays($now)), 1).' días',
-            ],
-            [
+            ];
+        }
+
+        // Reportes (Inspecciones y reportes) + reclamos (Órdenes de trabajo).
+        if ($this->allows(Area::Inspections, Area::WorkOrders)) {
+            $thisMonth = $this->claims($now->copy()->startOfMonth(), $now);
+            $lastMonthSamePoint = $this->claims($now->copy()->subMonthNoOverflow()->startOfMonth(), $now->copy()->subMonthNoOverflow());
+            $items[] = [
                 'question' => '¿Entran más reclamos que antes?',
                 'value' => (string) $thisMonth,
                 'context' => 'Reportes y reclamos este mes · '.$lastMonthSamePoint.' a esta altura del mes pasado',
-            ],
-        ];
+            ];
+        }
+
+        return $items;
+    }
+
+    /* ------------------------------------- PROFESIONAL (período, Etapa 6) */
+
+    /**
+     * Inspecciones realizadas, edificios atendidos y presupuestos pendientes
+     * (definiciones en docs/etapa-6-diseno.md, sección 8). Un remito es
+     * siempre un documento firmado; «realizado» es performed = true.
+     *
+     * @return array{label: string, items: list<array>}
+     */
+    public function period(Company $company, Carbon $month, bool $withQuotes): array
+    {
+        $start = $month->copy()->startOfMonth();
+        $end = $month->copy()->endOfMonth();
+        $label = ucfirst($start->locale('es')->translatedFormat('F Y'));
+        $items = [];
+
+        // Remitos (Documentos y remitos) firmados en el mes. Empresa explícita
+        // (además del scope global), para que valga igual fuera de un request.
+        $notes = fn () => DeliveryNote::withoutGlobalScopes()->where('company_id', $company->id)->whereBetween('created_at', [$start, $end]);
+
+        if ($this->allows(Area::Documents)) {
+            // Inspección: visita periódica de inspección, u orden de tipo
+            // inspección (también si la orden se borró después: el trabajo se hizo).
+            $inspection = fn ($q) => $q->where('assignment_type', 'inspection')
+                ->orWhere(fn ($o) => $o->where('assignment_type', 'work_order')
+                    ->whereIn('work_order_id', WorkOrder::withoutGlobalScopes()->where('company_id', $company->id)->where('type', 'inspection')->select('id')));
+
+            $done = $notes()->where($inspection)->where('performed', true)->count();
+            $notDone = $notes()->where($inspection)->where('performed', false)->count();
+            $items[] = [
+                'key' => 'inspections_done',
+                'question' => 'Inspecciones realizadas',
+                'value' => (string) $done,
+                'context' => $notDone ? "{$notDone} firmadas como no realizadas (no se cuentan)" : 'en '.$label,
+                'definition' => 'Remitos firmados en el mes de inspecciones periódicas u órdenes de tipo inspección, marcados como realizados. No cuenta visitas previstas, visitas en curso sin remito ni remitos «no realizado».',
+            ];
+
+            $served = $notes()->where('performed', true)->distinct()->count('building_id');
+            $items[] = [
+                'key' => 'buildings_served',
+                'question' => 'Edificios atendidos',
+                'value' => (string) $served,
+                'context' => 'en '.$label,
+                'definition' => 'Edificios distintos con al menos un remito firmado como realizado en el mes (mantenimiento, inspección u orden). No cuenta trabajos solo previstos o no realizados. Incluye edificios desactivados después.',
+            ];
+        }
+
+        if ($withQuotes && $this->allows(Area::Quotes)) {
+            $pending = Quote::withoutGlobalScopes()->where('company_id', $company->id)->whereNull('deleted_at')->awaitingResponse();
+            $items[] = [
+                'key' => 'quotes_pending',
+                'question' => 'Presupuestos pendientes',
+                'value' => (string) (clone $pending)->count(),
+                'context' => '$'.number_format((float) (clone $pending)->sum('amount'), 0, ',', '.').' esperando respuesta · hoy',
+                'definition' => 'Presupuestos enviados, no borrados y vigentes (sin fecha de validez, o con validez hasta hoy o después). Es una foto de hoy: no depende del mes elegido. No cuenta borradores, aprobados, rechazados, anulados ni vencidos.',
+            ];
+        }
+
+        return ['label' => $label, 'items' => $items];
     }
 
     /* ------------------------------------------------- PROFESIONAL (empresa) */
 
     public function company(Company $company, bool $withQuotes): array
     {
+        // Columnas permitidas (cada una con sus áreas); sin ninguna, no hay tabla.
+        $columns = [
+            'maintenance' => $this->allows(Area::Visits),
+            'claims' => $this->allows(Area::Inspections, Area::WorkOrders),
+            'completed' => $this->allows(Area::WorkOrders),
+            'close_days' => $this->allows(Area::WorkOrders),
+        ];
+
         // Evolución de los últimos 6 meses.
-        $months = collect(range(5, 0))->map(function (int $back) {
+        $months = ! in_array(true, $columns, true) ? null : collect(range(5, 0))->map(function (int $back) use ($columns) {
             $start = now()->subMonthsNoOverflow($back)->startOfMonth();
             $end = $start->copy()->endOfMonth();
             // Visitas realizadas sobre previstas (misma cuenta que la Agenda).
-            $visits = MaintenanceAgenda::progress($this->agenda->rows($start->month, $start->year, 'maintenance'))['maintenance'];
+            $visits = $columns['maintenance'] ? MaintenanceAgenda::progress($this->agenda->rows($start->month, $start->year, 'maintenance'))['maintenance'] : null;
 
-            return [
+            return array_intersect_key([
                 'month' => ucfirst($start->locale('es')->translatedFormat('M Y')),
-                'maintenance' => $visits['percent'] !== null ? $visits['percent'].'%' : '—',
-                'claims' => $this->claims($start, $end),
-                'completed' => WorkOrder::where('status', 'completed')->whereBetween('finished_at', [$start, $end])->count(),
-                'close_days' => $this->avgCloseDays($start, $end),
-            ];
+                'maintenance' => $visits ? ($visits['percent'] !== null ? $visits['percent'].'%' : '—') : null,
+                'claims' => $columns['claims'] ? $this->claims($start, $end) : null,
+                'completed' => $columns['completed'] ? WorkOrder::where('status', 'completed')->whereBetween('finished_at', [$start, $end])->count() : null,
+                'close_days' => $columns['close_days'] ? $this->avgCloseDays($start, $end) : null,
+            ], ['month' => true] + array_filter($columns));
         });
 
-        // Técnicos: últimos 90 días.
+        // Técnicos: últimos 90 días (nombres: «Técnicos»; visitas: «Visitas»; órdenes: «Órdenes»).
         $from = now()->subDays(90);
-        // User no tiene scope global de empresa: el filtro va explícito.
-        $technicians = $this->technicianActivity($company, $from);
+        $techColumns = ['visits' => $this->allows(Area::Visits), 'orders' => $this->allows(Area::WorkOrders), 'close_days' => $this->allows(Area::WorkOrders)];
+        $technicians = $this->allows(Area::Technicians) && in_array(true, $techColumns, true)
+            ? $this->technicianActivity($company, $from)->map(fn (array $t) => array_intersect_key($t, ['name' => true] + array_filter($techColumns)))
+            : null;
 
         $quotes = null;
-        if ($withQuotes) {
+        if ($withQuotes && $this->allows(Area::Quotes)) {
             $issued = Quote::where('created_at', '>=', $from)->whereIn('status', [Quote::SENT, Quote::APPROVED, Quote::REJECTED])->get(['status', 'amount']);
             $decided = $issued->whereIn('status', [Quote::APPROVED, Quote::REJECTED]);
             $quotes = [
@@ -175,7 +325,9 @@ class Indicators
         return [
             'evolution' => $months,
             'technicians' => $technicians,
-            'top_failures' => $this->failures->recurrent(90, 1)->take(5),
+            'technician_columns' => array_keys(array_filter($techColumns)),
+            // Reportes y reclamos por ascensor.
+            'top_failures' => $this->allows(Area::Inspections, Area::WorkOrders) ? $this->failures->recurrent(90, 1)->take(5) : null,
             'quotes' => $quotes,
         ];
     }
@@ -195,25 +347,39 @@ class Indicators
         ];
 
         $comparison = collect([
-            $metric('Reportes y reclamos', fn ($a, $b) => $this->claims($a, $b)),
-            $metric('Órdenes completadas', fn ($a, $b) => WorkOrder::where('status', 'completed')->whereBetween('finished_at', [$a, $b])->count()),
-            $metric('Mantenimientos hechos', fn ($a, $b) => BuildingVisit::where('visit_type', 'fixed')->where('assignment_type', 'maintenance')->whereBetween('visited_at', [$a, $b])->count()),
-            $metric('Presupuestos aprobados ($)', fn ($a, $b) => (int) Quote::where('status', Quote::APPROVED)->whereBetween('created_at', [$a, $b])->sum('amount')),
-        ])->map(fn ($m) => $m + ['change' => $this->change($m['now'], $m['before'])]);
+            $this->allows(Area::Inspections, Area::WorkOrders) ? $metric('Reportes y reclamos', fn ($a, $b) => $this->claims($a, $b)) : null,
+            $this->allows(Area::WorkOrders) ? $metric('Órdenes completadas', fn ($a, $b) => WorkOrder::where('status', 'completed')->whereBetween('finished_at', [$a, $b])->count()) : null,
+            $this->allows(Area::Visits) ? $metric('Mantenimientos hechos', fn ($a, $b) => BuildingVisit::where('visit_type', 'fixed')->where('assignment_type', 'maintenance')->whereBetween('visited_at', [$a, $b])->count()) : null,
+            $this->allows(Area::Quotes) ? $metric('Presupuestos aprobados ($)', fn ($a, $b) => (int) Quote::where('status', Quote::APPROVED)->whereBetween('created_at', [$a, $b])->sum('amount')) : null,
+        ])->filter()->map(fn ($m) => $m + ['change' => $this->change($m['now'], $m['before'])])->values();
 
-        // Cartera: ingresos mensualizados de los contratos activos.
-        $services = MaintenanceService::active()->with('client:id,name')->get();
-        $monthly = $services->map(fn ($s) => ['client' => $s->client?->name, 'monthly' => (float) $s->amount / max(1, $s->monthsPerPeriod())]);
-        $total = $monthly->sum('monthly');
-        $byClient = $monthly->groupBy('client')->map(fn ($g) => $g->sum('monthly'))->sortDesc();
+        // Cartera: ingresos mensualizados de los contratos activos (contratos = «Cobranzas»).
+        $portfolio = [];
+        $byClient = collect();
+        $total = 0.0;
+        if ($this->allows(Area::Receivables)) {
+            $services = MaintenanceService::active()->with('client:id,name')->get();
+            $monthly = $services->map(fn ($s) => ['client' => $s->client?->name, 'monthly' => (float) $s->amount / max(1, $s->monthsPerPeriod())]);
+            $total = $monthly->sum('monthly');
+            $byClient = $monthly->groupBy('client')->map(fn ($g) => $g->sum('monthly'))->sortDesc();
+            $portfolio[] = ['question' => '¿Cuánto factura la cartera por mes?', 'value' => '$'.number_format($total, 0, ',', '.'), 'context' => $services->count().' contratos activos (mensualizados)'];
+            $portfolio[] = ['question' => '¿Dependemos de pocos clientes?', 'value' => $total > 0 ? $this->pct($byClient->take(5)->sum(), $total).'%' : '—', 'context' => 'de los ingresos vienen de los 5 clientes principales'];
+        }
 
-        $buildings = Building::count();
-        $withContract = Building::whereHas('maintenanceServices', fn ($q) => $q->where('status', MaintenanceService::ACTIVE))->count();
-        $elevators = Elevator::active()->count();
-        $recurrent = $this->failures->recurrent()->count();
+        if ($this->allows(Area::Buildings, Area::Receivables, Area::Clients)) {
+            $buildings = Building::count();
+            $withContract = Building::whereHas('maintenanceServices', fn ($q) => $q->where('status', MaintenanceService::ACTIVE))->count();
+            $portfolio[] = ['question' => '¿Cuántos edificios no tienen contrato?', 'value' => (string) max(0, $buildings - $withContract), 'context' => "de {$buildings} edificios · ".Client::count().' clientes'];
+        }
+
+        if ($this->allows(Area::Buildings, Area::Inspections, Area::WorkOrders)) {
+            $elevators = Elevator::active()->count();
+            $recurrent = $this->failures->recurrent()->count();
+            $portfolio[] = ['question' => '¿Qué parte de los ascensores falla seguido?', 'value' => $elevators > 0 ? $this->pct($recurrent, $elevators).'%' : '—', 'context' => "{$recurrent} de {$elevators} con ".FailureAnalysis::THRESHOLD.'+ avisos de falla en '.FailureAnalysis::DAYS.' días'];
+        }
 
         // Tendencia de fallas por trimestre (último año).
-        $quarters = collect(range(3, 0))->map(function (int $back) use ($now) {
+        $quarters = ! $this->allows(Area::Inspections, Area::WorkOrders) ? null : collect(range(3, 0))->map(function (int $back) use ($now) {
             $end = $now->copy()->subMonthsNoOverflow($back * 3);
             $start = $end->copy()->subMonthsNoOverflow(3);
 
@@ -222,13 +388,8 @@ class Indicators
 
         return [
             'comparison' => $comparison,
-            'portfolio' => [
-                ['question' => '¿Cuánto factura la cartera por mes?', 'value' => '$'.number_format($total, 0, ',', '.'), 'context' => $services->count().' contratos activos (mensualizados)'],
-                ['question' => '¿Dependemos de pocos clientes?', 'value' => $total > 0 ? $this->pct($byClient->take(5)->sum(), $total).'%' : '—', 'context' => 'de los ingresos vienen de los 5 clientes principales'],
-                ['question' => '¿Cuántos edificios no tienen contrato?', 'value' => (string) max(0, $buildings - $withContract), 'context' => "de {$buildings} edificios · ".Client::count().' clientes'],
-                ['question' => '¿Qué parte de los ascensores falla seguido?', 'value' => $elevators > 0 ? $this->pct($recurrent, $elevators).'%' : '—', 'context' => "{$recurrent} de {$elevators} con ".FailureAnalysis::THRESHOLD.'+ avisos de falla en '.FailureAnalysis::DAYS.' días'],
-            ],
-            'top_clients' => $byClient->take(5)->map(fn ($amount, $client) => ['client' => $client, 'monthly' => $amount, 'share' => $total > 0 ? $this->pct($amount, $total) : null])->values(),
+            'portfolio' => $portfolio,
+            'top_clients' => $this->allows(Area::Receivables) ? $byClient->take(5)->map(fn ($amount, $client) => ['client' => $client, 'monthly' => $amount, 'share' => $total > 0 ? $this->pct($amount, $total) : null])->values() : null,
             'quarters' => $quarters,
         ];
     }

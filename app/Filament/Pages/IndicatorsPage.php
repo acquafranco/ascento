@@ -9,6 +9,7 @@ use App\Services\Insights\Indicators;
 use App\Support\Access\Access;
 use App\Support\Plans\PlanUpsell;
 use Filament\Pages\Page;
+use Livewire\Attributes\Url;
 
 /** Indicadores para el dueño: cada número responde una pregunta. */
 class IndicatorsPage extends Page
@@ -35,6 +36,10 @@ class IndicatorsPage extends Page
 
     protected string $view = 'filament.pages.indicators';
 
+    /** Mes de los indicadores del período («AAAA-MM»); se valida en Indicators::month. */
+    #[Url(as: 'mes')]
+    public ?string $period = null;
+
     public static function canAccess(): bool
     {
         $user = auth()->user();
@@ -52,8 +57,15 @@ class IndicatorsPage extends Page
     {
         $company = PlanUpsell::currentCompany();
 
+        $month = Indicators::month($this->period);
+
         return [
-            'sections' => $company ? app(Indicators::class)->sections($company) : ['basic' => [], 'company' => null, 'advanced' => null],
+            // Calculado para quien mira: un administrativo solo recibe los números de sus áreas.
+            'sections' => $company ? app(Indicators::class)->sections($company, auth()->user(), $month->format('Y-m')) : ['basic' => [], 'period' => null, 'company' => null, 'advanced' => null],
+            'month' => $month->format('Y-m'),
+            'months' => Indicators::periodOptions(),
+            // Los planes son del dueño: a un administrativo no se le ofrece mejorar el plan.
+            'showUpsell' => ! Access::isStaff(auth()->user()),
             'upsell' => [
                 'company' => PlanUpsell::url(feature: PlanFeature::CompanyIndicators),
                 'advanced' => PlanUpsell::url(feature: PlanFeature::AdvancedIndicators),
