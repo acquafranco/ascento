@@ -36,13 +36,18 @@
                     <div class="asc-progress-bar" role="progressbar" aria-label="{{ $label }}: {{ $p['done'] }} de {{ $p['expected'] }} visitas realizadas" aria-valuemin="0" aria-valuemax="{{ $p['expected'] }}" aria-valuenow="{{ $p['done'] }}">
                         <div style="width: {{ $p['expected'] ? min(100, round($p['done'] / $p['expected'] * 100)) : 0 }}%"></div>
                     </div>
+                    <div class="asc-small"><strong>{{ $p['done'] }} de {{ $p['expected'] }}</strong> visitas previstas realizadas</div>
                     <div class="asc-small asc-muted">
                         {{ $p['assigned'] }} {{ $p['assigned'] === 1 ? 'edificio asignado' : 'edificios asignados' }} ·
-                        {{ $p['expected'] }} previstas · {{ $p['done'] }} realizadas · {{ $p['pending'] }} pendientes{{ $p['not_done'] ? ' · '.$p['not_done'].' no realizadas' : '' }}
+                        {{ $p['pending'] }} pendientes{{ $p['not_done'] ? ' (incluye '.$p['not_done'].' no realizadas)' : '' }}
                     </div>
                 </div>
             @endforeach
         </div>
+        <details class="asc-small asc-muted" style="margin: -.25rem 0 .75rem;" data-progress-help>
+            <summary style="cursor: pointer; font-weight: 600;">¿Qué significa cada número?</summary>
+            <p style="margin: .35rem 0 0;"><strong>Edificios asignados:</strong> edificios con técnico para ese trabajo. <strong>Previstas:</strong> visitas que corresponden al mes según la frecuencia de cada edificio (quincenal = 2; trimestral = 1 cada 3 meses; sin equipos = ninguna). <strong>Realizadas:</strong> con remito firmado como realizado. <strong>Pendientes:</strong> previstas que todavía no se completaron (incluye remitos «no realizado» y visitas en curso). Se cuentan visitas, no ascensores. El técnico ve los mismos números para sus edificios.</p>
+        </details>
     @endif
 
     @if($summary)

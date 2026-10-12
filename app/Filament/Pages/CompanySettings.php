@@ -58,6 +58,9 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
             'bank_alias' => $company->bank_alias,
             'logo' => $company->logo,
             'primary_color' => $company->primary_color,
+            'photos_maintenance' => (bool) $company->photos_maintenance,
+            'photos_inspection' => (bool) $company->photos_inspection,
+            'photos_work_order' => (bool) $company->photos_work_order,
             // Los datos de WhatsApp (incluido el access token) NO se cargan
             // acá: todo lo que entra al form viaja al navegador en el estado
             // de Livewire.
@@ -195,6 +198,17 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
                             ->validationMessages(['regex' => 'El CBU tiene 22 números.']),
                         TextInput::make('bank_alias')->label('Alias')->maxLength(40)->regex('/^[A-Za-z0-9.\-]{6,20}$/')
                             ->validationMessages(['regex' => 'El alias tiene entre 6 y 20 letras, números, puntos o guiones.']),
+                    ]),
+
+                // Documentación fotográfica por tipo de trabajo (apagada por defecto).
+                Section::make('Fotos de los trabajos')
+                    ->description('Fotos de antes y después que el técnico carga desde la visita o la orden. Son opcionales para el técnico y nunca las ve el cliente. Apagar un tipo solo impide cargar fotos nuevas: las ya cargadas se conservan y se siguen viendo.')
+                    ->icon('heroicon-o-camera')
+                    ->columns(3)
+                    ->schema([
+                        Forms\Components\Toggle::make('photos_maintenance')->label('Mantenimientos'),
+                        Forms\Components\Toggle::make('photos_inspection')->label('Inspecciones'),
+                        Forms\Components\Toggle::make('photos_work_order')->label('Órdenes de trabajo'),
                     ]),
 
                 Section::make('Apariencia')

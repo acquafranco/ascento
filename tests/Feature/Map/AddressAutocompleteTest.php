@@ -108,7 +108,7 @@ class AddressAutocompleteTest extends TestCase
         $page = Livewire::test(CreateBuilding::class);
         $token = array_key_first($this->searchAs('Cabildo 2040'));
 
-        $page->fillForm(['client_id' => $this->a['building']->client_id])
+        $page->fillForm(['client_id' => $this->a['building']->client_id, 'equipment' => [['kind' => 'elevator', 'machine_type' => 'traction']]])
             ->set('data.address_search', $token)
             ->assertSet('data.name', 'Avenida Cabildo')
             ->assertSet('data.address', '2040')
@@ -132,7 +132,7 @@ class AddressAutocompleteTest extends TestCase
         $page = Livewire::test(CreateBuilding::class);
         $token = array_key_first($this->searchAs('Cabildo 2040'));
 
-        $page->fillForm(['client_id' => $this->a['building']->client_id])
+        $page->fillForm(['client_id' => $this->a['building']->client_id, 'equipment' => [['kind' => 'elevator', 'machine_type' => 'traction']]])
             ->set('data.address_search', $token)
             ->set('data.address', '2100'); // cambió la altura a mano
 

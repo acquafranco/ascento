@@ -150,7 +150,13 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
             // Un edificio restaurado (la migración no crea legajos para los
             // eliminados) recupera los suyos.
-            static::restored(fn (Building $building) => Elevator::syncForBuilding($building));
+            // (Solo si no tiene legajos: con equipos registrados, los contadores
+            // salen de ellos y no se recalculan los legajos desde los contadores.)
+            static::restored(function (Building $building) {
+                if (Elevator::withoutGlobalScopes()->where('building_id', $building->id)->doesntExist()) {
+                    Elevator::syncForBuilding($building);
+                }
+            });
 
             // Se geocodifica después de responder al usuario (no lo demora)
             // y una sola vez por cambio de dirección.
@@ -262,6 +268,35 @@ use Illuminate\Database\Eloquent\SoftDeletes;
         public function visits()
         {
             return $this->hasMany(BuildingVisit::class);
+        }
+
+        /**
+         * ¿Tiene al menos un ascensor o montacargas activo? Sin equipos el
+         * edificio no es candidato a mantenimientos ni inspecciones (no entra
+         * en la Agenda, el progreso ni los recordatorios, y no se puede
+         * registrar una visita periódica). Los contadores salen de los equipos.
+         */
+        public function hasEquipment(): bool
+        {
+            return (int) $this->elevator_count + (int) $this->freight_elevator_count > 0;
+        }
+
+        /**
+         * Recalcula los contadores (ascensores / montacargas) desde los equipos
+         * ACTIVOS registrados. Es la única fuente: el formulario registra
+         * equipos, no cantidades. Sin eventos (no dispara la sincronización de
+         * legajos por contadores).
+         */
+        public static function refreshEquipmentCounts(int $buildingId): void
+        {
+            $counts = Elevator::withoutGlobalScopes()
+                ->where('building_id', $buildingId)->where('is_active', true)
+                ->selectRaw('kind, count(*) as total')->groupBy('kind')->pluck('total', 'kind');
+
+            static::withoutGlobalScopes()->withTrashed()->whereKey($buildingId)->toBase()->update([
+                'elevator_count' => (int) ($counts['elevator'] ?? 0),
+                'freight_elevator_count' => (int) ($counts['freight'] ?? 0),
+            ]);
         }
 
         /** Frecuencias de visitas (historial: cada cambio rige desde su mes). */

@@ -41,6 +41,7 @@ class BuildingColorTest extends TestCase
                 'name' => 'Mitre',
                 'address' => '100',
                 'map_color' => 'verde',
+                'equipment' => [['kind' => 'elevator', 'machine_type' => 'traction']],
             ])
             ->call('create')
             ->assertHasNoFormErrors();

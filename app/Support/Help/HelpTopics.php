@@ -22,7 +22,7 @@ class HelpTopics
         'technicians_intro' => ['Técnicos', null, 'technicians'],
         'clients_intro' => ['Clientes', null, 'clients'],
         'buildings_intro' => ['Edificios', null, 'buildings'],
-        'elevators_intro' => ['Ascensores', 'Cada equipo de tus edificios tiene su legajo: ficha técnica, documentación (planos, manuales, certificados) e historial. Se crean solos con la cantidad de ascensores y montacargas que cargás en el edificio.', null],
+        'elevators_intro' => ['Ascensores', 'Cada equipo de tus edificios tiene su legajo: ficha técnica, documentación (planos, manuales, certificados) e historial. Se registran en el edificio, cada uno con su tipo (ascensor o montacargas) y su tracción.', null],
         'technical_file' => ['Legajo técnico', 'Arriba está la ficha técnica del equipo (fabricante, modelo, serie, capacidad…). Completala de a poco: con fabricante, modelo, número de serie, año, capacidad y paradas ya queda completa. Abajo, la documentación y el historial.', null],
         'elevator_history' => ['Historial del ascensor', 'Todo lo que pasó con este equipo, del más nuevo al más viejo: reportes, órdenes, presupuestos y los mantenimientos del edificio. No hay que cargar nada: sale solo de lo que ya registran.', null],
         'failure_analysis' => ['Análisis de fallas', 'Cuenta los avisos de falla de este equipo en los últimos 90 días: reportes de los técnicos y reclamos (y cuántos reclamos ya se resolvieron), agrupados por componente. Para que el análisis sea más preciso, elegí el componente afectado al cargar reportes y órdenes.', null],
@@ -37,7 +37,8 @@ class HelpTopics
         'services_intro' => ['Servicios', 'Los contratos de mantenimiento con tus clientes. Cada período genera el cobro solo, y el servicio muestra los mantenimientos e inspecciones que se hicieron.', null],
         'receivables_intro' => ['Cobranzas', 'Lo que te deben tus clientes: cobros de servicios, de presupuestos aprobados y manuales. Registrá los pagos (también parciales) a medida que entran.', null],
         'map_intro' => ['Mapa', null, 'map'],
-        'photo_sections_intro' => ['Secciones de fotos', 'Las partes del equipo que el técnico puede fotografiar antes y después del trabajo al hacer el remito (Pozo, Techo, Sala de máquinas y las que agregues). Hasta 3 fotos por sección en «Antes» y 3 en «Después». Desactivá las que no uses: las fotos ya cargadas se conservan. Las fotos las ven vos y los técnicos de la visita, nunca el cliente.', null],
+        'photo_sections_intro' => ['Secciones de fotos', 'Las partes del equipo que el técnico puede fotografiar antes y después del trabajo, desde la visita o la orden (Pozo, Techo, Sala de máquinas y las que agregues). Las fotos se habilitan por tipo de trabajo en «Mi empresa» (vienen apagadas). Hasta 3 fotos por sección en «Antes» y 3 en «Después». Desactivá las secciones que no uses: las fotos ya cargadas se conservan. Las ven vos y los técnicos de cada trabajo, nunca el cliente.', null],
+        'visit_photos_intro' => ['Fotos de trabajos', 'Todas las fotos de antes y después de tus visitas y órdenes, cargue quien las cargue. Abrilas o descargalas desde acá. Nunca se muestran al cliente, en el enlace público ni en el PDF del remito.', null],
         'attention_center' => ['Centro de atención', 'Solo lo que necesita que hagas algo hoy: mantenimientos vencidos, trabajos trabados, reportes graves, presupuestos por vencer. Si está vacío, está todo en orden.', null],
         'exports_intro' => ['Exportar datos', 'Generá un ZIP con un Excel y los adjuntos de tu empresa para tener tus datos. Se prepara en uno o dos minutos y queda disponible unos días; acá ves quién lo pidió y quién lo descargó.', null],
         'indicators' => ['Indicadores', 'Cada número responde una pregunta sobre tu empresa (¿cumplimos los mantenimientos?, ¿entran más reclamos?). Sirven para mirar la tendencia, no para controlar el día a día.', null],
@@ -113,6 +114,7 @@ class HelpTopics
             'resources.maintenance-services.' => 'services_intro',
             'resources.receivables.' => 'receivables_intro',
             'resources.secciones-de-fotos.' => 'photo_sections_intro',
+            'resources.fotos-de-trabajos.' => 'visit_photos_intro',
         ];
 
         foreach ($map as $needle => $key) {

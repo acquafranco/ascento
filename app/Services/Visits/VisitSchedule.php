@@ -20,7 +20,8 @@ use Illuminate\Support\Collection;
  * - Una visita cuenta en el período que contiene su mes (month/year).
  * - Realizada: tiene remito y NO está marcado "no realizado" (o es una
  *   visita sin remito, como siempre contó). Un remito "no realizado" ocupa
- *   su lugar pero no cuenta como realizada.
+ *   su lugar pero no cuenta como realizada. Una visita "en curso" (abierta
+ *   para cargar fotos, todavía sin remito) ocupa su lugar y está pendiente.
  * - Solo cuentan las visitas con identidad (period_key): los duplicados
  *   históricos sin clave nunca se cuentan dos veces.
  * - Frecuencias de varios meses: si la visita del período ya se hizo en otro
@@ -132,8 +133,11 @@ final class VisitSchedule
             ->values();
 
         $expected = $period->expected;
-        $done = min($expected, $visits->filter(fn (BuildingVisit $v) => $v->deliveryNote?->performed !== false)->count());
-        $notDone = min($expected - $done, $visits->filter(fn (BuildingVisit $v) => $v->deliveryNote?->performed === false)->count());
+        // Una visita "en curso" (abierta para cargar fotos, sin remito) ocupa
+        // su lugar pero todavía no está realizada: cuenta como pendiente.
+        $closed = $visits->reject(fn (BuildingVisit $v) => $v->in_progress);
+        $done = min($expected, $closed->filter(fn (BuildingVisit $v) => $v->deliveryNote?->performed !== false)->count());
+        $notDone = min($expected - $done, $closed->filter(fn (BuildingVisit $v) => $v->deliveryNote?->performed === false)->count());
         $pending = $expected - $done - $notDone;
 
         $usedSlots = $visits->pluck('slot')->map(fn ($s) => (int) $s)->all();

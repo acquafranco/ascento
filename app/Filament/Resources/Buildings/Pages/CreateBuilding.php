@@ -14,8 +14,23 @@ class CreateBuilding extends CreateRecord
 
     protected static string $resource = BuildingResource::class;
 
+    /** Equipos del formulario (se guardan como legajos, no como columnas del edificio). */
+    protected array $equipment = [];
+
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        $this->equipment = array_values($data['equipment'] ?? []);
+        unset($data['equipment'], $data['equipment_elevators'], $data['equipment_freight']);
+
+        return $data;
+    }
+
     protected function afterCreate(): void
     {
+        // Cada ascensor / montacargas con su tracción; las cantidades salen de ellos.
+        \App\Models\Elevator::syncFromForm($this->record, $this->equipment);
+        $this->record->refresh();
+
         // Dirección elegida del buscador: queda ubicado en el mapa ya mismo.
         app(AddressAutocomplete::class)->applyToBuilding($this->record, $this->data['address_search'] ?? null);
     }

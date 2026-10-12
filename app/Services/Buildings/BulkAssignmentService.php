@@ -84,6 +84,8 @@ class BulkAssignmentService
                 'attach' => [],
                 'detach' => [],
                 'frequency' => $frequency !== null,
+                'frequency_from' => null,
+                'frequency_note' => null,
                 'outcome' => 'unchanged',
                 'reason' => null,
             ];
@@ -94,11 +96,13 @@ class BulkAssignmentService
                 continue;
             }
 
-            // La frecuencia nueva cortaría un período que ya tiene su visita registrada.
-            if ($frequency !== null && ($blocked = $this->plans->blocker($building, $type, $frequency['per_month'], $frequency['every'], $frequency['start']))) {
-                $rows[] = [...$row, 'outcome' => 'skipped', 'frequency' => false, 'reason' => $blocked];
-
-                continue;
+            // Desde qué mes rige de verdad en ESTE edificio: si el mes elegido
+            // cae en medio de un período de varios meses, desde el siguiente.
+            if ($frequency !== null) {
+                $from = $this->plans->effectiveStart($building, $type, $frequency['start']);
+                $row['frequency_from'] = $from->format('Y-m');
+                $row['frequency_note'] = $from->equalTo($frequency['start']->startOfMonth()) ? null
+                    : 'La frecuencia rige desde '.$from->locale('es')->translatedFormat('F Y').' (no corta el período en curso).';
             }
 
             if ($chosen !== []) {
@@ -163,7 +167,7 @@ class BulkAssignmentService
         return hash('sha256', json_encode([
             $plan['type'], $plan['mode'],
             $plan['frequency'] ? [$plan['frequency']['per_month'], $plan['frequency']['every'], $plan['frequency']['start']->format('Y-m')] : null,
-            collect($plan['rows'])->map(fn ($r) => [$r['building_id'], $r['outcome'], $r['attach'], $r['detach'], $r['frequency']])->sortBy(0)->values()->all(),
+            collect($plan['rows'])->map(fn ($r) => [$r['building_id'], $r['outcome'], $r['attach'], $r['detach'], $r['frequency'], $r['frequency_from'] ?? null])->sortBy(0)->values()->all(),
         ]));
     }
 

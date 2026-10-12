@@ -287,6 +287,8 @@ class BuildingsTable
                     ->action(function (array $data, $record, Action $action) {
                         try {
                             [$perMonth, $every, $start] = VisitPlanService::normalize($data['frequency'], $data['every_months'] ?? null, $data['starts_on'] ?? null);
+                            // En medio de un período de varios meses rige desde el siguiente (no lo corta).
+                            $from = app(VisitPlanService::class)->effectiveStart($record, $data['type'], $start);
                             $changed = app(VisitPlanService::class)->set($record, $data['type'], $perMonth, $every, $start);
                         } catch (ValidationException $e) {
                             Notification::make()->title('No se cambió la frecuencia')->body(collect($e->errors())->flatten()->first())->danger()->persistent()->send();
@@ -295,7 +297,8 @@ class BuildingsTable
 
                         Notification::make()
                             ->title($changed ? 'Frecuencia guardada' : 'Sin cambios: ya tenía esa frecuencia')
-                            ->body(\App\Models\BuildingVisitPlan::TYPES[$data['type']].': '.\App\Models\BuildingVisitPlan::labelFor($perMonth, $every).' desde '.mb_strtolower(VisitPlanService::startOptions()[$data['starts_on']]).'.')
+                            ->body(\App\Models\BuildingVisitPlan::TYPES[$data['type']].': '.\App\Models\BuildingVisitPlan::labelFor($perMonth, $every).' desde '.$from->locale('es')->translatedFormat('F Y').'.'
+                                .($from->equalTo($start->startOfMonth()) ? '' : ' El mes elegido cae en medio del período en curso: el cambio rige desde el siguiente período, así no se altera el anterior.'))
                             ->success()
                             ->send();
                     }),
@@ -535,7 +538,7 @@ class BuildingsTable
                 ->default(now()->format('Y-m'))
                 ->visible(fn (Get $get) => filled($get('frequency')) && $get('frequency') !== 'keep')
                 ->required(fn (Get $get) => filled($get('frequency')) && $get('frequency') !== 'keep')
-                ->helperText('Los meses anteriores conservan la frecuencia que tenían. Para frecuencias de varios meses, los períodos se cuentan desde este mes.'),
+                ->helperText('Los meses anteriores conservan la frecuencia que tenían. Si el mes cae en medio de un período de varios meses, el cambio rige desde el período siguiente. Los períodos nuevos se cuentan desde el mes en que rige.'),
         ]));
     }
 }

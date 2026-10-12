@@ -9,6 +9,8 @@ use Filament\Facades\Filament;
 
 trait InteractsWithTenants
 {
+    use MakesSignatures;
+
     /**
      * Crea una empresa completa con un admin, un técnico y un edificio
      * asignado al técnico. Devuelve todo en un array para que cada test
@@ -36,11 +38,5 @@ trait InteractsWithTenants
         Filament::setCurrentPanel(Filament::getPanel('ascensores_app'));
 
         return $this;
-    }
-
-    protected function validSignature(): string
-    {
-        // PNG 1x1 transparente, suficientemente largo para la regla min:100.
-        return 'data:image/png;base64,'.str_repeat('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ', 3);
     }
 }

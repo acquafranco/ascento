@@ -52,6 +52,9 @@ class MaintenanceAgenda
         'unassigned' => 'Sin técnico',
         // Frecuencia de varios meses: la visita del período ya se hizo otro mes.
         'covered' => 'Hecho en el período',
+        // Sin ascensores ni montacargas activos: no se programa ninguna visita
+        // hasta que se registren sus equipos.
+        'no_equipment' => 'Sin equipos',
     ];
 
     /**
@@ -84,7 +87,10 @@ class MaintenanceAgenda
                 }
 
                 $period = $eval['period'];
-                $rowStatus = self::statusFor($eval, $technicians->isNotEmpty());
+                $hasEquipment = $building->hasEquipment();
+                $rowStatus = self::statusFor($eval, $technicians->isNotEmpty(), $hasEquipment);
+                // Sin equipos: no es candidato a visitas (nada previsto ni pendiente).
+                $eval = $hasEquipment ? $eval : [...$eval, 'expected' => 0, 'done' => 0, 'not_done' => 0, 'pending' => 0];
 
                 if ($technicianId && ! $technicians->contains('id', $technicianId) && ! $eval['visits']->contains('user_id', $technicianId)) {
                     continue;
@@ -115,7 +121,7 @@ class MaintenanceAgenda
         }
 
         // Primero lo que requiere acción.
-        $order = ['overdue' => 0, 'not_done' => 1, 'unassigned' => 2, 'pending' => 3, 'upcoming' => 4, 'done' => 5, 'covered' => 6];
+        $order = ['overdue' => 0, 'not_done' => 1, 'unassigned' => 2, 'no_equipment' => 3, 'pending' => 4, 'upcoming' => 5, 'done' => 6, 'covered' => 7];
 
         return $rows->sortBy(fn ($row) => $order[$row['status']].'|'.$row['building']->name)->values();
     }
@@ -124,12 +130,13 @@ class MaintenanceAgenda
      * Estado de una fila (edificio + tipo) a partir de VisitSchedule::evaluate.
      * Lo usan la Agenda y la pantalla de Visitas del técnico: misma regla.
      */
-    public static function statusFor(array $eval, bool $hasTechnicians): string
+    public static function statusFor(array $eval, bool $hasTechnicians, bool $hasEquipment = true): string
     {
         $current = VisitPeriod::index(CarbonImmutable::now()->startOfMonth());
         $period = $eval['period'];
 
         return match (true) {
+            ! $hasEquipment => 'no_equipment',
             $eval['covered'] => 'covered',
             $eval['pending'] === 0 => $eval['done'] >= $eval['expected'] ? 'done' : 'not_done',
             ! $hasTechnicians => 'unassigned',
@@ -140,9 +147,15 @@ class MaintenanceAgenda
     }
 
     /**
-     * Progreso por tipo (y total), contando VISITAS (no máquinas):
-     * asignados = edificios con técnico; previstas = visitas que corresponden
-     * al mes; realizadas + no realizadas + pendientes = previstas.
+     * Progreso por tipo (y total), contando VISITAS (nunca ascensores):
+     * - asignados: EDIFICIOS con técnico asignado (un edificio con
+     *   mantenimiento e inspección cuenta una vez en el total);
+     * - previstas: visitas que corresponden al período según la frecuencia
+     *   real de cada edificio (un edificio quincenal suma 2; uno trimestral
+     *   suma 1 solo en el mes que le toca);
+     * - realizadas: visitas con remito que no está "no realizado";
+     * - pendientes: previstas que todavía no se completaron (incluye las de
+     *   remito "no realizado", que se informan aparte en not_done).
      * Filas: las de rows() o cualquier lista con building_id, type, assigned,
      * expected, done, not_done, pending y elevators.
      *
@@ -156,11 +169,11 @@ class MaintenanceAgenda
             $done = (int) $rows->sum('done');
 
             return [
-                'assigned' => $assigned->map(fn ($r) => $r['building_id'].'|'.$r['type'])->unique()->count(),
+                'assigned' => $assigned->pluck('building_id')->unique()->count(),
                 'expected' => $expected,
                 'done' => $done,
                 'not_done' => (int) $rows->sum('not_done'),
-                'pending' => (int) $rows->sum('pending'),
+                'pending' => max(0, $expected - $done),
                 'percent' => $expected > 0 ? (int) floor($done / $expected * 100) : null,
                 'machines' => (int) $assigned->unique('building_id')->sum('elevators'),
             ];

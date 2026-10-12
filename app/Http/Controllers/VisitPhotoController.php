@@ -2,36 +2,40 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Building;
+use App\Models\BuildingVisit;
 use App\Models\Company;
 use App\Models\VisitPhoto;
+use App\Models\WorkOrder;
+use App\Services\Visits\PhotoTarget;
 use App\Services\Visits\VisitPhotoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Fotos de antes y después de mantenimientos e inspecciones.
+ * Fotos de antes y después de visitas y órdenes de trabajo.
  *
- * - store / destroy: el técnico las sube (o quita) de a una mientras
- *   completa el remito de un edificio que tiene asignado para ese trabajo.
+ * - store / destroy / section: el técnico (o el admin) las carga, quita o
+ *   completa desde la pantalla de la visita o de la orden. Todo se verifica
+ *   en el servidor (empresa, asignación, tipo habilitado, límites).
  * - show: el archivo privado, solo con sesión y permisos (VisitPhoto::
  *   canBeViewedBy). Otra empresa, otro técnico o un id cambiado → 404.
+ *   ?thumb=1 sirve la miniatura; ?download=1 la descarga.
  */
 class VisitPhotoController extends Controller
 {
     public function store(Request $request, Company $company, VisitPhotoService $photos): JsonResponse
     {
-        $user = $request->user();
-
         $data = $request->validate([
-            'batch' => ['required', 'uuid'],
-            'building_id' => ['required', 'integer'],
-            'assignment_type' => ['required', Rule::in(['maintenance', 'inspection'])],
+            'visit_id' => ['required_without:work_order_id', 'nullable', 'integer'],
+            'work_order_id' => ['required_without:visit_id', 'nullable', 'integer'],
             'photo_section_id' => ['required', 'integer'],
             'stage' => ['required', Rule::in(array_keys(VisitPhoto::STAGES))],
+            'notes' => ['nullable', 'string', 'max:500'],
+            'elevator_id' => ['nullable', 'integer'],
             // Identidad de la foto que genera el celular (reintentos sin duplicar).
             'client_key' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9-]+$/'],
             'photo' => ['required', 'file', 'max:'.VisitPhoto::MAX_KB, 'mimes:jpg,jpeg,png,webp,heic,heif'],
@@ -43,15 +47,7 @@ class VisitPhotoController extends Controller
             'photo.mimes' => 'Formato de imagen no permitido. Usá JPG, PNG, WEBP o HEIC.',
         ]);
 
-        // Edificio de SU empresa y asignado a él para ese trabajo (los admins, cualquiera de la empresa).
-        $building = Building::where('company_id', $user->company_id)->findOrFail($data['building_id']);
-        abort_unless((int) $building->company_id === (int) $company->id, 404);
-
-        if (! $user->isAdmin()) {
-            abort_unless($building->users()->where('users.id', $user->id)->wherePivot('type', $data['assignment_type'])->exists(), 403, 'Este edificio no está asignado a vos para este trabajo.');
-        }
-
-        $photo = $photos->stage($user, $building, $data, $request->file('photo'));
+        $photo = $photos->upload($request->user(), $this->target($company, $data), $data, $request->file('photo'));
 
         return response()->json([
             'id' => $photo->id,
@@ -60,16 +56,30 @@ class VisitPhotoController extends Controller
         ], $photo->wasRecentlyCreated ? 201 : 200);
     }
 
-    /** Quitar una foto mientras se completa el remito (después ya es parte del historial). */
+    /** Quitar una foto (solo quien la subió). */
     public function destroy(Request $request, Company $company, VisitPhoto $visitPhoto, VisitPhotoService $photos): JsonResponse
     {
-        abort_unless((int) $visitPhoto->uploaded_by === (int) $request->user()->id && (int) $visitPhoto->company_id === (int) $company->id, 404);
+        abort_unless((int) $visitPhoto->company_id === (int) $company->id, 404);
 
-        // Se vuelve a verificar bajo bloqueo: si el remito se firmó en el
-        // medio, la foto ya es historial y no se borra.
-        abort_unless($photos->discardStaged($visitPhoto, $request->user()), 404);
+        $photos->remove($request->user(), $visitPhoto);
 
         return response()->json(['deleted' => true]);
+    }
+
+    /** Equipo y observación de una sección. */
+    public function section(Request $request, Company $company, VisitPhotoService $photos): JsonResponse
+    {
+        $data = $request->validate([
+            'visit_id' => ['required_without:work_order_id', 'nullable', 'integer'],
+            'work_order_id' => ['required_without:visit_id', 'nullable', 'integer'],
+            'photo_section_id' => ['required', 'integer'],
+            'notes' => ['nullable', 'string', 'max:500'],
+            'elevator_id' => ['nullable', 'integer'],
+        ]);
+
+        $updated = $photos->updateSection($request->user(), $this->target($company, $data), (int) $data['photo_section_id'], $data['notes'] ?? null, $data['elevator_id'] ?? null);
+
+        return response()->json(['updated' => $updated]);
     }
 
     public function show(Request $request, VisitPhoto $visitPhoto): StreamedResponse
@@ -82,11 +92,32 @@ class VisitPhotoController extends Controller
 
         abort_unless($visitPhoto->hasSafePath($path) && Storage::disk('local')->exists($path), 404);
 
-        return Storage::disk('local')->response($path, null, [
+        $headers = [
             'Content-Type' => 'image/jpeg',
             'Cache-Control' => 'private, max-age=3600',
             'X-Content-Type-Options' => 'nosniff',
             'Content-Security-Policy' => "default-src 'none'",
-        ]);
+        ];
+
+        if ($request->boolean('download')) {
+            // Nombre descriptivo sin datos personales: sección, estado e id.
+            $name = 'foto-'.$visitPhoto->id.'-'.Str::slug($visitPhoto->section_name).'-'.($visitPhoto->stage === 'after' ? 'despues' : 'antes').'.jpg';
+
+            return Storage::disk('local')->download($visitPhoto->path, $name, $headers);
+        }
+
+        return Storage::disk('local')->response($path, null, $headers);
+    }
+
+    /** Visita u orden de ESTA empresa (un id ajeno o cambiado → 404). */
+    private function target(Company $company, array $data): PhotoTarget
+    {
+        if (filled($data['visit_id'] ?? null)) {
+            return PhotoTarget::forVisit(BuildingVisit::withoutGlobalScopes()
+                ->where('company_id', $company->id)->findOrFail($data['visit_id']));
+        }
+
+        return PhotoTarget::forWorkOrder(WorkOrder::withoutGlobalScopes()
+            ->where('company_id', $company->id)->whereNull('deleted_at')->findOrFail($data['work_order_id']));
     }
 }

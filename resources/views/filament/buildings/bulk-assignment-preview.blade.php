@@ -58,7 +58,10 @@
                             <div class="asc-bulk-muted">{{ $row['reason'] }}</div>
                         @endif
                         @if($row['frequency'])
-                            <div class="asc-bulk-muted">Frecuencia: {{ $plan['frequency']['label'] }} desde {{ $plan['frequency']['start_label'] }}</div>
+                            <div class="asc-bulk-muted">Frecuencia: {{ $plan['frequency']['label'] }} desde {{ $row['frequency_from'] ? ucfirst(\Carbon\Carbon::createFromFormat('!Y-m', $row['frequency_from'])->locale('es')->translatedFormat('F Y')) : $plan['frequency']['start_label'] }}</div>
+                            @if($row['frequency_note'] ?? null)
+                                <div class="asc-bulk-muted" data-frequency-note>{{ $row['frequency_note'] }}</div>
+                            @endif
                         @endif
                     @endif
                 </div>

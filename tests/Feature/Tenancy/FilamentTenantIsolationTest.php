@@ -168,6 +168,7 @@ class FilamentTenantIsolationTest extends TestCase
                 'client_id' => $this->a['building']->client_id,
                 'name' => 'Edificio Inyectado',
                 'address' => '123',
+                'equipment' => [['kind' => 'elevator', 'machine_type' => 'traction']],
             ])
             ->set('data.company_id', $this->b['company']->id)
             ->call('create')

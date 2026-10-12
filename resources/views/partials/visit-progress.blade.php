@@ -2,8 +2,9 @@
     Progreso de visitas del período (app del técnico: inicio y Visitas).
     Cuenta VISITAS previstas por edificio (MaintenanceAgenda::progress, con
     las reglas de VisitSchedule), separado por mantenimiento e inspección.
-    Realizadas + no realizadas + pendientes = previstas. Las máquinas son
-    solo un dato secundario.
+    Asignados = EDIFICIOS; previstas, realizadas y pendientes = VISITAS
+    (pendientes = previstas − realizadas). Las máquinas son solo un dato
+    secundario: nunca multiplican el progreso.
     $progress (array), $showMachines (bool, opcional)
 --}}
 @php
@@ -27,8 +28,12 @@
                  aria-valuemin="0" aria-valuemax="{{ $p['expected'] }}" aria-valuenow="{{ $p['done'] }}">
                 <div class="h-full rounded-full bg-emerald-500" style="width: {{ $width }}%"></div>
             </div>
-            <dl class="mt-2.5 grid grid-cols-4 gap-1 text-center">
-                <div><dt class="text-[11px] font-semibold text-ink-500">Asignados</dt><dd class="text-base font-bold text-ink">{{ $p['assigned'] }}</dd></div>
+            <p class="mt-1.5 text-xs text-ink-500" data-progress-summary>
+                <strong class="text-ink">{{ $p['done'] }} de {{ $p['expected'] }}</strong> {{ $p['expected'] === 1 ? 'visita prevista realizada' : 'visitas previstas realizadas' }}
+                · {{ $p['assigned'] }} {{ $p['assigned'] === 1 ? 'edificio asignado' : 'edificios asignados' }}
+            </p>
+            <dl class="mt-2 grid grid-cols-4 gap-1 text-center">
+                <div class="rounded-lg bg-ink-50 py-1"><dt class="text-[11px] font-semibold text-ink-500">Edificios</dt><dd class="text-base font-bold text-ink">{{ $p['assigned'] }}</dd></div>
                 <div><dt class="text-[11px] font-semibold text-ink-500">Previstas</dt><dd class="text-base font-bold text-ink">{{ $p['expected'] }}</dd></div>
                 <div><dt class="text-[11px] font-semibold text-ink-500">Realizadas</dt><dd class="text-base font-bold text-emerald-700">{{ $p['done'] }}</dd></div>
                 <div><dt class="text-[11px] font-semibold text-ink-500">Pendientes</dt><dd class="text-base font-bold {{ $p['pending'] ? 'text-amber-700' : 'text-ink' }}">{{ $p['pending'] }}</dd></div>
@@ -37,11 +42,24 @@
                 <p class="mt-1.5 text-xs text-ink-500">Nada previsto este mes: según la frecuencia, ya se visitó en el período.</p>
             @endif
             @if($p['not_done'])
-                <p class="mt-1.5 text-xs font-semibold text-amber-700">{{ $p['not_done'] }} con remito «no realizado»: no cuenta como realizada y la oficina coordina la nueva visita.</p>
+                <p class="mt-1.5 text-xs font-semibold text-amber-700">De las pendientes, {{ $p['not_done'] }} con remito «no realizado»: no cuenta como realizada y la oficina coordina la nueva visita.</p>
             @endif
             @if($showMachines && $p['machines'])
                 <p class="mt-1.5 text-xs text-ink-500">Máquinas en esos edificios: {{ $p['machines'] }}</p>
             @endif
         </div>
     @endforeach
+    <details class="text-xs text-ink-500" data-progress-help>
+        <summary class="inline-flex min-h-[32px] cursor-pointer items-center gap-1 font-semibold text-brand-700">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+            ¿Qué significa cada número?
+        </summary>
+        <dl class="mt-1 space-y-1 rounded-xl bg-white p-3 ring-1 ring-ink-100">
+            <div><dt class="inline font-bold text-ink">Edificios:</dt> <dd class="inline">edificios que tenés asignados para ese trabajo.</dd></div>
+            <div><dt class="inline font-bold text-ink">Previstas:</dt> <dd class="inline">visitas que te corresponden en el período según la frecuencia de cada edificio (quincenal = 2 en el mes; trimestral = 1 cada 3 meses). Un edificio sin equipos no suma.</dd></div>
+            <div><dt class="inline font-bold text-ink">Realizadas:</dt> <dd class="inline">visitas con remito firmado como realizado.</dd></div>
+            <div><dt class="inline font-bold text-ink">Pendientes:</dt> <dd class="inline">previstas que todavía no se completaron (incluye las de remito «no realizado» y las visitas en curso).</dd></div>
+            <div>Se cuentan visitas, no ascensores.</div>
+        </dl>
+    </details>
 </div>

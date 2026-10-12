@@ -21,6 +21,9 @@
     @if(session('success'))
         <div class="t-alert-success mb-4" role="status">{{ session('success') }}</div>
     @endif
+    @if($errors->has('general'))
+        <div class="t-alert-error mb-4" role="alert">{{ $errors->first('general') }}</div>
+    @endif
 
     {{-- Progreso del mes: visitas previstas por edificio (no máquinas) --}}
     <div class="mb-4">
@@ -89,7 +92,10 @@
                             $period = $row['period'] ?? null;
                             $expected = $period?->expected ?? 1;
                             $status = $row['status'] ?? 'pending';
-                            $nextSlot = ($row['visits'] ?? collect())->count() + 1;
+                            $openVisit = ($row['visits'] ?? collect())->first(fn ($v) => $v->in_progress);
+                            $closedVisits = ($row['visits'] ?? collect())->reject(fn ($v) => $v->in_progress);
+                            $nextSlot = $openVisit ? (int) $openVisit->slot : $closedVisits->count() + 1;
+                            $photosOn = in_array($type, $photoTypes, true);
                             $statusChip = ['pending' => ['t-chip-pending', 'Pendiente'], 'overdue' => ['t-chip-failed', 'Vencido'], 'upcoming' => ['t-chip-neutral', 'Próximo']];
                         @endphp
                         <div class="px-4 py-3" data-visit-row="{{ $type }}">
@@ -100,16 +106,37 @@
                                         <p class="text-xs text-ink-500">{{ $period->frequencyLabel() }}{{ $period->isMultiMonth() ? ' · período '.$period->label() : '' }}</p>
                                     @endif
                                 </div>
-                                @if(($row['pending'] ?? 1) > 0)
+                                @if(($row['pending'] ?? 1) > 0 && $status !== 'no_equipment')
                                     <a href="{{ route('delivery-notes.building', ['company' => $slug, 'building' => $building, 'month' => $month, 'year' => $year, 'assignment_type' => $type]) }}"
                                        class="{{ $type === 'maintenance' ? 't-btn-primary' : 't-btn-dark' }} t-btn-sm shrink-0">
-                                        {{ $expected > 1 && $nextSlot > 1 ? 'Marcar '.$nextSlot.'ª visita' : 'Marcar '.mb_strtolower($label) }}
+                                        {{ $openVisit ? 'Hacer remito' : ($expected > 1 && $nextSlot > 1 ? 'Marcar '.$nextSlot.'ª visita' : 'Marcar '.mb_strtolower($label)) }}
                                     </a>
                                 @endif
                             </div>
 
+                            @if($status === 'no_equipment')
+                                <p class="mt-1.5 text-xs font-semibold text-ink-700" data-no-equipment>Sin ascensores ni montacargas registrados: no hay visitas para hacer. Avisale a la oficina.</p>
+                            @endif
+
+                            {{-- Visita en curso (abierta desde acá para cargar fotos) --}}
+                            @if($openVisit)
+                                <div class="mt-1.5 flex flex-wrap items-center gap-2" data-open-visit>
+                                    <span class="t-chip-pending">{{ $expected > 1 ? 'Visita '.$openVisit->slot.': ' : '' }}En curso · sin remito</span>
+                                    <a href="{{ route('visits.show', ['company' => $slug, 'visit' => $openVisit->id]) }}" class="text-xs font-semibold text-brand-700 underline">Fotos ({{ $photoCounts[$openVisit->id] ?? 0 }})</a>
+                                </div>
+                            @elseif($photosOn && ($row['pending'] ?? 0) > 0 && $status !== 'no_equipment')
+                                <form method="POST" action="{{ route('visits.start', ['company' => $slug]) }}" class="mt-1.5">
+                                    @csrf
+                                    <input type="hidden" name="building_id" value="{{ $building->id }}">
+                                    <input type="hidden" name="assignment_type" value="{{ $type }}">
+                                    <input type="hidden" name="month" value="{{ $month }}">
+                                    <input type="hidden" name="year" value="{{ $year }}">
+                                    <button type="submit" class="text-xs font-semibold text-brand-700 underline" data-start-visit>Empezar visita y cargar fotos</button>
+                                </form>
+                            @endif
+
                             {{-- Visitas ya registradas en el período --}}
-                            @foreach(($row['visits'] ?? collect()) as $visit)
+                            @foreach($closedVisits as $visit)
                                 @php $notDone = $visit->deliveryNote?->performed === false; @endphp
                                 <div class="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                                     @if($notDone)
@@ -120,6 +147,9 @@
                                     <span class="text-xs text-ink-500">
                                         {{ $visit->visited_at?->format('d/m') }}{{ ((int) $visit->month !== (int) $month || (int) $visit->year !== (int) $year) ? ' · corresponde a '.\Carbon\Carbon::create($visit->year, $visit->month, 1)->locale('es')->translatedFormat('F') : '' }}{{ $visit->deliveryNote ? ' · Remito #'.$visit->deliveryNote->number : '' }}
                                     </span>
+                                    @if($photosOn || ($photoCounts[$visit->id] ?? 0) > 0)
+                                        <a href="{{ route('visits.show', ['company' => $slug, 'visit' => $visit->id]) }}" class="text-xs font-semibold text-brand-700 underline">Fotos ({{ $photoCounts[$visit->id] ?? 0 }})</a>
+                                    @endif
                                 </div>
                                 @if($notDone)
                                     <p class="mt-1 text-xs text-ink-500">La oficina lo ve y coordina la nueva visita.</p>
@@ -128,7 +158,7 @@
 
                             @if($status === 'covered')
                                 <p class="mt-1.5 text-xs font-semibold text-ink-700">No corresponde visitar este mes: ya se hizo la visita del período. Próxima: {{ $period->end->addMonthNoOverflow()->locale('es')->translatedFormat('F Y') }}.</p>
-                            @elseif(($row['pending'] ?? 1) > 0)
+                            @elseif(($row['pending'] ?? 1) > 0 && ! $openVisit)
                                 @php [$chipClass, $chipLabel] = $statusChip[$status] ?? $statusChip['pending']; @endphp
                                 <div class="mt-1.5 flex flex-wrap items-center gap-2">
                                     <span class="{{ $chipClass }}">{{ $chipLabel }}{{ $expected > 1 ? ': visita '.$nextSlot.' de '.$expected : '' }}</span>
