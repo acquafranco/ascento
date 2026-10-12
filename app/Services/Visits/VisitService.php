@@ -7,6 +7,7 @@ use App\Models\BuildingVisit;
 use App\Models\Company;
 use App\Models\DeliveryNote;
 use App\Models\User;
+use App\Models\VisitPhoto;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -170,6 +171,13 @@ class VisitService
             }
 
             $this->ensureCanWork($user, Building::withoutGlobalScopes()->findOrFail($fresh->building_id), $fresh->assignment_type);
+
+            // Un técnico no borra (al descartar) fotos que cargó otro: misma
+            // regla que quitar una foto. La oficina puede descartarla entera.
+            if (! $user->isAdmin() && VisitPhoto::withoutGlobalScopes()->where('building_visit_id', $fresh->id)
+                ->where(fn ($q) => $q->whereNull('uploaded_by')->orWhere('uploaded_by', '!=', $user->id))->exists()) {
+                throw ValidationException::withMessages(['visit' => 'Esta visita tiene fotos que cargó otra persona: solo la oficina puede descartarla.']);
+            }
 
             $fresh->delete();
         });

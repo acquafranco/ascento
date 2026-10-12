@@ -82,7 +82,8 @@
   - La visita en curso ocupa su lugar (identidad única) pero **no cuenta como realizada** ni aparece en el historial, el portal, las planillas ni los indicadores.
   - El remito de ese período **completa esa misma visita**: no se crea otra. Sin visita en curso, el remito crea la visita como siempre.
   - Las fotos se pueden cargar antes, durante o **después** del remito, desde la pantalla de la visita.
-  - Una visita en curso sin remito se puede descartar con sus fotos.
+  - Una visita en curso sin remito se puede descartar con sus fotos. Un técnico solo puede descartarla si todas sus fotos las cargó él; si hay fotos de otra persona, la descarta la oficina.
+  - La oficina ve las visitas en curso en la Agenda («en curso desde el …, sin remito») con un enlace para abrirlas y descartarlas.
 - **Órdenes de trabajo:** desde la orden, «Fotos de antes y después». Antes del remito quedan colgadas de la orden (`visit_photos.work_order_id`); al firmar, pasan también a la visita de la orden y al remito.
 - **Cada foto se guarda al subirla** (de a una, achicada en el celular), así un error del remito, un reintento o un corte de señal no la pierde.
   - Cada foto lleva una identidad que genera el celular (`client_key`, única por visita y por orden): «Reintentar» tras una respuesta perdida no la duplica.
@@ -99,7 +100,8 @@
   - se orienta y se quitan los datos EXIF/GPS;
   - se achica a 2000 px y se genera una miniatura;
   - se guarda en el disco privado `visits/{empresa}/`.
-- **Quitar una foto:** solo quien la subió; se borran también sus archivos.
+- **Quitar una foto:** solo quien la subió, mientras las fotos de ese tipo estén habilitadas; se borran también sus archivos.
+- **Una foto que termina de subir después de que su visita se descartó** no se guarda (el servidor responde «Esta visita ya no existe») y no deja archivos.
 
 ### Habilitación por tipo de trabajo
 
@@ -108,6 +110,7 @@
 - **Apagado:**
   - el técnico no ve controles de carga para ese tipo;
   - el servidor rechaza cargas nuevas aunque se fuerce la petición;
+  - tampoco se pueden quitar fotos ni cambiar el equipo o la observación de una sección: lo cargado queda como está;
   - las fotos ya cargadas no se borran y las siguen viendo los mismos usuarios;
   - no cambia ninguna visita, remito ni orden.
 - **Una visita tiene un solo tipo de trabajo:** rige el interruptor de ese tipo. Los permisos de un tipo no dan acceso a fotos de otro (un inspector del edificio no ve las fotos del mantenimiento).
@@ -167,7 +170,15 @@
 - **Pendientes:** previstas − realizadas (incluye remitos «no realizado», que se informan aparte, y visitas en curso).
 - **Ejemplo:** 30 edificios asignados, 25 visitas previstas, 15 realizadas → «15 de 25», 60 %.
 - Se cuentan visitas, nunca ascensores.
-- El técnico (Visitas e Inicio) y la Agenda del admin filtrada por ese técnico muestran los mismos números.
+- El técnico (Visitas e Inicio), la Agenda del admin filtrada por ese técnico y los Indicadores del admin («¿Estamos cumpliendo los mantenimientos de este mes?» y la evolución mensual) usan la misma cuenta de visitas (`MaintenanceAgenda::progress`). Antes los Indicadores contaban edificios por estado.
+- **Ejemplos** (un mes, un edificio cada uno):
+  - mensual sin remito: 1 prevista, 0 realizadas, 1 pendiente;
+  - quincenal con 1 remito: 2 previstas, 1 realizada, 1 pendiente;
+  - quincenal con 1 remito y otro «no realizado»: 2 previstas, 1 realizada, 1 pendiente (1 no realizada);
+  - trimestral, con su visita hecha este mes: 1 prevista, 1 realizada; en los otros meses de ese período: 0 previstas («Hecho en el período»);
+  - trimestral sin visita todavía: 1 prevista y pendiente en cada mes del período, hasta que se haga (una sola visita, nunca 3);
+  - con una visita en curso (fotos, sin remito): sigue pendiente;
+  - los cuatro primeros juntos: 6 previstas, 3 realizadas, 3 pendientes (1 de ellas no realizada) → «3 de 6», 50 %.
 - Cada pantalla explica los números con «¿Qué significa cada número?».
 
 ## Firma del remito
@@ -177,7 +188,8 @@
   - un lienzo en blanco o algo que no es una imagen se rechaza;
   - se guarda re-codificada como PNG, sin datos agregados;
   - tolera el leve ruido que algunos navegadores (por ejemplo, Brave) agregan al leer el lienzo.
-- **Si el remito vuelve por otro error**, la firma vuelve cargada: no hay que firmar de nuevo. Solo se reimprime si es una imagen válida.
+- **Si el remito vuelve por otro error**, la firma vuelve cargada: no hay que firmar de nuevo. Solo vuelve si el servidor la considera una firma válida (imagen real con trazo); una en blanco o rechazada no vuelve como «firmada».
+- **Volver atrás** después de enviar (por ejemplo, desde la página de error del navegador sin señal): si el navegador restaura la página desde su caché, el botón «Generar remito» se rehabilita. El token del formulario evita un remito duplicado.
 - **El recuadro de firma** se empaqueta como `resources/js/remito-pad.js`, con un nombre neutro. Si no carga (por ejemplo, porque lo bloquea una extensión), el formulario lo avisa en vez de dejar un recuadro que no dibuja.
 - **Brave:** no se pudo reproducir el problema. Ver «Pruebas manuales pendientes».
 
@@ -193,10 +205,30 @@
 8. Edificios sin equipos: después de migrar, revisar en la Agenda los que figuran «Sin equipos» y cargarles sus equipos (no reciben visitas hasta entonces).
 9. Las fotos quedan apagadas para todas las empresas: cada una las habilita en «Mi empresa».
 
+## Rollback (volver a la versión anterior)
+
+- **No hay pérdida de datos al desplegar.** Las fotos históricas conservan su visita, su remito y su lote; las visitas existentes quedan como realizadas (`in_progress = false`); las empresas que nunca habiliten las fotos no ven ningún cambio salvo los equipos de los edificios.
+- **Un rollback de la migración `2026_11_10_100000` sí puede perder datos nuevos:**
+  - borra los tres interruptores de fotos de cada empresa (al volver a migrar, quedan apagados);
+  - borra `in_progress`: las visitas en curso pasarían a contar como **realizadas** sin remito;
+  - borra `visit_photos.work_order_id`: las fotos de órdenes todavía sin remito quedan sin visita ni orden y **la limpieza diaria las borraría** a las 24 h.
+- **Un rollback solo del código** (sin revertir la migración) tiene dos de esos efectos: el código anterior no conoce `in_progress` (las visitas en curso cuentan como realizadas) y su limpieza borra toda foto sin visita, incluidas las de órdenes sin remito.
+- **Si hiciera falta volver atrás:**
+  1. backup de la base y del disco privado;
+  2. pausar el scheduler (o al menos `visit-photos:prune`);
+  3. en la Agenda, resolver o descartar las visitas «en curso»;
+  4. firmar los remitos de las órdenes con fotos pendientes, o anotar sus ids;
+  5. recién entonces volver el código y, solo si es imprescindible, `migrate:rollback`.
+
 ## Riesgos y decisiones pendientes
 
 - **El técnico elige el mes del remito** (como antes de la etapa), también meses futuros o pasados del año: una visita registrada en un mes futuro cuenta en ese período.
 - **Visitas en curso abandonadas:** quedan como pendientes hasta que se firma el remito o se descartan. No se cierran solas.
+  - No bloquean: el próximo remito del mismo período (de ese técnico o de otro asignado) completa esa misma visita.
+  - Si el período termina sin remito, ese período queda «Vencido» y el siguiente no se ve afectado.
+  - La oficina las ve en la Agenda y las descarta desde ahí.
+  - **Propuesta, no implementada (requiere tu decisión):** que la Agenda y el Centro de atención muestren aparte las visitas en curso de más de N días (por ejemplo 7) para que la oficina las resuelva. **No se propone un cierre automático:** cerrarla como realizada inventaría un trabajo sin remito ni firma, y descartarla sola borraría fotos.
+- **Al completar una visita en curso**, los participantes son los que declara el remito (como siempre); quien la abrió conserva sus fotos y su autoría.
 
 ## Pruebas manuales pendientes
 

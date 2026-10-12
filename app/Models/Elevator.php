@@ -157,6 +157,10 @@ class Elevator extends Model
 
                 $kind = array_key_exists((string) ($item['kind'] ?? ''), self::KINDS) ? $item['kind'] : 'elevator';
                 $number = (int) ($next[$kind] ?? 0) + 1;
+                // Nunca repetir una etiqueta del edificio (activa o no): único en la base.
+                while ($existing->contains('label', self::KINDS[$kind].' '.$number)) {
+                    $number++;
+                }
                 $next[$kind] = $number;
 
                 $elevator = (new static)->forceFill([
