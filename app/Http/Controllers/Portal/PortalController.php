@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Portal;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\DeliveryNoteController;
 use App\Http\Controllers\ReportVideoController;
 use App\Models\Building;
 use App\Models\BuildingVisit;
@@ -13,6 +14,7 @@ use App\Models\Quote;
 use App\Models\Report;
 use App\Models\ReportPhoto;
 use App\Services\Reports\ReportPhotoService;
+use App\Support\DeliveryNotes\DeliveryNoteDocument;
 use App\Support\Portal\PortalAccess;
 use App\Support\Portal\PortalDocuments;
 use Illuminate\Database\Eloquent\Model;
@@ -182,10 +184,27 @@ class PortalController extends Controller
         PortalAccess::ensureShared($request->user(), $deliveryNote, (int) $deliveryNote->building_id);
         $this->markSeen($request, $deliveryNote);
 
-        $unscoped = fn ($q) => $q->withoutGlobalScopes();
-        $deliveryNote->load(['building', 'user', 'workOrder' => $unscoped, 'workOrder.participants', 'workOrder.materials.stockItem', 'buildingVisit.participants']);
+        // Vista propia del portal (sin acciones de la empresa); los datos son
+        // los del remito para el cliente (DeliveryNoteDocument).
+        return view('portal.delivery-note', [
+            'deliveryNote' => $deliveryNote,
+            'doc' => DeliveryNoteDocument::for($this->loadForClient($deliveryNote)),
+        ]);
+    }
 
-        return view('delivery-notes.show', ['deliveryNote' => $deliveryNote, 'portal' => true]);
+    /** PDF del remito para el cliente: mismas reglas que verlo (compartido y edificio autorizado). */
+    public function deliveryNotePdf(Request $request, DeliveryNote $deliveryNote)
+    {
+        PortalAccess::ensureShared($request->user(), $deliveryNote, (int) $deliveryNote->building_id);
+
+        return DeliveryNoteController::pdfResponse($this->loadForClient($deliveryNote));
+    }
+
+    private function loadForClient(DeliveryNote $deliveryNote): DeliveryNote
+    {
+        $unscoped = fn ($q) => $q->withoutGlobalScopes();
+
+        return $deliveryNote->load(['company', 'building' => $unscoped, 'building.client' => $unscoped, 'user', 'workOrder' => $unscoped, 'workOrder.participants', 'workOrder.materials' => $unscoped, 'workOrder.materials.stockItem' => $unscoped, 'buildingVisit' => $unscoped, 'buildingVisit.participants']);
     }
 
     public function report(Request $request, Report $report)

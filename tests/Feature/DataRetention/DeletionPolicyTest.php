@@ -112,12 +112,15 @@ class DeletionPolicyTest extends TestCase
         $this->assertSoftDeleted($this->a['technician']);
         $this->assertHistoryIntact();
 
-        // El remito sigue mostrando quién lo hizo.
+        // El remito sigue mostrando quién lo hizo (en pantalla y en el PDF real).
         $this->actingAs($this->a['admin'])
-            ->get("/{$this->a['company']->slug}/delivery-notes/{$this->note->number}/pdf")
+            ->get("/{$this->a['company']->slug}/delivery-notes/{$this->note->number}")
             ->assertOk()
             ->assertSee($this->a['technician']->name)
             ->assertSee('TRABAJO HISTÓRICO');
+        $pdf = $this->get("/{$this->a['company']->slug}/delivery-notes/{$this->note->number}/pdf")->assertOk();
+        $this->assertSame('application/pdf', $pdf->headers->get('Content-Type'));
+        $this->assertStringStartsWith('%PDF', $pdf->getContent());
     }
 
     public function test_deactivated_technician_can_be_reactivated(): void

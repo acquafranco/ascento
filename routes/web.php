@@ -59,6 +59,9 @@ Route::get(
 
 )->middleware('throttle:60,1')->name('delivery-notes.public');
 
+Route::get('/{company:slug}/public/delivery-notes/{token}/pdf', [DeliveryNoteController::class, 'publicPdf'])
+    ->middleware('throttle:30,1')->name('delivery-notes.public.pdf');
+
 
 /*
 |--------------------------------------------------------------------------
@@ -340,14 +343,15 @@ Route::prefix('{company:slug}')
         ]);
 
 
+        // PDF del remito (solo admins, como antes). Los técnicos comparten el
+        // PDF del enlace público del remito.
+        Route::get('/delivery-notes/{deliveryNote}/pdf', [DeliveryNoteController::class, 'pdf'])
+            ->middleware('throttle:30,1')
+            ->name('delivery-notes.pdf');
 
-        Route::get(
-            '/delivery-notes/{deliveryNote}/pdf',
-            [
-                DeliveryNoteController::class,
-                'pdf'
-            ]
-        )->name('delivery-notes.pdf');
+
+
+
 
 
     });
@@ -414,6 +418,7 @@ Route::prefix('portal')->name('portal.')->middleware(['auth', 'portal'])->group(
     Route::post('/empresa', [\App\Http\Controllers\Portal\PortalController::class, 'switchCompany'])->name('switch-company');
     Route::get('/edificios/{building}', [\App\Http\Controllers\Portal\PortalController::class, 'building'])->whereNumber('building')->name('building');
     Route::get('/remitos/{deliveryNote}', [\App\Http\Controllers\Portal\PortalController::class, 'deliveryNote'])->name('delivery-note');
+    Route::get('/remitos/{deliveryNote}/pdf', [\App\Http\Controllers\Portal\PortalController::class, 'deliveryNotePdf'])->middleware('throttle:30,1')->name('delivery-note-pdf');
     Route::get('/reportes/{report}', [\App\Http\Controllers\Portal\PortalController::class, 'report'])->whereNumber('report')->name('report');
     Route::get('/reportes/{report}/fotos/{photo}', [\App\Http\Controllers\Portal\PortalController::class, 'reportPhoto'])->whereNumber(['report', 'photo'])->name('report-photo');
     Route::get('/reportes/{report}/video', [\App\Http\Controllers\Portal\PortalController::class, 'reportVideo'])->whereNumber('report')->name('report-video');

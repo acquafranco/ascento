@@ -13,6 +13,8 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\Company;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use App\Support\DeliveryNotes\DeliveryNoteDocument;
+use Symfony\Component\HttpFoundation\Response;
 
 class DeliveryNoteController extends Controller
 {
@@ -118,18 +120,40 @@ class DeliveryNoteController extends Controller
             }
         }
 
-        $deliveryNote->load([
-            'building',
-            'user',
-            'workOrder.participants',
-            'workOrder.materials.stockItem',
-            'buildingVisit.participants',
-        ]);
+        $deliveryNote->load(static::RELATIONS);
 
-        return view(
-            'delivery-notes.show',
-            compact('deliveryNote')
-        );
+        return view('delivery-notes.show', [
+            'deliveryNote' => $deliveryNote,
+            'doc' => DeliveryNoteDocument::for($deliveryNote),
+            'audience' => 'internal',
+        ]);
+    }
+
+    /** Lo que muestra el remito (web y PDF). */
+    public const RELATIONS = [
+        'company',
+        'building.client',
+        'user',
+        'workOrder.participants',
+        'workOrder.materials.stockItem',
+        'buildingVisit.participants',
+    ];
+
+    /** PDF real del remito (antes la ruta devolvía la página HTML para imprimir). */
+    public static function pdfResponse(DeliveryNote $deliveryNote): Response
+    {
+        $content = Pdf::loadView('delivery-notes.pdf', ['doc' => DeliveryNoteDocument::for($deliveryNote, pdf: true)])
+            ->setPaper('a4')
+            // Solo los caracteres usados de la fuente: el archivo pasa de ~900 KB a unos pocos.
+            ->setOption('isFontSubsettingEnabled', true)
+            ->output();
+
+        return response($content, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="remito-'.str_pad((string) $deliveryNote->number, 6, '0', STR_PAD_LEFT).'.pdf"',
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     public function createFromBuilding(Request $request, $company, Building $building)
@@ -644,15 +668,9 @@ class DeliveryNoteController extends Controller
         );
     }
 
-    $deliveryNote->load([
-        'building',
-        'user',
-        'workOrder.participants',
-        'workOrder.materials.stockItem',
-        'buildingVisit.participants',
-    ]);
+    $deliveryNote->load(static::RELATIONS);
 
-    return view('delivery-notes.show', compact('deliveryNote'));
+    return static::pdfResponse($deliveryNote);
 }
 
 
@@ -678,7 +696,9 @@ public function showPublic(
     $unscoped = fn ($q) => $q->withoutGlobalScopes();
 
     $deliveryNote->load([
+        'company',
         'building' => $unscoped,
+        'building.client' => $unscoped,
         'user',
         'workOrder' => $unscoped,
         'workOrder.participants',
@@ -690,10 +710,34 @@ public function showPublic(
 
 
     // El remito firmado es un comprobante para el cliente: no se indexa.
-    return response()->view(
-        'delivery-notes.show',
-        compact('deliveryNote')
-    )->header('X-Robots-Tag', 'noindex, nofollow');
+    return response()->view('delivery-notes.show', [
+        'deliveryNote' => $deliveryNote,
+        'doc' => DeliveryNoteDocument::for($deliveryNote),
+        'audience' => 'public',
+        'pdfUrl' => route('delivery-notes.public.pdf', ['company' => $company->slug, 'token' => $token]),
+    ])->header('X-Robots-Tag', 'noindex, nofollow');
+}
+
+/** PDF del enlace público: mismo token, misma empresa (otro token u otra empresa → 404). */
+public function publicPdf(Company $company, string $token): Response
+{
+    $deliveryNote = DeliveryNote::withoutGlobalScopes()->where('public_token', $token)->where('company_id', $company->id)->firstOrFail();
+
+    $unscoped = fn ($q) => $q->withoutGlobalScopes();
+    $deliveryNote->load([
+        'company',
+        'building' => $unscoped,
+        'building.client' => $unscoped,
+        'user',
+        'workOrder' => $unscoped,
+        'workOrder.participants',
+        'workOrder.materials' => $unscoped,
+        'workOrder.materials.stockItem' => $unscoped,
+        'buildingVisit' => $unscoped,
+        'buildingVisit.participants',
+    ]);
+
+    return static::pdfResponse($deliveryNote)->header('X-Robots-Tag', 'noindex, nofollow');
 }
 }
 ?>
