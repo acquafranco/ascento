@@ -106,8 +106,8 @@ class WorkPhotosPlanTest extends TestCase
         foreach (['inicial', 'profesional', 'professional'] as $slug) {
             $this->assertFalse((bool) SubscriptionPlan::findBySlug($slug)?->allows(PlanFeature::WorkPhotos), $slug);
         }
-        // La prueba gratis es Profesional: sin fotos.
-        $this->assertFalse(Company::find($this->a['company']->id)->hasWorkPhotos());
+        // La prueba gratis es Empresa completo: con fotos.
+        $this->assertTrue(Company::find($this->a['company']->id)->hasWorkPhotos());
         $this->assertSame('Empresa', SubscriptionPlan::cheapestWith(PlanFeature::WorkPhotos)->shortName());
     }
 

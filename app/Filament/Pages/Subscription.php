@@ -80,7 +80,7 @@ class Subscription extends Page
         return $company;
     }
 
-    /** Plan vigente de la empresa (en la prueba gratis: Profesional). */
+    /** Plan vigente de la empresa (en la prueba gratis: Empresa). */
     public function getPlan(): SubscriptionPlan
     {
         return $this->company()->plan();

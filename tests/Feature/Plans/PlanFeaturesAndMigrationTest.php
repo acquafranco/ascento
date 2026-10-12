@@ -165,8 +165,10 @@ class PlanFeaturesAndMigrationTest extends TestCase
         $this->assertSame('professional', $subscription->legacy_plan);   // queda el historial
         $this->assertEquals(119000, $subscription->amount);
         $this->assertFalse((bool) SubscriptionPlan::where('slug', 'professional')->value('is_active')); // no se borró
-        $this->assertSame('profesional', $this->a['company']->plan()->slug);
-        $this->assertTrue($this->a['company']->fresh()->hasActiveAccess()); // sigue en su prueba gratis
+        // Sigue en su prueba gratis (checkout sin terminar): usa el plan de prueba, Empresa.
+        $this->assertSame(SubscriptionPlan::TRIAL_PLAN, $this->a['company']->plan()->slug);
+        $this->assertSame('empresa', SubscriptionPlan::TRIAL_PLAN);
+        $this->assertTrue($this->a['company']->fresh()->hasActiveAccess());
     }
 
     public function test_a_subscription_that_mercado_pago_is_charging_keeps_its_amount(): void
@@ -187,8 +189,8 @@ class PlanFeaturesAndMigrationTest extends TestCase
 
     public function test_every_company_always_has_a_valid_plan(): void
     {
-        // Prueba gratis sin suscripción → Profesional.
-        $this->assertSame('profesional', $this->a['company']->plan()->slug);
+        // Prueba gratis sin suscripción → Empresa (plan de prueba).
+        $this->assertSame('empresa', $this->a['company']->plan()->slug);
 
         // Slug desconocido (dato viejo) → Profesional.
         Subscription::create(['company_id' => $this->a['company']->id, 'provider' => 'manual', 'plan' => 'basic', 'status' => 'active', 'current_period_end' => now()->addDays(5)]);

@@ -285,7 +285,7 @@
 
 ## Plan Empresa (funciones fotográficas)
 
-- Fotos de antes y después de mantenimientos y órdenes, reporte de inspección (con o sin fotos) y la consulta de todo eso en el panel son exclusivas del plan **Empresa** (`PlanFeature::WorkPhotos`, migración `2026_11_20_100100`, que solo suma la clave a ese plan). La prueba gratis (Profesional), Inicial y Profesional no las tienen.
+- Fotos de antes y después de mantenimientos y órdenes, reporte de inspección (con o sin fotos) y la consulta de todo eso en el panel son exclusivas del plan **Empresa** (`PlanFeature::WorkPhotos`, migración `2026_11_20_100100`, que solo suma la clave a ese plan). Inicial y Profesional no las tienen. La prueba gratis de 30 días es el plan Empresa completo (`SubscriptionPlan::TRIAL_PLAN`), sin suscripción ni cobro; al vencer sin plan contratado no hay acceso (como siempre) y, contratado un plan, rigen sus funciones. Las funciones fotográficas además exigen acceso vigente.
 - Se verifica en el servidor en cada operación: abrir la visita en curso (`visits/start`), cargar, quitar o anotar fotos, ver el archivo privado (404), reporte de inspección (ver, crear, editar, quitar fotos, PDF: 403/404), listado de Reportes del panel (sin los de inspección) e interruptores de «Mi empresa» (bloqueados). La interfaz además oculta botones y muestra el aviso del plan.
 - Inicial y Profesional siguen con visitas, firmas y remitos como siempre (el remito no pasa por la visita en curso).
 - Cambiar de plan no borra nada: fotos, reportes, archivos e interruptores quedan guardados y vuelven a verse al pasar a Empresa.
@@ -296,3 +296,11 @@
 - Una exportación que se está generando bloquea el borrado. Si una exportación termina después del borrado, su archivo se descarta. Una foto que se estaba procesando no se guarda (su visita ya no existe) y se borra.
 - Red de seguridad: `companies:prune-erased-files` (todos los días a las 03:45) borra las carpetas `visits/`, `reports/`, `elevators/`, `exports/` (y `reports/` del disco público) de ids de empresas que ya no existen. Nunca toca empresas existentes o desactivadas.
 - Una inspección cuyo reporte está en la papelera se puede descartar: el reporte se conserva en la papelera, desvinculado. Un reporte en la papelera no figura como hecho.
+
+## Fotos en el panel
+
+- Miniaturas cuadradas de 110 a 160 px (la miniatura achicada del servidor), iguales para fotos de antes y después y del reporte de inspección. Al tocarlas se abren en un visor centrado que entra en la pantalla (proporción conservada) con «Abrir original» y «Descargar». Los archivos originales no se modifican.
+
+## Exportación de datos
+
+- La hoja «Reportes» incluye todos los reportes, también los de inspección (columnas «Tipo» y «Visita ID»), y sus fotos van en los adjuntos, con cualquier plan.

@@ -24,8 +24,12 @@ class SubscriptionPlan extends Model
 
     public const EMPRESA = 'empresa';
 
-    /** Plan con el que se usa Ascento durante la prueba gratis. */
-    public const TRIAL_PLAN = self::PROFESIONAL;
+    /**
+     * Plan con el que se usa Ascento durante la prueba gratis: Empresa
+     * completo (también fotos y reportes de inspección). No crea ninguna
+     * suscripción ni cobro; al terminar, sin plan contratado no hay acceso.
+     */
+    public const TRIAL_PLAN = self::EMPRESA;
 
     protected $fillable = [
         'name',

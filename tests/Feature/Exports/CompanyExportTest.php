@@ -185,7 +185,8 @@ class CompanyExportTest extends TestCase
         $order = $sheets['Órdenes de trabajo'][1];
         $this->assertSame(['Reclamo', 'Puertas y operador', 'Completado'], [$order[4], $order[5], $order[6]]);
         $this->assertEquals([2, 'Sí'], [$sheets['Materiales usados'][1][2], $sheets['Materiales usados'][1][5]]);
-        $this->assertInstanceOf(\DateTimeInterface::class, $sheets['Reportes'][1][1]); // fechas como fechas
+        $this->assertSame(['ID', 'Tipo', 'Visita ID', 'Fecha'], array_slice($sheets['Reportes'][0], 0, 4));
+        $this->assertInstanceOf(\DateTimeInterface::class, $sheets['Reportes'][1][3]); // fechas como fechas
 
         // Adjuntos de la empresa, con índice.
         $names = collect(range(0, $opened['zip']->numFiles - 1))->map(fn ($i) => $opened['zip']->getNameIndex($i));
@@ -195,6 +196,30 @@ class CompanyExportTest extends TestCase
         $this->assertCount(2, array_filter($sheets['Archivos'], fn ($r) => ($r[2] ?? null) === 'Incluido'));
         $this->assertStringContainsString('No es un backup del servidor', $opened['zip']->getFromName('LEEME.txt'));
         $this->assertSame(array_sum($export->categories), $export->record_count);
+    }
+
+    public function test_inspection_reports_and_their_photos_are_exported_with_any_plan(): void
+    {
+        // Un reporte de inspección (con foto) hecho con el plan Empresa; después, la empresa pasa a Inicial.
+        $inspection = new Report;
+        $inspection->forceFill([
+            'company_id' => $this->a['company']->id, 'user_id' => $this->a['technician']->id, 'building_id' => $this->a['building']->id,
+            'kind' => Report::KIND_INSPECTION, 'building_visit_id' => 999, 'description' => 'Observaciones de inspección exportadas', 'priority' => 'baja', 'status' => 'resuelto',
+        ])->save();
+        app(ReportPhotoService::class)->add($inspection, [UploadedFile::fake()->image('i.jpg', 400, 300)]);
+
+        foreach (['inicial', 'profesional', 'empresa'] as $slug) {
+            $this->giveCompanyPlan($this->a['company'], $slug);
+            $opened = $this->open($this->generate());
+            $row = collect($opened['sheets']['Reportes'])->firstWhere(0, $inspection->id);
+
+            $this->assertNotNull($row, $slug);
+            $this->assertSame(['Inspección', 999], [$row[1], $row[2]], $slug);
+            $this->assertSame('Observaciones de inspección exportadas', $row[11], $slug);
+            $this->assertSame([null, null], [$row[8] ?: null, $row[9] ?: null], $slug); // sin prioridad ni estado de falla
+            $names = collect(range(0, $opened['zip']->numFiles - 1))->map(fn ($i) => $opened['zip']->getNameIndex($i));
+            $this->assertTrue($names->contains(fn ($n) => str_contains($n, 'reporte-'.$inspection->id.'-foto-1')), $slug);
+        }
     }
 
     public function test_no_other_company_data_and_no_secrets(): void

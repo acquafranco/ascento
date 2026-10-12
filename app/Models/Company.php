@@ -127,7 +127,9 @@ class Company extends Model
      */
     public function hasWorkPhotos(): bool
     {
-        return $this->plan()->allows(PlanFeature::WorkPhotos);
+        // También exige acceso vigente: una prueba vencida sin plan contratado
+        // (cuyo plan "resuelto" sigue siendo el de prueba) no las tiene.
+        return $this->plan()->allows(PlanFeature::WorkPhotos) && $this->hasActiveAccess();
     }
 
     /**
@@ -268,7 +270,7 @@ class Company extends Model
      * Plan vigente de la empresa. Nunca devuelve null:
      * - con suscripción: el plan guardado en ella;
      * - en prueba gratis (sin suscripción o con el checkout sin terminar):
-     *   el plan de prueba (Profesional);
+     *   el plan de prueba (Empresa);
      * - si el slug no existe (dato viejo): Profesional, el plan principal.
      */
     public function plan(): SubscriptionPlan

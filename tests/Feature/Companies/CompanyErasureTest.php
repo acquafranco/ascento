@@ -438,6 +438,11 @@ class CompanyErasureTest extends TestCase
         Storage::disk('public')->put("reports/{$idA}/tarde.jpg", 'x');
         // Una empresa desactivada (no eliminada) conserva sus archivos; carpetas que no son de empresas, también.
         Company::find($idB)->delete();
+        $active = Company::factory()->create();
+        foreach (['visits', 'reports', 'elevators', 'exports'] as $root) {
+            Storage::disk('local')->put("{$root}/{$active->id}/activa.jpg", 'x');
+        }
+        Storage::disk('public')->put("reports/{$active->id}/activa.jpg", 'x');
         Storage::disk('local')->put('visits/tmp/otro.jpg', 'x');
 
         $this->artisan('companies:prune-erased-files')->assertSuccessful();
@@ -447,5 +452,10 @@ class CompanyErasureTest extends TestCase
         $this->assertSame([], Storage::disk('public')->allFiles("reports/{$idA}"));
         Storage::disk('local')->assertExists("visits/{$idB}/a.jpg");
         Storage::disk('local')->assertExists('visits/tmp/otro.jpg');
+        foreach (['visits', 'reports', 'elevators', 'exports'] as $root) {
+            Storage::disk('local')->assertExists("{$root}/{$active->id}/activa.jpg");
+            Storage::disk('local')->assertExists("{$root}/{$idB}/".($root === 'visits' ? 'a.jpg' : ''));
+        }
+        Storage::disk('public')->assertExists("reports/{$active->id}/activa.jpg");
     }
 }
