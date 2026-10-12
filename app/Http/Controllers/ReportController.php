@@ -103,6 +103,8 @@ class ReportController extends Controller
         abort_unless($report->company_id === $company->id, 403);
         abort_unless($report->company_id === auth()->user()->company_id, 403);
         abort_unless($report->user_id === Auth::id(), 403);
+        // Un reporte de inspección se ve desde su inspección (y solo con el plan Empresa).
+        abort_if($report->isInspection(), 404);
 
         $report->load([
             'building',

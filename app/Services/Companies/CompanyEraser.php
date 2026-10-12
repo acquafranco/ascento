@@ -3,6 +3,7 @@
 namespace App\Services\Companies;
 
 use App\Models\Company;
+use App\Models\CompanyExport;
 use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -41,6 +42,9 @@ class CompanyEraser
 {
     /** Estados de Mercado Pago que pueden seguir cobrando. */
     private const BILLABLE = [Subscription::PENDING, Subscription::AUTHORIZED, Subscription::PAST_DUE, Subscription::PAUSED];
+
+    /** Carpetas por empresa ({raíz}/{id}/…) en cada disco. */
+    private const COMPANY_DIRECTORIES = [['local', 'visits'], ['local', 'reports'], ['local', 'elevators'], ['local', 'exports'], ['public', 'reports']];
 
     /**
      * Qué se va a borrar (para la confirmación) y qué lo impide.
@@ -92,6 +96,11 @@ class CompanyEraser
             // Bloquea la empresa: nadie la usa mientras se borra.
             abort_unless(DB::table('companies')->where('id', $id)->lockForUpdate()->exists(), 404);
 
+            // Lectura con bloqueo: una exportación que se está tomando en este
+            // momento termina de tomarse antes (y entonces bloquea el borrado)
+            // o espera y ya no encuentra su fila.
+            DB::table('company_exports')->where('company_id', $id)->lockForUpdate()->get(['id']);
+
             $users = $this->companyUsers($id);
             $shared = $this->sharedPortalUsers($id, $users);
 
@@ -135,10 +144,12 @@ class CompanyEraser
     }
 
     /**
-     * Usuarios del portal de esta empresa que también tienen acceso al portal
-     * de OTRA empresa: se conservan (legítimamente compartidos).
+     * Usuarios del portal de esta empresa que también tienen (o tuvieron) un
+     * acceso al portal de OTRA empresa, aunque esté desactivado: se conservan
+     * y quedan en esa otra empresa (primero la de un acceso activo). Así no
+     * se borra ni un acceso desactivado de otra empresa.
      *
-     * @return array<int, int> user_id => company_id donde quedan
+     * @return array<int, array{company_id: int, client_id: int}>
      */
     private function sharedPortalUsers(int $id, array $users): array
     {
@@ -151,12 +162,38 @@ class CompanyEraser
             ->whereIn('portal_memberships.user_id', $users)
             ->where('users.role', User::ROLE_CLIENT)
             ->where('portal_memberships.company_id', '!=', $id)
-            ->whereNull('portal_memberships.deactivated_at')
+            ->orderByRaw('case when portal_memberships.deactivated_at is null then 0 else 1 end')
             ->orderBy('portal_memberships.id')
             ->get(['portal_memberships.user_id', 'portal_memberships.company_id', 'portal_memberships.client_id'])
             ->unique('user_id')
             ->mapWithKeys(fn ($m) => [(int) $m->user_id => ['company_id' => (int) $m->company_id, 'client_id' => (int) $m->client_id]])
             ->all();
+    }
+
+    /**
+     * Filas de OTRA empresa que dependen de un usuario que se borraría: no
+     * se borra nada (ni por cascada) y se informa. Un usuario que no es del
+     * portal nunca se "muda" a otra empresa (ganaría acceso a ella).
+     */
+    private function foreignRowsOf(int $id, array $erased): int
+    {
+        if ($erased === []) {
+            return 0;
+        }
+
+        $direct = collect([['building_visits', 'user_id'], ['delivery_notes', 'user_id'], ['reports', 'user_id'], ['quotes', 'created_by'], ['portal_memberships', 'user_id']])
+            ->sum(fn ($ref) => DB::table($ref[0])->whereIn($ref[1], $erased)->where('company_id', '!=', $id)->count());
+
+        $viaParent = collect([
+            ['building_user', 'building_id', 'buildings'],
+            ['client_portal_buildings', 'building_id', 'buildings'],
+            ['work_order_user', 'work_order_id', 'work_orders'],
+            ['work_order_participants', 'work_order_id', 'work_orders'],
+            ['building_visit_participants', 'building_visit_id', 'building_visits'],
+        ])->sum(fn ($ref) => DB::table($ref[0])->join($ref[2], $ref[2].'.id', '=', $ref[0].'.'.$ref[1])
+            ->whereIn($ref[0].'.user_id', $erased)->where($ref[2].'.company_id', '!=', $id)->count());
+
+        return $direct + $viaParent;
     }
 
     /** @return array<int, string> */
@@ -172,16 +209,15 @@ class CompanyEraser
         }
 
         // Datos de OTRA empresa que dependen de un usuario que se borraría.
-        $erased = array_values(array_diff($users, array_keys($shared)));
+        $foreign = $this->foreignRowsOf($id, array_values(array_diff($users, array_keys($shared))));
 
-        if ($erased !== []) {
-            $foreign = collect([
-                ['building_visits', 'user_id'], ['delivery_notes', 'user_id'], ['reports', 'user_id'], ['quotes', 'created_by'],
-            ])->sum(fn ($ref) => DB::table($ref[0])->whereIn($ref[1], $erased)->where('company_id', '!=', $id)->count());
+        if ($foreign > 0) {
+            $blockers[] = "Hay {$foreign} registros de otra empresa vinculados a usuarios de esta: revisalo antes de eliminarla.";
+        }
 
-            if ($foreign > 0) {
-                $blockers[] = "Hay {$foreign} registros de otra empresa hechos por usuarios de esta: revisalo antes de eliminarla.";
-            }
+        // Una exportación en curso escribiría su archivo después del borrado.
+        if (DB::table('company_exports')->where('company_id', $id)->where('status', CompanyExport::GENERATING)->exists()) {
+            $blockers[] = 'Se está generando una exportación de sus datos: esperá a que termine (uno o dos minutos) y volvé a intentarlo.';
         }
 
         return $blockers;
@@ -329,6 +365,37 @@ class CompanyEraser
         return $files;
     }
 
+    /**
+     * Carpetas privadas o públicas de empresas que ya no existen (por
+     * ejemplo, un archivo que un proceso terminó de escribir justo después
+     * de eliminar la empresa). Solo carpetas con un id numérico de empresa
+     * inexistente (tampoco desactivada): nunca toca otra cosa.
+     *
+     * @return array<int, string> carpetas borradas
+     */
+    public function pruneOrphanFiles(): array
+    {
+        $existing = DB::table('companies')->pluck('id')->map(fn ($id) => (int) $id)->flip();
+        $deleted = [];
+
+        foreach (self::COMPANY_DIRECTORIES as [$disk, $root]) {
+            foreach (Storage::disk($disk)->directories($root) as $directory) {
+                $name = basename($directory);
+
+                if (ctype_digit($name) && (int) $name > 0 && ! $existing->has((int) $name)) {
+                    Storage::disk($disk)->deleteDirectory($directory);
+                    $deleted[] = $disk.':'.$directory;
+                }
+            }
+        }
+
+        if ($deleted !== []) {
+            Log::warning('Archivos de empresas eliminadas borrados', ['directories' => $deleted]);
+        }
+
+        return $deleted;
+    }
+
     private function deleteFiles(int $id, array $files): int
     {
         $deleted = 0;
@@ -344,7 +411,7 @@ class CompanyEraser
         }
 
         // Lo que haya quedado en las carpetas de la empresa (miniaturas, archivos sueltos).
-        foreach ([['local', 'visits'], ['local', 'reports'], ['local', 'elevators'], ['local', 'exports'], ['public', 'reports']] as [$disk, $root]) {
+        foreach (self::COMPANY_DIRECTORIES as [$disk, $root]) {
             $directory = $root.'/'.$id;
 
             if ($id > 0 && Storage::disk($disk)->exists($directory)) {

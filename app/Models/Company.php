@@ -121,14 +121,32 @@ class Company extends Model
     }
 
     /**
-     * ¿Se pueden cargar fotos NUEVAS para este tipo de trabajo? Solo rige para
-     * cargas: las fotos ya cargadas se siguen viendo con los mismos permisos.
+     * ¿El plan incluye las funciones fotográficas (fotos de antes y después,
+     * reporte de inspección y su consulta)? Exclusivas del plan Empresa. Con
+     * otro plan las fotos y reportes ya cargados se conservan, sin acceso.
+     */
+    public function hasWorkPhotos(): bool
+    {
+        // También exige acceso vigente: una prueba vencida sin plan contratado
+        // (cuyo plan "resuelto" sigue siendo el de prueba) no las tiene.
+        return $this->plan()->allows(PlanFeature::WorkPhotos) && $this->hasActiveAccess();
+    }
+
+    /**
+     * ¿Se pueden cargar fotos NUEVAS para este tipo de trabajo? El plan las
+     * incluye y la empresa las habilitó (interruptor de «Mi empresa»).
      */
     public function photosEnabledFor(?string $type): bool
     {
         $column = self::PHOTO_SETTINGS[$type] ?? null;
 
-        return $column !== null && (bool) $this->{$column};
+        return $column !== null && (bool) $this->{$column} && $this->hasWorkPhotos();
+    }
+
+    /** Ver fotos y reportes de inspección de una empresa (por id, sin instancia). */
+    public static function hasWorkPhotosById(?int $companyId): bool
+    {
+        return $companyId !== null && (bool) static::withTrashed()->find($companyId)?->hasWorkPhotos();
     }
 
     public function visitPhotos()
@@ -252,7 +270,7 @@ class Company extends Model
      * Plan vigente de la empresa. Nunca devuelve null:
      * - con suscripción: el plan guardado en ella;
      * - en prueba gratis (sin suscripción o con el checkout sin terminar):
-     *   el plan de prueba (Profesional);
+     *   el plan de prueba (Empresa);
      * - si el slug no existe (dato viejo): Profesional, el plan principal.
      */
     public function plan(): SubscriptionPlan

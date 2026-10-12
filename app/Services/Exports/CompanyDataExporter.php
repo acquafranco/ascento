@@ -334,9 +334,11 @@ class CompanyDataExporter
             $this->scoped(WorkOrderMaterial::class), fn ($m) => [$m->work_order_id, $this->name('stock', $m->stock_item_id), (float) $m->quantity, $this->money($m->unit_cost), $this->name('users', $m->declared_by) ?? 'Oficina', $m->stock_movement_id !== null]);
 
         $photoIndex = [];
-        $this->sheet('Reportes', ['ID', 'Fecha', 'Edificio ID', 'Edificio', 'Equipo', 'Técnico', 'Prioridad', 'Estado', 'Componente', 'Descripción', 'Observaciones', 'Fotos', 'Compartido con el cliente', 'Eliminado'],
+        // Todos los reportes, también los de inspección (son datos de la empresa, con cualquier plan).
+        $this->sheet('Reportes', ['ID', 'Tipo', 'Visita ID', 'Fecha', 'Edificio ID', 'Edificio', 'Equipo', 'Técnico', 'Prioridad', 'Estado', 'Componente', 'Descripción', 'Observaciones', 'Fotos', 'Compartido con el cliente', 'Eliminado'],
             $this->scoped(Report::class, true)->withCount(['photos' => fn ($q) => $q->withoutGlobalScopes()]),
-            fn ($r) => [$r->id, $r->created_at, $r->building_id, $this->name('buildings', $r->building_id), $r->elevator_number, $this->name('users', $r->user_id), $r->priority, $r->status,
+            fn ($r) => [$r->id, Report::KIND_LABELS[$r->kind] ?? 'Falla', $r->building_visit_id, $r->created_at, $r->building_id, $this->name('buildings', $r->building_id), $r->elevator_number, $this->name('users', $r->user_id),
+                $r->isInspection() ? null : $r->priority, $r->isInspection() ? null : $r->status,
                 $r->component ? ElevatorComponents::label($r->component) : null, $r->description, $r->observations, (int) $r->photos_count, (bool) $r->shared_with_client, $r->deleted_at !== null]);
 
         // Fotos de reportes → adjuntos (índice en la hoja "Archivos").

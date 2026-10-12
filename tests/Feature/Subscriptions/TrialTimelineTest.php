@@ -57,7 +57,7 @@ class TrialTimelineTest extends TestCase
         return $this->company->fresh()->hasActiveAccess();
     }
 
-    public function test_day_1_starts_a_30_day_trial_on_the_profesional_plan(): void
+    public function test_day_1_starts_a_30_day_trial_on_the_empresa_plan(): void
     {
         $this->assertSame('2026-10-31 10:00', $this->company->trial_ends_at->format('Y-m-d H:i'));
         $this->assertTrue($this->company->onTrial());

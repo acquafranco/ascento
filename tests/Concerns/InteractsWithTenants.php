@@ -4,6 +4,8 @@ namespace Tests\Concerns;
 
 use App\Models\Building;
 use App\Models\Company;
+use App\Models\Subscription;
+use App\Models\SubscriptionPlan;
 use App\Models\User;
 use Filament\Facades\Filament;
 
@@ -29,6 +31,21 @@ trait InteractsWithTenants
         $building->users()->attach($technician->id, ['type' => 'maintenance']);
 
         return compact('company', 'admin', 'technician', 'building');
+    }
+
+    /**
+     * Pone la empresa en un plan (suscripción manual activa y pagada): por
+     * ejemplo «empresa» para las funciones fotográficas.
+     */
+    protected function giveCompanyPlan(Company $company, string $slug): void
+    {
+        $plan = SubscriptionPlan::findBySlug($slug);
+
+        Subscription::updateOrCreate(['company_id' => $company->id], [
+            'provider' => 'manual', 'plan' => $slug, 'status' => Subscription::ACTIVE,
+            'amount' => $plan?->price ?? 0, 'currency' => 'ARS', 'current_period_end' => now()->addMonth(),
+        ]);
+        $company->forgetPlan();
     }
 
     protected function actingInPanel(User $user): static

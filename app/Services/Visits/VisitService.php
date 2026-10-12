@@ -2,6 +2,7 @@
 
 namespace App\Services\Visits;
 
+use App\Enums\PlanFeature;
 use App\Models\Building;
 use App\Models\BuildingVisit;
 use App\Models\Company;
@@ -9,6 +10,7 @@ use App\Models\DeliveryNote;
 use App\Models\Report;
 use App\Models\User;
 use App\Models\VisitPhoto;
+use App\Support\Plans\PlanGuard;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -93,6 +95,10 @@ class VisitService
         $this->ensureCanWork($user, $building, $type);
 
         $company = Company::findOrFail($building->company_id);
+
+        // La visita en curso existe para las fotos o el reporte de inspección:
+        // exclusivos del plan Empresa (el remito no pasa por acá).
+        PlanGuard::for($company)->ensureFeature(PlanFeature::WorkPhotos);
 
         // Mantenimiento: la visita en curso existe para cargar fotos. Inspección:
         // también para su reporte (observaciones, con o sin fotos), siempre.
@@ -179,10 +185,17 @@ class VisitService
 
             $this->ensureCanWork($user, Building::withoutGlobalScopes()->findOrFail($fresh->building_id), $fresh->assignment_type);
 
-            // El reporte de la inspección es un registro del trabajo: no se borra al descartar.
-            if (Report::withoutGlobalScopes()->withTrashed()->where('building_visit_id', $fresh->id)->exists()) {
-                throw ValidationException::withMessages(['visit' => 'Esta inspección ya tiene un reporte: completá el remito en lugar de descartarla.']);
+            // El reporte de la inspección es un registro del trabajo: con un
+            // reporte vigente no se descarta. Si el reporte está en la papelera,
+            // sí: el reporte se conserva (en la papelera), desvinculado de la
+            // visita que deja de existir.
+            $reports = Report::withoutGlobalScopes()->withTrashed()->where('company_id', $fresh->company_id)->where('building_visit_id', $fresh->id);
+
+            if ((clone $reports)->whereNull('deleted_at')->exists()) {
+                throw ValidationException::withMessages(['visit' => 'Esta inspección ya tiene un reporte: completá el remito en lugar de descartarla (o pedile a la oficina que lo elimine).']);
             }
+
+            (clone $reports)->update(['building_visit_id' => null]);
 
             // Un técnico no borra (al descartar) fotos que cargó otro: misma
             // regla que quitar una foto. La oficina puede descartarla entera.

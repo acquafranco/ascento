@@ -2,9 +2,11 @@
 
 namespace App\Filament\Pages;
 
+use App\Enums\PlanFeature;
 use App\Models\Company;
 use App\Rules\Cuit;
 use App\Support\Help\HelpTopics;
+use App\Support\Plans\PlanUpsell;
 use App\Support\Provinces;
 use Filament\Forms;
 use Filament\Forms\Components\ColorPicker;
@@ -206,7 +208,9 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
 
                 // Documentación fotográfica por tipo de trabajo (apagada por defecto).
                 Section::make('Fotos de los trabajos')
-                    ->description('Fotos de antes y después que el técnico carga desde la visita o la orden. Vienen apagadas. Cada interruptor se guarda al tocarlo. Son opcionales para el técnico y nunca las ve el cliente. Apagar un tipo solo impide cargar fotos nuevas: las ya cargadas se conservan y se siguen viendo.')
+                    ->description(fn () => $this->hasWorkPhotos()
+                        ? 'Fotos de antes y después de mantenimientos y órdenes, y fotos del reporte de inspección. Vienen apagadas. Cada interruptor se guarda al tocarlo. Son opcionales para el técnico y nunca las ve el cliente. Apagar un tipo solo impide cargar fotos nuevas: las ya cargadas se conservan y se siguen viendo.'
+                        : 'Disponible en el plan Empresa: fotos de antes y después de mantenimientos y órdenes, y reportes de inspección con fotos. Si ya se habían cargado, se conservan y vuelven a verse al pasar a ese plan.')
                     ->icon('heroicon-o-camera')
                     ->columns(3)
                     ->schema([
@@ -216,6 +220,8 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
                             ->map(fn (string $label, string $column) => Forms\Components\Toggle::make($column)->label($label)
                                 // Solo verdadero o falso (también al guardar todo el formulario).
                                 ->rule('boolean')
+                                // Sin el plan Empresa: se ven como están, sin poder cambiarlos (no se borran).
+                                ->disabled(fn () => ! $this->hasWorkPhotos())
                                 ->live()
                                 ->afterStateUpdated(fn ($livewire, $state) => $livewire->savePhotoSetting($column, $state)))
                             ->values()->all(),
@@ -255,6 +261,11 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
             ]);
     }
 
+    private function hasWorkPhotos(): bool
+    {
+        return (bool) Auth::user()?->company?->hasWorkPhotos();
+    }
+
     /**
      * Un interruptor de fotos, guardado en el momento: solo el admin de SU
      * empresa, solo esas tres columnas y solo verdadero o falso (un valor
@@ -266,6 +277,13 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
 
         abort_unless(in_array($column, Company::PHOTO_SETTINGS, true), 404);
         abort_if($user->isSuperAdmin() || ! $user->isAdmin() || ! $user->company, 403);
+
+        if (! $user->company->hasWorkPhotos()) {
+            $this->data[$column] = (bool) $user->company->{$column};
+            PlanUpsell::featureNotification($user->company, PlanFeature::WorkPhotos)->send();
+
+            return;
+        }
 
         if (! is_bool($on)) {
             $this->data[$column] = (bool) $user->company->{$column};

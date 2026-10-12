@@ -7,6 +7,7 @@
     Variables: $photos (Collection<VisitPhoto>), $emptyText.
 --}}
 @php $zones = \App\Services\Visits\WorkPhotoGallery::byZone($photos); @endphp
+@include('filament.partials.photo-lightbox')
 <style>
     .wp-zone { border: 1px solid rgb(229 231 235); border-radius: .75rem; padding: .75rem; }
     .wp-zone + .wp-zone { margin-top: .75rem; }
@@ -14,15 +15,15 @@
     .wp-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
     .wp-stage-title { font-size: .7rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: rgb(55 65 81); margin-bottom: .375rem; }
     .wp-stage-title.is-after { color: rgb(4 120 87); }
-    .wp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: .5rem; }
+    /* Mismo tamaño que las fotos de inspección: tarjetas de 110 a 160 px, foto cuadrada (se amplía en el visor). */
+    .wp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 160px)); gap: .5rem; }
     .wp-card { border: 1px solid rgb(229 231 235); border-radius: .5rem; overflow: hidden; background: rgb(255 255 255); min-width: 0; }
-    .wp-card img { display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: cover; background: rgb(243 244 246); }
+    .wp-card .asc-thumb { border: 0; border-radius: 0; }
     .wp-meta { padding: .375rem .5rem; font-size: .75rem; color: rgb(75 85 99); line-height: 1.35; overflow-wrap: anywhere; }
     .wp-meta strong { color: rgb(17 24 39); font-weight: 600; }
     .wp-links { display: flex; flex-wrap: wrap; gap: .25rem .75rem; margin-top: .25rem; }
     .wp-links a { color: rgb(37 99 235); font-weight: 600; text-decoration: underline; }
     .wp-empty { font-size: .8rem; color: rgb(107 114 128); }
-    @media (max-width: 420px) { .wp-grid { grid-template-columns: 1fr; } }
     .dark .wp-zone { border-color: rgb(55 65 81); }
     .dark .wp-stage-title { color: rgb(209 213 219); }
     .dark .wp-stage-title.is-after { color: rgb(110 231 183); }
@@ -49,7 +50,8 @@
                                 <div class="wp-grid">
                                     @foreach($zone[$stage] as $photo)
                                         <div class="wp-card" data-work-photo="{{ $photo->id }}">
-                                            <a href="{{ $photo->url() }}" target="_blank" rel="noopener" aria-label="Ver foto de {{ $zone['label'] }}, {{ mb_strtolower($stageLabel) }}">
+                                            <a href="{{ $photo->url() }}" class="asc-thumb" target="_blank" rel="noopener" aria-label="Ampliar foto de {{ $zone['label'] }}, {{ mb_strtolower($stageLabel) }}"
+                                               data-caption="{{ $zone['label'] }} · {{ $stageLabel }}" data-download="{{ $photo->downloadUrl() }}" onclick="return window.ascPhotoZoom ? ascPhotoZoom(this) : true">
                                                 <img src="{{ $photo->thumbUrl() }}" alt="" loading="lazy">
                                             </a>
                                             <div class="wp-meta">
@@ -59,7 +61,7 @@
                                                 @endif
                                                 <div>{{ $photo->uploader?->name ?? '—' }} · {{ $photo->created_at?->format('d/m/Y H:i') }}</div>
                                                 <div class="wp-links">
-                                                    <a href="{{ $photo->url() }}" target="_blank" rel="noopener">Ver</a>
+                                                    <a href="{{ $photo->url() }}" target="_blank" rel="noopener" data-caption="{{ $zone['label'] }} · {{ $stageLabel }}" data-download="{{ $photo->downloadUrl() }}" onclick="return window.ascPhotoZoom ? ascPhotoZoom(this) : true">Ampliar</a>
                                                     <a href="{{ $photo->downloadUrl() }}">Descargar</a>
                                                 </div>
                                             </div>

@@ -155,7 +155,7 @@
         <x-slot name="heading">Planes</x-slot>
         <x-slot name="description">
             @if ($inTrial)
-                Durante la prueba gratis usás Ascento con el plan Profesional, sin cargar tarjeta. Cuando termine, elegís tu plan.
+                Durante la prueba gratis usás Ascento con el plan Empresa completo, sin cargar tarjeta. Cuando termine, elegís tu plan.
             @else
                 Pagás con Mercado Pago (tarjeta de crédito o débito). Se cobra todos los meses y podés cambiar de plan o cancelar cuando quieras.
             @endif

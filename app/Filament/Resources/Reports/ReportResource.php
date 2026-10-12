@@ -8,6 +8,7 @@ use App\Filament\Resources\Reports\Pages\ListReports;
 use App\Filament\Resources\Reports\Pages\ViewReport;
 use App\Filament\Resources\Reports\Schemas\ReportForm;
 use App\Filament\Resources\Reports\Tables\ReportsTable;
+use App\Models\Company;
 use App\Models\Report;
 use BackedEnum;
 use Filament\Infolists\Components\ImageEntry;
@@ -117,22 +118,20 @@ class ReportResource extends Resource
         $query = parent::getEloquentQuery();
 
         $user = auth()->user();
+        $companyId = $user->isSuperAdmin() ? session('selected_company_id') : $user->company_id;
 
-        if ($user->isSuperAdmin()) {
-
-            $companyId = session('selected_company_id');
-
-            if ($companyId) {
-                return $query->where('company_id', $companyId);
-            }
-
+        if (! $companyId) {
             return $query->whereRaw('1 = 0');
         }
 
-        return $query->where(
-            'company_id',
-            $user->company_id
-        );
+        $query->where('company_id', $companyId);
+
+        // Reportes de inspección: exclusivos del plan Empresa (se conservan, sin acceso).
+        if (! Company::hasWorkPhotosById((int) $companyId)) {
+            $query->where('kind', Report::KIND_INCIDENT);
+        }
+
+        return $query;
     }
 
     public static function getRelations(): array

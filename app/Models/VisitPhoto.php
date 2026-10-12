@@ -122,6 +122,11 @@ class VisitPhoto extends Model
             return false;
         }
 
+        // Exclusivas del plan Empresa: con otro plan se conservan, sin acceso.
+        if (! Company::hasWorkPhotosById((int) $this->company_id)) {
+            return false;
+        }
+
         if ($user->isAdmin() || $user->isSuperAdmin() || (int) $this->uploaded_by === (int) $user->id) {
             return true;
         }

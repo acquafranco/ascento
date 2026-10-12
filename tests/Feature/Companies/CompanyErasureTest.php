@@ -6,11 +6,19 @@ use App\Filament\Resources\Companies\CompanyDeletion;
 use App\Filament\Resources\Companies\CompanyResource;
 use App\Filament\Resources\Companies\Pages\ListCompanies;
 use App\Filament\Resources\Companies\Pages\ViewCompany;
+use App\Models\BuildingVisit;
 use App\Models\Company;
+use App\Models\CompanyExport;
+use App\Models\PhotoSection;
 use App\Models\PortalMembership;
 use App\Models\User;
 use App\Services\Companies\CompanyEraser;
+use App\Services\Exports\CompanyDataExporter;
+use App\Services\Exports\CompanyExportService;
+use App\Services\Media\PhotoProcessor;
+use App\Support\Portal\PortalAccess;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -280,5 +288,174 @@ class CompanyErasureTest extends TestCase
             ->assertNotified('Empresa eliminada definitivamente');
         $this->assertNull(Company::withTrashed()->find($company->id));
         $this->assertNotNull(Company::find($this->b['company']->id));
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | OTRAS EMPRESAS Y PROCESOS CONCURRENTES
+    |--------------------------------------------------------------------------
+    */
+
+    public function test_a_deactivated_portal_access_in_another_company_is_never_erased(): void
+    {
+        $idA = $this->a['company']->id;
+        $idB = $this->b['company']->id;
+        $portal = User::where('company_id', $idA)->where('role', User::ROLE_CLIENT)->sole();
+        $clientB = (int) DB::table('clients')->where('company_id', $idB)->value('id');
+        $membership = new PortalMembership(['user_id' => $portal->id, 'client_id' => $clientB]);
+        $membership->forceFill(['company_id' => $idB, 'deactivated_at' => now()->subWeek()])->save();
+        DB::table('client_portal_buildings')->insert(['user_id' => $portal->id, 'building_id' => $this->b['building']->id, 'created_at' => now(), 'updated_at' => now()]);
+        $before = $this->snapshot($idB);
+        $pivotsB = DB::table('client_portal_buildings')->where('building_id', $this->b['building']->id)->count();
+
+        $this->actingAs($this->root);
+        app(CompanyEraser::class)->erase(Company::find($idA), $this->root, $this->a['company']->name);
+
+        // B queda igual (también el acceso desactivado y sus edificios); solo suma a la persona, que queda en B.
+        $after = $this->snapshot($idB);
+        $this->assertSame($before['users'] + 1, $after['users']);
+        $this->assertSame(array_diff_key($before, ['users' => 0]), array_diff_key($after, ['users' => 0]));
+        $this->assertSame($pivotsB, DB::table('client_portal_buildings')->where('building_id', $this->b['building']->id)->count());
+        $this->assertNotNull(PortalMembership::find($membership->id)?->deactivated_at);
+        $this->assertSame([$idB, $clientB], [(int) $portal->fresh()->company_id, (int) $portal->fresh()->client_id]);
+        // Quedar en B no le da acceso al portal de B: su acceso allí sigue desactivado.
+        $this->assertNull(PortalAccess::currentCompanyId($portal->fresh()));
+    }
+
+    public function test_a_user_of_this_company_linked_to_another_company_blocks_the_erasure(): void
+    {
+        $idA = $this->a['company']->id;
+        // Un técnico de A asignado (por error) a un edificio de B: no se borra ni se muda a B.
+        DB::table('building_user')->insert(['building_id' => $this->b['building']->id, 'user_id' => $this->a['technician']->id, 'type' => 'maintenance']);
+        $before = [$this->snapshot($idA), $this->snapshot($this->b['company']->id)];
+
+        $this->actingAs($this->root);
+        $this->assertNotEmpty(app(CompanyEraser::class)->preview(Company::find($idA))['blockers']);
+        try {
+            app(CompanyEraser::class)->erase(Company::find($idA), $this->root, $this->a['company']->name);
+            $this->fail('Debía bloquearse.');
+        } catch (ValidationException $e) {
+            $this->assertStringContainsString('otra empresa', collect($e->errors())->flatten()->first());
+        }
+
+        $this->assertSame($before, [$this->snapshot($idA), $this->snapshot($this->b['company']->id)]);
+        $this->assertSame(1, DB::table('building_user')->where('building_id', $this->b['building']->id)->where('user_id', $this->a['technician']->id)->count());
+        Storage::disk('local')->assertExists("visits/{$idA}/a.jpg");
+    }
+
+    public function test_an_export_being_generated_blocks_the_erasure(): void
+    {
+        $idA = $this->a['company']->id;
+        DB::table('company_exports')->where('company_id', $idA)->update(['status' => CompanyExport::GENERATING]);
+
+        $this->actingAs($this->root);
+        try {
+            app(CompanyEraser::class)->erase(Company::find($idA), $this->root, $this->a['company']->name);
+            $this->fail('Debía esperar a la exportación.');
+        } catch (ValidationException $e) {
+            $this->assertStringContainsString('exportación', collect($e->errors())->flatten()->first());
+        }
+        $this->assertNotNull(Company::find($idA));
+    }
+
+    public function test_an_export_that_finishes_after_the_erasure_leaves_no_file(): void
+    {
+        $idA = $this->a['company']->id;
+        $root = $this->root;
+        $export = new CompanyExport;
+        $export->forceFill(['company_id' => $idA, 'status' => CompanyExport::REQUESTED, 'requested_by' => $this->a['admin']->id])->save();
+
+        // El exportador ya leyó los datos; mientras escribe, el SuperAdmin elimina la empresa.
+        $this->app->instance(CompanyDataExporter::class, new class($root, $this->a['company']->name) extends CompanyDataExporter
+        {
+            public function __construct(private User $root, private string $name) {}
+
+            public function export(CompanyExport $export): array
+            {
+                // Antes de que tome la exportación, el borrado esperaría; acá ya está «generando»:
+                // simulamos el borrado concurrente quitando ese estado para que no lo bloquee.
+                DB::table('company_exports')->where('id', $export->id)->update(['status' => CompanyExport::FAILED]);
+                app(CompanyEraser::class)->erase(Company::find($export->company_id), $this->root, $this->name);
+                $path = 'exports/'.$export->company_id.'/ascento-datos.zip';
+                Storage::disk('local')->put($path, 'datos de la empresa');
+
+                return ['path' => $path, 'file_name' => 'ascento-datos.zip', 'size' => 10, 'record_count' => 1, 'categories' => [], 'warnings' => []];
+            }
+        });
+
+        $this->actingAs($root);
+        app(CompanyExportService::class)->process($export);
+
+        $this->assertNull(Company::find($idA));
+        $this->assertSame([], Storage::disk('local')->allFiles("exports/{$idA}"));
+    }
+
+    public function test_a_photo_uploaded_while_the_company_is_erased_leaves_no_file(): void
+    {
+        $idA = $this->a['company']->id;
+        $this->giveCompanyPlan($this->a['company'], 'empresa');
+        $this->a['company']->forceFill(['photos_maintenance' => true])->save();
+        $this->a['building']->update(['elevator_count' => 1]);
+        $this->actingAs($this->a['technician'])->post("/{$this->a['company']->slug}/visits/start", ['building_id' => $this->a['building']->id, 'assignment_type' => 'maintenance', 'month' => now()->month, 'year' => now()->year])->assertRedirect();
+        $visit = BuildingVisit::withoutGlobalScope('completed')->where('company_id', $idA)->where('in_progress', true)->sole();
+        $zone = PhotoSection::zonesFor($idA, 'maintenance')->first();
+
+        // Mientras la foto se procesa (fuera de la transacción), se elimina la empresa.
+        $root = $this->root;
+        $name = $this->a['company']->name;
+        $this->app->instance(PhotoProcessor::class, new class($root, $name, $idA) extends PhotoProcessor
+        {
+            public function __construct(private User $root, private string $name, private int $companyId) {}
+
+            public function store(UploadedFile|string $file, string $directory, string $field = 'photos', string $logMessage = 'Foto inválida'): array
+            {
+                $stored = parent::store($file, $directory, $field, $logMessage);
+                app(CompanyEraser::class)->erase(Company::find($this->companyId), $this->root, $this->name);
+
+                return $stored;
+            }
+        });
+
+        $this->actingAs($this->a['technician'])->postJson("/{$this->a['company']->slug}/visit-photos", [
+            'visit_id' => $visit->id, 'photo_section_id' => $zone->id, 'stage' => 'before', 'photo' => UploadedFile::fake()->image('a.jpg', 640, 480),
+        ])->assertStatus(422);
+
+        $this->assertNull(Company::find($idA));
+        $this->assertSame([], Storage::disk('local')->allFiles("visits/{$idA}"));
+        $this->assertSame(0, DB::table('visit_photos')->where('company_id', $idA)->count());
+    }
+
+    public function test_the_daily_sweep_removes_files_left_by_erased_companies_only(): void
+    {
+        $idA = $this->a['company']->id;
+        $idB = $this->b['company']->id;
+        $this->actingAs($this->root);
+        app(CompanyEraser::class)->erase(Company::find($idA), $this->root, $this->a['company']->name);
+
+        // Un proceso escribió después del borrado.
+        Storage::disk('local')->put("exports/{$idA}/tarde.zip", 'x');
+        Storage::disk('local')->put("reports/{$idA}/videos/tarde.mp4", 'x');
+        Storage::disk('public')->put("reports/{$idA}/tarde.jpg", 'x');
+        // Una empresa desactivada (no eliminada) conserva sus archivos; carpetas que no son de empresas, también.
+        Company::find($idB)->delete();
+        $active = Company::factory()->create();
+        foreach (['visits', 'reports', 'elevators', 'exports'] as $root) {
+            Storage::disk('local')->put("{$root}/{$active->id}/activa.jpg", 'x');
+        }
+        Storage::disk('public')->put("reports/{$active->id}/activa.jpg", 'x');
+        Storage::disk('local')->put('visits/tmp/otro.jpg', 'x');
+
+        $this->artisan('companies:prune-erased-files')->assertSuccessful();
+
+        $this->assertSame([], Storage::disk('local')->allFiles("exports/{$idA}"));
+        $this->assertSame([], Storage::disk('local')->allFiles("reports/{$idA}"));
+        $this->assertSame([], Storage::disk('public')->allFiles("reports/{$idA}"));
+        Storage::disk('local')->assertExists("visits/{$idB}/a.jpg");
+        Storage::disk('local')->assertExists('visits/tmp/otro.jpg');
+        foreach (['visits', 'reports', 'elevators', 'exports'] as $root) {
+            Storage::disk('local')->assertExists("{$root}/{$active->id}/activa.jpg");
+            Storage::disk('local')->assertExists("{$root}/{$idB}/".($root === 'visits' ? 'a.jpg' : ''));
+        }
+        Storage::disk('public')->assertExists("reports/{$active->id}/activa.jpg");
     }
 }
