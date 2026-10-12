@@ -1,5 +1,14 @@
 # Remitos, PDF, presupuestos y PWA (Etapa 4)
 
+## Logo de la empresa en documentos
+`App\Support\CompanyLogo` aplica las mismas reglas que el PDF de reportes:
+- solo del disco `public`, nunca una ruta del servidor (sin `..`, rutas
+  absolutas ni `file:`);
+- solo si el archivo es realmente PNG o JPEG.
+
+Así ningún valor de `companies.logo` (el SuperAdmin lo puede escribir a
+mano) hace que un remito o un presupuesto lea otro archivo.
+
 ## Remito
 - Los datos salen de `App\Support\DeliveryNotes\DeliveryNoteDocument`, iguales
   para la web y el PDF. Son los mismos campos que antes:
@@ -45,7 +54,8 @@
 - **Causa:** `viewport-fit=cover` y `black-translucent` hacen que, instalada
   en el iPhone, la página se dibuje debajo de la barra de estado.
 - **Corrección:** `.t-nav-top` y la barra de progreso reservan
-  `env(safe-area-inset-top)`. En Android y en los navegadores comunes eso vale
+  `env(safe-area-inset-top)`, y el aviso emergente de notificaciones queda
+  por encima de la barra inferior más la zona segura. En Android y en los navegadores comunes eso vale
   0, así que no agrega espacio.
 - **No se probó en un iPhone físico.** La emulación de Chrome no simula la
   zona segura.

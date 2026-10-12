@@ -2,10 +2,11 @@
 
 namespace App\Support\DeliveryNotes;
 
+use App\Models\Company;
 use App\Models\DeliveryNote;
+use App\Support\CompanyLogo;
 use App\Support\WorkOrderLabels;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Storage;
 
 /**
  * Los datos de un remito, armados una sola vez para la web (técnico, portal,
@@ -50,7 +51,7 @@ final class DeliveryNoteDocument
             'number' => str_pad((string) $note->number, 6, '0', STR_PAD_LEFT),
             'company' => [
                 'name' => $company?->name,
-                'logo' => self::logo($company?->logo, $pdf),
+                'logo' => self::logo($company, $pdf),
                 'color' => $color,
                 'on_color' => self::readableOn($color),
             ],
@@ -98,21 +99,9 @@ final class DeliveryNoteDocument
         return $luminance > 0.45 ? '#11161D' : '#FFFFFF';
     }
 
-    /**
-     * Logo (disco "public", donde lo guarda "Mi empresa"): URL pública en la
-     * web; en el PDF, embebido (dompdf no descarga URLs). Sin archivo, sin logo.
-     */
-    private static function logo(?string $path, bool $pdf): ?string
+    /** Logo: solo del disco público y si es una imagen real (ver CompanyLogo). */
+    private static function logo(?Company $company, bool $pdf): ?string
     {
-        $path = ltrim((string) $path, '/');
-        $disk = Storage::disk('public');
-
-        if ($path === '' || str_contains($path, '..') || ! $disk->exists($path)) {
-            return null;
-        }
-
-        return $pdf
-            ? 'data:'.($disk->mimeType($path) ?: 'image/png').';base64,'.base64_encode((string) $disk->get($path))
-            : asset('storage/'.$path);
+        return $pdf ? CompanyLogo::dataUri($company) : CompanyLogo::url($company);
     }
 }
