@@ -18,7 +18,7 @@ use Illuminate\Support\Collection;
  *   participantes registrados, en las que estaba asignado).
  * - No realizadas (failed) y canceladas (borradas) no cuentan como completadas.
  * - Visitas del mes: la agenda de mantenimientos e inspecciones de sus
- *   asignaciones (MaintenanceAgenda), sin reglas nuevas.
+ *   asignaciones (MaintenanceAgenda / VisitSchedule).
  */
 class TechnicianWorkload
 {
@@ -71,20 +71,25 @@ class TechnicianWorkload
     }
 
     /**
-     * Mantenimientos e inspecciones del mes de sus asignaciones.
+     * Mantenimientos e inspecciones del mes de sus asignaciones, contados
+     * por visitas previstas (VisitSchedule), igual que la pantalla de Visitas
+     * y la Agenda. Un remito "no realizado" no cuenta como realizada.
      *
-     * @return array{done: int, not_done: int, pending: int, next: Collection}
+     * @return array{done: int, not_done: int, pending: int, expected: int, progress: array, next: Collection}
      */
     public function monthVisits(User $user): array
     {
         $rows = app(MaintenanceAgenda::class)->rows(now()->month, now()->year, null, $user->id)
-            ->filter(fn ($row) => $row['status'] !== 'unassigned');
+            ->filter(fn ($row) => $row['technicians']->contains('id', $user->id));
+        $progress = MaintenanceAgenda::progress($rows);
 
         return [
-            'done' => $rows->where('status', 'done')->count(),
-            'not_done' => $rows->where('status', 'not_done')->count(),
-            'pending' => $rows->where('status', 'pending')->count(),
-            'next' => $rows->where('status', 'pending')->take(5)->values(),
+            'done' => $progress['total']['done'],
+            'not_done' => $progress['total']['not_done'],
+            'pending' => $progress['total']['pending'],
+            'expected' => $progress['total']['expected'],
+            'progress' => $progress,
+            'next' => $rows->filter(fn ($row) => $row['pending'] > 0)->take(5)->values(),
         ];
     }
 

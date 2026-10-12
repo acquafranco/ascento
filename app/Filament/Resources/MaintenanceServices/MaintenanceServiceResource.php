@@ -108,7 +108,7 @@ class MaintenanceServiceResource extends Resource
 
             if ($status['next']) {
                 $month = ucfirst($status['next']->locale('es')->translatedFormat('F Y'));
-                $text .= $status['done_this_month'] ? " · Este mes: hecho · Próximo: {$month}" : " · Pendiente: {$month}";
+                $text .= $status['done_this_month'] ? " · Este período: hecho · Próximo: {$month}" : " · Pendiente: {$month}";
             }
 
             return $text;

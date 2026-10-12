@@ -1,7 +1,10 @@
 {{--
     Visitas del técnico: sus edificios asignados con el mantenimiento y/o la
     inspección del mes elegido. Desde acá se hace el remito de cada visita.
-    Mismos datos y filtros que antes (mes, año y búsqueda).
+    Estado y progreso con las reglas de VisitSchedule (frecuencia de cada
+    edificio): quincenal = 2 visitas en el mes; cada N meses = 1 visita en
+    el período, y los meses en que ya se hizo se muestran como "hecho en el
+    período" (no como pendiente). Mismos filtros que antes (mes, año, búsqueda).
 --}}
 @php
     use App\Support\TechNav;
@@ -19,24 +22,13 @@
         <div class="t-alert-success mb-4" role="status">{{ session('success') }}</div>
     @endif
 
-    {{-- Resumen del mes (máquinas) --}}
-    <div class="mb-4 grid grid-cols-3 gap-2.5">
-        <div class="t-card px-3 py-3">
-            <div class="text-[26px] font-bold leading-none text-ink">{{ $totalMachines }}</div>
-            <div class="mt-1 text-xs font-semibold text-ink-500">Máquinas asignadas</div>
-        </div>
-        @if($maintenanceTotalMachines > 0)
-            <div class="t-card px-3 py-3">
-                <div class="text-[26px] font-bold leading-none {{ $maintenanceRemaining ? 'text-ink' : 'text-emerald-600' }}">{{ $maintenanceRemaining }}</div>
-                <div class="mt-1 text-xs font-semibold text-ink-500">Mantenimientos por hacer</div>
-            </div>
-        @endif
-        @if($inspectionTotalMachines > 0)
-            <div class="t-card px-3 py-3">
-                <div class="text-[26px] font-bold leading-none {{ $inspectionRemaining ? 'text-ink' : 'text-emerald-600' }}">{{ $inspectionRemaining }}</div>
-                <div class="mt-1 text-xs font-semibold text-ink-500">Inspecciones por hacer</div>
-            </div>
-        @endif
+    {{-- Progreso del mes: visitas previstas por edificio (no máquinas) --}}
+    <div class="mb-4">
+        <p class="mb-2 text-xs font-semibold text-ink-500">
+            Período: {{ ucfirst(\Carbon\Carbon::create($year, $month, 1)->locale('es')->translatedFormat('F Y')) }}
+            · {{ $machines($totalMachines, 'máquina asignada', 'máquinas asignadas') }}
+        </p>
+        @include('partials.visit-progress', ['progress' => $progress, 'showMachines' => true])
     </div>
 
     <form method="GET" id="filtersForm" class="mb-4 space-y-2" role="search">
@@ -60,10 +52,6 @@
         @forelse($buildings as $building)
             @php
                 $types = $building->users->pluck('pivot.type')->flatMap(fn ($type) => explode(',', $type))->toArray();
-                $visits = [
-                    'maintenance' => $building->visits->where('assignment_type', 'maintenance')->first(),
-                    'inspection' => $building->visits->where('assignment_type', 'inspection')->first(),
-                ];
                 $place = collect([$building->locality, $building->neighborhood, $building->municipality])->filter()->unique()->implode(' · ');
                 $address = trim(($building->address ?? '').', '.($building->locality ?? ''), ', ');
             @endphp
@@ -97,30 +85,58 @@
                     @foreach(['maintenance' => 'Mantenimiento', 'inspection' => 'Inspección'] as $type => $label)
                         @continue(! in_array($type, $types))
                         @php
-                            $visit = $visits[$type];
-                            $notDone = $visit && $visit->deliveryNote?->performed === false;
+                            $row = $rows->get($building->id.'|'.$type);
+                            $period = $row['period'] ?? null;
+                            $expected = $period?->expected ?? 1;
+                            $status = $row['status'] ?? 'pending';
+                            $nextSlot = ($row['visits'] ?? collect())->count() + 1;
+                            $statusChip = ['pending' => ['t-chip-pending', 'Pendiente'], 'overdue' => ['t-chip-failed', 'Vencido'], 'upcoming' => ['t-chip-neutral', 'Próximo']];
                         @endphp
-                        <div class="flex items-center gap-3 px-4 py-3">
-                            <div class="min-w-0 flex-1">
-                                <div class="text-sm font-semibold text-ink">{{ $label }}</div>
-                                @if(! $visit)
-                                    <span class="t-chip-pending mt-0.5">Pendiente</span>
-                                @elseif($notDone)
-                                    <span class="t-chip-failed mt-0.5">Remito firmado: no se pudo realizar</span>
-                                    <p class="mt-1 text-xs text-ink-500">La oficina lo ve y coordina la nueva visita.</p>
-                                @else
-                                    <span class="t-chip-done mt-0.5">{{ $type === 'maintenance' ? 'Mantenimiento realizado' : 'Inspección realizada' }}</span>
-                                @endif
-                                @if($visit?->delivery_note)
-                                    <span class="ml-1 text-xs text-ink-500">Remito #{{ $visit->delivery_note }}</span>
+                        <div class="px-4 py-3" data-visit-row="{{ $type }}">
+                            <div class="flex items-center gap-3">
+                                <div class="min-w-0 flex-1">
+                                    <div class="text-sm font-semibold text-ink">{{ $label }}</div>
+                                    @if($period && ($period->plan || $period->isMultiMonth()))
+                                        <p class="text-xs text-ink-500">{{ $period->frequencyLabel() }}{{ $period->isMultiMonth() ? ' · período '.$period->label() : '' }}</p>
+                                    @endif
+                                </div>
+                                @if(($row['pending'] ?? 1) > 0)
+                                    <a href="{{ route('delivery-notes.building', ['company' => $slug, 'building' => $building, 'month' => $month, 'year' => $year, 'assignment_type' => $type]) }}"
+                                       class="{{ $type === 'maintenance' ? 't-btn-primary' : 't-btn-dark' }} t-btn-sm shrink-0">
+                                        {{ $expected > 1 && $nextSlot > 1 ? 'Marcar '.$nextSlot.'ª visita' : 'Marcar '.mb_strtolower($label) }}
+                                    </a>
                                 @endif
                             </div>
-                            @unless($visit)
-                                <a href="{{ route('delivery-notes.building', ['company' => $slug, 'building' => $building, 'month' => $month, 'year' => $year, 'assignment_type' => $type]) }}"
-                                   class="{{ $type === 'maintenance' ? 't-btn-primary' : 't-btn-dark' }} t-btn-sm shrink-0">
-                                    Marcar {{ mb_strtolower($label) }}
-                                </a>
-                            @endunless
+
+                            {{-- Visitas ya registradas en el período --}}
+                            @foreach(($row['visits'] ?? collect()) as $visit)
+                                @php $notDone = $visit->deliveryNote?->performed === false; @endphp
+                                <div class="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                                    @if($notDone)
+                                        <span class="t-chip-failed">{{ $expected > 1 ? 'Visita '.$visit->slot.': ' : '' }}Remito firmado: no se pudo realizar</span>
+                                    @else
+                                        <span class="t-chip-done">{{ $expected > 1 ? 'Visita '.$visit->slot.' de '.$expected.' realizada' : ($type === 'maintenance' ? 'Mantenimiento realizado' : 'Inspección realizada') }}</span>
+                                    @endif
+                                    <span class="text-xs text-ink-500">
+                                        {{ $visit->visited_at?->format('d/m') }}{{ ((int) $visit->month !== (int) $month || (int) $visit->year !== (int) $year) ? ' · corresponde a '.\Carbon\Carbon::create($visit->year, $visit->month, 1)->locale('es')->translatedFormat('F') : '' }}{{ $visit->deliveryNote ? ' · Remito #'.$visit->deliveryNote->number : '' }}
+                                    </span>
+                                </div>
+                                @if($notDone)
+                                    <p class="mt-1 text-xs text-ink-500">La oficina lo ve y coordina la nueva visita.</p>
+                                @endif
+                            @endforeach
+
+                            @if($status === 'covered')
+                                <p class="mt-1.5 text-xs font-semibold text-ink-700">No corresponde visitar este mes: ya se hizo la visita del período. Próxima: {{ $period->end->addMonthNoOverflow()->locale('es')->translatedFormat('F Y') }}.</p>
+                            @elseif(($row['pending'] ?? 1) > 0)
+                                @php [$chipClass, $chipLabel] = $statusChip[$status] ?? $statusChip['pending']; @endphp
+                                <div class="mt-1.5 flex flex-wrap items-center gap-2">
+                                    <span class="{{ $chipClass }}">{{ $chipLabel }}{{ $expected > 1 ? ': visita '.$nextSlot.' de '.$expected : '' }}</span>
+                                    @if($period?->isMultiMonth())
+                                        <span class="text-xs text-ink-500">Se puede hacer cualquier mes del período (hasta {{ $period->end->locale('es')->translatedFormat('F') }}).</span>
+                                    @endif
+                                </div>
+                            @endif
                         </div>
                     @endforeach
                 </div>

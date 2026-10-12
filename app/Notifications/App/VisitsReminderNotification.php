@@ -9,8 +9,8 @@ use Illuminate\Notifications\Messages\MailMessage;
 /**
  * Recordatorios mensuales de la agenda (los manda notifications:visits).
  *
- * - pending (técnico, desde el día 20): edificios suyos sin remito este mes.
- * - overdue (técnico, día 1): los que quedaron sin remito el mes anterior.
+ * - pending (técnico, desde el día 20): visitas suyas sin remito que vencen este mes.
+ * - overdue (técnico, día 1): las que quedaron sin remito el mes anterior.
  * - overdue_summary (admin, día 1, también por correo): total vencido del mes.
  *
  * Una vez por mes y destinatario (clave del evento). El técnico trabaja a su
@@ -41,7 +41,7 @@ class VisitsReminderNotification extends AppNotification
 
     public function body(): string
     {
-        $n = $this->count.' '.($this->count === 1 ? 'edificio' : 'edificios');
+        $n = $this->count.' '.($this->count === 1 ? 'visita' : 'visitas');
 
         return match ($this->kind) {
             'pending' => "Te quedan {$n} sin remito en {$this->monthName()}.",

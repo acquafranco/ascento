@@ -43,7 +43,7 @@
     <form method="POST" action="{{ route('delivery-notes.store', ['company' => auth()->user()->company->slug]) }}" id="remito-form" class="space-y-4"
           data-draft="remito.{{ auth()->id() }}.{{ $building->id }}.{{ $workOrder ? 'ot'.$workOrder->id : $assignmentType }}" @if($errors->any()) data-draft-restore="off" @endif>
         @csrf
-        @include('partials.draft-notice', ['media' => 'Las firmas y los materiales se vuelven a cargar.'])
+        @include('partials.draft-notice', ['media' => 'Las firmas, los materiales y las fotos se vuelven a cargar.'])
         @if($workOrder)
             <input type="hidden" name="work_order_id" value="{{ $workOrder->id }}">
         @endif
@@ -85,6 +85,17 @@
                         <option value="{{ $m }}" @selected(old('month', $month) == $m)>{{ ucfirst(\Carbon\Carbon::create()->month($m)->locale('es')->monthName) }} {{ $year }}</option>
                     @endforeach
                 </select>
+                @isset($visitInfo)
+                    @if($visitInfo['blocked'])
+                        <p class="mt-2 text-sm font-semibold text-red-700" data-visit-blocked>{{ $visitInfo['blocked'] }} Elegí otro mes o revisá la pantalla de Visitas.</p>
+                    @elseif($visitInfo['expected'] > 1 || $visitInfo['period'])
+                        <p class="mt-2 text-xs text-ink-500" data-visit-info>
+                            Frecuencia: {{ $visitInfo['frequency'] }}.
+                            @if($visitInfo['expected'] > 1) Vas a registrar la visita {{ $visitInfo['slot'] }} de {{ $visitInfo['expected'] }} del mes. @endif
+                            @if($visitInfo['period']) Cuenta para el período {{ $visitInfo['period'] }}. @endif
+                        </p>
+                    @endif
+                @endisset
             </div>
         </section>
 
@@ -161,6 +172,75 @@
                         <p class="material-stock text-xs"></p>
                     </div>
                 </template>
+            </section>
+        @endif
+
+        {{-- Fotos de antes y después (opcionales; solo mantenimiento e inspección) --}}
+        @if(! $workOrder && isset($photoSections) && $photoSections->isNotEmpty())
+            @php
+                $staged = ($stagedPhotos ?? collect())->groupBy(fn ($p) => $p->photo_section_id.'|'.$p->stage);
+                $stages = \App\Models\VisitPhoto::STAGES;
+                $maxPerGroup = \App\Models\VisitPhoto::MAX_PER_GROUP;
+            @endphp
+            <section class="t-card p-4" id="visitPhotos"
+                     data-upload-url="{{ route('visit-photos.store', ['company' => auth()->user()->company->slug]) }}"
+                     data-building="{{ $building->id }}" data-type="{{ $assignmentType }}"
+                     data-max-group="{{ $maxPerGroup }}" data-max-total="{{ \App\Models\VisitPhoto::MAX_PER_VISIT }}">
+                <input type="hidden" name="photo_batch" value="{{ $photoBatch }}">
+                <h2 class="font-bold text-ink">Fotos de antes y después <span class="text-xs font-normal text-ink-500">(opcional)</span></h2>
+                <p class="mb-3 text-xs text-ink-500">Hasta {{ $maxPerGroup }} fotos por sección en «Antes» y {{ $maxPerGroup }} en «Después». Se suben solas mientras completás el remito; si alguna falla, tocá «Reintentar». Las ve la oficina, no el cliente.</p>
+                <div class="space-y-2">
+                    @foreach($photoSections as $section)
+                        @php $sectionCount = $stagedPhotos?->where('photo_section_id', $section->id)->count() ?? 0; @endphp
+                        <details class="rounded-xl border border-ink-100" data-photo-section="{{ $section->id }}" @if($sectionCount) open @endif>
+                            <summary class="flex min-h-[48px] cursor-pointer select-none items-center justify-between gap-2 px-3 font-semibold text-ink">
+                                <span>{{ $section->name }}</span>
+                                <span class="text-xs font-normal text-ink-500" data-section-count>{{ $sectionCount ? $sectionCount.' '.($sectionCount === 1 ? 'foto' : 'fotos') : 'Sin fotos' }}</span>
+                            </summary>
+                            <div class="space-y-3 border-t border-ink-100 px-3 pb-3 pt-3">
+                                @foreach($stages as $stage => $stageLabel)
+                                    @php $groupPhotos = $staged->get($section->id.'|'.$stage, collect()); @endphp
+                                    <div data-photo-group data-section="{{ $section->id }}" data-stage="{{ $stage }}" data-section-name="{{ $section->name }}">
+                                        <div class="mb-1.5 flex items-center justify-between">
+                                            <span class="text-xs font-bold uppercase tracking-wider {{ $stage === 'before' ? 'text-ink-700' : 'text-emerald-700' }}">{{ $stageLabel }}</span>
+                                            <span class="text-xs text-ink-500" data-group-count>{{ $groupPhotos->count() }} de {{ $maxPerGroup }}</span>
+                                        </div>
+                                        <div class="grid grid-cols-3 gap-2" data-thumbs>
+                                            @foreach($groupPhotos as $photo)
+                                                <div class="relative aspect-square overflow-hidden rounded-lg bg-ink-50" data-photo-id="{{ $photo->id }}" data-state="done">
+                                                    <img src="{{ $photo->thumbUrl() }}" alt="{{ $section->name }}, {{ mb_strtolower($stageLabel) }}" class="h-full w-full object-cover">
+                                                    <button type="button" class="absolute right-1 top-1 rounded-full bg-white/90 px-2 py-0.5 text-xs font-bold text-red-700 shadow" data-remove
+                                                            data-delete-url="{{ route('visit-photos.destroy', ['company' => auth()->user()->company->slug, 'visitPhoto' => $photo->id]) }}" aria-label="Quitar foto">✕</button>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                        <label class="t-btn-secondary t-btn-sm mt-2 w-full cursor-pointer {{ $groupPhotos->count() >= $maxPerGroup ? 'hidden' : '' }}" data-add>
+                                            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                                            Agregar foto · {{ mb_strtolower($stageLabel) }}
+                                            <input type="file" accept="image/*" multiple class="sr-only" data-file aria-label="Agregar foto de {{ $section->name }}, {{ mb_strtolower($stageLabel) }}">
+                                        </label>
+                                    </div>
+                                @endforeach
+                                @if(($elevators ?? collect())->count() > 1)
+                                    <div>
+                                        <label class="mb-1 block text-xs text-ink-500" for="photo-elevator-{{ $section->id }}">Equipo (opcional)</label>
+                                        <select id="photo-elevator-{{ $section->id }}" name="photo_elevators[{{ $section->id }}]" class="t-input py-2.5" data-draft-field>
+                                            <option value="">General del edificio</option>
+                                            @foreach($elevators as $elevator)
+                                                <option value="{{ $elevator->id }}" @selected(old('photo_elevators.'.$section->id) == $elevator->id)>{{ $elevator->label }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                @endif
+                                <div>
+                                    <label class="mb-1 block text-xs text-ink-500" for="photo-notes-{{ $section->id }}">Observación de {{ $section->name }} (opcional)</label>
+                                    <input type="text" id="photo-notes-{{ $section->id }}" name="photo_notes[{{ $section->id }}]" maxlength="500" value="{{ old('photo_notes.'.$section->id) }}" class="t-input py-2.5" data-draft-field>
+                                </div>
+                            </div>
+                        </details>
+                    @endforeach
+                </div>
+                <p id="photos-status" class="mt-2 hidden text-xs font-semibold" role="status" aria-live="polite"></p>
             </section>
         @endif
 
@@ -437,6 +517,20 @@ form.addEventListener('submit', function (e) {
         return;
     }
 
+    // Fotos: no se firma con fotos subiéndose o que fallaron (se perderían sin aviso).
+    const photoState = window.ascentoVisitPhotos ? window.ascentoVisitPhotos.state() : { uploading: 0, failed: 0 };
+    if (photoState.uploading > 0) {
+        e.preventDefault();
+        showFormError('Esperá a que terminen de subirse las fotos (' + photoState.uploading + ').');
+        return;
+    }
+    if (photoState.failed > 0) {
+        e.preventDefault();
+        showFormError('Hay ' + photoState.failed + ' foto(s) que no se subieron: tocá «Reintentar» o quitalas.');
+        document.querySelector('[data-state="failed"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+    }
+
     // Sin señal: no se envía (se perderían las firmas en la página de error
     // del navegador). Todo queda cargado; se manda cuando vuelva la conexión.
     if (navigator.onLine === false) {
@@ -470,6 +564,183 @@ window.addEventListener('load', () => {
 @endif
 </script>
 
+
+<script>
+/* Fotos de antes y después: se suben de a una (en fila) mientras se completa
+   el remito. Cada una se achica en el celular antes de subir; si falla, queda
+   con «Reintentar» y el remito no se puede enviar hasta resolverla. */
+(() => {
+    const root = document.getElementById('visitPhotos');
+    if (!root) return;
+    const MAX_SIDE = 2000;
+    const maxGroup = parseInt(root.dataset.maxGroup, 10);
+    const maxTotal = parseInt(root.dataset.maxTotal, 10);
+    const batch = root.querySelector('input[name="photo_batch"]').value;
+    const token = document.querySelector('input[name="_token"]').value;
+    const status = document.getElementById('photos-status');
+    const queue = [];
+    let busy = false;
+
+    const tiles = (sel) => root.querySelectorAll('[data-thumbs] > div' + (sel || ''));
+
+    function say(text, isError) {
+        status.textContent = text;
+        status.className = 'mt-2 text-xs font-semibold ' + (isError ? 'text-red-700' : 'text-ink-500');
+        status.classList.toggle('hidden', !text);
+    }
+
+    function refresh(group) {
+        const n = group.querySelectorAll('[data-thumbs] > div').length;
+        group.querySelector('[data-group-count]').textContent = n + ' de ' + maxGroup;
+        group.querySelector('[data-add]').classList.toggle('hidden', n >= maxGroup);
+        const section = group.closest('[data-photo-section]');
+        const total = section.querySelectorAll('[data-thumbs] > div').length;
+        section.querySelector('[data-section-count]').textContent = total ? total + (total === 1 ? ' foto' : ' fotos') : 'Sin fotos';
+    }
+
+    async function shrink(file) {
+        try {
+            if (!window.createImageBitmap) return file;
+            const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+            const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(bitmap.width * scale);
+            canvas.height = Math.round(bitmap.height * scale);
+            canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+            if (!blob || blob.size >= file.size) return file;
+            return new File([blob], (file.name || 'foto').replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+        } catch (e) {
+            return file;
+        }
+    }
+
+    function tile(group, file) {
+        const el = document.createElement('div');
+        el.className = 'relative aspect-square overflow-hidden rounded-lg bg-ink-50';
+        el.dataset.state = 'uploading';
+        el.innerHTML = '<img alt="" class="h-full w-full object-cover opacity-60">'
+            + '<span class="absolute inset-x-0 bottom-0 bg-white/90 px-1 py-0.5 text-center text-[11px] font-semibold text-ink-700" data-label>Subiendo…</span>'
+            + '<button type="button" class="absolute right-1 top-1 rounded-full bg-white/90 px-2 py-0.5 text-xs font-bold text-red-700 shadow" data-remove aria-label="Quitar foto">✕</button>';
+        const img = el.querySelector('img');
+        img.alt = group.dataset.sectionName + ', ' + (group.dataset.stage === 'before' ? 'antes' : 'después');
+        try { img.src = URL.createObjectURL(file); } catch (e) {}
+        el._file = file;
+        el._group = group;
+        group.querySelector('[data-thumbs]').append(el);
+        refresh(group);
+        return el;
+    }
+
+    function setFailed(el, message) {
+        el.dataset.state = 'failed';
+        const label = el.querySelector('[data-label]');
+        label.className = 'absolute inset-x-0 bottom-0 bg-red-50 px-1 py-0.5 text-center text-[11px] font-bold text-red-700';
+        label.innerHTML = '';
+        const retry = document.createElement('button');
+        retry.type = 'button';
+        retry.textContent = 'Reintentar';
+        retry.className = 'underline';
+        retry.addEventListener('click', () => { el.dataset.state = 'uploading'; label.className = 'absolute inset-x-0 bottom-0 bg-white/90 px-1 py-0.5 text-center text-[11px] font-semibold text-ink-700'; label.textContent = 'Subiendo…'; enqueue(el); });
+        label.append(retry);
+        say(message, true);
+    }
+
+    async function upload(el) {
+        const group = el._group;
+        const body = new FormData();
+        body.append('_token', token);
+        body.append('batch', batch);
+        body.append('building_id', root.dataset.building);
+        body.append('assignment_type', root.dataset.type);
+        body.append('photo_section_id', group.dataset.section);
+        body.append('stage', group.dataset.stage);
+        body.append('photo', el._file);
+        try {
+            if (navigator.onLine === false) throw new Error('offline');
+            const res = await fetch(root.dataset.uploadUrl, { method: 'POST', body, headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                const msg = data.errors ? Object.values(data.errors).flat()[0] : (data.message || 'No se pudo subir la foto.');
+                if (res.status === 422 && data.errors && /hasta|máximo|ya no admite/.test(msg)) { el.remove(); refresh(group); say(msg, true); return; }
+                return setFailed(el, msg);
+            }
+            if (!el.isConnected) {
+                // La quitaron mientras se subía: se borra también del servidor.
+                fetch(data.delete_url, { method: 'DELETE', headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' }).catch(() => {});
+                return;
+            }
+            el.dataset.state = 'done';
+            el.dataset.photoId = data.id;
+            el.querySelector('[data-remove]').dataset.deleteUrl = data.delete_url;
+            const img = el.querySelector('img');
+            img.classList.remove('opacity-60');
+            img.src = data.thumb_url;
+            el.querySelector('[data-label]').remove();
+            el._file = null;
+            say('');
+        } catch (e) {
+            setFailed(el, navigator.onLine === false ? 'Sin conexión: la foto no se subió. Tocá «Reintentar» cuando vuelva la señal.' : 'No se pudo subir la foto. Tocá «Reintentar».');
+        }
+    }
+
+    function enqueue(el) {
+        queue.push(el);
+        if (!busy) next();
+    }
+
+    async function next() {
+        busy = true;
+        while (queue.length) {
+            const el = queue.shift();
+            if (!el.isConnected) continue;
+            el._file = el._compressed ? el._file : await shrink(el._file);
+            el._compressed = true;
+            await upload(el);
+        }
+        busy = false;
+    }
+
+    root.addEventListener('change', (e) => {
+        const input = e.target.closest('[data-file]');
+        if (!input) return;
+        const group = input.closest('[data-photo-group]');
+        const files = Array.from(input.files || []).filter((f) => !f.type || f.type.startsWith('image/'));
+        input.value = '';
+        const roomGroup = maxGroup - group.querySelectorAll('[data-thumbs] > div').length;
+        const roomTotal = maxTotal - tiles().length;
+        const room = Math.max(0, Math.min(roomGroup, roomTotal));
+        if (files.length > room) say(roomTotal <= 0 ? 'Llegaste al máximo de ' + maxTotal + ' fotos por visita.' : 'En esta sección entran ' + maxGroup + ' fotos por estado. Se agregaron las primeras.', true);
+        files.slice(0, room).forEach((file) => enqueue(tile(group, file)));
+    });
+
+    root.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-remove]');
+        if (!btn) return;
+        const el = btn.closest('[data-thumbs] > div');
+        const group = btn.closest('[data-photo-group]');
+        if (el.dataset.state === 'done' && btn.dataset.deleteUrl) {
+            btn.disabled = true;
+            try {
+                const res = await fetch(btn.dataset.deleteUrl, { method: 'DELETE', headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' });
+                if (!res.ok && res.status !== 404) throw new Error();
+            } catch (err) {
+                btn.disabled = false;
+                return say('No se pudo quitar la foto. Probá de nuevo.', true);
+            }
+        }
+        el.remove();
+        refresh(group);
+    });
+
+    window.ascentoVisitPhotos = {
+        state: () => ({
+            uploading: tiles('[data-state="uploading"]').length,
+            failed: tiles('[data-state="failed"]').length,
+        }),
+    };
+})();
+</script>
 
 <script>
 (() => {

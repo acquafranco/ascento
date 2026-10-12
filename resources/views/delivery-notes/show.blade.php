@@ -7,7 +7,8 @@
     - Interno: "Compartir" (WhatsApp, correo, PDF real, copiar enlace) desde el
       plan Profesional; si el plan no lo incluye, el aviso de siempre.
     - Público: solo "Descargar PDF".
-    $deliveryNote, $doc, $audience, $pdfUrl (público)
+    - Interno: fotos de antes y después de la visita (solo quien puede verlas).
+    $deliveryNote, $doc, $audience, $pdfUrl (público), $photos (interno)
 --}}
 @php
     $audience = $audience ?? 'internal';
@@ -101,6 +102,11 @@
                         <a href="{{ \App\Support\Plans\PlanUpsell::url(feature: \App\Enums\PlanFeature::DigitalDeliveryNotes) }}" style="font-weight:600;text-decoration:underline">Ver planes</a>
                     @endif
                 </div>
+            @endif
+
+            {{-- Fotos de antes y después: solo interno (nunca enlace público ni portal). --}}
+            @if ($audience === 'internal' && isset($photos) && $photos->isNotEmpty())
+                @include('delivery-notes.partials.visit-photos', ['photos' => $photos])
             @endif
         </div>
     </main>

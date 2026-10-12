@@ -5,34 +5,36 @@ namespace App\Services\Insights;
 use App\Models\Building;
 use App\Models\BuildingVisit;
 use App\Models\MaintenanceService;
+use App\Services\Visits\VisitPeriod;
+use App\Services\Visits\VisitSchedule;
 use App\Support\CompanyContext;
 use Carbon\Carbon;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
 /**
  * Agenda automática de mantenimientos e inspecciones.
  *
- * No hay tablas nuevas: sale de lo que ya existe.
+ * Sale de lo que ya existe, con las reglas de VisitSchedule:
  * - Qué edificio se visita y quién: asignaciones edificio–técnico
  *   (building_user, tipo maintenance / inspection) y servicios activos.
- * - Si se hizo: la visita mensual (building_visits, fixed) de ese período,
- *   que se crea cuando el técnico firma el remito.
+ * - Cada cuánto: la frecuencia de visitas del edificio (mensual si no tiene
+ *   una propia; quincenal = 2 visitas en el mes; cada N meses = 1 visita por
+ *   período). La frecuencia de COBRO del servicio no interviene.
+ * - Si se hizo: las visitas periódicas (building_visits, fixed) del período,
+ *   que se crean cuando el técnico firma el remito.
  *
- * Estado de cada fila: hecho, vencido (mes pasado sin visita), pendiente
- * (mes actual sin visita), próximo (mes futuro) o sin asignar (tiene
- * contrato pero no técnico).
+ * Estado de cada fila: hecho, no realizado, vencido (período terminado con
+ * visitas faltantes), pendiente (período en curso), próximo (período
+ * futuro), sin asignar (tiene contrato pero no técnico) o hecho en el
+ * período (frecuencias de varios meses: ya se visitó otro mes del período).
  */
 class MaintenanceAgenda
 {
     /**
-     * Cada cuántos meses se visita un edificio. En Ascento la visita es
-     * MENSUAL en todo el sistema: una visita fija por edificio, tipo y mes
-     * (building_visits.month/year), un remito por mes y la app del técnico
-     * cuenta los pendientes del mes. La frecuencia del servicio
-     * (maintenance_services.frequency) es la de COBRO, no la de visitas: un
-     * contrato cobrado por trimestre igual se mantiene todos los meses.
-     * Si algún día se necesitan visitas no mensuales, falta un dato propio
-     * (p. ej. visit_every_months en el servicio) que hoy no existe.
+     * Frecuencia de un edificio SIN plan propio: mensual, como siempre. La
+     * frecuencia del servicio (maintenance_services.frequency) es la de
+     * COBRO, no la de visitas: la frecuencia de visitas es BuildingVisitPlan.
      */
     public const VISIT_EVERY_MONTHS = 1;
 
@@ -48,21 +50,20 @@ class MaintenanceAgenda
         'pending' => 'Pendiente',
         'upcoming' => 'Próximo',
         'unassigned' => 'Sin técnico',
+        // Frecuencia de varios meses: la visita del período ya se hizo otro mes.
+        'covered' => 'Hecho en el período',
     ];
 
     /**
-     * @return Collection<int, array{building: Building, type: string, status: string, technicians: Collection, visit: ?BuildingVisit, elevators: int}>
+     * @return Collection<int, array{building: Building, type: string, status: string, technicians: Collection, visit: ?BuildingVisit, visits: Collection, period: VisitPeriod, expected: int, done: int, not_done: int, pending: int, elevators: int}>
      */
     public function rows(int $month, int $year, ?string $type = null, ?int $technicianId = null, ?string $status = null): Collection
     {
-        $period = Carbon::create($year, $month, 1)->startOfMonth();
-        $current = now()->startOfMonth();
-
         $buildings = $this->buildings($month, $year, $technicianId);
-        $visits = $this->visits($month, $year);
+        $schedule = $this->schedule($buildings, $month, $year, $technicianId);
 
         // Edificios con un contrato vigente en ese mes (aunque no tengan técnico).
-        [$contractBuildings, $contractClients] = $this->contracts($period);
+        [$contractBuildings, $contractClients] = $this->contracts(Carbon::create($year, $month, 1)->startOfMonth());
 
         $rows = collect();
 
@@ -73,25 +74,19 @@ class MaintenanceAgenda
                 }
 
                 $technicians = $building->users->filter(fn ($u) => $u->pivot->type === $each)->values();
-                $visit = $visits->get($building->id.'|'.$each);
+                $eval = $schedule->evaluate($building->id, $each, $month, $year);
                 $hasContract = $contractBuildings->has($building->id) || $contractClients->has($building->client_id);
 
                 // Solo lo que corresponde visitar: tiene técnico asignado, o
                 // tiene contrato de mantenimiento (y entonces falta asignarlo).
-                if ($technicians->isEmpty() && ! $visit && ! ($hasContract && $each === 'maintenance')) {
+                if ($technicians->isEmpty() && $eval['visits']->isEmpty() && ! ($hasContract && $each === 'maintenance')) {
                     continue;
                 }
 
-                $rowStatus = match (true) {
-                    $visit !== null && $visit->deliveryNote?->performed === false => 'not_done',
-                    $visit !== null => 'done',
-                    $technicians->isEmpty() => 'unassigned',
-                    $period->lt($current) => 'overdue',
-                    $period->eq($current) => 'pending',
-                    default => 'upcoming',
-                };
+                $period = $eval['period'];
+                $rowStatus = self::statusFor($eval, $technicians->isNotEmpty());
 
-                if ($technicianId && ! $technicians->contains('id', $technicianId) && $visit?->user_id !== $technicianId) {
+                if ($technicianId && ! $technicians->contains('id', $technicianId) && ! $eval['visits']->contains('user_id', $technicianId)) {
                     continue;
                 }
 
@@ -101,19 +96,83 @@ class MaintenanceAgenda
 
                 $rows->push([
                     'building' => $building,
+                    'building_id' => $building->id,
+                    'assigned' => $technicians->isNotEmpty(),
                     'type' => $each,
                     'status' => $rowStatus,
                     'technicians' => $technicians,
-                    'visit' => $visit,
+                    // La última visita del período (compatibilidad con las vistas).
+                    'visit' => $eval['visits']->last(),
+                    'visits' => $eval['visits'],
+                    'period' => $period,
+                    'expected' => $eval['expected'],
+                    'done' => $eval['done'],
+                    'not_done' => $eval['not_done'],
+                    'pending' => $eval['pending'],
                     'elevators' => (int) $building->elevator_count + (int) $building->freight_elevator_count,
                 ]);
             }
         }
 
         // Primero lo que requiere acción.
-        $order = ['overdue' => 0, 'not_done' => 1, 'unassigned' => 2, 'pending' => 3, 'upcoming' => 4, 'done' => 5];
+        $order = ['overdue' => 0, 'not_done' => 1, 'unassigned' => 2, 'pending' => 3, 'upcoming' => 4, 'done' => 5, 'covered' => 6];
 
         return $rows->sortBy(fn ($row) => $order[$row['status']].'|'.$row['building']->name)->values();
+    }
+
+    /**
+     * Estado de una fila (edificio + tipo) a partir de VisitSchedule::evaluate.
+     * Lo usan la Agenda y la pantalla de Visitas del técnico: misma regla.
+     */
+    public static function statusFor(array $eval, bool $hasTechnicians): string
+    {
+        $current = VisitPeriod::index(CarbonImmutable::now()->startOfMonth());
+        $period = $eval['period'];
+
+        return match (true) {
+            $eval['covered'] => 'covered',
+            $eval['pending'] === 0 => $eval['done'] >= $eval['expected'] ? 'done' : 'not_done',
+            ! $hasTechnicians => 'unassigned',
+            VisitPeriod::index($period->end) < $current => 'overdue',
+            VisitPeriod::index($period->start) <= $current => 'pending',
+            default => 'upcoming',
+        };
+    }
+
+    /**
+     * Progreso por tipo (y total), contando VISITAS (no máquinas):
+     * asignados = edificios con técnico; previstas = visitas que corresponden
+     * al mes; realizadas + no realizadas + pendientes = previstas.
+     * Filas: las de rows() o cualquier lista con building_id, type, assigned,
+     * expected, done, not_done, pending y elevators.
+     *
+     * @return array<string, array{assigned: int, expected: int, done: int, not_done: int, pending: int, percent: ?int, machines: int}>
+     */
+    public static function progress(Collection $rows): array
+    {
+        $calc = function (Collection $rows): array {
+            $assigned = $rows->filter(fn ($r) => $r['assigned']);
+            $expected = (int) $rows->sum('expected');
+            $done = (int) $rows->sum('done');
+
+            return [
+                'assigned' => $assigned->map(fn ($r) => $r['building_id'].'|'.$r['type'])->unique()->count(),
+                'expected' => $expected,
+                'done' => $done,
+                'not_done' => (int) $rows->sum('not_done'),
+                'pending' => (int) $rows->sum('pending'),
+                'percent' => $expected > 0 ? (int) floor($done / $expected * 100) : null,
+                'machines' => (int) $assigned->unique('building_id')->sum('elevators'),
+            ];
+        };
+
+        $result = [];
+        foreach (array_keys(self::TYPES) as $type) {
+            $result[$type] = $calc($rows->where('type', $type));
+        }
+        $result['total'] = $calc($rows);
+
+        return $result;
     }
 
     /*
@@ -136,17 +195,12 @@ class MaintenanceAgenda
             ->get());
     }
 
-    /** Visitas fijas del mes, por "edificio|tipo". */
-    private function visits(int $month, int $year): Collection
+    /** Frecuencias y visitas de esos edificios alrededor del mes (VisitSchedule). */
+    private function schedule(Collection $buildings, int $month, int $year, ?int $technicianId): VisitSchedule
     {
-        return $this->remember("visits.{$month}.{$year}", fn () => BuildingVisit::query()
-            ->with(['user:id,name', 'deliveryNote:id,building_visit_id,performed,number'])
-            ->where('visit_type', 'fixed')
-            ->where('month', $month)
-            ->where('year', $year)
-            ->whereIn('assignment_type', array_keys(self::TYPES))
-            ->get()
-            ->keyBy(fn (BuildingVisit $v) => $v->building_id.'|'.$v->assignment_type));
+        return $this->remember('schedule.'.($technicianId ? "{$technicianId}." : 'all.')."{$month}.{$year}", fn () => VisitSchedule::load(
+            $buildings->pluck('id'), $month, $year, CompanyContext::currentId(),
+        ));
     }
 
     /** @return array{0: Collection, 1: Collection} edificios y clientes con contrato vigente en el mes */

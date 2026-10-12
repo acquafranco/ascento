@@ -64,7 +64,7 @@
                             <span class="p-row-main">
                                 <span class="p-icon" aria-hidden="true">{{ $type === 'maintenance' ? '🔧' : '🔍' }}</span>
                                 <span style="min-width:0">
-                                    <span class="p-row-title">{{ $months[$visit->month] ?? $visit->month }} {{ $visit->year }} · {{ $buildingNames[$visit->building_id] ?? '' }}</span>
+                                    <span class="p-row-title">{{ $months[$visit->month] ?? $visit->month }} {{ $visit->year }}{{ (int) $visit->slot > 1 ? ' · visita '.$visit->slot : '' }} · {{ $buildingNames[$visit->building_id] ?? '' }}</span>
                                     <span class="p-row-text">
                                         {{ $visit->visited_at?->format('d/m/Y') }}
                                         @if($note) · {{ (int) $note->elevator_quantity + (int) $note->freight_elevator_quantity }} equipos @endif

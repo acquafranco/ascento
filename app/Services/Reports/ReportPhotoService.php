@@ -4,21 +4,19 @@ namespace App\Services\Reports;
 
 use App\Models\Report;
 use App\Models\ReportPhoto;
+use App\Services\Media\PhotoProcessor;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use Intervention\Image\Drivers\Gd\Driver as GdDriver;
-use Intervention\Image\Drivers\Imagick\Driver as ImagickDriver;
 use Intervention\Image\Encoders\JpegEncoder;
 use Intervention\Image\ImageManager;
 
 /**
  * Único lugar donde se guardan y borran fotos de reportes (app del técnico y
- * panel). Cada foto se decodifica y se vuelve a codificar como JPEG (no pasa
- * nada que no sea una imagen), se orienta sola, se achica a 2000 px y se
- * guarda en el disco privado con nombre aleatorio.
+ * panel). El procesamiento de cada imagen (re-codificar a JPEG, orientar,
+ * quitar EXIF, achicar, miniatura, disco privado) es PhotoProcessor, el
+ * mismo que usan las fotos de visitas.
  */
 class ReportPhotoService
 {
@@ -96,19 +94,15 @@ class ReportPhotoService
         }
     }
 
-    /**
-     * Imagick si está (lee HEIC de iPhone); si no, GD. Corrige la orientación
-     * y quita los metadatos (EXIF, incluida la ubicación GPS) al re-codificar:
-     * las fotos pueden terminar en el portal del cliente.
-     */
+    /** Ver PhotoProcessor (mismo procesamiento para reportes y visitas). */
     public static function manager(): ImageManager
     {
-        return ImageManager::usingDriver(extension_loaded('imagick') ? ImagickDriver::class : GdDriver::class, autoOrientation: true, strip: true);
+        return PhotoProcessor::manager();
     }
 
     public static function thumbPathFor(string $path): string
     {
-        return preg_replace('/\.jpg$/', '', $path).'-thumb.jpg';
+        return PhotoProcessor::thumbPathFor($path);
     }
 
     /**
@@ -154,43 +148,9 @@ class ReportPhotoService
         });
     }
 
-    /** @return array{path: string, width: int, height: int, size: int} */
+    /** @return array{path: string, thumb_path: string, width: ?int, height: ?int, size: int} */
     private function process(UploadedFile|string $file, int $companyId): array
     {
-        $source = $file instanceof UploadedFile ? $file->getRealPath() : $file;
-        $path = 'reports/'.$companyId.'/'.Str::random(40).'.jpg';
-        $fullPath = Storage::disk('local')->path($path);
-
-        try {
-            if (! is_dir(dirname($fullPath))) {
-                mkdir(dirname($fullPath), 0755, true);
-            }
-
-            $image = static::manager()->decode(fopen($source, 'rb'))
-                ->scaleDown(width: (int) config('media.photo_max_side', self::MAX_SIDE), height: (int) config('media.photo_max_side', self::MAX_SIDE));
-
-            $image->encode(new JpegEncoder(quality: (int) config('media.photo_quality', 82)))->save($fullPath);
-
-            // Miniatura para listas, el portal y conexiones lentas.
-            $thumbPath = static::thumbPathFor($path);
-            $image->scaleDown(width: (int) config('media.thumb_side', 480), height: (int) config('media.thumb_side', 480))
-                ->encode(new JpegEncoder(quality: 75))->save(Storage::disk('local')->path($thumbPath));
-
-            return [
-                'path' => $path,
-                'thumb_path' => $thumbPath,
-                'width' => getimagesize($fullPath)[0] ?? null,
-                'height' => getimagesize($fullPath)[1] ?? null,
-                'size' => (int) filesize($fullPath),
-            ];
-        } catch (\Throwable $e) {
-            Storage::disk('local')->delete([$path, static::thumbPathFor($path)]);
-
-            logger()->warning('Foto de reporte inválida', ['message' => $e->getMessage()]);
-
-            throw ValidationException::withMessages([
-                'photos' => 'No se pudo procesar una de las fotos. Probá con otra foto o formato.',
-            ]);
-        }
+        return app(PhotoProcessor::class)->store($file, 'reports/'.$companyId, 'photos', 'Foto de reporte inválida');
     }
 }

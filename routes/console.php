@@ -33,6 +33,9 @@ Schedule::command('exports:prune')->dailyAt('03:30');
 // anterior los días 1 a 5). Cada aviso sale una sola vez por mes.
 Schedule::command('notifications:visits')->dailyAt('08:00')->withoutOverlapping();
 
+// Fotos de visitas subidas para un remito que nunca se firmó (24 h).
+Schedule::command('visit-photos:prune')->dailyAt('03:45');
+
 // Videos de reportes: compresión en segundo plano (solo si hay FFmpeg).
 Schedule::command('media:process-videos')->everyMinute()->withoutOverlapping(15);
 

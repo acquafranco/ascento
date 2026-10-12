@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Concerns\BelongsToCompany;
+use App\Services\Visits\VisitSchedule;
 
 class BuildingVisit extends Model
 {
@@ -26,6 +27,7 @@ class BuildingVisit extends Model
 
         'month',
         'year',
+        'slot',
 
         'visited_at',
 
@@ -45,11 +47,25 @@ class BuildingVisit extends Model
         'visited_at' => 'datetime',
         'started_at' => 'datetime',
         'finished_at' => 'datetime',
+        'slot' => 'integer',
     ];
 
 
     protected static function booted(): void
     {
+        // Identidad de la visita periódica (edificio + "tipo:período:número",
+        // único en la base): dos visitas del mismo lugar nunca se duplican.
+        // El período sale de la frecuencia del edificio (VisitSchedule).
+        static::creating(function (BuildingVisit $visit) {
+            if ($visit->period_key === null && $visit->visit_type === 'fixed'
+                && in_array($visit->assignment_type, VisitSchedule::TYPES, true) && $visit->month && $visit->year) {
+                $visit->slot = max(1, (int) ($visit->slot ?: 1));
+                $visit->period_key = VisitSchedule::load([$visit->building_id], (int) $visit->month, (int) $visit->year)
+                    ->period((int) $visit->building_id, $visit->assignment_type, (int) $visit->month, (int) $visit->year)
+                    ->key($visit->slot);
+            }
+        });
+
         // Mantenimiento / inspección: se vincula solo al contrato que lo cubre.
         static::creating(function (BuildingVisit $visit) {
             if ($visit->maintenance_service_id === null && in_array($visit->assignment_type, ['maintenance', 'inspection'], true)) {
@@ -59,6 +75,11 @@ class BuildingVisit extends Model
                     $visit->visited_at ?? now(),
                 )?->id;
             }
+        });
+
+        // Sus fotos se borran con sus archivos (no quedan huérfanos).
+        static::deleting(function (BuildingVisit $visit) {
+            VisitPhoto::withoutGlobalScopes()->where('building_visit_id', $visit->id)->get()->each->delete();
         });
 
         // Un contrato solo tiene visitas de su empresa y de su edificio/cliente.
@@ -119,6 +140,11 @@ class BuildingVisit extends Model
     public function canBeUnmarked(): bool
     {
         return ! $this->deliveryNote()->exists();
+    }
+
+    public function photos()
+    {
+        return $this->hasMany(VisitPhoto::class)->orderBy('photo_section_id')->orderBy('stage')->orderBy('id');
     }
 
     public function participants()

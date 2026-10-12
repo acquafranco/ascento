@@ -126,7 +126,26 @@ class DeliveryNoteController extends Controller
             'deliveryNote' => $deliveryNote,
             'doc' => DeliveryNoteDocument::for($deliveryNote),
             'audience' => 'internal',
+            'photos' => $this->visitPhotosFor($deliveryNote, $user),
         ]);
+    }
+
+    /**
+     * Fotos de la visita del remito que este usuario puede ver (todas son de
+     * la misma visita: alcanza con verificar una; VisitPhoto::canBeViewedBy).
+     */
+    private function visitPhotosFor(DeliveryNote $deliveryNote, $user)
+    {
+        if (! $deliveryNote->building_visit_id) {
+            return collect();
+        }
+
+        $photos = \App\Models\VisitPhoto::where('building_visit_id', $deliveryNote->building_visit_id)
+            ->whereNotNull('attached_at')
+            ->with(['elevator:id,label', 'uploader:id,name'])
+            ->orderBy('photo_section_id')->orderBy('id')->get();
+
+        return $photos->isNotEmpty() && $photos->first()->canBeViewedBy($user) ? $photos : collect();
     }
 
     /** Lo que muestra el remito (web y PDF). */
@@ -164,14 +183,41 @@ class DeliveryNoteController extends Controller
 
         $this->ensureAssignedTo($building, (string) $request->assignment_type);
 
+        $month = (int) ($request->month ?? now()->month);
+        $month = $month >= 1 && $month <= 12 ? $month : now()->month;
+        $year = (int) ($request->year ?? now()->year);
+        $year = $year >= 2000 && $year <= 2100 ? $year : now()->year;
+
+        // Qué visita del período se va a registrar (solo informativo: el
+        // servidor lo vuelve a calcular al guardar).
+        $period = \App\Services\Visits\VisitSchedule::load([$building->id], $month, $year, (int) $building->company_id)
+            ->period($building->id, (string) $request->assignment_type, $month, $year);
+        $slot = $this->periodicSlot($building, (string) $request->assignment_type, $month, $year);
+        $batch = \Illuminate\Support\Str::isUuid((string) old('photo_batch')) ? (string) old('photo_batch') : (string) \Illuminate\Support\Str::uuid();
+
         return view(
             'delivery-notes.create',
             [
                 'building' => $building,
                 'workOrder' => null,
-                'month' => $request->month ?? now()->month,
-                'year' => $request->year ?? now()->year,
+                'month' => $month,
+                'year' => $year,
                 'assignmentType' => $request->assignment_type,
+                'visitInfo' => [
+                    'slot' => is_int($slot) ? $slot : null,
+                    'blocked' => is_string($slot) ? $slot : null,
+                    'expected' => $period->expected,
+                    'period' => $period->isMultiMonth() ? $period->label() : null,
+                    'frequency' => $period->frequencyLabel(),
+                ],
+                'photoSections' => \App\Models\PhotoSection::forCompany((int) $building->company_id),
+                'elevators' => $building->elevators()->where('is_active', true)->get(['id', 'building_id', 'kind', 'label']),
+                // Si el envío volvió con errores, se conserva el lote y sus fotos ya subidas.
+                'photoBatch' => $batch,
+                'stagedPhotos' => \App\Models\VisitPhoto::withoutGlobalScopes()
+                    ->where('batch', $batch)->where('uploaded_by', auth()->id())
+                    ->where('building_id', $building->id)->whereNull('building_visit_id')
+                    ->orderBy('id')->get(),
             ]
         );
     }
@@ -263,6 +309,12 @@ class DeliveryNoteController extends Controller
                     ->whereNull('deleted_at'),
             ],
             'materials.*.quantity' => 'required|numeric|gt:0|max:99999|decimal:0,2',
+            // Lote de fotos de antes y después (ya subidas de a una).
+            'photo_batch' => 'nullable|uuid',
+            'photo_notes' => 'nullable|array|max:50',
+            'photo_notes.*' => 'nullable|string|max:500',
+            'photo_elevators' => 'nullable|array|max:50',
+            'photo_elevators.*' => 'nullable|integer',
             'participants' => 'nullable|array|max:20',
             // Los participantes tienen que ser de la MISMA empresa.
             'participants.*' => [
@@ -281,6 +333,7 @@ class DeliveryNoteController extends Controller
             'assignment_type.in' => 'El tipo de trabajo no es válido.',
             'participants.*.exists' => 'Uno de los participantes no pertenece a tu empresa.',
             'materials.max' => 'Podés declarar hasta 20 materiales.',
+            'photo_notes.*.max' => 'Cada observación de fotos puede tener hasta 500 caracteres.',
             'materials.*.stock_item_id.required' => 'Elegí el material.',
             'materials.*.stock_item_id.exists' => 'Uno de los materiales no existe o no está disponible.',
             'materials.*.quantity.required' => 'Indicá la cantidad de cada material.',
@@ -351,115 +404,43 @@ class DeliveryNoteController extends Controller
         : $request->assignment_type;
 
 
-       if (in_array($assignmentType, ['maintenance', 'inspection'])) {
-
-            $existingDelivery = DeliveryNote::where('company_id', auth()->user()->company_id)
-                ->where('building_id', $building->id)
-                ->where('month', $request->month)
-                ->where('year', $request->year)
-                ->where('assignment_type', $assignmentType)
-                ->exists();
-
-            if ($existingDelivery) {
-                return back()->withErrors([
-                    'general' => 'Este remito ya fue generado.'
-                ]);
-            }
-        }
-        /*
-        |--------------------------------------------------------------------------
-        | TIPO DE VISITA
-        |--------------------------------------------------------------------------
-        */
-
-            if ($request->filled('work_order_id')) {
-
-            $visit = null;
-
-            }else {
-
-            // Mantenimiento / inspección mensual
-            $visitType = 'fixed';
-            $assignmentType = $request->assignment_type;
-
-
-            $existingVisit = BuildingVisit::where('building_id', $building->id)
-        ->where('visit_type', 'fixed')
-        ->where('assignment_type', $assignmentType)
-        ->where('month', $request->month)
-        ->where('year', $request->year)
-        ->exists();
-
-
-            if ($existingVisit) {
-
-                return back()
-                    ->withErrors([
-                        'month' =>
-                        'Este edificio ya tiene un registro para este mes.'
-                    ]);
-            }
-        }
-
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | CREAR VISITA
-        |--------------------------------------------------------------------------
-        */
-
     /*
     |--------------------------------------------------------------------------
-    | CREAR / OBTENER VISITA
+    | VISITA PERIÓDICA (mantenimiento / inspección)
     |--------------------------------------------------------------------------
+    | Qué número de visita le toca sale de VisitSchedule (frecuencia del
+    | edificio): mensual = 1 por mes, quincenal = 2 por mes, cada N meses = 1
+    | por período. Cada visita tiene su identidad (period_key, única en la
+    | base): dos remitos simultáneos nunca crean la misma visita.
     */
 
-    if ($request->filled('work_order_id')) {
+    $visit = null;
 
-        $visit = null;
+    if (! $request->filled('work_order_id')) {
+        $slot = $this->periodicSlot($building, (string) $assignmentType, (int) $request->month, (int) $request->year);
 
-    } else {
+        if (is_string($slot)) {
+            return back()->withErrors(['general' => $slot]);
+        }
 
-        if ($assignmentType === 'inspection') {
-
-        $visit = BuildingVisit::firstOrCreate(
-            [
-                'company_id'      => auth()->user()->company_id,
-                'building_id'     => $building->id,
-                'visit_type'      => 'fixed',
-                'assignment_type' => 'inspection',
-                'month'           => $request->month,
-                'year'            => $request->year,
-                'user_id'         => auth()->id(),
-            ],
-            [
-                'status'     => 'done',
+        try {
+            $visit = BuildingVisit::create([
+                'company_id' => auth()->user()->company_id,
+                'building_id' => $building->id,
+                'user_id' => auth()->id(),
+                'visit_type' => 'fixed',
+                'assignment_type' => $assignmentType,
+                'month' => $request->month,
+                'year' => $request->year,
+                'slot' => $slot,
+                'status' => 'done',
                 'visited_at' => now(),
-                'source'     => 'building',
-            ]
-        );
-
-    } else {
-
-        $visit = BuildingVisit::firstOrCreate(
-            [
-                'company_id'      => auth()->user()->company_id,
-                'building_id'     => $building->id,
-                'visit_type'      => 'fixed',
-                'assignment_type' => 'maintenance',
-                'month'           => $request->month,
-                'year'            => $request->year,
-            ],
-            [
-                'user_id'    => auth()->id(),
-                'status'     => 'done',
-                'visited_at' => now(),
-                'source'     => 'building',
-            ]
-        );
-
-    }
+                'source' => 'building',
+            ]);
+        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+            // Otro técnico registró esa misma visita en el mismo instante.
+            return back()->withErrors(['general' => 'Esa visita se acaba de registrar desde otro dispositivo. Revisá la pantalla de Visitas.']);
+        }
     }
 
     $visit?->participants()->syncWithPivotValues(
@@ -499,6 +480,15 @@ class DeliveryNoteController extends Controller
         'client_signature_name' => $request->client_signature_name,
     ]);
 
+
+    // Fotos de antes y después cargadas durante el remito: quedan de esta
+    // visita y este remito (solo las del técnico, edificio y tipo correctos).
+    if ($visit) {
+        app(\App\Services\Visits\VisitPhotoService::class)->attach(
+            $request->input('photo_batch'), $visit, $deliveryNote, auth()->user(),
+            (array) $request->input('photo_notes', []), (array) $request->input('photo_elevators', []),
+        );
+    }
 
     if ($request->filled('work_order_id')) {
         $finishedAt = now();
@@ -611,6 +601,36 @@ class DeliveryNoteController extends Controller
 
 }
 
+
+    /**
+     * Número de visita libre del período (1 o 2), o el motivo por el que no
+     * se puede registrar otra. Las visitas sin identidad (duplicados
+     * históricos) no cuentan; los remitos viejos sin visita sí ocupan lugar.
+     */
+    private function periodicSlot(Building $building, string $type, int $month, int $year): int|string
+    {
+        $eval = \App\Services\Visits\VisitSchedule::load([$building->id], $month, $year, (int) $building->company_id)
+            ->evaluate($building->id, $type, $month, $year);
+        $period = $eval['period'];
+
+        // Remitos anteriores a las visitas (sin building_visit_id) del mismo período.
+        $legacy = DeliveryNote::where('company_id', $building->company_id)
+            ->where('building_id', $building->id)
+            ->where('assignment_type', $type)
+            ->whereNull('building_visit_id')
+            ->whereRaw('(year * 12 + month) between ? and ?', [\App\Services\Visits\VisitPeriod::index($period->start), \App\Services\Visits\VisitPeriod::index($period->end)])
+            ->count();
+
+        if ($eval['free_slot'] !== null && $eval['visits']->count() + $legacy < $period->expected) {
+            return $eval['free_slot'];
+        }
+
+        return match (true) {
+            $period->expected > 1 => 'Ya se registraron las '.$period->expected.' visitas de este mes.',
+            $period->isMultiMonth() => 'La visita de este período ('.$period->label().') ya se registró.',
+            default => 'Este remito ya fue generado: el edificio ya tiene el registro de este mes.',
+        };
+    }
 
     /**
      * El técnico solo firma el mantenimiento / la inspección mensual de un

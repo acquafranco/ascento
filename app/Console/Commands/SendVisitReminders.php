@@ -3,23 +3,26 @@
 namespace App\Console\Commands;
 
 use App\Filament\Pages\Agenda;
-use App\Models\BuildingVisit;
 use App\Models\Company;
 use App\Models\User;
 use App\Notifications\App\VisitsReminderNotification;
 use App\Services\Notifications\Notifier;
+use App\Services\Visits\VisitSchedule;
 use Carbon\CarbonInterface;
 use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
  * Recordatorios de la agenda mensual (corre todos los días; cada aviso sale
  * una sola vez por mes gracias a la clave del evento):
  *
- * - Desde el día 20: a cada técnico, sus edificios sin remito este mes.
- * - Días 1 a 5: lo que quedó sin remito el mes anterior, a cada técnico y un
- *   resumen a los admins (también por correo). Varios días por si el
- *   scheduler no corrió alguno.
+ * - Desde el día 20: a cada técnico, sus visitas sin remito cuyo período
+ *   vence este mes (mensual: todas; quincenal: las 2; cada N meses: solo en
+ *   el último mes del período). Mismas reglas que la Agenda (VisitSchedule).
+ * - Días 1 a 5: lo que quedó sin remito del período que terminó el mes
+ *   anterior, a cada técnico y un resumen a los admins (también por correo).
+ *   Varios días por si el scheduler no corrió alguno.
  *
  * Sin usuario autenticado: todo se filtra explícitamente por empresa. Solo
  * empresas con acceso vigente y asignaciones actuales (un técnico al que le
@@ -81,32 +84,47 @@ class SendVisitReminders extends Command
         return route('buildings.index', ['company' => $company->slug], false);
     }
 
-    /** Asignaciones vigentes (técnico activo, edificio activo) sin remito en ese mes. */
-    private function pendingAssignments(Company $company, CarbonInterface $month)
+    /**
+     * Visitas que faltan en asignaciones vigentes (técnico activo, edificio
+     * activo) cuyo período TERMINA en ese mes, con las reglas de
+     * VisitSchedule: mensual = ese mes; quincenal = las 2 del mes; cada N
+     * meses = solo en el último mes del período (antes todavía hay tiempo).
+     * Un remito "no realizado" no cuenta como hecho, pero tampoco se reclama
+     * de nuevo (lo coordina la oficina, como siempre).
+     *
+     * @return Collection<int, object{user_id: int, building_id: int, type: string, missing: int}>
+     */
+    private function missing(Company $company, CarbonInterface $month)
     {
-        return DB::table('building_user')
+        $assignments = DB::table('building_user')
             ->join('buildings', 'buildings.id', '=', 'building_user.building_id')
             ->join('users', 'users.id', '=', 'building_user.user_id')
             ->where('buildings.company_id', $company->id)->whereNull('buildings.deleted_at')->where('buildings.is_active', true)
             ->where('users.company_id', $company->id)->whereNull('users.deleted_at')->where('users.role', 'technician')
-            ->whereIn('building_user.type', ['maintenance', 'inspection'])
-            ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from((new BuildingVisit)->getTable().' as v')
-                ->whereColumn('v.building_id', 'building_user.building_id')
-                ->whereColumn('v.assignment_type', 'building_user.type')
-                ->where('v.company_id', $company->id)->where('v.visit_type', 'fixed')
-                ->where('v.month', $month->month)->where('v.year', $month->year))
-            ->select('building_user.user_id', 'building_user.building_id', 'building_user.type');
+            ->whereIn('building_user.type', VisitSchedule::TYPES)
+            ->select('building_user.user_id', 'building_user.building_id', 'building_user.type')
+            ->get();
+
+        $schedule = VisitSchedule::load($assignments->pluck('building_id'), $month->month, $month->year, $company->id);
+
+        return $assignments->map(function ($row) use ($schedule, $month) {
+            $eval = $schedule->evaluate((int) $row->building_id, $row->type, $month->month, $month->year);
+            $endsThisMonth = $eval['period']->end->year === $month->year && $eval['period']->end->month === $month->month;
+            $row->missing = $endsThisMonth ? $eval['pending'] : 0;
+
+            return $row;
+        })->filter(fn ($row) => $row->missing > 0)->values();
     }
 
-    /** @return array<int, int> técnico => cantidad */
+    /** @return array<int, int> técnico => visitas que faltan */
     private function missingByTechnician(Company $company, CarbonInterface $month): array
     {
-        return $this->pendingAssignments($company, $month)->get()->groupBy('user_id')->map->count()->all();
+        return $this->missing($company, $month)->groupBy('user_id')->map(fn ($rows) => (int) $rows->sum('missing'))->all();
     }
 
-    /** Visitas (edificio + tipo) sin remito, sin contar dos veces un edificio con dos técnicos. */
+    /** Visitas sin remito, sin contar dos veces un edificio con dos técnicos. */
     private function missingTotal(Company $company, CarbonInterface $month): int
     {
-        return $this->pendingAssignments($company, $month)->get()->unique(fn ($r) => $r->building_id.'-'.$r->type)->count();
+        return (int) $this->missing($company, $month)->unique(fn ($r) => $r->building_id.'-'.$r->type)->sum('missing');
     }
 }

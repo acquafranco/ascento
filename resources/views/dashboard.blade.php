@@ -8,7 +8,8 @@
     $slug = auth()->user()->company->slug;
     $priorityChip = ['urgent' => 't-chip-failed', 'high' => 't-chip-progress', 'medium' => 't-chip-pending', 'low' => 't-chip-neutral'];
     $typeLabels = \App\Services\Insights\MaintenanceAgenda::TYPES;
-    $monthTotal = $month['done'] + $month['not_done'] + $month['pending'];
+    $monthTotal = $month['expected'];
+    $monthAssigned = $month['progress']['total']['assigned'];
 @endphp
 <x-app-layout>
 <div class="t-page">
@@ -81,32 +82,22 @@
                 Visitas de {{ now()->translatedFormat('F') }}
                 <a href="{{ route('buildings.index', ['company' => $slug]) }}" class="text-xs font-bold normal-case tracking-normal text-brand-700">Ver visitas</a>
             </h2>
-            @if($monthTotal === 0)
+            @if($monthAssigned === 0 && $monthTotal === 0)
                 <div class="t-empty">
                     <p class="font-semibold text-ink">No tenés edificios asignados para mantenimiento o inspección</p>
                     <p class="mt-1">Las asignaciones las hace la oficina desde el panel.</p>
                 </div>
             @else
-                <div class="t-card overflow-hidden">
-                    <div class="px-4 pt-4">
-                        <div class="flex items-baseline justify-between">
-                            <span class="text-sm font-semibold text-ink">{{ $month['done'] + $month['not_done'] }} de {{ $monthTotal }} hechas</span>
-                            <span class="text-xs text-ink-500">Hoy: {{ $visitsToday }}</span>
-                        </div>
-                        <div class="mt-2 h-2 overflow-hidden rounded-full bg-ink-50" role="progressbar" aria-valuemin="0" aria-valuemax="{{ $monthTotal }}" aria-valuenow="{{ $month['done'] + $month['not_done'] }}">
-                            <div class="h-full rounded-full bg-emerald-500" style="width: {{ $monthTotal ? round(($month['done'] + $month['not_done']) / $monthTotal * 100) : 0 }}%"></div>
-                        </div>
-                        @if($month['not_done'])
-                            <p class="mt-2 text-xs font-semibold text-amber-700">{{ $month['not_done'] }} con remito "no realizado": la oficina coordina la nueva visita.</p>
-                        @endif
-                    </div>
+                @include('partials.visit-progress', ['progress' => $month['progress']])
+                <p class="mt-2 text-xs text-ink-500">Hoy: {{ $visitsToday }} {{ $visitsToday === 1 ? 'visita' : 'visitas' }}</p>
+                <div class="t-card mt-2.5 overflow-hidden">
                     @if($month['next']->isNotEmpty())
-                        <div class="t-divide mt-3 border-t border-ink-100">
+                        <div class="t-divide">
                             @foreach($month['next'] as $row)
                                 <a href="{{ route('delivery-notes.building', ['company' => $slug, 'building' => $row['building'], 'month' => now()->month, 'year' => now()->year, 'assignment_type' => $row['type']]) }}" class="t-row hover:bg-ink-50">
                                     <span class="min-w-0 flex-1">
                                         <span class="block truncate font-semibold text-ink">{{ $row['building']->name }}</span>
-                                        <span class="block truncate text-sm text-ink-500">{{ $typeLabels[$row['type']] }} · {{ $row['building']->address }}</span>
+                                        <span class="block truncate text-sm text-ink-500">{{ $typeLabels[$row['type']] }}{{ $row['period']->expected > 1 ? ' · visita '.($row['visits']->count() + 1).' de '.$row['period']->expected : '' }} · {{ $row['building']->address }}</span>
                                     </span>
                                     <span class="t-btn-secondary t-btn-sm shrink-0">Hacer remito</span>
                                 </a>
@@ -116,7 +107,7 @@
                             <a href="{{ route('buildings.index', ['company' => $slug]) }}" class="block border-t border-ink-100 px-4 py-3 text-center text-sm font-semibold text-brand-700">Ver las {{ $month['pending'] }} pendientes</a>
                         @endif
                     @else
-                        <p class="px-4 pb-4 pt-2 text-sm font-semibold text-emerald-700">Todas las visitas del mes están hechas.</p>
+                        <p class="px-4 py-3 text-sm font-semibold {{ $month['not_done'] ? 'text-ink-700' : 'text-emerald-700' }}">{{ $month['not_done'] ? 'No te quedan visitas pendientes este mes.' : 'Todas las visitas previstas del mes están realizadas.' }}</p>
                     @endif
                 </div>
             @endif

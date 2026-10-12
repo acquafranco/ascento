@@ -70,6 +70,15 @@
     .dark .asc-pill.is-overdue, .dark .asc-pill.is-unassigned, .dark .asc-pill.is-not_done { background: rgba(239,68,68,.15); color: #fca5a5; }
     .dark .asc-pill.is-pending { background: rgba(245,158,11,.15); color: #fcd34d; }
     button.asc-pill { cursor: pointer; padding: .3rem .8rem; font-size: .8rem; }
+    .asc-pill.is-covered { background: #ecfdf5; color: #047857; }
+    .dark .asc-pill.is-covered { background: rgba(16,185,129,.12); color: #6ee7b7; }
+    .asc-progress-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: .75rem; margin-bottom: 1rem; }
+    .asc-progress-card { border: 1px solid #e5e7eb; border-radius: .75rem; padding: .75rem 1rem; background: #fff; }
+    .dark .asc-progress-card { border-color: rgba(255,255,255,.1); background: rgba(255,255,255,.03); }
+    .asc-progress-head { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; font-size: .875rem; }
+    .asc-progress-bar { height: .55rem; border-radius: 999px; background: #f3f4f6; overflow: hidden; margin: .5rem 0; }
+    .dark .asc-progress-bar { background: rgba(255,255,255,.08); }
+    .asc-progress-bar > div { height: 100%; border-radius: 999px; background: #10b981; }
     .asc-pills { display: flex; flex-wrap: wrap; gap: .5rem; }
 
     /* Filtros */
