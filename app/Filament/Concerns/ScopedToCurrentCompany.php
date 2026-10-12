@@ -2,6 +2,7 @@
 
 namespace App\Filament\Concerns;
 
+use App\Support\Access\Access;
 use App\Support\CompanyContext;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -26,6 +27,8 @@ trait ScopedToCurrentCompany
     {
         $user = auth()->user();
 
-        return $user !== null && ($user->isAdmin() || $user->isSuperAdmin());
+        // Dueño y SuperAdmin, como siempre; un administrativo, según su área (GuardedByPermission).
+        return $user !== null
+            && ($user->isAdmin() || $user->isSuperAdmin() || (Access::isActiveStaff($user) && static::canViewAny()));
     }
 }

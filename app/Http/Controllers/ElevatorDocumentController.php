@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\PermissionArea;
 use App\Models\ElevatorDocument;
+use App\Support\Access\Access;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -17,7 +19,8 @@ class ElevatorDocumentController extends Controller
     {
         $user = $request->user();
 
-        abort_unless($user->isAdmin() || $user->isSuperAdmin(), 404);
+        // Dueño y SuperAdmin; un administrativo, con «Documentos y remitos».
+        abort_unless(Access::can($user, PermissionArea::Documents), 404);
         abort_unless($elevatorDocument->hasSafePath() && Storage::disk('local')->exists($elevatorDocument->path), 404);
 
         return Storage::disk('local')->response($elevatorDocument->path, $elevatorDocument->original_name ?: basename($elevatorDocument->path), [

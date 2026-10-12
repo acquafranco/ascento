@@ -2,6 +2,7 @@
 
 namespace App\Services\Visits;
 
+use App\Enums\PermissionArea;
 use App\Enums\PlanFeature;
 use App\Models\Building;
 use App\Models\BuildingVisit;
@@ -13,6 +14,7 @@ use App\Models\User;
 use App\Models\VisitPhoto;
 use App\Models\WorkOrder;
 use App\Services\Media\PhotoProcessor;
+use App\Support\Access\Access;
 use App\Support\PhotoZones;
 use App\Support\Plans\PlanGuard;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -64,7 +66,8 @@ class VisitPhotoService
             return false;
         }
 
-        if ($user->isAdmin()) {
+        // Dueño; un administrativo, si gestiona el área de ese trabajo.
+        if (Access::can($user, PermissionArea::forJobType($target->type), PermissionArea::MANAGE)) {
             return true;
         }
 

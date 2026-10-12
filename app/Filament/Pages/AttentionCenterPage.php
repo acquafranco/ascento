@@ -2,15 +2,23 @@
 
 namespace App\Filament\Pages;
 
+use App\Enums\PermissionArea;
 use App\Enums\PlanFeature;
 use App\Filament\Concerns\RequiresPlanFeature;
 use App\Services\Insights\AttentionCenter;
+use App\Support\Access\Access;
 use App\Support\Plans\PlanUpsell;
 use Filament\Pages\Page;
 
 /** Centro de atención: lo que requiere una acción hoy. */
 class AttentionCenterPage extends Page
 {
+    /** Área de permisos de administrativos (Etapa 6). */
+    public static function permissionArea(): ?PermissionArea
+    {
+        return PermissionArea::Attention;
+    }
+
     use RequiresPlanFeature;
 
     protected static PlanFeature $planFeature = PlanFeature::AttentionCenter;
@@ -31,7 +39,8 @@ class AttentionCenterPage extends Page
     {
         $user = auth()->user();
 
-        return $user !== null && ($user->isAdmin() || $user->isSuperAdmin());
+        // Dueño y SuperAdmin, como siempre; un administrativo, con el área habilitada.
+        return Access::can($user, PermissionArea::Attention);
     }
 
     public function getSubheading(): ?string

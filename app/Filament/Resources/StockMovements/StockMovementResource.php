@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\StockMovements;
 
+use App\Enums\PermissionArea;
+use App\Filament\Concerns\GuardedByPermission;
 use App\Filament\Concerns\ScopedToCurrentCompany;
 use App\Filament\Resources\StockMovements\Pages\ListStockMovements;
 use App\Filament\Resources\WorkOrders\WorkOrderResource;
@@ -15,6 +17,14 @@ use Illuminate\Database\Eloquent\Model;
 /** Historial de movimientos de stock (solo lectura: los movimientos son inmutables). */
 class StockMovementResource extends Resource
 {
+    use GuardedByPermission;
+
+    /** Área de permisos de administrativos (Etapa 6). */
+    public static function permissionArea(): ?PermissionArea
+    {
+        return PermissionArea::Stock;
+    }
+
     use ScopedToCurrentCompany;
 
     protected static ?string $model = StockMovement::class;

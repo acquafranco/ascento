@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\Access\Access;
 use App\Support\Realtime;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\DatabaseNotification;
@@ -37,7 +38,7 @@ class NotificationInboxController extends Controller
             return $user->isClientUser() ? redirect()->route('portal.notifications') : redirect($user->homeUrl() ?? '/');
         }
 
-        if (! $portal && ! $panelUsersAllowed && ($user->isAdmin() || $user->isSuperAdmin())) {
+        if (! $portal && ! $panelUsersAllowed && Access::panelUser($user)) {
             return redirect('/admin'); // campanita del panel
         }
 
@@ -122,7 +123,7 @@ class NotificationInboxController extends Controller
 
         if ($path === null) {
             return $portal ? redirect()->route('portal.notifications')
-                : (($user->isAdmin() || $user->isSuperAdmin()) ? redirect('/admin') : redirect()->route('notifications.index'));
+                : (Access::panelUser($user) ? redirect('/admin') : redirect()->route('notifications.index'));
         }
 
         return redirect($path);

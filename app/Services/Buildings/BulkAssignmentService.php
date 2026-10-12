@@ -5,6 +5,7 @@ namespace App\Services\Buildings;
 use App\Models\Building;
 use App\Models\BuildingVisitPlan;
 use App\Models\User;
+use App\Services\Activity\ActivityLogger;
 use App\Services\Notifications\AssignmentNotifier;
 use App\Services\Visits\VisitPlanService;
 use Illuminate\Support\Collection;
@@ -218,6 +219,15 @@ class BulkAssignmentService
 
             return $plan;
         });
+
+        // Registro de actividad: un evento por edificio con lo que cambió.
+        foreach (collect($notify)->groupBy(fn ($n) => $n[0]->id) as $changes) {
+            ActivityLogger::record('assignment.bulk_applied', $changes->first()[0], [
+                'type' => $changes->first()[2],
+                'added' => $changes->filter(fn ($n) => $n[3])->map(fn ($n) => $n[1])->values()->all(),
+                'removed' => $changes->reject(fn ($n) => $n[3])->map(fn ($n) => $n[1])->values()->all(),
+            ]);
+        }
 
         // Avisos solo después de confirmar los cambios en la base. Un aviso
         // que falla no deshace ni corta la asignación (ya está guardada) ni

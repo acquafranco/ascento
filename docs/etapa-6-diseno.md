@@ -241,3 +241,33 @@ Todo eso va en el PR 2. Los administrativos solo existen en las pruebas.
 - **Registro:** guarda actor, acción, registro y fecha; no guarda secretos; sobrevive al borrado del usuario; se borra con la empresa.
 - **Límites:** los de administrativos quedan en la base (su uso se prueba en el PR 2).
 - **Ejecución:** SQLite y MySQL, build y vistas.
+
+## 11. PR 1 implementado
+
+- **Datos** (migración `2026_11_25_100000_add_staff_permissions_and_activity_logs`):
+  - `users.permissions`;
+  - `subscription_plans.max_admin_users` (Inicial 0, Profesional 1, Empresa 5, histórico 1);
+  - tabla `activity_logs`.
+
+  Solo agrega. Revertirla borra la tabla de actividad: es para desarrollo, no para producción con datos.
+- **Control central:**
+  - `PermissionArea` (14 áreas, ver y gestionar) y `Access`.
+  - `GuardedByPermission` en los 14 recursos de empresa: cada operación de Filament exige el área, solo para administrativos.
+  - Páginas por área (Agenda, Centro de atención, Indicadores, Mapa).
+  - **Acciones:** `ActionGuard`, la autorización por defecto de toda acción de Filament (`Action::configureUsing`). Abrir o ver pide «ver»; ejecutar pide «gestionar». Filament la vuelve a comprobar al ejecutar.
+  - **Livewire:** `PanelAccessHook` re-verifica la página en cada pedido de un administrativo.
+- **App del técnico:** el middleware `staff.panel` deja al administrativo solo su perfil, sus avisos y las lecturas de `StaffRoutes` (clientes, remitos, visita), cada una con su área. Lo demás lo redirige al panel o responde 403.
+- **Datos y archivos:** fotos (por tipo de trabajo), reportes, video del reporte (modificar exige «gestionar»), documentos del ascensor, PDF de presupuestos y remitos, y visitas, todos por área.
+- **Técnico:** definido sin el rol `staff` (cupo de técnicos, asignación masiva, guía, números del inicio).
+- **Encontrado y corregido en el camino:**
+  - «Mi empresa» solo excluía al SuperAdmin; ahora es solo del dueño, también al guardar.
+  - El video de un reporte se podía subir o borrar con permiso de solo lectura (afectaba solo a administrativos).
+  - `role` era asignable: ahora dar o quitar los roles de dueño o administrativo es solo del SuperAdmin, y un dueño no crea otro dueño.
+  - Los permisos de un administrativo solo los cambia el dueño de su empresa.
+- **Registro de actividad:**
+  - Alta, cambio (solo campos permitidos), baja y reactivación de clientes, edificios, ascensores, documentos, órdenes, presupuestos, contratos, cobros, pagos y movimientos de stock.
+  - Asignaciones de técnicos, uno a uno y masivas.
+  - Compartir con el portal y pedidos de exportación.
+  - Solo acciones del panel (dueño, administrativo, SuperAdmin), no de técnicos ni procesos automáticos.
+  - Lo borra el borrado definitivo de la empresa.
+- **Sin cambios para el dueño ni el SuperAdmin.** Las 959 pruebas anteriores pasan sin modificar ninguna, salvo una que creaba un dueño desde una sesión de dueño, flujo que la app no tiene.

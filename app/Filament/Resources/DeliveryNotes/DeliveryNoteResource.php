@@ -2,24 +2,31 @@
 
 namespace App\Filament\Resources\DeliveryNotes;
 
-use App\Filament\Resources\DeliveryNotes\Pages\EditDeliveryNote;
+use App\Enums\PermissionArea;
+use App\Filament\Concerns\GuardedByPermission;
 use App\Filament\Resources\DeliveryNotes\Pages\ListDeliveryNotes;
+use App\Filament\Resources\DeliveryNotes\Pages\ViewDeliveryNote;
 use App\Filament\Resources\DeliveryNotes\Schemas\DeliveryNoteForm;
 use App\Filament\Resources\DeliveryNotes\Tables\DeliveryNotesTable;
-use App\Filament\Resources\DeliveryNotes\Pages\ViewDeliveryNote;
 use App\Models\DeliveryNote;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use Illuminate\Support\Facades\Auth;
-use UnitEnum;
 use Illuminate\Database\Eloquent\Builder;
-
+use Illuminate\Database\Eloquent\Model;
 
 class DeliveryNoteResource extends Resource
 {
+    use GuardedByPermission;
+
+    /** Área de permisos de administrativos (Etapa 6). */
+    public static function permissionArea(): ?PermissionArea
+    {
+        return PermissionArea::Documents;
+    }
+
     protected static ?string $model = DeliveryNote::class;
 
     protected static string|BackedEnum|null $navigationIcon =
@@ -39,9 +46,7 @@ class DeliveryNoteResource extends Resource
         return 'Remitos';
     }
 
-
-
-        public static function getModelLabel(): string
+    public static function getModelLabel(): string
     {
         return 'Remito';
     }
@@ -81,49 +86,49 @@ class DeliveryNoteResource extends Resource
         ];
     }
 
-   public static function getEloquentQuery(): Builder
-{
-    $query = parent::getEloquentQuery();
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
 
-    $user = auth()->user();
+        $user = auth()->user();
 
-    if ($user->isSuperAdmin()) {
+        if ($user->isSuperAdmin()) {
 
-        $companyId = session('selected_company_id');
+            $companyId = session('selected_company_id');
 
-        if ($companyId) {
-            return $query->where('company_id', $companyId);
+            if ($companyId) {
+                return $query->where('company_id', $companyId);
+            }
+
+            return $query->whereRaw('1 = 0');
         }
 
-        return $query->whereRaw('1 = 0');
+        return $query->where(
+            'company_id',
+            $user->company_id
+        );
     }
-
-    return $query->where(
-        'company_id',
-        $user->company_id
-    );
-}
 
     public static function canEdit($record): bool
     {
         return false;
     }
 
-public static function shouldRegisterNavigation(): bool
+    public static function shouldRegisterNavigation(): bool
     {
-        return auth()->check();
+        return static::canAccess();
     }
 
     public static function canAccess(): bool
     {
-        return auth()->check();
+        return static::canViewAny();
     }
 
     /**
      * Los remitos (y por lo tanto mantenimientos e inspecciones) son
      * historial firmado: no se eliminan. El modelo también lo impide.
      */
-    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    public static function canDelete(Model $record): bool
     {
         return false;
     }

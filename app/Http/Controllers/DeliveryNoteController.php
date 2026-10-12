@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\PermissionArea;
 use App\Enums\PlanFeature;
 use App\Jobs\NotifyCompanyAdmins;
 use App\Models\Building;
@@ -14,6 +15,7 @@ use App\Models\WorkOrderMaterial;
 use App\Services\Visits\VisitPhotoService;
 use App\Services\Visits\VisitSchedule;
 use App\Services\Visits\VisitService;
+use App\Support\Access\Access;
 use App\Support\DeliveryNotes\DeliveryNoteDocument;
 use App\Support\DeliveryNotes\SignatureImage;
 use App\Support\Plans\PlanGuard;
@@ -115,7 +117,7 @@ class DeliveryNoteController extends Controller
         }
 
         // Usuarios normales solo ven sus remitos
-        if (! $user->isAdmin() && ! $user->isSuperAdmin()) {
+        if (! Access::can($user, PermissionArea::Documents)) {
 
             $isOwner = $deliveryNote->user_id === $user->id;
 
@@ -663,7 +665,7 @@ class DeliveryNoteController extends Controller
     {
         $user = auth()->user();
 
-        if ($user->isAdmin() || $user->isSuperAdmin()) {
+        if (Access::can($user, PermissionArea::Documents)) {
             return;
         }
 
@@ -705,7 +707,7 @@ class DeliveryNoteController extends Controller
                 ->exists();
 
             abort_unless(
-                $user->isAdmin() || $user->isSuperAdmin() || $isOwner || $isParticipant,
+                Access::can($user, PermissionArea::Documents) || $isOwner || $isParticipant,
                 404
             );
         }

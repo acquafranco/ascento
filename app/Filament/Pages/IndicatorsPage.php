@@ -2,15 +2,23 @@
 
 namespace App\Filament\Pages;
 
+use App\Enums\PermissionArea;
 use App\Enums\PlanFeature;
 use App\Filament\Concerns\RequiresPlanFeature;
 use App\Services\Insights\Indicators;
+use App\Support\Access\Access;
 use App\Support\Plans\PlanUpsell;
 use Filament\Pages\Page;
 
 /** Indicadores para el dueño: cada número responde una pregunta. */
 class IndicatorsPage extends Page
 {
+    /** Área de permisos de administrativos (Etapa 6). */
+    public static function permissionArea(): ?PermissionArea
+    {
+        return PermissionArea::Indicators;
+    }
+
     use RequiresPlanFeature;
 
     protected static PlanFeature $planFeature = PlanFeature::Indicators;
@@ -31,7 +39,8 @@ class IndicatorsPage extends Page
     {
         $user = auth()->user();
 
-        return $user !== null && ($user->isAdmin() || $user->isSuperAdmin());
+        // Dueño y SuperAdmin, como siempre; un administrativo, con el área habilitada.
+        return Access::can($user, PermissionArea::Indicators);
     }
 
     public function getSubheading(): ?string

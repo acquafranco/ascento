@@ -2,16 +2,21 @@
 
 namespace App\Models;
 
+use App\Enums\PlanLimit;
+use App\Models\Concerns\ConsumesPlanLimit;
+use App\Notifications\ResetPasswordNotification;
+use App\Support\Access\Access;
+use App\Support\PhoneNumber;
+use App\Support\Portal\PortalAccess;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
-use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use App\Notifications\ResetPasswordNotification;
+use Illuminate\Support\Facades\Log;
 use NotificationChannels\WebPush\HasPushSubscriptions;
-use App\Models\Concerns\ConsumesPlanLimit;
-use App\Enums\PlanLimit;
 
 /**
  * MustVerifyEmail: el registro de una empresa manda el correo de confirmación
@@ -20,13 +25,11 @@ use App\Enums\PlanLimit;
  * portal no reciben ese correo (los crea la empresa; el portal se activa con
  * su propio enlace).
  */
-class User extends Authenticatable implements FilamentUser, \Illuminate\Contracts\Auth\MustVerifyEmail
+class User extends Authenticatable implements FilamentUser, MustVerifyEmail
 {
-
+    use ConsumesPlanLimit;
     use HasFactory, Notifiable, SoftDeletes;
     use HasPushSubscriptions;
-    use ConsumesPlanLimit;
-
 
     protected $fillable = [
         'company_id',
@@ -54,6 +57,8 @@ class User extends Authenticatable implements FilamentUser, \Illuminate\Contract
         'telegram_linked_at' => 'datetime',
         'portal_invited_at' => 'datetime',
         'portal_activated_at' => 'datetime',
+        // Áreas habilitadas a un administrativo (no asignable: ver Access).
+        'permissions' => 'array',
     ];
 
     /*
@@ -88,6 +93,10 @@ class User extends Authenticatable implements FilamentUser, \Illuminate\Contract
             if ($actor && ! $actor->isSuperAdmin()) {
                 $user->company_id = $actor->company_id;
                 $user->is_super_admin = false;
+                // Un dueño o administrativo no crea otro dueño (solo el registro o el SuperAdmin).
+                if ($user->role === 'admin') {
+                    $user->role = 'technician';
+                }
             }
         });
 
@@ -123,11 +132,32 @@ class User extends Authenticatable implements FilamentUser, \Illuminate\Contract
             if ($user->isDirty('is_super_admin')) {
                 $user->is_super_admin = (bool) $user->getOriginal('is_super_admin');
             }
+
+            // Dar o quitar el rol de dueño o de administrativo es solo del
+            // SuperAdmin (un técnico no se vuelve dueño ni administrativo por un
+            // formulario manipulado). Los demás cambios de rol siguen como antes.
+            $privileged = ['admin', self::ROLE_STAFF];
+            if ($user->isDirty('role') && (in_array($user->role, $privileged, true) || in_array($user->getOriginal('role'), $privileged, true))) {
+                $user->role = $user->getOriginal('role') ?? 'technician';
+            }
+
+            // Los permisos de un administrativo solo los cambia el dueño de su empresa.
+            if ($user->isDirty('permissions') && ! ($actor->isAdmin() && (int) $actor->company_id === (int) $user->company_id && $user->role === self::ROLE_STAFF)) {
+                $user->permissions = $user->getOriginal('permissions');
+            }
         });
     }
 
     /** Usuario del portal del cliente (consorcio / administración). */
     public const ROLE_CLIENT = 'client';
+
+    /** Usuario administrativo (Etapa 6): panel con las áreas que habilite el dueño. */
+    public const ROLE_STAFF = 'staff';
+
+    public function isStaff(): bool
+    {
+        return $this->role === self::ROLE_STAFF;
+    }
 
     public function isClientUser(): bool
     {
@@ -158,15 +188,14 @@ class User extends Authenticatable implements FilamentUser, \Illuminate\Contract
             return false;
         }
 
-        return $this->isSuperAdmin()
-            || $this->isAdmin();
+        // SuperAdmin, dueño o administrativo con acceso vigente (Access).
+        return Access::panelUser($this);
     }
 
-        public function isSuperAdmin(): bool
+    public function isSuperAdmin(): bool
     {
         return (bool) $this->is_super_admin;
     }
-
 
     /**
      * Pantalla de inicio según el tipo de usuario: el panel de Filament
@@ -185,14 +214,14 @@ class User extends Authenticatable implements FilamentUser, \Illuminate\Contract
         // Cliente del portal: si le queda algún acceso activo (en cualquier
         // empresa). Si no, ningún destino: se cierra la sesión.
         if ($this->isClientUser()) {
-            return \App\Support\Portal\PortalAccess::currentCompanyId($this) !== null ? route('portal.home') : null;
+            return PortalAccess::currentCompanyId($this) !== null ? route('portal.home') : null;
         }
 
         if (! $this->company) {
             return null;
         }
 
-        if ($this->isAdmin()) {
+        if ($this->isAdmin() || $this->isStaff()) {
             return url('/admin');
         }
 
@@ -277,7 +306,7 @@ class User extends Authenticatable implements FilamentUser, \Illuminate\Contract
         try {
             $this->sendEmailVerificationNotification();
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('No se pudo mandar el correo de confirmación', ['user_id' => $this->id, 'exception' => $e::class]);
+            Log::warning('No se pudo mandar el correo de confirmación', ['user_id' => $this->id, 'exception' => $e::class]);
         }
     }
 
@@ -286,20 +315,20 @@ class User extends Authenticatable implements FilamentUser, \Illuminate\Contract
         return $this->role === 'admin';
     }
 
-
-
-   public function buildings()
+    public function buildings()
     {
         return $this->belongsToMany(Building::class)
             ->withPivot('type')
             ->withTimestamps();
     }
+
     public function buildingAssignments()
     {
         return $this->belongsToMany(Building::class)
             ->withPivot('type')
             ->withTimestamps();
     }
+
     public function workOrders()
     {
         return $this->belongsToMany(WorkOrder::class, 'work_order_user')
@@ -314,7 +343,7 @@ class User extends Authenticatable implements FilamentUser, \Illuminate\Contract
         ]);
     }
 
-        public function buildingVisits()
+    public function buildingVisits()
     {
         return $this->belongsToMany(
             BuildingVisit::class,
@@ -351,6 +380,7 @@ class User extends Authenticatable implements FilamentUser, \Illuminate\Contract
     {
         return $this->hasMany(DeliveryNote::class);
     }
+
     /**
      * Celular argentino normalizado (549 + área + número). Si no se reconoce
      * (dato viejo o cargado por otro camino) se guardan solo los dígitos, sin
@@ -364,7 +394,7 @@ class User extends Authenticatable implements FilamentUser, \Illuminate\Contract
             return;
         }
 
-        $this->attributes['phone'] = \App\Support\PhoneNumber::normalize($value)
+        $this->attributes['phone'] = PhoneNumber::normalize($value)
             ?? preg_replace('/\D/', '', (string) $value);
     }
 
@@ -374,14 +404,14 @@ class User extends Authenticatable implements FilamentUser, \Illuminate\Contract
     }
 
     public function sendPasswordResetNotification($token): void
-{
-    $this->notify(new ResetPasswordNotification($token));
-}
+    {
+        $this->notify(new ResetPasswordNotification($token));
+    }
 
     /** Solo los usuarios operativos ocupan cupo; admins, portal y SuperAdmin no. */
     public function planLimit(): ?PlanLimit
     {
-        return ! in_array($this->role ?? 'technician', ['admin', self::ROLE_CLIENT], true) && ! $this->is_super_admin
+        return ! in_array($this->role ?? 'technician', ['admin', self::ROLE_CLIENT, self::ROLE_STAFF], true) && ! $this->is_super_admin
             ? PlanLimit::Technicians
             : null;
     }

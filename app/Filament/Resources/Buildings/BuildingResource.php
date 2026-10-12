@@ -2,7 +2,10 @@
 
 namespace App\Filament\Resources\Buildings;
 
+use App\Enums\PermissionArea;
+use App\Filament\Concerns\GuardedByPermission;
 use App\Filament\RelationManagers\AccountStatementRelationManager;
+use App\Filament\RelationManagers\ElevatorsRelationManager;
 use App\Filament\RelationManagers\ServicesRelationManager;
 use App\Filament\Resources\Buildings\Pages\CreateBuilding;
 use App\Filament\Resources\Buildings\Pages\EditBuilding;
@@ -15,11 +18,18 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Builder;
 
 class BuildingResource extends Resource
 {
+    use GuardedByPermission;
+
+    /** Área de permisos de administrativos (Etapa 6). */
+    public static function permissionArea(): ?PermissionArea
+    {
+        return PermissionArea::Buildings;
+    }
+
     protected static ?string $model = Building::class;
 
     protected static string|BackedEnum|null $navigationIcon =
@@ -28,7 +38,9 @@ class BuildingResource extends Resource
     protected static ?int $navigationSort = 2;
 
     protected static ?string $navigationLabel = 'Edificios';
+
     protected static ?string $modelLabel = 'Edificio';
+
     protected static ?string $pluralModelLabel = 'Edificios';
 
     protected static string|\UnitEnum|null $navigationGroup = 'Gestión';
@@ -48,7 +60,7 @@ class BuildingResource extends Resource
     public static function getRelations(): array
     {
         return [
-            \App\Filament\RelationManagers\ElevatorsRelationManager::class,
+            ElevatorsRelationManager::class,
             ServicesRelationManager::class,
             AccountStatementRelationManager::class,
         ];
@@ -85,13 +97,14 @@ class BuildingResource extends Resource
             $user->company_id
         );
     }
+
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->check();
+        return static::canAccess();
     }
 
     public static function canAccess(): bool
     {
-        return auth()->check();
+        return static::canViewAny();
     }
 }

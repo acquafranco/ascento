@@ -6,6 +6,7 @@ use App\Enums\PlanLimit;
 use App\Models\Building;
 use App\Models\BuildingVisitPlan;
 use App\Models\User;
+use App\Services\Activity\ActivityLogger;
 use App\Services\Buildings\BulkAssignmentService;
 use App\Services\Notifications\AssignmentNotifier;
 use App\Services\Visits\VisitPlanService;
@@ -155,7 +156,7 @@ class BuildingsTable
 
                                 return User::query()
                                     ->where('company_id', $companyId)
-                                    ->whereNotIn('role', ['admin', 'client']) // solo técnicos
+                                    ->whereNotIn('role', ['admin', 'client', 'staff']) // solo técnicos
                                     ->pluck('name', 'id')
                                     ->toArray();
                             }),
@@ -259,6 +260,7 @@ class BuildingsTable
                                         'type' => $data['type'],
                                     ]
                                 );
+                                ActivityLogger::record('assignment.added', $record, ['user_id' => (int) $userId, 'type' => $data['type']]);
 
                                 app(AssignmentNotifier::class)->building($record, (int) $userId, $data['type'], true);
 
@@ -355,6 +357,7 @@ class BuildingsTable
                             ->detach($userId);
 
                         if ($removed) {
+                            ActivityLogger::record('assignment.removed', $record, ['user_id' => (int) $userId, 'type' => $type]);
                             app(AssignmentNotifier::class)->building($record, (int) $userId, $type, false);
                         }
 

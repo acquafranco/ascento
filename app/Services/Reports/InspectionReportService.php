@@ -2,6 +2,7 @@
 
 namespace App\Services\Reports;
 
+use App\Enums\PermissionArea;
 use App\Enums\PlanFeature;
 use App\Models\BuildingVisit;
 use App\Models\Company;
@@ -10,6 +11,7 @@ use App\Models\ReportPhoto;
 use App\Models\User;
 use App\Services\Visits\PhotoTarget;
 use App\Services\Visits\VisitPhotoService;
+use App\Support\Access\Access;
 use App\Support\Plans\PlanGuard;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -68,7 +70,7 @@ class InspectionReportService
             return false;
         }
 
-        return $report === null || $user->isAdmin() || (int) $report->user_id === (int) $user->id;
+        return $report === null || Access::can($user, PermissionArea::Inspections, PermissionArea::MANAGE) || (int) $report->user_id === (int) $user->id;
     }
 
     public function photosEnabled(BuildingVisit $visit): bool
@@ -105,7 +107,7 @@ class InspectionReportService
                 abort(409);
             }
 
-            if ($report && ! $user->isAdmin() && (int) $report->user_id !== (int) $user->id) {
+            if ($report && ! Access::can($user, PermissionArea::Inspections, PermissionArea::MANAGE) && (int) $report->user_id !== (int) $user->id) {
                 throw ValidationException::withMessages(['observations' => 'Este reporte lo hizo otro inspector: solo él o la oficina pueden editarlo.']);
             }
 

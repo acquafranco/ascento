@@ -2,11 +2,13 @@
 
 namespace App\Filament\Pages;
 
+use App\Enums\PermissionArea;
 use App\Filament\Resources\Buildings\BuildingResource;
 use App\Jobs\GeocodePendingBuildings;
 use App\Models\Building;
 use App\Services\Geocoding\BuildingGeocoder;
 use App\Services\Insights\MaintenanceAgenda;
+use App\Support\Access\Access;
 use App\Support\CompanyContext;
 use Carbon\Carbon;
 use Filament\Notifications\Notification;
@@ -26,6 +28,12 @@ use Livewire\Attributes\Computed;
  */
 class BuildingsMap extends Page
 {
+    /** Área de permisos de administrativos (Etapa 6). */
+    public static function permissionArea(): ?PermissionArea
+    {
+        return PermissionArea::Buildings;
+    }
+
     protected string $view = 'filament.pages.buildings-map';
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-map';
@@ -50,7 +58,8 @@ class BuildingsMap extends Page
     {
         $user = auth()->user();
 
-        return $user !== null && ($user->isAdmin() || $user->isSuperAdmin());
+        // Dueño y SuperAdmin, como siempre; un administrativo, con el área habilitada.
+        return Access::can($user, PermissionArea::Buildings);
     }
 
     public function mount(): void

@@ -2,6 +2,7 @@
 
 namespace App\Services\Visits;
 
+use App\Enums\PermissionArea;
 use App\Enums\PlanFeature;
 use App\Models\Building;
 use App\Models\BuildingVisit;
@@ -10,6 +11,7 @@ use App\Models\DeliveryNote;
 use App\Models\Report;
 use App\Models\User;
 use App\Models\VisitPhoto;
+use App\Support\Access\Access;
 use App\Support\Plans\PlanGuard;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -199,7 +201,7 @@ class VisitService
 
             // Un técnico no borra (al descartar) fotos que cargó otro: misma
             // regla que quitar una foto. La oficina puede descartarla entera.
-            if (! $user->isAdmin() && VisitPhoto::withoutGlobalScopes()->where('building_visit_id', $fresh->id)
+            if (! Access::can($user, PermissionArea::Visits, PermissionArea::MANAGE) && VisitPhoto::withoutGlobalScopes()->where('building_visit_id', $fresh->id)
                 ->where(fn ($q) => $q->whereNull('uploaded_by')->orWhere('uploaded_by', '!=', $user->id))->exists()) {
                 throw ValidationException::withMessages(['visit' => 'Esta visita tiene fotos que cargó otra persona: solo la oficina puede descartarla.']);
             }
@@ -242,7 +244,8 @@ class VisitService
     {
         abort_unless((int) $building->company_id === (int) $user->company_id, 404);
 
-        if ($user->isAdmin()) {
+        // Dueño; un administrativo, si gestiona el área de ese tipo de visita.
+        if (Access::can($user, PermissionArea::forJobType($type), PermissionArea::MANAGE)) {
             return;
         }
 

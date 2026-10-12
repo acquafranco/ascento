@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use App\Enums\PermissionArea;
 use App\Enums\PlanLimit;
 use App\Models\Concerns\BelongsToCompany;
 use App\Models\Concerns\ConsumesPlanLimit;
 use App\Models\Concerns\SharesWithClient;
 use App\Services\Visits\PhotoTarget;
 use App\Services\Visits\VisitPhotoService;
+use App\Support\Access\Access;
 use App\Support\CompanyContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -100,7 +102,8 @@ class Report extends Model
             return false;
         }
 
-        if ($user->isAdmin() || (int) $this->user_id === (int) $user->id) {
+        // Dueño, o administrativo con «Inspecciones y reportes» (Access).
+        if (Access::can($user, PermissionArea::Inspections) || (int) $this->user_id === (int) $user->id) {
             return true;
         }
 

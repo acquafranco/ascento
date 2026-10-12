@@ -84,6 +84,8 @@ Route::prefix('{company:slug}')
         'company.defaults',
         // Sin suscripción/trial vigente no se opera (técnicos ni admins).
         'subscription',
+        // Un administrativo no usa la app del técnico (Etapa 6).
+        'staff.panel',
     ])
     ->scopeBindings()
     ->group(function () {

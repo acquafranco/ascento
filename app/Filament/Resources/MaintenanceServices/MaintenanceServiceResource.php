@@ -2,27 +2,29 @@
 
 namespace App\Filament\Resources\MaintenanceServices;
 
+use App\Enums\PermissionArea;
+use App\Filament\Concerns\GuardedByPermission;
 use App\Filament\Concerns\ScopedToCurrentCompany;
 use App\Filament\Resources\MaintenanceServices\Pages\CreateMaintenanceService;
 use App\Filament\Resources\MaintenanceServices\Pages\EditMaintenanceService;
 use App\Filament\Resources\MaintenanceServices\Pages\ListMaintenanceServices;
+use App\Filament\Resources\MaintenanceServices\Pages\ViewMaintenanceService;
 use App\Models\Building;
 use App\Models\MaintenanceService;
 use App\Support\CompanyContext;
 use BackedEnum;
 use Filament\Actions\Action;
-use App\Filament\Resources\MaintenanceServices\Pages\ViewMaintenanceService;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Infolists\Components\TextEntry;
-use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
@@ -36,6 +38,14 @@ use Filament\Tables\Table;
  */
 class MaintenanceServiceResource extends Resource
 {
+    use GuardedByPermission;
+
+    /** Área de permisos de administrativos (Etapa 6). */
+    public static function permissionArea(): ?PermissionArea
+    {
+        return PermissionArea::Receivables;
+    }
+
     use ScopedToCurrentCompany;
 
     protected static ?string $model = MaintenanceService::class;
@@ -123,7 +133,9 @@ class MaintenanceServiceResource extends Resource
                 TextEntry::make('amount')->label('Importe')->formatStateUsing(fn ($state, MaintenanceService $record) => $record->amountLabel()),
                 TextEntry::make('frequency')->label('Frecuencia de cobro')->formatStateUsing(fn ($state, MaintenanceService $record) => $record->frequencyLabel()),
                 TextEntry::make('status')->label('Estado')->badge()->formatStateUsing(fn ($state) => MaintenanceService::STATUSES[$state] ?? $state)
-                    ->color(fn ($state) => match ($state) { 'active' => 'success', 'paused' => 'warning', default => 'gray' }),
+                    ->color(fn ($state) => match ($state) {
+                        'active' => 'success', 'paused' => 'warning', default => 'gray'
+                    }),
                 TextEntry::make('start_date')->label('Inicio')->date('d/m/Y'),
                 TextEntry::make('end_date')->label('Finalización')->date('d/m/Y')->placeholder('Sin fecha de fin'),
             ]),

@@ -2,23 +2,41 @@
 
 namespace App\Filament\Resources\Users;
 
-use App\Support\PhoneNumber;
-
-use App\Filament\Resources\Users\Pages;
+use App\Enums\PermissionArea;
+use App\Filament\Concerns\GuardedByPermission;
+use App\Filament\Resources\Users\Tables\UsersTable;
 use App\Models\User;
+use App\Rules\NotCommonPassword;
+use App\Support\Access\Access;
+use App\Support\Auth\PasswordPolicy;
+use App\Support\PhoneNumber;
 use BackedEnum;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use Filament\Tables;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Password;
 
 class UserResource extends Resource
 {
+    use GuardedByPermission;
+
+    /** Área de permisos de administrativos (Etapa 6). */
+    public static function permissionArea(): ?PermissionArea
+    {
+        return PermissionArea::Technicians;
+    }
+
+    /** Usuarios: el administrativo con «Técnicos» solo consulta; crear, editar y desactivar es del dueño. */
+    public static function managedOnlyByOwner(): bool
+    {
+        return true;
+    }
+
     protected static ?string $model = User::class;
 
     protected static string|BackedEnum|null $navigationIcon =
@@ -64,37 +82,36 @@ class UserResource extends Resource
                     })
                     ->dehydrateStateUsing(fn (?string $state) => PhoneNumber::normalize($state)),
 
-            // Misma política que el resto de Ascento (PasswordPolicy). En la
-            // edición es opcional: vacío = no se cambia.
-            TextInput::make('password')
-                ->label(fn (string $operation) => $operation === 'create' ? 'Contraseña' : 'Contraseña nueva')
-                ->password()
-                ->revealable()
-                ->autocomplete('new-password')
-                ->required(fn (string $operation) => $operation === 'create')
-                ->rule(fn () => \Illuminate\Validation\Rules\Password::defaults())
-                ->rule(fn (\Filament\Schemas\Components\Utilities\Get $get) => new \App\Rules\NotCommonPassword([$get('name'), $get('email')]))
-                ->confirmed()
-                ->helperText(fn (string $operation) => \App\Support\Auth\PasswordPolicy::HINT.($operation === 'edit' ? ' Dejala vacía para no cambiarla.' : ''))
-                ->dehydrated(fn ($state) => filled($state))
-                ->dehydrateStateUsing(fn ($state) => Hash::make($state)),
+                // Misma política que el resto de Ascento (PasswordPolicy). En la
+                // edición es opcional: vacío = no se cambia.
+                TextInput::make('password')
+                    ->label(fn (string $operation) => $operation === 'create' ? 'Contraseña' : 'Contraseña nueva')
+                    ->password()
+                    ->revealable()
+                    ->autocomplete('new-password')
+                    ->required(fn (string $operation) => $operation === 'create')
+                    ->rule(fn () => Password::defaults())
+                    ->rule(fn (Get $get) => new NotCommonPassword([$get('name'), $get('email')]))
+                    ->confirmed()
+                    ->helperText(fn (string $operation) => PasswordPolicy::HINT.($operation === 'edit' ? ' Dejala vacía para no cambiarla.' : ''))
+                    ->dehydrated(fn ($state) => filled($state))
+                    ->dehydrateStateUsing(fn ($state) => Hash::make($state)),
 
-            TextInput::make('password_confirmation')
-                ->label('Repetir contraseña')
-                ->password()
-                ->revealable()
-                ->autocomplete('new-password')
-                ->required(fn (string $operation, \Filament\Schemas\Components\Utilities\Get $get) => $operation === 'create' || filled($get('password')))
-                ->dehydrated(false),
+                TextInput::make('password_confirmation')
+                    ->label('Repetir contraseña')
+                    ->password()
+                    ->revealable()
+                    ->autocomplete('new-password')
+                    ->required(fn (string $operation, Get $get) => $operation === 'create' || filled($get('password')))
+                    ->dehydrated(false),
             ]);
     }
 
     public static function table(Table $table): Table
     {
-        return \App\Filament\Resources\Users\Tables\UsersTable::configure($table)
+        return UsersTable::configure($table)
             ->recordUrl(
-                fn ($record) =>
-                    static::getUrl('view', ['record' => $record])
+                fn ($record) => static::getUrl('view', ['record' => $record])
             );
     }
 
@@ -106,49 +123,50 @@ class UserResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' =>
-                Pages\ListUsers::route('/'),
+            'index' => Pages\ListUsers::route('/'),
 
-            'create' =>
-                Pages\CreateUser::route('/create'),
+            'create' => Pages\CreateUser::route('/create'),
 
-            'view' =>
-                Pages\ViewUser::route('/{record}'),
+            'view' => Pages\ViewUser::route('/{record}'),
 
-            'edit' =>
-                Pages\EditUser::route('/{record}/edit'),
+            'edit' => Pages\EditUser::route('/{record}/edit'),
         ];
     }
 
- public static function getEloquentQuery(): Builder
-{
-    // Los usuarios del portal del cliente se administran desde el cliente,
-    // no son técnicos.
-    $query = parent::getEloquentQuery()->where('role', '!=', \App\Models\User::ROLE_CLIENT);
+    public static function getEloquentQuery(): Builder
+    {
+        // Los usuarios del portal del cliente se administran desde el cliente,
+        // no son técnicos.
+        $query = parent::getEloquentQuery()->where('role', '!=', User::ROLE_CLIENT);
 
-    $user = auth()->user();
-
-    if ($user->isSuperAdmin()) {
-
-        $companyId = session('selected_company_id');
-
-        if ($companyId) {
-            return $query->where('company_id', $companyId);
+        // Un administrativo con «Técnicos» solo ve técnicos (ni al dueño ni a otros administrativos).
+        if (Access::isStaff(auth()->user())) {
+            $query->where('role', 'technician');
         }
 
-        return $query->whereRaw('1 = 0');
+        $user = auth()->user();
+
+        if ($user->isSuperAdmin()) {
+
+            $companyId = session('selected_company_id');
+
+            if ($companyId) {
+                return $query->where('company_id', $companyId);
+            }
+
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where('company_id', $user->company_id);
     }
 
-    return $query->where('company_id', $user->company_id);
-}
-
-   public static function shouldRegisterNavigation(): bool
+    public static function shouldRegisterNavigation(): bool
     {
-        return auth()->check();
+        return static::canAccess();
     }
 
     public static function canAccess(): bool
     {
-        return auth()->check();
+        return static::canViewAny();
     }
 }

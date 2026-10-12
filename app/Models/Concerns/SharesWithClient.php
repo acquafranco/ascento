@@ -5,7 +5,9 @@ namespace App\Models\Concerns;
 use App\Enums\PlanFeature;
 use App\Exceptions\PlanFeatureUnavailableException;
 use App\Models\Company;
+use App\Services\Activity\ActivityLogger;
 use App\Support\Plans\PlanGuard;
+use Illuminate\Support\Str;
 
 /**
  * Registros que la empresa puede compartir con el portal del cliente
@@ -41,6 +43,10 @@ trait SharesWithClient
             'shared_with_client' => $shared,
             'shared_at' => $shared ? ($this->shared_at ?? now()) : null,
         ])->saveQuietly();
+
+        if ($shared !== $wasShared) {
+            ActivityLogger::record(Str::snake(class_basename($this)).($shared ? '.shared_with_client' : '.unshared_with_client'), $this);
+        }
 
         return $shared && ! $wasShared;
     }

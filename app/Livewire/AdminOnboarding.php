@@ -135,7 +135,7 @@ class AdminOnboarding extends Component
             ],
             [
                 'label' => 'Agregá tus técnicos',
-                'done' => User::where('company_id', $company->id)->whereNotIn('role', ['admin', 'client'])->exists(),
+                'done' => User::where('company_id', $company->id)->whereNotIn('role', ['admin', 'client', 'staff'])->exists(),
                 'url' => UserResource::getUrl('create'),
             ],
             [
