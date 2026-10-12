@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Enums\PermissionArea;
 use App\Models\Company;
 use App\Models\DeliveryNote;
 use App\Models\Report;
@@ -9,6 +10,7 @@ use App\Models\User;
 use App\Notifications\NewReportNotification;
 use App\Notifications\ReportLimitReachedNotification;
 use App\Notifications\WorkCompletedNotification;
+use App\Support\Access\Access;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -69,11 +71,19 @@ class NotifyCompanyAdmins
             return;
         }
 
-        // Solo admins de ESA empresa (nunca SuperAdmin ni otra empresa).
+        // Admins de ESA empresa (nunca SuperAdmin ni otra empresa) y, desde la
+        // Etapa 6, los administrativos vigentes con el área de ese aviso.
         $admins = User::where('company_id', $company->id)
             ->where('role', 'admin')
             ->where('is_super_admin', false)
             ->get();
+
+        if ($area = $this->staffArea($model)) {
+            $admins = $admins->concat(
+                User::where('company_id', $company->id)->where('role', User::ROLE_STAFF)->where('is_super_admin', false)->get()
+                    ->filter(fn (User $staff) => Access::can($staff, $area))
+            );
+        }
 
         foreach ($admins as $admin) {
             try {
@@ -82,5 +92,15 @@ class NotifyCompanyAdmins
                 Log::warning('No se pudo avisar al admin', ['event' => $this->event, 'user_id' => $admin->id, 'exception' => $e::class]);
             }
         }
+    }
+
+    /** Área que tiene que tener un administrativo para recibir el aviso (null: solo el dueño). */
+    private function staffArea(mixed $model): ?PermissionArea
+    {
+        return match ($this->event) {
+            self::REPORT => PermissionArea::Inspections,
+            self::WORK_COMPLETED => PermissionArea::forJobType($model->assignment_type ?? null),
+            default => null, // el cupo del plan es del dueño
+        };
     }
 }

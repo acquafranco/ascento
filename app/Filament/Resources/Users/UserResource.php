@@ -139,6 +139,9 @@ class UserResource extends Resource
         // no son técnicos.
         $query = parent::getEloquentQuery()->where('role', '!=', User::ROLE_CLIENT);
 
+        // Los administrativos se gestionan en «Administrativos» (límite del plan y registro), no acá.
+        $query->where('role', '!=', User::ROLE_STAFF);
+
         // Un administrativo con «Técnicos» solo ve técnicos (ni al dueño ni a otros administrativos).
         if (Access::isStaff(auth()->user())) {
             $query->where('role', 'technician');

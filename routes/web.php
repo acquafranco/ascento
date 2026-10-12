@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\PlanLimit;
 use App\Http\Controllers\BackupDownloadController;
 use App\Http\Controllers\BuildingCheckController;
 use App\Http\Controllers\BuildingController;
@@ -28,6 +29,9 @@ use App\Http\Controllers\WhatsAppController;
 use App\Http\Controllers\WorkOrderController;
 use App\Models\Company;
 use App\Models\User;
+use App\Support\Access\Access;
+use App\Support\HomeRedirect;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -392,6 +396,23 @@ Route::get('/files/exports/{companyExport}', CompanyExportDownloadController::cl
 // Backups globales: solo SuperAdmin (ver BackupDownloadController).
 Route::get('/files/backups/{backup}', BackupDownloadController::class)
     ->middleware(['auth', 'throttle:10,1'])->whereNumber('backup')->name('backups.download');
+
+// Administrativo que no puede entrar al panel (Etapa 6): el motivo, sin 403 genérico.
+Route::get('/acceso-administrativo', function (Request $request) {
+    $user = $request->user();
+
+    if (! Access::isStaff($user) || Access::isActiveStaff($user)) {
+        return HomeRedirect::to();
+    }
+
+    $company = Company::find($user->company_id);
+    $reason = Access::staffBlockReason($user);
+
+    return response()->view('staff-blocked', [
+        'company' => $company,
+        'message' => Access::blockMessage($reason, $company?->plan()->limit(PlanLimit::AdminUsers)),
+    ], 403);
+})->middleware('auth')->name('staff.blocked');
 
 // Fotos de antes y después de visitas: privadas (ver VisitPhotoController).
 Route::get('/files/visit-photos/{visitPhoto}', [VisitPhotoController::class, 'show'])

@@ -271,3 +271,25 @@ Todo eso va en el PR 2. Los administrativos solo existen en las pruebas.
   - Solo acciones del panel (dueño, administrativo, SuperAdmin), no de técnicos ni procesos automáticos.
   - Lo borra el borrado definitivo de la empresa.
 - **Sin cambios para el dueño ni el SuperAdmin.** Las 959 pruebas anteriores pasan sin modificar ninguna, salvo una que creaba un dueño desde una sesión de dueño, flujo que la app no tiene.
+
+## 12. PR 2 implementado: gestión de administrativos
+
+- **Pantalla «Administrativos»** (Administración, solo el dueño):
+  - alta, datos y permisos por área (sin acceso / ver / gestionar);
+  - desactivar (no borra: conserva historial y permisos, cierra sesiones) y reactivar;
+  - estado de cada uno con su motivo: activo, activo sin permisos, suspendido por el plan, desactivado o empresa deshabilitada;
+  - uso del cupo del plan.
+  - Todo pasa por `StaffManager` y queda registrado.
+  - «Tareas» e «Historial de contactos» se ofrecen recién en el PR 3.
+- **Límite por plan** (`PlanLimit::AdminUsers`): Inicial 0, Profesional 1, Empresa y prueba gratis 5. Se verifica al crear y al reactivar (servicio y modelo). Aparece en la comparación de planes y en el mensaje de mejora.
+- **Suspensión por exceso de cupo:**
+  - se calcula en cada pedido;
+  - siguen activos los más antiguos hasta el límite;
+  - los demás ven `/acceso-administrativo` con el motivo;
+  - no se borra nada y el acceso vuelve solo.
+- **«Técnicos»** ya no lista administrativos.
+- **Avisos:** reporte nuevo y trabajo terminado llegan también a los administrativos vigentes con el área correspondiente.
+- **Acciones de solo lectura:**
+  - descargar PDF y ver el video son enlaces o modales sin acción, así que se permiten con «ver»;
+  - «Copiar enlace para el cliente» y «Enviar por WhatsApp» del presupuesto quedan declaradas como «gestionar» (`ActionGuard::managing()`), porque envían.
+- **Registro (corrección del PR 1):** cambios de rol y de permisos con quién, a quién y cuándo (`UserAccessObserver`).

@@ -48,10 +48,36 @@ final class ActionGuard
         return $action->getHasActionsLivewire()?->getDefaultActionAuthorizationResponse($action) ?? Response::allow();
     }
 
-    /** «Ver» para ver una ficha o abrir un enlace o un modal sin acción; «gestionar» para el resto. */
+    /** Marca de nivel explícita (ver ActionGuard::requires). */
+    private const LEVEL_ATTRIBUTE = 'data-access-level';
+
+    /**
+     * «Ver» para ver una ficha o abrir un enlace o un modal sin acción
+     * (descargar un PDF, ver un video); «gestionar» para el resto. Una
+     * acción puede declarar su nivel con managing() / viewing(): por ejemplo, un enlace
+     * que envía algo al cliente es «gestionar» aunque no ejecute nada acá.
+     */
     public static function levelOf(Action $action): string
     {
+        $declared = $action->getExtraAttributes()[self::LEVEL_ATTRIBUTE] ?? null;
+
+        if (in_array($declared, [PermissionArea::VIEW, PermissionArea::MANAGE], true)) {
+            return $declared;
+        }
+
         return $action instanceof ViewAction || ! $action->hasAction() ? PermissionArea::VIEW : PermissionArea::MANAGE;
+    }
+
+    /** Atributos para declarar que una acción exige «gestionar» (->extraAttributes(ActionGuard::managing(), merge: true)). */
+    public static function managing(): array
+    {
+        return [self::LEVEL_ATTRIBUTE => PermissionArea::MANAGE];
+    }
+
+    /** Ídem para «ver» (una acción de solo consulta que ejecuta algo, como generar un archivo para descargar). */
+    public static function viewing(): array
+    {
+        return [self::LEVEL_ATTRIBUTE => PermissionArea::VIEW];
     }
 
     /** Área de la página, recurso o relación donde vive la acción. */

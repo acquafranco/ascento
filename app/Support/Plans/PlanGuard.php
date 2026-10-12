@@ -152,6 +152,7 @@ class PlanGuard
             if ($old !== null && ($new === null || $new > $old)) {
                 $gains[$each->value] = match (true) {
                     $each->isMonthly() && $new === null => 'reportes sin límite mensual',
+                    $each === PlanLimit::AdminUsers && $new !== null => mb_strtolower($each->planLabel($new)),
                     $new === null => mb_strtolower($each->planLabel(null)),
                     default => 'hasta '.$new.' '.$each->plural(),
                 };
