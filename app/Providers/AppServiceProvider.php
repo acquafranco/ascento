@@ -10,6 +10,7 @@ use App\Models\Quote;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Observers\ActivityObserver;
+use App\Observers\UserAccessObserver;
 use App\Services\Activity\ActivityLogger;
 use App\Services\Portal\PortalInvitations;
 use App\Support\Access\ActionGuard;
@@ -55,6 +56,8 @@ class AppServiceProvider extends ServiceProvider
         foreach (array_keys(ActivityLogger::FIELDS) as $audited) {
             $audited::observe(ActivityObserver::class);
         }
+        // Cambios de rol y de permisos (quién, a quién, cuándo).
+        User::observe(UserAccessObserver::class);
 
         // Una sola política para crear o cambiar contraseñas (ver PasswordPolicy).
         Password::defaults(fn () => PasswordPolicy::defaults());

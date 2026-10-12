@@ -653,4 +653,33 @@ class StaffPermissionsTest extends TestCase
             $this->assertContains($this->get($url)->status(), [403, 404], "{$url} con otra área");
         }
     }
+
+    public function test_role_and_permission_changes_are_logged_with_who_whom_and_when(): void
+    {
+        $staff = $this->staff([PermissionArea::Clients->key(PermissionArea::VIEW)]);
+
+        // El dueño cambia sus permisos.
+        $this->actingAs($this->a['admin']);
+        $staff->forceFill(['permissions' => [PermissionArea::Clients->key(PermissionArea::MANAGE), PermissionArea::Quotes->key(PermissionArea::VIEW)]])->save();
+        $log = ActivityLog::where('action', 'user.permissions_changed')->sole();
+        $this->assertSame([$this->a['admin']->id, 'owner', 'User', $staff->id, $staff->name], [(int) $log->user_id, $log->actor_role, $log->subject_type, (int) $log->subject_id, $log->subject_label]);
+        $this->assertEqualsCanonicalizing(['clients.manage', 'quotes.view'], $log->changes['added']);
+        $this->assertSame(['clients.view'], $log->changes['removed']);
+        $this->assertNotNull($log->created_at);
+
+        // Un intento rechazado (otro administrativo) no deja registro de cambio.
+        $other = $this->staff();
+        $this->actingAs($other);
+        $staff->fresh()->forceFill(['permissions' => $this->all()])->save();
+        $this->assertSame(1, ActivityLog::where('action', 'user.permissions_changed')->count());
+
+        // El SuperAdmin cambia un rol: queda registrado.
+        auth()->logout();
+        $root = User::factory()->superAdmin()->create(['company_id' => null]);
+        $this->actingAs($root);
+        $this->a['technician']->update(['role' => User::ROLE_STAFF]);
+        $role = ActivityLog::where('action', 'user.role_changed')->sole();
+        $this->assertSame(['superadmin', $this->a['technician']->id, ['from' => 'technician', 'to' => 'staff']], [$role->actor_role, (int) $role->subject_id, $role->changes['role']]);
+        $this->assertSame($this->a['company']->id, (int) $role->company_id);
+    }
 }
