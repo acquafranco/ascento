@@ -77,7 +77,7 @@ class Agenda extends Page
 
     public function getSubheading(): ?string
     {
-        return 'Qué edificio toca este mes, quién lo tiene asignado y si ya se hizo. Se actualiza sola cuando el técnico firma el remito.';
+        return 'Qué edificio toca este mes según su frecuencia de visitas, quién lo tiene asignado y si ya se hizo. Se actualiza sola cuando el técnico firma el remito.';
     }
 
     /** Período elegido (validado: nunca se confía en el query string). */
@@ -114,7 +114,7 @@ class Agenda extends Page
     protected function getViewData(): array
     {
         if (! CompanyContext::currentId()) {
-            return ['rows' => collect(), 'summary' => [], 'period' => $this->period()];
+            return ['rows' => collect(), 'summary' => [], 'period' => $this->period(), 'progress' => null];
         }
 
         $period = $this->period();
@@ -124,7 +124,10 @@ class Agenda extends Page
 
         $agenda = app(MaintenanceAgenda::class);
 
-        $all = $agenda->rows($period->month, $period->year, $type, $technician, $status);
+        // Progreso con los filtros de tipo y técnico (no el de estado): mismas
+        // reglas que la app del técnico (VisitSchedule).
+        $unfiltered = $agenda->rows($period->month, $period->year, $type, $technician);
+        $all = $status ? $unfiltered->where('status', $status)->values() : $unfiltered;
         $page = max(1, min($this->getPage(), (int) ceil(max(1, $all->count()) / self::PER_PAGE)));
 
         return [
@@ -133,6 +136,7 @@ class Agenda extends Page
             'rows' => new LengthAwarePaginator($all->forPage($page, self::PER_PAGE)->values(), $all->count(), self::PER_PAGE, $page),
             'summary' => $agenda->summary($period->month, $period->year, $type),
             'period' => $period,
+            'progress' => MaintenanceAgenda::progress($unfiltered),
         ];
     }
 }

@@ -264,6 +264,21 @@ use Illuminate\Database\Eloquent\SoftDeletes;
             return $this->hasMany(BuildingVisit::class);
         }
 
+        /** Frecuencias de visitas (historial: cada cambio rige desde su mes). */
+        public function visitPlans()
+        {
+            return $this->hasMany(BuildingVisitPlan::class)->orderBy('starts_on');
+        }
+
+        /** Frecuencia de visitas vigente este mes para un tipo ("Mensual" si no tiene una propia). */
+        public function visitFrequencyLabel(string $type): string
+        {
+            $month = now()->startOfMonth();
+            $plan = $this->visitPlans->where('type', $type)->filter(fn ($p) => $p->starts_on->lte($month))->last();
+
+            return $plan?->label() ?? 'Mensual';
+        }
+
 
 
     }

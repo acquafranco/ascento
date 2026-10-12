@@ -313,6 +313,12 @@ Route::prefix('{company:slug}')
         'store'
     ])->name('delivery-notes.store');
 
+    // Fotos de antes y después: se suben de a una mientras se completa el remito.
+    Route::post('/visit-photos', [\App\Http\Controllers\VisitPhotoController::class, 'store'])
+        ->middleware('throttle:90,1')->name('visit-photos.store');
+    Route::delete('/visit-photos/{visitPhoto}', [\App\Http\Controllers\VisitPhotoController::class, 'destroy'])
+        ->whereNumber('visitPhoto')->middleware('throttle:90,1')->name('visit-photos.destroy');
+
 
     Route::get('/delivery-notes/{deliveryNote}',[
     DeliveryNoteController::class,
@@ -392,6 +398,12 @@ Route::get('/files/exports/{companyExport}', \App\Http\Controllers\CompanyExport
 // Backups globales: solo SuperAdmin (ver BackupDownloadController).
 Route::get('/files/backups/{backup}', \App\Http\Controllers\BackupDownloadController::class)
     ->middleware(['auth', 'throttle:10,1'])->whereNumber('backup')->name('backups.download');
+
+// Fotos de antes y después de visitas: privadas (ver VisitPhotoController).
+Route::get('/files/visit-photos/{visitPhoto}', [\App\Http\Controllers\VisitPhotoController::class, 'show'])
+    ->middleware(['auth', 'subscription'])
+    ->whereNumber('visitPhoto')
+    ->name('visit-photos.show');
 
 Route::get('/files/elevator-documents/{elevatorDocument}', \App\Http\Controllers\ElevatorDocumentController::class)
     ->middleware(['auth', 'subscription'])

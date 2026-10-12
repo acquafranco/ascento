@@ -28,7 +28,7 @@ class HelpTopics
         'failure_analysis' => ['Análisis de fallas', 'Cuenta los avisos de falla de este equipo en los últimos 90 días: reportes de los técnicos y reclamos (y cuántos reclamos ya se resolvieron), agrupados por componente. Para que el análisis sea más preciso, elegí el componente afectado al cargar reportes y órdenes.', null],
         'maintenance_intro' => ['Mantenimientos', null, 'maintenances'],
         'inspections_intro' => ['Inspecciones', null, 'inspections'],
-        'agenda_intro' => ['Agenda', 'Cada mes Ascento arma solo la lista de mantenimientos e inspecciones según los técnicos asignados a cada edificio. Arriba de todo aparece lo vencido y lo que no tiene técnico.', null],
+        'agenda_intro' => ['Agenda', 'Cada mes Ascento arma solo la lista de mantenimientos e inspecciones según los técnicos asignados y la frecuencia de visitas de cada edificio (mensual si no le pusiste otra). Arriba ves el progreso: visitas previstas, realizadas y pendientes; un remito "no realizado" no cuenta como realizada. Quincenal = 2 visitas en el mes; cada N meses = 1 visita en el período (los otros meses aparecen como "Hecho en el período"). Primero aparece lo vencido y lo que no tiene técnico.', null],
         'work_orders_intro' => ['Órdenes de trabajo', null, 'work_orders'],
         'delivery_notes_intro' => ['Remitos', null, 'delivery_notes'],
         'budgets_intro' => ['Presupuestos', null, 'quotes'],
@@ -37,6 +37,7 @@ class HelpTopics
         'services_intro' => ['Servicios', 'Los contratos de mantenimiento con tus clientes. Cada período genera el cobro solo, y el servicio muestra los mantenimientos e inspecciones que se hicieron.', null],
         'receivables_intro' => ['Cobranzas', 'Lo que te deben tus clientes: cobros de servicios, de presupuestos aprobados y manuales. Registrá los pagos (también parciales) a medida que entran.', null],
         'map_intro' => ['Mapa', null, 'map'],
+        'photo_sections_intro' => ['Secciones de fotos', 'Las partes del equipo que el técnico puede fotografiar antes y después del trabajo al hacer el remito (Pozo, Techo, Sala de máquinas y las que agregues). Hasta 3 fotos por sección en «Antes» y 3 en «Después». Desactivá las que no uses: las fotos ya cargadas se conservan. Las fotos las ven vos y los técnicos de la visita, nunca el cliente.', null],
         'attention_center' => ['Centro de atención', 'Solo lo que necesita que hagas algo hoy: mantenimientos vencidos, trabajos trabados, reportes graves, presupuestos por vencer. Si está vacío, está todo en orden.', null],
         'exports_intro' => ['Exportar datos', 'Generá un ZIP con un Excel y los adjuntos de tu empresa para tener tus datos. Se prepara en uno o dos minutos y queda disponible unos días; acá ves quién lo pidió y quién lo descargó.', null],
         'indicators' => ['Indicadores', 'Cada número responde una pregunta sobre tu empresa (¿cumplimos los mantenimientos?, ¿entran más reclamos?). Sirven para mirar la tendencia, no para controlar el día a día.', null],
@@ -111,6 +112,7 @@ class HelpTopics
             'resources.stock-items.' => 'stock_intro',
             'resources.maintenance-services.' => 'services_intro',
             'resources.receivables.' => 'receivables_intro',
+            'resources.secciones-de-fotos.' => 'photo_sections_intro',
         ];
 
         foreach ($map as $needle => $key) {

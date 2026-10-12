@@ -106,6 +106,11 @@ class Company extends Model
         return $this->hasMany(DeliveryNote::class);
     }
 
+    public function visitPhotos()
+    {
+        return $this->hasMany(VisitPhoto::class);
+    }
+
     public function reports(): HasMany
     {
         return $this->hasMany(Report::class);

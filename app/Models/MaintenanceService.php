@@ -158,27 +158,38 @@ class MaintenanceService extends Model
     }
 
     /**
-     * Situación del mes para un tipo de visita. Los mantenimientos e
-     * inspecciones de Ascento son mensuales (planillas): si este mes ya se
-     * hizo, la próxima es el mes que viene; si no, está pendiente este mes.
+     * Situación del período para un tipo de visita, con la frecuencia de
+     * visitas del edificio (VisitSchedule; mensual si no tiene una propia o
+     * si el contrato cubre a todo el cliente). La frecuencia de cobro del
+     * contrato no interviene. Si la visita del período ya se hizo, la próxima
+     * es el período siguiente; si no, está pendiente en este período.
      *
      * @return array{last: ?BuildingVisit, done_this_month: bool, next: ?\Carbon\CarbonInterface}
      */
     public function visitStatus(string $type): array
     {
         $last = $this->visits()->where('assignment_type', $type)->first();
-        // Hecho = remito firmado y NO marcado como "no realizado".
-        $doneThisMonth = $this->visits()->where('assignment_type', $type)
-            ->where('month', now()->month)->where('year', now()->year)
-            ->whereDoesntHave('deliveryNote', fn ($q) => $q->where('performed', false))
-            ->exists();
+
+        if ($this->building_id) {
+            $eval = \App\Services\Visits\VisitSchedule::load([$this->building_id], now()->month, now()->year, (int) $this->company_id)
+                ->evaluate((int) $this->building_id, $type, now()->month, now()->year);
+            $period = $eval['period'];
+            // Hecho = todas las visitas del período con remito y ninguna "no realizado".
+            $doneThisMonth = $eval['covered'] || ($eval['pending'] === 0 && $eval['not_done'] === 0);
+            $nextIfDone = \Carbon\Carbon::create($period->end->year, $period->end->month, 1)->addMonthNoOverflow();
+        } else {
+            // Hecho = remito firmado y NO marcado como "no realizado".
+            $doneThisMonth = $this->visits()->where('assignment_type', $type)
+                ->where('month', now()->month)->where('year', now()->year)
+                ->whereDoesntHave('deliveryNote', fn ($q) => $q->where('performed', false))
+                ->exists();
+            $nextIfDone = now()->addMonthsNoOverflow(\App\Services\Insights\MaintenanceAgenda::VISIT_EVERY_MONTHS)->startOfMonth();
+        }
 
         $next = null;
 
         if ($this->status === self::ACTIVE) {
-            $next = $doneThisMonth
-                ? now()->addMonthsNoOverflow(\App\Services\Insights\MaintenanceAgenda::VISIT_EVERY_MONTHS)->startOfMonth()
-                : now()->startOfMonth();
+            $next = $doneThisMonth ? $nextIfDone : now()->startOfMonth();
 
             if ($this->end_date && $next->gt($this->end_date)) {
                 $next = null;

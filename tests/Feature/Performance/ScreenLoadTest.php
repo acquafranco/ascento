@@ -80,6 +80,21 @@ class ScreenLoadTest extends TestCase
         BuildingVisit::factory()->create(['company_id' => $b->company_id, 'building_id' => $b->id, 'user_id' => $tech->id, 'assignment_type' => $type, 'status' => 'done']);
     }
 
+    /**
+     * Visita repetida del mismo edificio, tipo y mes cargada antes del índice
+     * único (Etapa 5): la migración la deja sin period_key. Hoy no se puede
+     * crear desde la app, así que se inserta directo como historial viejo.
+     */
+    private function legacyDuplicate(Building $b, User $tech, string $type): void
+    {
+        DB::table('building_visits')->insert([
+            'company_id' => $b->company_id, 'building_id' => $b->id, 'user_id' => $tech->id,
+            'source' => 'building', 'visit_type' => 'fixed', 'assignment_type' => $type, 'status' => 'done',
+            'month' => now()->month, 'year' => now()->year, 'slot' => 1, 'period_key' => null,
+            'visited_at' => now(), 'created_at' => now(), 'updated_at' => now(),
+        ]);
+    }
+
     // --- Visitas del técnico ------------------------------------------------
 
     public function test_technician_visit_totals_are_summed_in_the_database_with_the_same_rules(): void
@@ -91,7 +106,7 @@ class ScreenLoadTest extends TestCase
         $both->users()->attach($tech->id, ['type' => 'inspection']);
 
         $this->doneVisit($maintenance[0], $tech, 'maintenance');
-        $this->doneVisit($maintenance[0], $tech, 'maintenance'); // repetida: cuenta una vez
+        $this->legacyDuplicate($maintenance[0], $tech, 'maintenance'); // repetida (histórica, sin identidad): cuenta una vez
         $this->doneVisit($inspection[0], $tech, 'inspection');
         $this->doneVisit($maintenance[1], $tech, 'inspection');   // no es su inspección: no descuenta
         // Otra empresa con visitas: no cuenta.
@@ -205,8 +220,9 @@ class ScreenLoadTest extends TestCase
         $tech = $this->a['technician'];
         auth()->logout();
         $building = $this->a['building'];
-        BuildingVisit::factory()->count(3)->create(['company_id' => $this->a['company']->id, 'building_id' => $building->id, 'user_id' => $tech->id, 'visited_at' => now()->subDays(10)]);
-        BuildingVisit::factory()->create(['company_id' => $this->a['company']->id, 'building_id' => $building->id, 'user_id' => $tech->id, 'visited_at' => now()->subDays(120)]); // fuera de 90 días
+        // Cada visita con su número (period_key único por edificio desde la Etapa 5).
+        BuildingVisit::factory()->count(3)->sequence(['slot' => 1], ['slot' => 2], ['slot' => 3])->create(['company_id' => $this->a['company']->id, 'building_id' => $building->id, 'user_id' => $tech->id, 'visited_at' => now()->subDays(10)]);
+        BuildingVisit::factory()->create(['company_id' => $this->a['company']->id, 'building_id' => $building->id, 'user_id' => $tech->id, 'visited_at' => now()->subDays(120), 'slot' => 4]); // fuera de 90 días
         $order = WorkOrder::factory()->create(['company_id' => $this->a['company']->id, 'building_id' => $building->id, 'status' => 'completed', 'created_at' => now()->subDays(4), 'finished_at' => now()->subDays(2)]);
         $order->participants()->attach($tech->id, ['role' => 'creator']);
         $foreign = WorkOrder::factory()->create(['company_id' => $this->b['company']->id, 'building_id' => $this->b['building']->id, 'status' => 'completed', 'finished_at' => now()->subDay()]);

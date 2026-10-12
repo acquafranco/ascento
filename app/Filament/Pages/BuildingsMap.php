@@ -95,7 +95,7 @@ class BuildingsMap extends Page
     /** Estado del mes (mantenimiento) por edificio, desde la agenda: una consulta para todo el mapa. */
     public const STATUS_COLORS = [
         'done' => '#16A34A', 'not_done' => '#DC2626', 'overdue' => '#B91C1C', 'pending' => '#EAB308',
-        'upcoming' => '#0891B2', 'unassigned' => '#6B7280', 'none' => '#CBD5E1',
+        'upcoming' => '#0891B2', 'unassigned' => '#6B7280', 'covered' => '#4ADE80', 'none' => '#CBD5E1',
     ];
 
     /** @var array<int, array{status: string, technicians: list<array{id: int, name: string}>}>|null */

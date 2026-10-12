@@ -132,7 +132,7 @@ class PortalController extends Controller
             ->when(($filters['result'] ?? null) === 'done', fn ($q) => $q->whereHas('deliveryNote', fn ($n) => $n->where('performed', true)))
             ->when(($filters['result'] ?? null) === 'not_done', fn ($q) => $q->whereHas('deliveryNote', fn ($n) => $n->where('performed', false)))
             ->with(['deliveryNote:id,building_visit_id,number,performed,shared_with_client,elevator_quantity,freight_elevator_quantity,user_id', 'deliveryNote.user:id,name'])
-            ->orderByDesc('year')->orderByDesc('month')->orderByDesc('id')
+            ->orderByDesc('year')->orderByDesc('month')->orderByDesc('slot')->orderByDesc('id')
             ->paginate(20)->withQueryString();
 
         $buildings = Building::whereIn('id', $ids)->orderBy('name')->get(['id', 'name']);
