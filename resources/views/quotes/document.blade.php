@@ -1,37 +1,22 @@
 {{--
-    Presupuesto como documento comercial. El mismo para la web (enlace del
-    cliente / portal / vista del admin) y el PDF: tablas y estilos en línea
-    (dompdf no entiende flex ni grid). Solo muestra los datos de la empresa
+    Presupuesto como documento comercial para el PDF: tablas y estilos en
+    línea (dompdf no entiende flex ni grid). En pantalla (enlace del cliente,
+    portal y vista del admin) se usa quotes.partials.web, con los mismos datos
+    (App\Support\Quotes\QuoteDocument). Solo muestra los datos de la empresa
     que estén cargados; no inventa datos fiscales ni condiciones.
     $quote (con items, company, client, building), $pdf (bool).
 --}}
 @php
-    $company = $quote->company;
     $pdf = $pdf ?? false;
-    $money = fn ($v) => '$ '.number_format((float) $v, 2, ',', '.');
-    $qty = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, ',', '.'), '0'), ',');
-    $status = $quote->displayStatus();
-    $statusStyle = match ($status) {
-        'approved' => 'background:#E3F4EA;color:#17663A;',
-        'rejected', 'void' => 'background:#FDE8E8;color:#9B1C1C;',
-        'expired' => 'background:#FFF1E6;color:#A84300;',
-        default => 'background:#E8EEFD;color:#1E3A8A;',
-    };
-    $logo = null;
-    if ($company?->logo && is_file(public_path('storage/'.$company->logo))) {
-        $logo = $pdf
-            ? 'data:'.(mime_content_type(public_path('storage/'.$company->logo)) ?: 'image/png').';base64,'.base64_encode((string) file_get_contents(public_path('storage/'.$company->logo)))
-            : asset('storage/'.$company->logo);
-    }
-    $issuer = array_filter([
-        $company?->business_name && $company->business_name !== $company->name ? $company->business_name : null,
-        $company?->cuit ? 'CUIT '.$company->cuit : null,
-        $company?->tax_condition,
-        trim(implode(', ', array_filter([$company?->address, $company?->city, $company?->province])), ', ') ?: null,
-        $company?->phone ? 'Tel. '.$company->phone : null,
-        $company?->email,
-    ]);
-    $building = $quote->building;
+    $data = \App\Support\Quotes\QuoteDocument::for($quote, $pdf);
+    $company = $data['company'];
+    $money = fn ($v) => \App\Support\Quotes\QuoteDocument::money($v);
+    $qty = fn ($v) => \App\Support\Quotes\QuoteDocument::quantity($v);
+    $status = $data['status'];
+    $statusStyle = $data['status_style'];
+    $logo = $data['logo'];
+    $issuer = $data['issuer'];
+    $building = $data['building'];
     $font = $pdf ? "'DejaVu Sans', sans-serif" : "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
     // dompdf solo tiene regular y bold de DejaVu: 600/700/800 → bold (si no, cae en una fuente con serif).
     $w = fn (int $weight) => $pdf ? 'bold' : (string) $weight;
@@ -55,7 +40,7 @@
                 <div style="font-size: {{ $pdf ? '18px' : '24px' }}; font-weight: {{ $w(800) }};">{{ $quote->numberLabel() }}</div>
                 <div style="color: #6B7080;">Fecha: {{ $quote->issued_at?->format('d/m/Y') }}</div>
                 @if($quote->valid_until)<div style="color: #6B7080;">Válido hasta: <strong style="color:#1F2430">{{ $quote->valid_until->format('d/m/Y') }}</strong></div>@endif
-                <div style="margin-top: 6px;"><span style="display: inline-block; padding: 2px 10px; border-radius: 999px; font-weight: {{ $w(700) }}; font-size: {{ $pdf ? '10px' : '12px' }}; {{ $statusStyle }}">{{ $quote->displayStatusLabel() }}</span></div>
+                <div style="margin-top: 6px;"><span style="display: inline-block; padding: 2px 10px; border-radius: 999px; font-weight: {{ $w(700) }}; font-size: {{ $pdf ? '10px' : '12px' }}; {{ $statusStyle }}">{{ $data['status_label'] }}</span></div>
             </td>
         </tr>
     </table>
@@ -128,10 +113,10 @@
         </div>
     @endif
 
-    @if(filled($company?->bank_cbu) || filled($company?->bank_alias))
+    @if($data['bank'])
         <div style="margin-top: 14px; color: #3D4250; font-size: {{ $pdf ? '10px' : '13px' }};">
             Datos para transferencias:
-            {{ implode(' · ', array_filter([$company->bank_name, $company->bank_cbu ? 'CBU '.$company->bank_cbu : null, $company->bank_alias ? 'Alias '.$company->bank_alias : null])) }}
+            {{ $data['bank'] }}
         </div>
     @endif
 

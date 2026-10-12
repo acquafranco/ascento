@@ -1,7 +1,7 @@
 <x-portal-layout :title="'Presupuesto '.$quote->numberLabel()">
     <a class="p-back" href="{{ route('portal.documents', ['type' => 'quote']) }}">← Presupuestos</a>
-    <div class="p-card" style="padding: 24px;">
-        @include('quotes.document', ['quote' => $quote])
+    <div class="p-card" style="padding: clamp(14px, 4vw, 24px);">
+        @include('quotes.partials.web', ['quote' => $quote])
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
         <a class="p-btn" href="{{ route('portal.quote-pdf', $quote) }}" target="_blank" rel="noopener">⬇ Descargar PDF</a>

@@ -22,7 +22,7 @@
 <body>
     <main class="q-wrap">
         <div class="q-card">
-            @include('quotes.document', ['quote' => $quote])
+            @include('quotes.partials.web', ['quote' => $quote])
         </div>
         <div class="q-actions">
             <a class="q-btn primary" href="{{ $pdfUrl }}" target="_blank" rel="noopener">⬇ Descargar PDF</a>
