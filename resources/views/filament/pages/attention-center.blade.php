@@ -9,7 +9,8 @@
             <section>
                 <h2 class="asc-h2">{{ $heading }}</h2>
                 @forelse($sections[$key] as $item)
-                    <a href="{{ $item['url'] }}" class="asc-item is-{{ $item['severity'] }}">
+                    {{-- Sin acceso al destino: la alerta se ve, sin enlace (nunca un 403). --}}
+                    <{{ $item['url'] ? 'a' : 'div' }} @if($item['url']) href="{{ $item['url'] }}" @endif class="asc-item is-{{ $item['severity'] }}" data-attention-item="{{ $item['url'] ? 'link' : 'plain' }}">
                         <div>
                             <p class="asc-item-title">{{ $icons[$item['severity']] }} {{ $item['title'] }}</p>
                             <p class="asc-item-detail">{{ $item['detail'] }}</p>
@@ -18,7 +19,7 @@
                             @endif
                         </div>
                         <span class="asc-count">{{ $item['count'] }}</span>
-                    </a>
+                    </{{ $item['url'] ? 'a' : 'div' }}>
                 @empty
                     <p class="asc-ok">✅ Nada pendiente acá.</p>
                 @endforelse

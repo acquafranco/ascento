@@ -11,10 +11,12 @@ use App\Filament\RelationManagers\ServicesRelationManager;
 use App\Filament\Resources\Clients\Pages\CreateClient;
 use App\Filament\Resources\Clients\Pages\EditClient;
 use App\Filament\Resources\Clients\Pages\ListClients;
+use App\Filament\Resources\Clients\Pages\ViewClient;
 use App\Filament\Resources\Clients\Schemas\ClientForm;
 use App\Filament\Resources\Clients\Tables\ClientsTable;
 use App\Models\Client;
 use BackedEnum;
+use Filament\Infolists\Components\ViewEntry;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -46,12 +48,19 @@ class ClientResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Clientes';
 
-    // ESTA LINEA ES LA QUE TENÉS MAL
     protected static string|\UnitEnum|null $navigationGroup = 'Gestión';
 
     public static function form(Schema $schema): Schema
     {
         return ClientForm::configure($schema);
+    }
+
+    /** Ficha CRM (Etapa 6, PR 4): ver ClientDossier. */
+    public static function infolist(Schema $schema): Schema
+    {
+        return $schema->components([
+            ViewEntry::make('dossier')->hiddenLabel()->columnSpanFull()->view('filament.clients.dossier'),
+        ]);
     }
 
     public static function table(Table $table): Table
@@ -74,6 +83,7 @@ class ClientResource extends Resource
         return [
             'index' => ListClients::route('/'),
             'create' => CreateClient::route('/create'),
+            'view' => ViewClient::route('/{record}'),
             'edit' => EditClient::route('/{record}/edit'),
         ];
     }
