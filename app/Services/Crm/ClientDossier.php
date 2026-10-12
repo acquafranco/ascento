@@ -110,7 +110,7 @@ class ClientDossier
     {
         $base = Quote::withoutGlobalScopes()->where('company_id', $companyId)->whereNull('deleted_at')
             ->where(fn ($q) => $q->where('client_id', $client->id)->orWhereIn('building_id', $buildingIds));
-        $pending = (clone $base)->where('status', Quote::SENT)->where(fn ($q) => $q->whereNull('valid_until')->orWhereDate('valid_until', '>=', today()));
+        $pending = (clone $base)->awaitingResponse();
 
         return [
             'pending_count' => (clone $pending)->count(),

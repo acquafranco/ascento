@@ -340,3 +340,46 @@ Todo eso va en el PR 2. Los administrativos solo existen en las pruebas.
   - Si no puede abrir el destino, la alerta se muestra sin enlace, nunca con un 403. El dueño ve todo como antes.
 - **Entre empresas:** la ficha de otra empresa responde 404 y sus pestañas no se cargan.
 - **Sin límites comerciales nuevos.**
+
+## 15. PR 5 implementado: indicadores adicionales y permisos por indicador
+
+### Indicadores nuevos («Trabajo del mes», planes Profesional y Empresa)
+
+Están en Indicadores, protegidos por `PlanFeature::CompanyIndicators`. Cada tarjeta muestra «Cómo se calcula».
+
+- **Período:** el mes elegido en el selector (`?mes=AAAA-MM`). Por defecto es el mes actual, en la zona horaria de la aplicación.
+  - El selector ofrece hasta 24 meses hacia atrás, sin pasar de enero de 2024.
+  - Un valor inválido, futuro o anterior a ese límite vuelve al mes actual (`Indicators::month`).
+- **Base de los dos primeros:** salen de los remitos (`delivery_notes`) creados dentro del mes. Un remito siempre está firmado (la firma es obligatoria al crearlo), y «realizado» es `performed = true`.
+
+| Indicador | Qué cuenta | Qué excluye | Área necesaria |
+|---|---|---|---|
+| Inspecciones realizadas | Remitos realizados de inspección periódica (`assignment_type = inspection`) o de una orden de tipo inspección, aunque la orden se haya borrado después | Visitas previstas, visitas en curso sin remito, remitos «no realizado», otros tipos y otros meses. Las no realizadas se informan aparte, sin sumarse | Documentos y remitos |
+| Edificios atendidos | Edificios distintos con al menos un remito realizado en el mes, de cualquier tipo. Incluye los desactivados después | Edificios solo con trabajos previstos o no realizados | Documentos y remitos |
+| Presupuestos pendientes | Enviados, no borrados y vigentes (sin fecha de validez, o válidos hasta hoy o después), con su monto total. Es una foto de hoy y no depende del mes | Borradores, aprobados, rechazados, anulados y vencidos | Presupuestos (y el plan con Presupuestos) |
+
+- **Una sola definición de «pendiente»:** el scope `Quote::awaitingResponse()`. Lo usan los indicadores y la ficha del cliente.
+- **Filtro de empresa:** las consultas filtran explícitamente por empresa, además del scope global.
+
+### Permisos por indicador (todos, no solo los nuevos)
+
+- Cada número declara las áreas de las que sale (`Indicators::allows`).
+- Para un administrativo, un número se calcula solo si tiene «ver» en todas esas áreas. Si no, no se consulta ni se devuelve.
+- Abrir la página sigue pidiendo el área Indicadores.
+- El dueño y el SuperAdmin ven todo, como antes.
+
+| Indicador | Áreas |
+|---|---|
+| Mantenimientos de este mes; columna «Mantenimientos cumplidos»; «Mantenimientos hechos» | Visitas y agenda |
+| Trabajo abierto; órdenes terminadas; días para cerrar; «Órdenes completadas» | Órdenes de trabajo |
+| Reportes y reclamos (mes, 6 meses, comparación, trimestres); ascensores que más fallan | Inspecciones y reportes + Órdenes de trabajo |
+| Tabla de técnicos | Técnicos (los nombres), más Visitas para su columna y Órdenes para las suyas |
+| Aprobación de presupuestos; «Presupuestos aprobados ($)» | Presupuestos |
+| Facturación de la cartera; dependencia de clientes; clientes que más facturan | Cobranzas (contratos) |
+| Edificios sin contrato | Edificios + Cobranzas + Clientes |
+| Ascensores que fallan seguido | Edificios + Inspecciones y reportes + Órdenes de trabajo |
+
+- Los ascensores de «¿Qué ascensores fallan más?» enlazan a su ficha solo si el usuario puede abrirla.
+- Si un administrativo no tiene ningún indicador visible, ve un aviso para pedir permisos al dueño.
+- A los administrativos no se les muestran los avisos de «mejorar el plan»: los planes son del dueño.
+- **Planes:** sin cambios. Inicial conserva los básicos; Profesional y Empresa suman «Trabajo del mes». No hay límites nuevos ni cambios de precio.

@@ -2,20 +2,20 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Model;
 use App\Models\Concerns\BelongsToCompany;
+use App\Models\Concerns\SharesWithClient;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
-
 
 class Quote extends Model
 {
-    use \App\Models\Concerns\SharesWithClient;
-
-
-    use HasFactory, SoftDeletes;
     use BelongsToCompany;
+    use HasFactory, SoftDeletes;
+    use SharesWithClient;
 
     protected $fillable = [
         'company_id',
@@ -84,7 +84,7 @@ class Quote extends Model
         // Número correlativo por empresa, asignado con la empresa bloqueada
         // (dos presupuestos a la vez no comparten número; además hay índice único).
         static::created(function (Quote $quote) {
-            \Illuminate\Support\Facades\DB::transaction(function () use ($quote) {
+            DB::transaction(function () use ($quote) {
                 Company::whereKey($quote->company_id)->lockForUpdate()->first();
                 $next = (int) static::withoutGlobalScopes()->withTrashed()->where('company_id', $quote->company_id)->max('number') + 1;
                 $quote->forceFill(['number' => $next])->saveQuietly();
@@ -157,7 +157,7 @@ class Quote extends Model
         $until = $this->valid_until ? $this->valid_until->copy()->addDays(30)->endOfDay() : now()->addDays(60);
         $until = $until->max(now()->addDays(30))->min(now()->addDays(120));
 
-        return \Illuminate\Support\Facades\URL::temporarySignedRoute('quotes.public', $until, [
+        return URL::temporarySignedRoute('quotes.public', $until, [
             'company' => $this->company?->slug ?? Company::whereKey($this->company_id)->value('slug'),
             'token' => $this->public_token,
         ]);
@@ -214,6 +214,18 @@ class Quote extends Model
             ->whereDate('valid_until', '<', today());
     }
 
+    /**
+     * Esperando respuesta del cliente: enviados y vigentes (sin fecha de
+     * validez, o que vence hoy o después). No incluye borradores, aprobados,
+     * rechazados, anulados ni vencidos. Los borrados quedan fuera por el
+     * soft delete. Lo usan la ficha del cliente y los indicadores.
+     */
+    public function scopeAwaitingResponse($query)
+    {
+        return $query->where('status', self::SENT)
+            ->where(fn ($q) => $q->whereNull('valid_until')->orWhereDate('valid_until', '>=', today()));
+    }
+
     public function scopeOpen($query)
     {
         return $query->whereIn('status', [self::DRAFT, self::SENT])
@@ -243,7 +255,7 @@ class Quote extends Model
         return $this->belongsTo(User::class, 'created_by')->withTrashed();
     }
 
-        public function company()
+    public function company()
     {
         return $this->belongsTo(Company::class)->withTrashed();
     }
