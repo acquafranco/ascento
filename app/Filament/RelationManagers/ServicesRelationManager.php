@@ -48,12 +48,19 @@ class ServicesRelationManager extends RelationManager
                     }),
             ])
             ->headerActions([
-                Action::make('manage')->label('Gestionar servicios')->color('gray')->url(MaintenanceServiceResource::getUrl('index')),
+                Action::make('manage')->label('Gestionar servicios')->color('gray')->url(MaintenanceServiceResource::getUrl('index'))
+                    ->visible(fn () => MaintenanceServiceResource::canAccess()),
             ])
-            ->recordUrl(fn (MaintenanceService $r) => MaintenanceServiceResource::getUrl('edit', ['record' => $r]))
+            // Enlaces solo a lo que el usuario puede abrir (un administrativo con «ver»: la ficha de lectura).
+            ->recordUrl(fn (MaintenanceService $r) => match (true) {
+                MaintenanceServiceResource::canEdit($r) => MaintenanceServiceResource::getUrl('edit', ['record' => $r]),
+                MaintenanceServiceResource::canView($r) => MaintenanceServiceResource::getUrl('view', ['record' => $r]),
+                default => null,
+            })
             ->emptyStateHeading('Sin servicio de mantenimiento')
             ->emptyStateActions([
-                Action::make('create')->label('Crear servicio')->url(MaintenanceServiceResource::getUrl('create')),
+                Action::make('create')->label('Crear servicio')->url(MaintenanceServiceResource::getUrl('create'))
+                    ->visible(fn () => MaintenanceServiceResource::canCreate()),
             ]);
     }
 }

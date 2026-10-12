@@ -29,6 +29,16 @@ class InteractionsRelationManager extends RelationManager
         return PermissionArea::Contacts;
     }
 
+    /**
+     * En la ficha (solo lectura) igual se pueden registrar contactos: lo
+     * decide el permiso «gestionar» del Historial de contactos (ActionGuard),
+     * no el de Clientes.
+     */
+    public function isReadOnly(): bool
+    {
+        return false;
+    }
+
     public function form(Schema $schema): Schema
     {
         return $schema->components(ClientInteractionResource::fields(withClient: false))->columns(2);

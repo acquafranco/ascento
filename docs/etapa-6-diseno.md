@@ -315,3 +315,28 @@ Todo eso va en el PR 2. Los administrativos solo existen en las pruebas.
 - **Integración:** exportación (hojas «Tareas» e «Historial de contactos»), registro de actividad y borrado definitivo de empresas.
 - **Sin límites comerciales nuevos**, en todos los planes.
 - **Para el PR 4:** un administrativo con Clientes en «ver» puede listar clientes pero no abrir la ficha (Clientes no tiene página de solo lectura); hoy ve los contactos desde «Historial de contactos». La ficha CRM de lectura se resuelve en el PR 4.
+
+## 14. PR 4 implementado: ficha CRM del cliente y Centro de atención por permisos
+
+- **Ficha del cliente** (`ViewClient`, `/admin/clients/{id}`): página de solo lectura. Se abre con Clientes en «ver»; editar sigue pidiendo «gestionar». El listado lleva a la ficha («Ficha») y conserva «Editar».
+- **Contenido** (`App\Services\Crm\ClientDossier`): se lee de los módulos existentes, sin copiar datos.
+  - Datos del cliente.
+  - Resumen: edificios y ascensores, presupuestos pendientes (enviados y vigentes), órdenes abiertas y reclamos, saldo a cobrar y vencido, tareas abiertas y último contacto.
+  - Actividad reciente: presupuestos, órdenes, remitos, pagos, contactos y tareas completadas, lo más nuevo primero.
+  - Una sección por módulo, con los últimos 5 registros y un mensaje cuando no hay datos.
+  - Los edificios desactivados no se listan, pero su historial sigue apareciendo.
+- **Permisos dentro de la ficha:**
+  - Cada sección pide «ver» en su área: Edificios (incluye ascensores), Presupuestos, Órdenes de trabajo, Documentos (remitos), Cobranzas, Tareas e Historial de contactos.
+  - Una sección sin permiso no se consulta. Tampoco aparecen su número en el resumen ni sus eventos en la actividad.
+  - Los enlaces aparecen solo si el usuario puede abrir el destino: la página de lectura si existe; la de edición, solo con «gestionar».
+  - Si el plan no incluye el destino (ficha del ascensor, presupuestos), el dato se muestra sin enlace.
+  - Las pestañas siguen con su área (PR 3). En la ficha son de solo lectura, salvo «Contactos», donde se registra con «gestionar» en Historial de contactos.
+  - En «Servicios», «Crear servicio» aparece solo si el usuario puede crear. Cada fila abre la edición o la ficha de lectura según el permiso.
+  - «Ver planes» del portal no se muestra a administrativos.
+- **Centro de atención:**
+  - Cada alerta declara su pantalla de destino, y el área es la de esa pantalla.
+  - Un administrativo solo ve las alertas de sus áreas: las demás no aparecen, ni su número ni sus ejemplos.
+  - Una alerta sin área declarada no se le muestra.
+  - Si no puede abrir el destino, la alerta se muestra sin enlace, nunca con un 403. El dueño ve todo como antes.
+- **Entre empresas:** la ficha de otra empresa responde 404 y sus pestañas no se cargan.
+- **Sin límites comerciales nuevos.**

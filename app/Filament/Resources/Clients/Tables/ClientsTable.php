@@ -2,14 +2,17 @@
 
 namespace App\Filament\Resources\Clients\Tables;
 
+use App\Enums\PlanLimit;
+use App\Support\Plans\PlanRestoreGuard;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
-use Filament\Tables\Filters\TrashedFilter;
-use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 
 class ClientsTable
@@ -61,21 +64,22 @@ class ClientsTable
                 ->sortable()
                 ->toggleable(isToggledHiddenByDefault: true),
         ])
-        ->filters([
+            ->filters([
                 TrashedFilter::make()->label('Desactivados'),
             ])
             ->recordActions([
-                RestoreAction::make()->before(\App\Support\Plans\PlanRestoreGuard::before(\App\Enums\PlanLimit::Clients))->label('Reactivar'),
-            EditAction::make()->label('Editar'),
-        ])
-        ->toolbarActions([
-            BulkActionGroup::make([
-                DeleteBulkAction::make()
+                RestoreAction::make()->before(PlanRestoreGuard::before(PlanLimit::Clients))->label('Reactivar'),
+                ViewAction::make()->label('Ficha'),
+                EditAction::make()->label('Editar'),
+            ])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make()
                         ->label('Desactivar seleccionados')
                         ->modalHeading('Desactivar seleccionados')
                         ->modalSubmitActionLabel('Desactivar'),
-                    RestoreBulkAction::make()->before(\App\Support\Plans\PlanRestoreGuard::beforeBulk(\App\Enums\PlanLimit::Clients))->label('Reactivar seleccionados'),
-            ]),
-        ]);
+                    RestoreBulkAction::make()->before(PlanRestoreGuard::beforeBulk(PlanLimit::Clients))->label('Reactivar seleccionados'),
+                ]),
+            ]);
     }
 }

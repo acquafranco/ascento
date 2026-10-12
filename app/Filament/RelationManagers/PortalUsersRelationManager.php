@@ -11,6 +11,7 @@ use App\Models\Client;
 use App\Models\Company;
 use App\Models\PortalMembership;
 use App\Services\Portal\PortalInvitations;
+use App\Support\Access\Access;
 use App\Support\Plans\PlanGuard;
 use App\Support\Plans\PlanUpsell;
 use App\Support\VerifiedSender;
@@ -153,7 +154,8 @@ class PortalUsersRelationManager extends RelationManager
                 Action::make('upgradeForPortal')
                     ->label('Ver planes')
                     ->url(fn () => PlanUpsell::url(feature: PlanFeature::ClientPortal))
-                    ->visible(! $allowed),
+                    // Los planes los ve el dueño (un administrativo no tiene acceso a la suscripción).
+                    ->visible(! $allowed && ! Access::isStaff(auth()->user())),
                 Action::make('createPortalUser')
                     ->label('Invitar al portal')
                     ->icon('heroicon-o-user-plus')
