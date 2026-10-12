@@ -84,6 +84,22 @@ class Elevator extends Model
         return Quote::where('building_id', $this->building_id)->where('unit', $this->label);
     }
 
+    /**
+     * Ficha incompleta: falta algún dato básico (vacío o sin cargar). Misma
+     * regla que missingEssentials(), resuelta en la base.
+     */
+    public function scopeIncomplete(Builder $query): Builder
+    {
+        return $query->where(function (Builder $q) {
+            foreach (self::ESSENTIAL_FIELDS as $field) {
+                $q->orWhereNull($field);
+                if (in_array($field, ['manufacturer', 'model', 'serial_number'], true)) {
+                    $q->orWhereRaw("TRIM({$field}) = ''");
+                }
+            }
+        });
+    }
+
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);

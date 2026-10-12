@@ -5,6 +5,7 @@ namespace App\Services\Insights;
 use App\Models\Building;
 use App\Models\BuildingVisit;
 use App\Models\MaintenanceService;
+use App\Support\CompanyContext;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
@@ -57,28 +58,11 @@ class MaintenanceAgenda
         $period = Carbon::create($year, $month, 1)->startOfMonth();
         $current = now()->startOfMonth();
 
-        $buildings = Building::query()
-            ->with(['client:id,name', 'users' => fn ($q) => $q->select('users.id', 'users.name')])
-            ->orderBy('name')
-            ->get();
-
-        $visits = BuildingVisit::query()
-            ->with(['user:id,name', 'deliveryNote:id,building_visit_id,performed,number'])
-            ->where('visit_type', 'fixed')
-            ->where('month', $month)
-            ->where('year', $year)
-            ->whereIn('assignment_type', array_keys(self::TYPES))
-            ->get()
-            ->keyBy(fn (BuildingVisit $v) => $v->building_id.'|'.$v->assignment_type);
+        $buildings = $this->buildings($month, $year, $technicianId);
+        $visits = $this->visits($month, $year);
 
         // Edificios con un contrato vigente en ese mes (aunque no tengan técnico).
-        $underContract = MaintenanceService::query()
-            ->where('status', MaintenanceService::ACTIVE)
-            ->whereDate('start_date', '<=', $period->copy()->endOfMonth())
-            ->where(fn ($q) => $q->whereNull('end_date')->orWhereDate('end_date', '>=', $period))
-            ->get(['building_id', 'client_id']);
-        $contractBuildings = $underContract->pluck('building_id')->filter()->flip();
-        $contractClients = $underContract->whereNull('building_id')->pluck('client_id')->flip();
+        [$contractBuildings, $contractClients] = $this->contracts($period);
 
         $rows = collect();
 
@@ -130,6 +114,75 @@ class MaintenanceAgenda
         $order = ['overdue' => 0, 'not_done' => 1, 'unassigned' => 2, 'pending' => 3, 'upcoming' => 4, 'done' => 5];
 
         return $rows->sortBy(fn ($row) => $order[$row['status']].'|'.$row['building']->name)->values();
+    }
+
+    /*
+     * Datos de base, una sola vez por solicitud. El centro de atención, los
+     * indicadores y el mapa piden la agenda varias veces (por tipo, estado y
+     * mes): antes cada llamada volvía a cargar todos los edificios con sus
+     * técnicos, visitas y contratos. La clave lleva la empresa actual, así que
+     * nunca se mezclan datos de otra.
+     */
+
+    /** Edificios con cliente y técnicos. Con técnico: solo los suyos (asignados o visitados ese mes). */
+    private function buildings(int $month, int $year, ?int $technicianId): Collection
+    {
+        return $this->remember('buildings.'.($technicianId ? "{$technicianId}.{$month}.{$year}" : 'all'), fn () => Building::query()
+            ->with(['client:id,name', 'users' => fn ($q) => $q->select('users.id', 'users.name')])
+            ->when($technicianId, fn ($q) => $q->where(fn ($w) => $w
+                ->whereHas('users', fn ($u) => $u->where('users.id', $technicianId))
+                ->orWhereHas('visits', fn ($v) => $v->where('user_id', $technicianId)->where('visit_type', 'fixed')->where('month', $month)->where('year', $year))))
+            ->orderBy('name')
+            ->get());
+    }
+
+    /** Visitas fijas del mes, por "edificio|tipo". */
+    private function visits(int $month, int $year): Collection
+    {
+        return $this->remember("visits.{$month}.{$year}", fn () => BuildingVisit::query()
+            ->with(['user:id,name', 'deliveryNote:id,building_visit_id,performed,number'])
+            ->where('visit_type', 'fixed')
+            ->where('month', $month)
+            ->where('year', $year)
+            ->whereIn('assignment_type', array_keys(self::TYPES))
+            ->get()
+            ->keyBy(fn (BuildingVisit $v) => $v->building_id.'|'.$v->assignment_type));
+    }
+
+    /** @return array{0: Collection, 1: Collection} edificios y clientes con contrato vigente en el mes */
+    private function contracts(Carbon $period): array
+    {
+        return $this->remember('contracts.'.$period->format('Y-m'), function () use ($period) {
+            $underContract = MaintenanceService::query()
+                ->where('status', MaintenanceService::ACTIVE)
+                ->whereDate('start_date', '<=', $period->copy()->endOfMonth())
+                ->where(fn ($q) => $q->whereNull('end_date')->orWhereDate('end_date', '>=', $period))
+                ->get(['building_id', 'client_id']);
+
+            return [$underContract->pluck('building_id')->filter()->flip(), $underContract->whereNull('building_id')->pluck('client_id')->flip()];
+        });
+    }
+
+    /**
+     * Memoria de la solicitud actual (páginas y actualizaciones de Livewire).
+     * Fuera de una solicitud web (consola, colas, llamadas directas) no se
+     * guarda nada: siempre se consulta de nuevo.
+     */
+    private function remember(string $key, \Closure $load): mixed
+    {
+        $request = app()->bound('request') ? request() : null;
+
+        if (! $request || ! $request->route()) {
+            return $load();
+        }
+
+        $key = 'ascento.agenda.'.(CompanyContext::currentId() ?? 'none').'.'.$key;
+
+        if (! $request->attributes->has($key)) {
+            $request->attributes->set($key, $load());
+        }
+
+        return $request->attributes->get($key);
     }
 
     /** Conteo por estado del mes (para el resumen y el centro de atención). */

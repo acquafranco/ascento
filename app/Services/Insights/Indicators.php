@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Models\WorkOrder;
 use App\Support\Plans\PlanGuard;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Collection;
 
 /**
  * Indicadores para el dueño de la empresa. Cada uno responde una pregunta
@@ -64,6 +65,41 @@ class Indicators
     {
         return Report::whereBetween('created_at', [$from, $to])->count()
             + WorkOrder::where('type', 'claim')->whereBetween('created_at', [$from, $to])->count();
+    }
+
+    /**
+     * Actividad de cada técnico en los últimos 90 días: visitas, órdenes
+     * completadas y días promedio de cierre. Tres consultas en total (antes,
+     * tres por técnico), con las mismas reglas.
+     *
+     * @return Collection<int, array{name: string, visits: int, orders: int, close_days: ?float}>
+     */
+    private function technicianActivity(Company $company, CarbonInterface $from): Collection
+    {
+        $now = now();
+        // User no tiene scope global de empresa: el filtro va explícito.
+        $technicians = User::where('company_id', $company->id)->where('role', 'technician')->orderBy('name')->get(['id', 'name']);
+        $ids = $technicians->pluck('id');
+
+        $visits = BuildingVisit::whereIn('user_id', $ids)->where('visit_type', 'fixed')->where('visited_at', '>=', $from)
+            ->selectRaw('user_id, COUNT(*) as total')->groupBy('user_id')->pluck('total', 'user_id');
+
+        $orders = WorkOrder::where('status', 'completed')->where('finished_at', '>=', $from)
+            ->whereHas('participants', fn ($p) => $p->whereIn('users.id', $ids))
+            ->with(['participants' => fn ($p) => $p->select('users.id')])
+            ->get(['work_orders.id', 'work_orders.created_at', 'work_orders.finished_at']);
+
+        return $technicians->map(function (User $t) use ($visits, $orders, $from, $now) {
+            $own = $orders->filter(fn (WorkOrder $o) => $o->participants->contains('id', $t->id));
+            $closed = $own->filter(fn (WorkOrder $o) => $o->finished_at !== null && $o->finished_at->between($from, $now));
+
+            return [
+                'name' => $t->name,
+                'visits' => (int) ($visits[$t->id] ?? 0),
+                'orders' => $own->count(),
+                'close_days' => $closed->isEmpty() ? null : round($closed->avg(fn ($o) => $o->created_at->diffInHours($o->finished_at) / 24), 1),
+            ];
+        })->sortByDesc(fn ($t) => $t['visits'] + $t['orders'])->values();
     }
 
     /* -------------------------------------------------------------- BÁSICO */
@@ -120,13 +156,7 @@ class Indicators
         // Técnicos: últimos 90 días.
         $from = now()->subDays(90);
         // User no tiene scope global de empresa: el filtro va explícito.
-        $technicians = User::where('company_id', $company->id)->where('role', 'technician')->orderBy('name')->get(['id', 'name'])->map(fn (User $t) => [
-            'name' => $t->name,
-            'visits' => BuildingVisit::where('user_id', $t->id)->where('visit_type', 'fixed')->where('visited_at', '>=', $from)->count(),
-            'orders' => WorkOrder::where('status', 'completed')->where('finished_at', '>=', $from)
-                ->whereHas('participants', fn ($p) => $p->where('users.id', $t->id))->count(),
-            'close_days' => $this->avgCloseDays($from, now(), $t->id),
-        ])->sortByDesc(fn ($t) => $t['visits'] + $t['orders'])->values();
+        $technicians = $this->technicianActivity($company, $from);
 
         $quotes = null;
         if ($withQuotes) {

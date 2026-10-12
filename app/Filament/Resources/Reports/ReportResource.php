@@ -78,7 +78,7 @@ class ReportResource extends Resource
                     // Siempre por la ruta autenticada (disco privado).
                     ImageEntry::make('photos')
                         ->label('Fotos')
-                        ->state(fn ($record) => $record->photos->map->url()->all())
+                        ->state(fn ($record) => $record->photos->map->thumbUrl()->all())
                         ->imageHeight(140)
                         ->placeholder('Sin fotos'),
 

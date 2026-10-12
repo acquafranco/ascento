@@ -9,8 +9,9 @@ class ClientController extends Controller
 {
     public function index()
 {
+    // Paginado y solo las columnas que se muestran (antes traía todos los clientes).
     return view('clients.index', [
-        'clients' => Client::orderBy('name')->get()
+        'clients' => Client::orderBy('name')->select(['id', 'name', 'email'])->paginate(30)->withQueryString(),
     ]);
     }
 

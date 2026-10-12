@@ -17,7 +17,6 @@ use App\Models\Building;
 use App\Models\Client;
 use App\Models\User;
 use App\Models\WorkOrder;
-use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Renderless;
 use Livewire\Component;
@@ -128,8 +127,6 @@ class AdminOnboarding extends Component
     {
         $company = $this->user()->company;
 
-        $companyBuildingIds = Building::query()->pluck('id');
-
         return [
             [
                 'label' => 'Cargá los datos de tu empresa',
@@ -148,13 +145,13 @@ class AdminOnboarding extends Component
             ],
             [
                 'label' => 'Agregá un edificio a ese cliente',
-                'done' => $companyBuildingIds->isNotEmpty(),
+                'done' => Building::query()->exists(),
                 'url' => BuildingResource::getUrl('create'),
             ],
             [
                 'label' => 'Asigná un técnico a un edificio',
-                'done' => $companyBuildingIds->isNotEmpty()
-                    && DB::table('building_user')->whereIn('building_id', $companyBuildingIds)->exists(),
+                // Antes: los ids de todos los edificios en un IN, en cada página del panel.
+                'done' => Building::query()->whereExists(fn ($q) => $q->selectRaw('1')->from('building_user')->whereColumn('building_user.building_id', 'buildings.id'))->exists(),
                 'url' => BuildingResource::getUrl('index'),
             ],
             [

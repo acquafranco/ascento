@@ -167,7 +167,7 @@ class ElevatorResource extends Resource
             ->filters([
                 SelectFilter::make('building_id')->label('Edificio')->relationship('building', 'name')->searchable()->preload(),
                 Filter::make('incomplete')->label('Ficha incompleta')
-                    ->query(fn (Builder $query) => $query->where(fn ($q) => collect(Elevator::ESSENTIAL_FIELDS)->each(fn ($f) => $q->orWhereNull($f)))),
+                    ->query(fn (Builder $query) => $query->incomplete()), // misma regla que el aviso del centro de atención
                 TernaryFilter::make('is_active')->label('Activos')->default(true),
             ])
             ->recordActions([ViewAction::make(), EditAction::make()->label('Editar ficha')]);

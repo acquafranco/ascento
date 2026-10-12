@@ -29,6 +29,8 @@
 
     </div>
 
+    <div class="mt-4">{{ $clients->links() }}</div>
+
 </div>
 
 </x-app-layout>

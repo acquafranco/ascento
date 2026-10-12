@@ -9,7 +9,9 @@ use App\Services\Insights\MaintenanceAgenda;
 use App\Support\CompanyContext;
 use Carbon\Carbon;
 use Filament\Pages\Page;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Livewire\Attributes\Url;
+use Livewire\WithPagination;
 
 /**
  * Agenda automática de mantenimientos e inspecciones: qué edificio toca cada
@@ -19,6 +21,10 @@ use Livewire\Attributes\Url;
 class Agenda extends Page
 {
     use RequiresPlanFeature;
+    use WithPagination;
+
+    /** Filas por página: el mes completo de una empresa grande eran cientos de filas de una vez. */
+    public const PER_PAGE = 50;
 
     protected static PlanFeature $planFeature = PlanFeature::Agenda;
 
@@ -47,6 +53,14 @@ class Agenda extends Page
 
     #[Url]
     public string $status = '';
+
+    /** Cambiar un filtro vuelve a la primera página. */
+    public function updated(string $property): void
+    {
+        if (in_array($property, ['month', 'type', 'technician', 'status'], true)) {
+            $this->resetPage();
+        }
+    }
 
     public function mount(): void
     {
@@ -110,8 +124,13 @@ class Agenda extends Page
 
         $agenda = app(MaintenanceAgenda::class);
 
+        $all = $agenda->rows($period->month, $period->year, $type, $technician, $status);
+        $page = max(1, min($this->getPage(), (int) ceil(max(1, $all->count()) / self::PER_PAGE)));
+
         return [
-            'rows' => $agenda->rows($period->month, $period->year, $type, $technician, $status),
+            // Se calcula el mes completo (el resumen y el orden "primero lo urgente"
+            // necesitan todo), pero se dibujan solo las filas de la página.
+            'rows' => new LengthAwarePaginator($all->forPage($page, self::PER_PAGE)->values(), $all->count(), self::PER_PAGE, $page),
             'summary' => $agenda->summary($period->month, $period->year, $type),
             'period' => $period,
         ];

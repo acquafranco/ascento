@@ -5,6 +5,7 @@ namespace App\Services\Insights;
 use App\Models\Elevator;
 use App\Models\Report;
 use App\Models\WorkOrder;
+use App\Support\CompanyContext;
 use App\Support\ElevatorComponents;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -42,6 +43,34 @@ class FailureAnalysis
         return [$until->copy()->subDays($days), $until];
     }
 
+    /** @return array{0: Collection, 1: Collection} reportes y reclamos de la ventana, agrupados por "edificio|equipo" */
+    private function signals(int $days, string $untilKey, CarbonInterface $since, CarbonInterface $until): array
+    {
+        // Filas simples (toBase conserva los scopes de empresa y de borrado):
+        // solo se cuentan, no hace falta armar un modelo por cada aviso.
+        $load = fn () => [
+            Report::where('created_at', '>', $since)->where('created_at', '<=', $until)->whereNotNull('elevator_number')
+                ->toBase()->get(['id', 'building_id', 'elevator_number', 'component'])
+                ->groupBy(fn ($r) => $r->building_id.'|'.$r->elevator_number),
+            WorkOrder::where('type', 'claim')->where('created_at', '>', $since)->where('created_at', '<=', $until)->whereNotNull('unit')
+                ->toBase()->get(['id', 'building_id', 'unit', 'component', 'status'])
+                ->groupBy(fn ($o) => $o->building_id.'|'.$o->unit),
+        ];
+
+        // Solo dentro de una solicitud web (en consola o llamadas directas, siempre fresco).
+        $request = app()->bound('request') ? request() : null;
+        if (! $request || ! $request->route()) {
+            return $load();
+        }
+
+        $key = 'ascento.failures.'.(CompanyContext::currentId() ?? 'none').".{$days}.{$untilKey}";
+        if (! $request->attributes->has($key)) {
+            $request->attributes->set($key, $load());
+        }
+
+        return $request->attributes->get($key);
+    }
+
     /**
      * @return array{reports: int, claims: int, done: int, signals: int, by_component: array<string, int>, unclassified: int, recurrent: bool, message: ?string, days: int}
      */
@@ -68,12 +97,9 @@ class FailureAnalysis
     {
         [$since, $until] = $this->window($days, $until);
 
-        $reports = Report::where('created_at', '>', $since)->where('created_at', '<=', $until)->whereNotNull('elevator_number')
-            ->get(['id', 'building_id', 'elevator_number', 'component'])
-            ->groupBy(fn ($r) => $r->building_id.'|'.$r->elevator_number);
-        $claims = WorkOrder::where('type', 'claim')->where('created_at', '>', $since)->where('created_at', '<=', $until)->whereNotNull('unit')
-            ->get(['id', 'building_id', 'unit', 'component', 'status'])
-            ->groupBy(fn ($o) => $o->building_id.'|'.$o->unit);
+        // La misma ventana se pide varias veces por pantalla (con distinto
+        // umbral): se carga una vez por solicitud y por empresa.
+        [$reports, $claims] = $this->signals($days, $until === null ? 'now' : $until->format('Y-m-d H:i:s'), $since, $until);
 
         $keys = $reports->keys()->merge($claims->keys())->unique()
             ->filter(fn ($key) => ($reports->get($key)?->count() ?? 0) + ($claims->get($key)?->count() ?? 0) >= $threshold);
