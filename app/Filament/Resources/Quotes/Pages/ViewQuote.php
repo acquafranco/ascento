@@ -8,6 +8,7 @@ use App\Filament\Resources\Quotes\QuoteBillingActions;
 use App\Filament\Resources\Quotes\QuoteResource;
 use App\Models\Quote;
 use App\Services\Quotes\QuoteSender;
+use App\Support\Access\ActionGuard;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
@@ -97,6 +98,8 @@ class ViewQuote extends ViewRecord
             ActionGroup::make([
                 Action::make('link')
                     ->label('Copiar enlace para el cliente')
+                    // Manda el enlace público al cliente: para un administrativo es «gestionar», no «ver».
+                    ->extraAttributes(ActionGuard::managing(), merge: true)
                     ->icon('heroicon-o-link')
                     ->visible(fn () => $this->record->isPubliclyVisible())
                     ->modalHeading('Enlace para el cliente')
@@ -108,6 +111,8 @@ class ViewQuote extends ViewRecord
                     ->after(fn () => $this->record->log('link')),
                 Action::make('whatsapp')
                     ->label('Enviar por WhatsApp')
+                    // Manda el enlace público al cliente: para un administrativo es «gestionar», no «ver».
+                    ->extraAttributes(ActionGuard::managing(), merge: true)
                     ->icon('heroicon-o-chat-bubble-left-right')
                     ->visible(fn () => $this->record->isPubliclyVisible() && filled($this->record->client?->phone))
                     ->url(function () {

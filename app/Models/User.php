@@ -221,8 +221,13 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
             return null;
         }
 
-        if ($this->isAdmin() || $this->isStaff()) {
+        if ($this->isAdmin()) {
             return url('/admin');
+        }
+
+        // Administrativo: el panel, o la pantalla que explica por qué no puede entrar.
+        if ($this->isStaff()) {
+            return Access::isActiveStaff($this) ? url('/admin') : route('staff.blocked');
         }
 
         return route('dashboard', ['company' => $this->company->slug]);
@@ -235,9 +240,8 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     public function canReceiveAdminPush(): bool
     {
         return ! $this->trashed()
-            && $this->isAdmin()
-            && ! $this->isSuperAdmin()
-            && $this->company_id !== null;
+            && (($this->isAdmin() && ! $this->isSuperAdmin() && $this->company_id !== null)
+                || Access::isActiveStaff($this));
     }
 
     public function hasTelegram(): bool
@@ -411,8 +415,11 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     /** Solo los usuarios operativos ocupan cupo; admins, portal y SuperAdmin no. */
     public function planLimit(): ?PlanLimit
     {
-        return ! in_array($this->role ?? 'technician', ['admin', self::ROLE_CLIENT, self::ROLE_STAFF], true) && ! $this->is_super_admin
-            ? PlanLimit::Technicians
-            : null;
+        return match (true) {
+            (bool) $this->is_super_admin => null,
+            $this->role === self::ROLE_STAFF => PlanLimit::AdminUsers,
+            ! in_array($this->role ?? 'technician', ['admin', self::ROLE_CLIENT], true) => PlanLimit::Technicians,
+            default => null,
+        };
     }
 }

@@ -163,6 +163,7 @@ class SubscriptionPlan extends Model
             ['Edificios', $limit(PlanLimit::Buildings)],
             ['Clientes', $limit(PlanLimit::Clients)],
             ['Usuarios técnicos u operativos', $limit(PlanLimit::Technicians)],
+            ['Usuarios administrativos (además del dueño)', $limit(PlanLimit::AdminUsers)],
             ['Informes por mes', $limit(PlanLimit::ReportsPerMonth)],
             ['Mantenimientos, inspecciones y agenda mensual', $feature(PlanFeature::Agenda)],
             ['Órdenes de trabajo y remitos firmados en el celular', $feature(PlanFeature::WorkOrders)],

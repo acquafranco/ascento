@@ -18,6 +18,8 @@ enum PlanLimit: string
     case Clients = 'clients';
     case Technicians = 'technicians';
     case ReportsPerMonth = 'reports_per_month';
+    // Usuarios administrativos adicionales (Etapa 6). El dueño no cuenta.
+    case AdminUsers = 'admin_users';
 
     /** Columna de subscription_plans (NULL = sin límite). */
     public function column(): string
@@ -32,6 +34,7 @@ enum PlanLimit: string
             self::Clients => 'cliente',
             self::Technicians => 'técnico',
             self::ReportsPerMonth => 'reporte',
+            self::AdminUsers => 'usuario administrativo',
         };
     }
 
@@ -42,6 +45,7 @@ enum PlanLimit: string
             self::Clients => 'clientes',
             self::Technicians => 'técnicos',
             self::ReportsPerMonth => 'reportes este mes',
+            self::AdminUsers => 'usuarios administrativos',
         };
     }
 
@@ -55,8 +59,10 @@ enum PlanLimit: string
             };
         }
 
-        return match ($this) {
-            self::ReportsPerMonth => "Hasta {$max} reportes por mes",
+        return match (true) {
+            $this === self::AdminUsers && $max === 0 => 'Sin usuarios administrativos',
+            $this === self::AdminUsers && $max === 1 => 'Hasta 1 usuario administrativo',
+            $this === self::ReportsPerMonth => "Hasta {$max} reportes por mes",
             default => "Hasta {$max} ".$this->plural(),
         };
     }
@@ -89,6 +95,13 @@ enum PlanLimit: string
                 ->where('company_id', $company->id)
                 ->where('kind', Report::KIND_INCIDENT)
                 ->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])
+                ->count(),
+            // Administrativos activos (los desactivados no ocupan lugar).
+            self::AdminUsers => User::withoutGlobalScopes()
+                ->where('company_id', $company->id)
+                ->whereNull('deleted_at')
+                ->where('role', User::ROLE_STAFF)
+                ->where('is_super_admin', false)
                 ->count(),
         };
     }

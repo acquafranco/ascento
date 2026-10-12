@@ -3,6 +3,7 @@
 namespace App\Support\Access;
 
 use App\Enums\PermissionArea;
+use App\Enums\PlanLimit;
 use App\Models\Company;
 use App\Models\User;
 
@@ -30,17 +31,67 @@ final class Access
         return $user !== null && $user->role === User::ROLE_STAFF && ! $user->isSuperAdmin();
     }
 
-    /**
-     * Administrativo con acceso vigente: activo, de una empresa existente y
-     * habilitada. (El límite por plan se suma en el PR 2.)
-     */
+    public const BLOCK_DEACTIVATED = 'deactivated';
+
+    public const BLOCK_COMPANY = 'company_inactive';
+
+    public const BLOCK_PLAN = 'plan_limit';
+
+    /** Administrativo con acceso vigente: sin ningún motivo de bloqueo. */
     public static function isActiveStaff(?User $user): bool
     {
-        if (! self::isStaff($user) || $user->trashed() || $user->company_id === null) {
-            return false;
+        return self::isStaff($user) && self::staffBlockReason($user) === null;
+    }
+
+    /**
+     * Por qué un administrativo no puede entrar (null: puede).
+     *
+     * - deactivated: el dueño lo desactivó (se conserva todo).
+     * - company_inactive: la empresa está deshabilitada.
+     * - plan_limit: la empresa tiene más administrativos activos que los que
+     *   permite su plan (por ejemplo, al bajar de plan). Siguen con acceso los
+     *   N más antiguos; el resto queda suspendido, sin borrar nada. Se calcula
+     *   en cada pedido: al subir de plan o desactivar a otro, vuelve solo.
+     */
+    public static function staffBlockReason(User $user): ?string
+    {
+        if ($user->trashed()) {
+            return self::BLOCK_DEACTIVATED;
         }
 
-        return (bool) Company::whereKey($user->company_id)->value('is_active');
+        $company = $user->company_id ? Company::find($user->company_id) : null;
+
+        if (! $company || ! $company->is_active) {
+            return self::BLOCK_COMPANY;
+        }
+
+        $max = $company->plan()->limit(PlanLimit::AdminUsers);
+
+        if ($max !== null) {
+            $ahead = User::withoutGlobalScopes()
+                ->where('company_id', $company->id)->where('role', User::ROLE_STAFF)->whereNull('deleted_at')
+                ->where('id', '<', $user->id)->count();
+
+            if ($ahead >= $max) {
+                return self::BLOCK_PLAN;
+            }
+        }
+
+        return null;
+    }
+
+    /** Texto para el administrativo y para el dueño. */
+    public static function blockMessage(?string $reason, ?int $max = null): ?string
+    {
+        return match ($reason) {
+            self::BLOCK_DEACTIVATED => 'Tu acceso fue desactivado por el dueño de la empresa.',
+            self::BLOCK_COMPANY => 'La empresa está deshabilitada en Ascento.',
+            self::BLOCK_PLAN => ($max === 0
+                ? 'El plan actual de la empresa no incluye usuarios administrativos'
+                : 'El plan actual de la empresa permite '.($max === 1 ? '1 usuario administrativo' : "{$max} usuarios administrativos").' y hay más activos')
+                .': tu acceso queda suspendido hasta que el dueño cambie el plan o desactive a otro administrativo. No se borró nada.',
+            default => null,
+        };
     }
 
     /** ¿Entra al panel? SuperAdmin, dueño o administrativo vigente. */

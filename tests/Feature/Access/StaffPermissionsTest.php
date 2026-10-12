@@ -28,6 +28,7 @@ use App\Filament\Resources\MaintenanceServices\MaintenanceServiceResource;
 use App\Filament\Resources\Quotes\QuoteResource;
 use App\Filament\Resources\Receivables\ReceivableResource;
 use App\Filament\Resources\Reports\ReportResource;
+use App\Filament\Resources\StaffUsers\StaffUserResource;
 use App\Filament\Resources\StockItems\StockItemResource;
 use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Filament\Resources\Subscriptions\SubscriptionResource;
@@ -113,9 +114,14 @@ class StaffPermissionsTest extends TestCase
     }
 
     /** Administrativo de la empresa (lo crea el sistema: en el PR 1 no hay alta desde la app). */
-    private function staff(array $permissions = [], ?array $tenant = null): User
+    private function staff(array $permissions = [], ?array $tenant = null, bool $keepOthers = false): User
     {
         auth()->logout();
+        // El plan limita los administrativos activos (Empresa: 5): las pruebas que crean
+        // uno por área desactivan los anteriores, salvo que necesiten varios a la vez.
+        if (! $keepOthers) {
+            User::where('company_id', ($tenant ?? $this->a)['company']->id)->where('role', User::ROLE_STAFF)->update(['deleted_at' => now()]);
+        }
         $user = User::factory()->create(['company_id' => ($tenant ?? $this->a)['company']->id, 'role' => User::ROLE_STAFF]);
         $user->forceFill(['permissions' => $permissions])->save();
 
@@ -267,7 +273,7 @@ class StaffPermissionsTest extends TestCase
         $this->assertSame($before, Company::find($this->a['company']->id)->only(['name', 'photos_maintenance']));
 
         // Solo ve técnicos en Usuarios (ni al dueño ni a otros administrativos).
-        $other = $this->staff([], $this->a);
+        $other = $this->staff([], $this->a, keepOthers: true);
         $this->inPanel($staff);
         $ids = UserResource::getEloquentQuery()->pluck('id')->all();
         $this->assertContains($this->a['technician']->id, $ids);
@@ -412,7 +418,7 @@ class StaffPermissionsTest extends TestCase
         $staff = $this->staff($this->all());
 
         $this->assertSame($before, PlanLimit::Technicians->usage(Company::find($company->id)));
-        $this->assertNull($staff->planLimit());
+        $this->assertSame(PlanLimit::AdminUsers, $staff->planLimit()); // ocupa cupo de administrativos, no de técnicos
 
         // La asignación masiva solo ofrece técnicos.
         $this->inPanel($this->a['admin']);
@@ -556,9 +562,16 @@ class StaffPermissionsTest extends TestCase
     {
         $panel = Filament::getPanel('ascensores_app');
         $superAdminOnly = [CompanyResource::class, SubscriptionResource::class];
+        $ownerOnly = [StaffUserResource::class];
 
         foreach ($panel->getResources() as $resource) {
             if (in_array($resource, $superAdminOnly, true)) {
+                continue;
+            }
+            if (in_array($resource, $ownerOnly, true)) {
+                $this->inPanel($this->staff($this->all()));
+                $this->assertFalse($resource::canAccess(), "{$resource} es solo del dueño");
+
                 continue;
             }
             $this->assertContains(GuardedByPermission::class, class_uses_recursive($resource), "{$resource} no declara su área de permisos");
@@ -668,7 +681,7 @@ class StaffPermissionsTest extends TestCase
         $this->assertNotNull($log->created_at);
 
         // Un intento rechazado (otro administrativo) no deja registro de cambio.
-        $other = $this->staff();
+        $other = $this->staff(keepOthers: true);
         $this->actingAs($other);
         $staff->fresh()->forceFill(['permissions' => $this->all()])->save();
         $this->assertSame(1, ActivityLog::where('action', 'user.permissions_changed')->count());
@@ -679,7 +692,8 @@ class StaffPermissionsTest extends TestCase
         $this->actingAs($root);
         $this->a['technician']->update(['role' => User::ROLE_STAFF]);
         $role = ActivityLog::where('action', 'user.role_changed')->sole();
-        $this->assertSame(['superadmin', $this->a['technician']->id, ['from' => 'technician', 'to' => 'staff']], [$role->actor_role, (int) $role->subject_id, $role->changes['role']]);
+        $this->assertSame(['superadmin', $this->a['technician']->id], [$role->actor_role, (int) $role->subject_id]);
+        $this->assertEquals(['from' => 'technician', 'to' => 'staff'], $role->changes['role']); // MySQL reordena las claves del JSON
         $this->assertSame($this->a['company']->id, (int) $role->company_id);
     }
 }
