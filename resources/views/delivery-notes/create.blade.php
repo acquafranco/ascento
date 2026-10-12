@@ -48,6 +48,10 @@
             <input type="hidden" name="work_order_id" value="{{ $workOrder->id }}">
         @endif
         <input type="hidden" name="building_id" value="{{ $building->id }}">
+        @isset($submissionToken)
+            {{-- Identidad de este formulario: si se reenvía, no se registra otra visita. --}}
+            <input type="hidden" name="submission_token" value="{{ $submissionToken }}">
+        @endisset
         <input type="hidden" name="year" value="{{ $year }}">
         <input type="hidden" name="elevator_quantity" value="{{ $building->elevator_count }}">
         <input type="hidden" name="freight_elevator_quantity" value="{{ $building->freight_elevator_count }}">
@@ -187,6 +191,7 @@
                      data-building="{{ $building->id }}" data-type="{{ $assignmentType }}"
                      data-max-group="{{ $maxPerGroup }}" data-max-total="{{ \App\Models\VisitPhoto::MAX_PER_VISIT }}">
                 <input type="hidden" name="photo_batch" value="{{ $photoBatch }}">
+                <input type="hidden" name="photo_count" value="{{ ($stagedPhotos ?? collect())->count() }}" data-photo-count>
                 <h2 class="font-bold text-ink">Fotos de antes y después <span class="text-xs font-normal text-ink-500">(opcional)</span></h2>
                 <p class="mb-3 text-xs text-ink-500">Hasta {{ $maxPerGroup }} fotos por sección en «Antes» y {{ $maxPerGroup }} en «Después». Se suben solas mientras completás el remito; si alguna falla, tocá «Reintentar». Las ve la oficina, no el cliente.</p>
                 <div class="space-y-2">
@@ -615,6 +620,12 @@ window.addEventListener('load', () => {
         }
     }
 
+    function newKey() {
+        if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+        const bytes = new Uint8Array(16);
+        (window.crypto || window.msCrypto).getRandomValues(bytes);
+        return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+    }
     function tile(group, file) {
         const el = document.createElement('div');
         el.className = 'relative aspect-square overflow-hidden rounded-lg bg-ink-50';
@@ -627,6 +638,9 @@ window.addEventListener('load', () => {
         try { img.src = URL.createObjectURL(file); } catch (e) {}
         el._file = file;
         el._group = group;
+        // Identidad de esta foto: si la subida llegó pero la respuesta no,
+        // «Reintentar» recibe la misma foto en vez de duplicarla.
+        el._key = newKey();
         group.querySelector('[data-thumbs]').append(el);
         refresh(group);
         return el;
@@ -655,6 +669,7 @@ window.addEventListener('load', () => {
         body.append('assignment_type', root.dataset.type);
         body.append('photo_section_id', group.dataset.section);
         body.append('stage', group.dataset.stage);
+        body.append('client_key', el._key);
         body.append('photo', el._file);
         try {
             if (navigator.onLine === false) throw new Error('offline');
@@ -733,6 +748,10 @@ window.addEventListener('load', () => {
         refresh(group);
     });
 
+    // Cuántas fotos quedaron subidas: el servidor avisa si alguna no se guardó.
+    root.closest('form')?.addEventListener('submit', () => {
+        root.querySelector('[data-photo-count]').value = tiles('[data-state="done"]').length;
+    });
     window.ascentoVisitPhotos = {
         state: () => ({
             uploading: tiles('[data-state="uploading"]').length,

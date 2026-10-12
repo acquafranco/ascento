@@ -17,6 +17,10 @@ return [
     'photo_max_side' => 2000,
     'photo_quality' => 82,
     'thumb_side' => 480,
+    // Megapíxeles máximos de una foto ANTES de decodificarla: una imagen
+    // pequeña en bytes pero gigante en píxeles agotaría la memoria de PHP.
+    // 50 MP cubre las cámaras de 48 MP de los celulares.
+    'photo_max_pixels' => 50_000_000,
 
     // Video: uno por reporte (planes Profesional y Empresa).
     'video_max_mb' => (int) env('MEDIA_VIDEO_MAX_MB', 50),

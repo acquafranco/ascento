@@ -32,6 +32,8 @@ class VisitPhotoController extends Controller
             'assignment_type' => ['required', Rule::in(['maintenance', 'inspection'])],
             'photo_section_id' => ['required', 'integer'],
             'stage' => ['required', Rule::in(array_keys(VisitPhoto::STAGES))],
+            // Identidad de la foto que genera el celular (reintentos sin duplicar).
+            'client_key' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9-]+$/'],
             'photo' => ['required', 'file', 'max:'.VisitPhoto::MAX_KB, 'mimes:jpg,jpeg,png,webp,heic,heif'],
         ], [
             'photo.required' => 'No se recibió la foto. Probá de nuevo.',
@@ -55,15 +57,17 @@ class VisitPhotoController extends Controller
             'id' => $photo->id,
             'thumb_url' => $photo->thumbUrl(),
             'delete_url' => route('visit-photos.destroy', ['company' => $company->slug, 'visitPhoto' => $photo->id]),
-        ], 201);
+        ], $photo->wasRecentlyCreated ? 201 : 200);
     }
 
     /** Quitar una foto mientras se completa el remito (después ya es parte del historial). */
-    public function destroy(Request $request, Company $company, VisitPhoto $visitPhoto): JsonResponse
+    public function destroy(Request $request, Company $company, VisitPhoto $visitPhoto, VisitPhotoService $photos): JsonResponse
     {
-        abort_unless($visitPhoto->isStaged() && (int) $visitPhoto->uploaded_by === (int) $request->user()->id && (int) $visitPhoto->company_id === (int) $company->id, 404);
+        abort_unless((int) $visitPhoto->uploaded_by === (int) $request->user()->id && (int) $visitPhoto->company_id === (int) $company->id, 404);
 
-        $visitPhoto->delete();
+        // Se vuelve a verificar bajo bloqueo: si el remito se firmó en el
+        // medio, la foto ya es historial y no se borra.
+        abort_unless($photos->discardStaged($visitPhoto, $request->user()), 404);
 
         return response()->json(['deleted' => true]);
     }

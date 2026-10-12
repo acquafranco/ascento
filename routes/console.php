@@ -34,7 +34,7 @@ Schedule::command('exports:prune')->dailyAt('03:30');
 Schedule::command('notifications:visits')->dailyAt('08:00')->withoutOverlapping();
 
 // Fotos de visitas subidas para un remito que nunca se firmó (24 h).
-Schedule::command('visit-photos:prune')->dailyAt('03:45');
+Schedule::command('visit-photos:prune')->dailyAt('03:45')->withoutOverlapping();
 
 // Videos de reportes: compresión en segundo plano (solo si hay FFmpeg).
 Schedule::command('media:process-videos')->everyMinute()->withoutOverlapping(15);

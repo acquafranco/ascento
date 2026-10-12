@@ -4,14 +4,18 @@ namespace Tests\Feature\Visits;
 
 use App\Filament\Resources\PhotoSections\Pages\ManagePhotoSections;
 use App\Models\Building;
+use App\Models\BuildingVisit;
 use App\Models\DeliveryNote;
 use App\Models\Elevator;
 use App\Models\PhotoSection;
 use App\Models\User;
 use App\Models\VisitPhoto;
+use App\Services\Visits\VisitPhotoService;
 use Carbon\Carbon;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -318,5 +322,205 @@ class VisitPhotosTest extends TestCase
         $this->from($url)->sign(['description' => ''])->assertSessionHasErrors('description');
         $this->get($url)->assertSee('value="'.$this->batch.'"', false)
             ->assertSee(VisitPhoto::withoutGlobalScopes()->sole()->thumbUrl(), false);
+    }
+
+    public function test_visit_photos_lose_their_gps_metadata(): void
+    {
+        $image = imagecreatetruecolor(800, 600);
+        ob_start();
+        imagejpeg($image);
+        $jpeg = ob_get_clean();
+        $exif = "Exif\x00\x00MM\x00\x2A".'GPS-UBICACION-SECRETA';
+        $jpeg = substr($jpeg, 0, 2)."\xFF\xE1".pack('n', strlen($exif) + 2).$exif.substr($jpeg, 2);
+
+        $this->upload([], null, UploadedFile::fake()->createWithContent('pozo.jpg', $jpeg))->assertCreated();
+
+        $photo = VisitPhoto::withoutGlobalScopes()->sole();
+        $this->assertStringNotContainsString('GPS-UBICACION-SECRETA', Storage::disk('local')->get($photo->path));
+        $this->assertStringNotContainsString('GPS-UBICACION-SECRETA', Storage::disk('local')->get($photo->thumb_path));
+        $this->assertStringStartsWith('visits/'.$this->a['company']->id.'/', $photo->path);
+    }
+
+    public function test_images_huge_in_pixels_are_rejected_before_decoding(): void
+    {
+        config(['media.photo_max_pixels' => 100 * 100]);
+
+        $this->upload([], null, UploadedFile::fake()->image('enorme.png', 200, 200))->assertStatus(422)->assertJsonValidationErrors('photo');
+
+        $this->assertSame(0, VisitPhoto::withoutGlobalScopes()->count());
+        $this->assertSame([], Storage::disk('local')->allFiles());
+    }
+
+    public function test_a_retried_upload_with_the_same_identity_is_not_duplicated(): void
+    {
+        // La subida se guardó pero la respuesta no llegó: «Reintentar» manda lo mismo.
+        $first = $this->upload(['client_key' => 'foto-1'])->assertCreated()->json('id');
+        $again = $this->upload(['client_key' => 'foto-1'])->assertOk()->json('id');
+
+        $this->assertSame($first, $again);
+        $this->assertSame(1, VisitPhoto::withoutGlobalScopes()->count());
+        $this->assertCount(2, Storage::disk('local')->allFiles()); // la foto y su miniatura, una sola vez
+
+        // Otra foto (otra identidad) sí se agrega; una identidad rara se rechaza.
+        $this->upload(['client_key' => 'foto-2'])->assertCreated();
+        $this->upload(['client_key' => '../../x'])->assertStatus(422);
+        $this->assertSame(2, VisitPhoto::withoutGlobalScopes()->count());
+
+        // La misma identidad de lote y foto desde otro técnico no devuelve la mía.
+        $colleague = User::factory()->technician()->create(['company_id' => $this->a['company']->id]);
+        $this->a['building']->users()->attach($colleague->id, ['type' => 'maintenance']);
+        $this->upload(['client_key' => 'foto-1'], $colleague)->assertStatus(422);
+    }
+
+    public function test_a_photo_finishing_after_the_remito_is_signed_is_rejected_and_history_cannot_be_removed(): void
+    {
+        $id = $this->upload()->assertCreated()->json('id');
+        $this->sign(['photo_count' => 1])->assertSessionHasNoErrors()->assertSessionMissing('warning');
+
+        // Una subida que termina después de firmar no queda colgada en el lote.
+        $this->upload(['stage' => 'after'])->assertStatus(422)->assertJsonValidationErrors(['photo' => 'Este formulario ya no admite fotos. Recargá la página.']);
+
+        // Quitarla desde el formulario (p. ej. un toque tardío) ya no la borra.
+        $this->actingAs($this->a['technician'])->deleteJson("/{$this->a['company']->slug}/visit-photos/{$id}")->assertNotFound();
+        $photo = VisitPhoto::withoutGlobalScopes()->find($id);
+        $this->assertNotNull($photo->building_visit_id);
+        Storage::disk('local')->assertExists($photo->path);
+    }
+
+    public function test_the_remito_warns_when_uploaded_photos_were_not_kept(): void
+    {
+        $this->upload()->assertCreated();
+        $this->travel(25)->hours();
+        $this->artisan('visit-photos:prune')->assertSuccessful(); // el borrador quedó abierto más de 24 h
+        $this->upload(['stage' => 'after'])->assertCreated();
+
+        $this->sign(['photo_count' => 2])->assertSessionHasNoErrors()
+            ->assertSessionHas('warning', fn ($message) => str_contains($message, '1 foto no quedó guardada'));
+
+        $this->assertSame(1, VisitPhoto::withoutGlobalScopes()->whereNotNull('building_visit_id')->count());
+        $this->actingAs($this->a['technician'])->get("/{$this->a['company']->slug}/delivery-notes")->assertSee('1 foto no quedó guardada');
+    }
+
+    public function test_pruning_rechecks_each_photo_and_one_failure_does_not_stop_the_rest(): void
+    {
+        $this->upload()->assertCreated();
+        $this->upload(['stage' => 'after'])->assertCreated();
+        [$broken, $ok] = VisitPhoto::withoutGlobalScopes()->orderBy('id')->get()->all();
+        $this->travel(25)->hours();
+
+        VisitPhoto::deleting(function (VisitPhoto $photo) use ($broken) {
+            if ($photo->id === $broken->id) {
+                throw new \RuntimeException('disco no disponible');
+            }
+        });
+
+        $this->artisan('visit-photos:prune')
+            ->expectsOutputToContain('Fotos sin vincular borradas: 1')
+            ->expectsOutputToContain('No se pudieron borrar: 1')
+            ->assertFailed();
+
+        $this->assertNotNull(VisitPhoto::withoutGlobalScopes()->find($broken->id)); // queda para la próxima corrida
+        $this->assertNull(VisitPhoto::withoutGlobalScopes()->find($ok->id));
+        Storage::disk('local')->assertMissing($ok->path);
+
+        // Una foto que se vincula (remito firmado) DESPUÉS de que la limpieza
+        // la eligió y antes de borrarla: se vuelve a verificar y no se toca.
+        $this->batch = (string) Str::uuid();
+        $this->upload()->assertCreated();
+        $late = VisitPhoto::withoutGlobalScopes()->latest('id')->first();
+        $this->travel(25)->hours();
+        $visitId = BuildingVisit::factory()->create(['building_id' => $this->a['building']->id, 'user_id' => $this->a['technician']->id, 'month' => 9, 'year' => 2026])->id;
+        $signed = false;
+        VisitPhoto::retrieved(function (VisitPhoto $photo) use ($late, $visitId, &$signed) {
+            if (! $signed && $photo->id === $late->id) {
+                $signed = true;
+                DB::table('visit_photos')->where('id', $late->id)->update(['building_visit_id' => $visitId, 'attached_at' => now()]);
+            }
+        });
+
+        $result = app(VisitPhotoService::class)->prune();
+
+        $this->assertTrue($signed);
+        $this->assertSame(['deleted' => 0, 'failed' => 1], $result); // la rota sigue fallando; la vinculada no se cuenta
+        $this->assertSame($visitId, (int) $late->fresh()->building_visit_id);
+        Storage::disk('local')->assertExists($late->path);
+    }
+
+    public function test_the_cleanup_runs_daily_from_the_laravel_scheduler(): void
+    {
+        $event = collect(app(Schedule::class)->events())
+            ->first(fn ($e) => str_contains((string) $e->command, 'visit-photos:prune'));
+
+        $this->assertNotNull($event, 'visit-photos:prune no está programado');
+        $this->assertSame('45 3 * * *', $event->expression);
+        $this->assertTrue($event->withoutOverlapping);
+    }
+
+    public function test_a_technician_cannot_pile_up_photos_in_forms_that_are_never_signed(): void
+    {
+        $this->upload()->assertCreated();
+        $template = VisitPhoto::withoutGlobalScopes()->sole()->getAttributes();
+        $rows = collect(range(2, VisitPhotoService::MAX_STAGED_PER_USER))->map(fn ($i) => [
+            ...Arr::except($template, ['id']), 'batch' => (string) Str::uuid(), 'path' => "visits/{$this->a['company']->id}/x{$i}.jpg", 'thumb_path' => null, 'client_key' => null,
+        ])->all();
+        DB::table('visit_photos')->insert($rows);
+
+        $this->batch = (string) Str::uuid();
+        $this->upload()->assertStatus(422)->assertJsonValidationErrors('photo');
+        $this->assertCount(2, Storage::disk('local')->allFiles()); // solo la primera (y su miniatura)
+    }
+
+    public function test_manipulated_requests_never_reach_another_company(): void
+    {
+        $this->upload()->assertCreated();
+        $this->sign()->assertSessionHasNoErrors();
+        $photo = VisitPhoto::withoutGlobalScopes()->sole();
+
+        auth()->logout();
+        $b = $this->makeTenant();
+
+        // Borrar con el slug propio o el ajeno: nunca.
+        $this->actingAs($b['technician'])->deleteJson("/{$b['company']->slug}/visit-photos/{$photo->id}")->assertNotFound();
+        $this->actingAs($b['technician'])->deleteJson("/{$this->a['company']->slug}/visit-photos/{$photo->id}")->assertStatus(404);
+        // Subir al lote o al edificio ajeno.
+        $this->actingAs($b['technician'])->postJson("/{$b['company']->slug}/visit-photos", [
+            'batch' => $this->batch, 'building_id' => $this->a['building']->id, 'assignment_type' => 'maintenance',
+            'photo_section_id' => $this->section()->id, 'stage' => 'before', 'photo' => UploadedFile::fake()->image('x.jpg'),
+        ])->assertNotFound();
+        // Firmar el remito de la otra empresa usando su lote.
+        $this->actingAs($b['technician'])->post("/{$b['company']->slug}/delivery-notes/store", [
+            'building_id' => $this->a['building']->id, 'description' => 'x', 'month' => 10, 'year' => 2026,
+            'elevator_quantity' => 1, 'freight_elevator_quantity' => 0, 'assignment_type' => 'maintenance',
+            'signature_name' => 'T', 'signature' => $this->validSignature(), 'photo_batch' => $this->batch,
+        ])->assertNotFound();
+        // Ver la foto o el remito interno.
+        $this->actingAs($b['admin'])->get("/files/visit-photos/{$photo->id}?thumb=1")->assertNotFound();
+        $this->actingAs($b['admin'])->get("/{$this->a['company']->slug}/delivery-notes/".DeliveryNote::withoutGlobalScopes()->sole()->number)->assertStatus(404);
+
+        // El archivo privado no se sirve por ninguna ruta pública conociendo su nombre.
+        auth()->logout();
+        $this->get('/storage/'.$photo->path)->assertNotFound();
+        $this->get('/'.$photo->path)->assertNotFound();
+
+        $this->assertSame($photo->building_visit_id, $photo->fresh()->building_visit_id);
+        $this->assertSame(1, VisitPhoto::withoutGlobalScopes()->count());
+    }
+
+    public function test_a_super_admin_only_sees_photos_inside_the_selected_company(): void
+    {
+        $this->upload()->assertCreated();
+        $this->sign()->assertSessionHasNoErrors();
+        $photo = VisitPhoto::withoutGlobalScopes()->sole();
+        auth()->logout();
+        $super = User::factory()->superAdmin()->create();
+
+        session()->flush(); // sesión nueva del SuperAdmin
+        $this->assertFalse($photo->canBeViewedBy($super)); // sin empresa elegida
+        session(['selected_company_id' => $this->a['company']->id]);
+        $this->assertTrue($photo->canBeViewedBy($super));
+        auth()->logout();
+        $b = $this->makeTenant();
+        session(['selected_company_id' => $b['company']->id]);
+        $this->assertFalse($photo->canBeViewedBy($super));
     }
 }

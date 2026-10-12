@@ -284,9 +284,14 @@ class BuildingsTable
                     ->modalDescription(fn ($record) => 'Actual: mantenimiento '.mb_strtolower($record->visitFrequencyLabel('maintenance')).', inspección '.mb_strtolower($record->visitFrequencyLabel('inspection')).'. Es cada cuánto se visita, no cada cuánto se cobra el servicio.')
                     ->modalSubmitActionLabel('Guardar frecuencia')
                     ->form(self::frequencyFields(withKeep: false))
-                    ->action(function (array $data, $record) {
-                        [$perMonth, $every, $start] = VisitPlanService::normalize($data['frequency'], $data['every_months'] ?? null, $data['starts_on'] ?? null);
-                        $changed = app(VisitPlanService::class)->set($record, $data['type'], $perMonth, $every, $start);
+                    ->action(function (array $data, $record, Action $action) {
+                        try {
+                            [$perMonth, $every, $start] = VisitPlanService::normalize($data['frequency'], $data['every_months'] ?? null, $data['starts_on'] ?? null);
+                            $changed = app(VisitPlanService::class)->set($record, $data['type'], $perMonth, $every, $start);
+                        } catch (ValidationException $e) {
+                            Notification::make()->title('No se cambió la frecuencia')->body(collect($e->errors())->flatten()->first())->danger()->persistent()->send();
+                            $action->halt();
+                        }
 
                         Notification::make()
                             ->title($changed ? 'Frecuencia guardada' : 'Sin cambios: ya tenía esa frecuencia')
@@ -434,17 +439,24 @@ class BuildingsTable
                             ->default('add')
                             ->required(),
                         ...self::frequencyFields(withKeep: true, withType: false),
-                    ]),
+                    ])
+                    // Huella del resumen que va a ver el admin: al confirmar se
+                    // compara con lo que el servidor calcula en ese momento.
+                    ->afterValidation(function (Get $get, Set $set) use ($records) {
+                        try {
+                            $set('preview_fingerprint', BulkAssignmentService::fingerprint(app(BulkAssignmentService::class)->plan((int) CompanyContext::currentId(), $records->pluck('id'), self::bulkInput($get))));
+                        } catch (ValidationException) {
+                            $set('preview_fingerprint', null);
+                        }
+                    }),
                 Step::make('Revisar')
                     ->description('Qué va a cambiar antes de confirmar')
                     ->schema([
+                        \Filament\Forms\Components\Hidden::make('preview_fingerprint'),
                         View::make('filament.buildings.bulk-assignment-preview')
                             ->viewData(function (Get $get) use ($records) {
                                 try {
-                                    return ['plan' => app(BulkAssignmentService::class)->plan((int) CompanyContext::currentId(), $records->pluck('id'), [
-                                        'type' => $get('type'), 'user_ids' => $get('user_ids') ?? [], 'mode' => $get('mode'),
-                                        'frequency' => $get('frequency'), 'every_months' => $get('every_months'), 'starts_on' => $get('starts_on'),
-                                    ])];
+                                    return ['plan' => app(BulkAssignmentService::class)->plan((int) CompanyContext::currentId(), $records->pluck('id'), self::bulkInput($get))];
                                 } catch (ValidationException $e) {
                                     return ['error' => collect($e->errors())->flatten()->first()];
                                 }
@@ -452,8 +464,14 @@ class BuildingsTable
                     ]),
             ])
             ->action(function (array $data, Collection $records) {
+                if (blank($data['preview_fingerprint'] ?? null)) {
+                    Notification::make()->title('No se aplicó la asignación')->body('Revisá el resumen antes de confirmar.')->danger()->send();
+
+                    return;
+                }
+
                 try {
-                    $result = app(BulkAssignmentService::class)->apply((int) CompanyContext::currentId(), $records->pluck('id'), $data);
+                    $result = app(BulkAssignmentService::class)->apply((int) CompanyContext::currentId(), $records->pluck('id'), $data, $data['preview_fingerprint']);
                 } catch (ValidationException $e) {
                     Notification::make()->title('No se aplicó la asignación')->body(collect($e->errors())->flatten()->first())->danger()->send();
 
@@ -469,12 +487,22 @@ class BuildingsTable
                         $result['counts']['unchanged'].' sin cambios de técnicos',
                         $result['frequency'] ? 'frecuencia: '.$result['frequency']['label'] : null,
                         $skipped->isNotEmpty() ? $skipped->count().' salteados ('.$skipped->take(5)->map(fn ($r) => $r['name'].': '.$r['reason'])->implode('; ').($skipped->count() > 5 ? '…' : '').')' : null,
+                        ($result['notices_failed'] ?? 0) > 0 ? 'no se pudieron enviar '.$result['notices_failed'].' avisos a los técnicos (la asignación quedó guardada)' : null,
                     ])->filter()->implode(' · ').'.')
                     ->color($skipped->isNotEmpty() ? 'warning' : 'success')
                     ->icon($skipped->isNotEmpty() ? 'heroicon-o-exclamation-triangle' : 'heroicon-o-check-circle')
                     ->persistent($skipped->isNotEmpty())
                     ->send();
             });
+    }
+
+    /** Lo elegido en el paso 1 de la asignación masiva. */
+    private static function bulkInput(Get $get): array
+    {
+        return [
+            'type' => $get('type'), 'user_ids' => $get('user_ids') ?? [], 'mode' => $get('mode'),
+            'frequency' => $get('frequency'), 'every_months' => $get('every_months'), 'starts_on' => $get('starts_on'),
+        ];
     }
 
     /** Campos de frecuencia de visitas (acción individual y masiva). */

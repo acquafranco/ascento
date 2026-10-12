@@ -4,12 +4,14 @@ namespace Tests\Feature\Visits;
 
 use App\Filament\Resources\Buildings\Pages\ListBuildings;
 use App\Models\Building;
+use App\Models\BuildingVisit;
 use App\Models\BuildingVisitPlan;
 use App\Models\User;
 use App\Services\Buildings\BulkAssignmentService;
 use App\Services\Notifications\AssignmentNotifier;
 use App\Services\Visits\VisitPlanService;
 use Carbon\Carbon;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -139,6 +141,7 @@ class BulkAssignmentTest extends TestCase
     public function test_an_unexpected_error_rolls_back_everything_and_sends_no_notices(): void
     {
         $this->mock(VisitPlanService::class, function ($mock) {
+            $mock->shouldReceive('blocker')->andReturnNull();
             $mock->shouldReceive('set')->once()->andReturnTrue();
             $mock->shouldReceive('set')->andThrow(new \RuntimeException('falla a mitad de camino'));
         });
@@ -178,10 +181,9 @@ class BulkAssignmentTest extends TestCase
     {
         $this->a['building']->users()->attach($this->t3->id, ['type' => 'maintenance']);
 
-        Livewire::test(ListBuildings::class)
-            ->callTableBulkAction('bulkAssign', $this->buildings, data: [
-                'type' => 'maintenance', 'user_ids' => [$this->t2->id], 'mode' => 'add', 'frequency' => 'keep',
-            ])
+        // Como en el navegador: paso 1, «Siguiente» (arma el resumen y su huella), confirmar.
+        $this->wizard(['type' => 'maintenance', 'user_ids' => [$this->t2->id], 'mode' => 'add', 'frequency' => 'keep'])
+            ->callMountedTableBulkAction()
             ->assertHasNoTableBulkActionErrors()
             ->assertNotified('Asignación aplicada');
 
@@ -191,6 +193,111 @@ class BulkAssignmentTest extends TestCase
         $preview = view('filament.buildings.bulk-assignment-preview', ['plan' => $this->service()->plan($this->a['company']->id, $this->ids(), ['type' => 'maintenance', 'user_ids' => [$this->t3->id], 'mode' => 'replace'])])->render();
         $this->assertStringContainsString('Ya tiene:', $preview);
         $this->assertStringContainsString('data-outcome="change"', $preview);
+    }
+
+    /** Asignación masiva abierta en el paso de resumen (como al tocar «Siguiente»). */
+    private function wizard(array $data)
+    {
+        return Livewire::test(ListBuildings::class)
+            ->mountTableBulkAction('bulkAssign', $this->buildings)
+            ->fillForm($data)
+            ->call('callSchemaComponentMethod', 'mountedActionSchema0.mountedActions.0.data::wizard', 'nextStep', ['currentStepIndex' => 0]);
+    }
+
+    public function test_confirming_without_the_preview_applies_nothing(): void
+    {
+        Livewire::test(ListBuildings::class)
+            ->callTableBulkAction('bulkAssign', $this->buildings, data: [
+                'type' => 'maintenance', 'user_ids' => [$this->t2->id], 'mode' => 'add', 'frequency' => 'keep',
+            ])
+            ->assertNotified('No se aplicó la asignación');
+
+        $this->assertSame(0, DB::table('building_user')->where('user_id', $this->t2->id)->count());
+    }
+
+    public function test_if_assignments_change_after_the_preview_nothing_is_applied(): void
+    {
+        $component = $this->wizard(['type' => 'maintenance', 'user_ids' => [$this->t2->id], 'mode' => 'add', 'frequency' => 'keep']);
+        $this->assertNotEmpty($component->get('mountedActions.0.data.preview_fingerprint'));
+
+        // Otro admin completa uno de los edificios (2 técnicos) mientras este
+        // mira el resumen: lo que se ejecutaría ya no es lo que vio.
+        $this->buildings[1]->users()->attach([$this->t3->id => ['type' => 'maintenance'], $this->a['technician']->id => ['type' => 'maintenance']]);
+
+        $component->callMountedTableBulkAction()->assertNotified('No se aplicó la asignación');
+
+        $this->assertSame(0, DB::table('building_user')->where('user_id', $this->t2->id)->count());
+        $this->assertSame(collect([$this->t3->id, $this->a['technician']->id])->sort()->values()->all(), $this->techsOf($this->buildings[1]));
+    }
+
+    public function test_the_preview_matches_what_is_applied(): void
+    {
+        $input = ['type' => 'maintenance', 'user_ids' => [$this->t2->id, $this->t3->id], 'mode' => 'replace'];
+        $preview = $this->service()->plan($this->a['company']->id, $this->ids(), $input);
+        $result = $this->service()->apply($this->a['company']->id, $this->ids(), $input, BulkAssignmentService::fingerprint($preview));
+
+        $this->assertSame(BulkAssignmentService::fingerprint($preview), BulkAssignmentService::fingerprint($result));
+        foreach ($this->buildings as $building) {
+            $this->assertSame(collect([$this->t2->id, $this->t3->id])->sort()->values()->all(), $this->techsOf($building));
+        }
+    }
+
+    public function test_a_failing_notice_never_leaves_a_partial_assignment(): void
+    {
+        $calls = 0;
+        $this->mock(AssignmentNotifier::class)->shouldReceive('building')->andReturnUsing(function () use (&$calls) {
+            if (++$calls === 1) {
+                throw new \RuntimeException('correo caído');
+            }
+        });
+
+        $result = $this->service()->apply($this->a['company']->id, $this->ids(), ['type' => 'maintenance', 'user_ids' => [$this->t2->id], 'mode' => 'add']);
+
+        // Todo quedó asignado, los demás avisos salieron y la falla quedó contada.
+        foreach ($this->buildings as $building) {
+            $this->assertContains($this->t2->id, $this->techsOf($building));
+        }
+        $this->assertSame(3, $calls);
+        $this->assertSame(1, $result['notices_failed']);
+    }
+
+    public function test_concurrent_admins_never_exceed_the_limit(): void
+    {
+        // El primero completa el edificio 2 con dos técnicos; el segundo, con
+        // el resumen ya calculado antes, intenta agregar otro: se revalida.
+        $stale = $this->service()->plan($this->a['company']->id, [$this->buildings[1]->id], ['type' => 'maintenance', 'user_ids' => [$this->t2->id], 'mode' => 'add']);
+        $this->service()->apply($this->a['company']->id, [$this->buildings[1]->id], ['type' => 'maintenance', 'user_ids' => [$this->a['technician']->id, $this->t3->id], 'mode' => 'add']);
+
+        try {
+            $this->service()->apply($this->a['company']->id, [$this->buildings[1]->id], ['type' => 'maintenance', 'user_ids' => [$this->t2->id], 'mode' => 'add'], BulkAssignmentService::fingerprint($stale));
+            $this->fail('Debió rechazarse');
+        } catch (ValidationException) {
+        }
+
+        // Sin huella (o con una nueva) se saltea con motivo: nunca 3 técnicos.
+        $result = $this->service()->apply($this->a['company']->id, [$this->buildings[1]->id], ['type' => 'maintenance', 'user_ids' => [$this->t2->id], 'mode' => 'add']);
+        $this->assertSame('skipped', $result['rows'][0]['outcome']);
+        $this->assertCount(2, $this->techsOf($this->buildings[1]));
+    }
+
+    public function test_bulk_frequency_skips_a_building_whose_period_visit_is_already_registered(): void
+    {
+        // Trimestral desde agosto (agosto–octubre) y la visita del período se hizo en octubre.
+        $this->travelTo(Carbon::parse('2026-08-03 09:00'));
+        app(VisitPlanService::class)->set($this->a['building'], 'maintenance', 1, 3, CarbonImmutable::parse('2026-08-01'));
+        $this->travelTo(Carbon::parse('2026-10-14 09:00'));
+        BuildingVisit::create([
+            'building_id' => $this->a['building']->id, 'user_id' => $this->a['technician']->id, 'visit_type' => 'fixed',
+            'assignment_type' => 'maintenance', 'month' => 10, 'year' => 2026, 'status' => 'done', 'visited_at' => now(), 'source' => 'building',
+        ]);
+
+        $result = $this->service()->apply($this->a['company']->id, $this->ids(), ['type' => 'maintenance', 'user_ids' => [], 'mode' => 'add', 'frequency' => 'monthly', 'starts_on' => '2026-10']);
+
+        $row = collect($result['rows'])->firstWhere('building_id', $this->a['building']->id);
+        $this->assertSame('skipped', $row['outcome']);
+        $this->assertStringContainsString('noviembre 2026', $row['reason']);
+        $this->assertSame(1, BuildingVisitPlan::where('building_id', $this->a['building']->id)->count()); // sigue trimestral
+        $this->assertSame(0, BuildingVisitPlan::whereIn('building_id', [$this->buildings[1]->id, $this->buildings[2]->id])->count()); // mensual = sin fila
     }
 
     public function test_the_individual_assignment_still_works_as_before(): void

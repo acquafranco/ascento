@@ -55,8 +55,11 @@ final class VisitSchedule
             ->whereIn('building_id', $ids)
             ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
             ->orderBy('starts_on')
-            ->get()
-            ->groupBy(fn (BuildingVisitPlan $p) => $p->building_id.'|'.$p->type);
+            ->get();
+
+        // Solo los meses que pueden caer en el período: con todo mensual (lo
+        // habitual) se lee únicamente el mes pedido, como antes de la etapa.
+        $window = min(self::WINDOW, max(0, (int) $plans->max('every_months') - 1));
 
         $visits = BuildingVisit::withoutGlobalScopes()
             ->whereIn('building_id', $ids)
@@ -64,13 +67,29 @@ final class VisitSchedule
             ->where('visit_type', 'fixed')
             ->whereIn('assignment_type', self::TYPES)
             ->whereNotNull('period_key')
-            ->whereRaw('(year * 12 + month) between ? and ?', [$center - self::WINDOW, $center + self::WINDOW])
+            ->where(fn ($q) => self::monthRange($q, $center - $window, $center + $window))
             ->with(['user:id,name', 'deliveryNote' => fn ($q) => $q->withoutGlobalScopes()->select('id', 'building_visit_id', 'performed', 'number')])
             ->orderBy('year')->orderBy('month')->orderBy('slot')->orderBy('id')
             ->get()
             ->groupBy(fn (BuildingVisit $v) => $v->building_id.'|'.$v->assignment_type);
 
-        return new self($plans, $visits);
+        return new self($plans->groupBy(fn (BuildingVisitPlan $p) => $p->building_id.'|'.$p->type), $visits);
+    }
+
+    /** Meses entre dos índices (año * 12 + mes) sobre las columnas year/month, usando sus índices. */
+    private static function monthRange($query, int $from, int $to): void
+    {
+        [$y0, $m0] = [intdiv($from - 1, 12), ($from - 1) % 12 + 1];
+        [$y1, $m1] = [intdiv($to - 1, 12), ($to - 1) % 12 + 1];
+
+        if ($from === $to) {
+            $query->where('year', $y0)->where('month', $m0);
+
+            return;
+        }
+
+        $query->where(fn ($q) => $q->where('year', '>', $y0)->orWhere(fn ($w) => $w->where('year', $y0)->where('month', '>=', $m0)))
+            ->where(fn ($q) => $q->where('year', '<', $y1)->orWhere(fn ($w) => $w->where('year', $y1)->where('month', '<=', $m1)));
     }
 
     /** Período que contiene ese mes para el edificio y tipo. */

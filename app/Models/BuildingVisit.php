@@ -40,6 +40,8 @@ class BuildingVisit extends Model
         'work_type',
         'source',
         'assignment_type',
+        // Identidad del formulario del remito (reenvíos idempotentes).
+        'submission_token',
     ];
 
 
