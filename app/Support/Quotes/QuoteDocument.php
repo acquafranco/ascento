@@ -3,6 +3,7 @@
 namespace App\Support\Quotes;
 
 use App\Models\Quote;
+use App\Support\CompanyLogo;
 
 /**
  * Datos del presupuesto como documento, compartidos por el PDF
@@ -18,12 +19,8 @@ final class QuoteDocument
         $company = $quote->company;
         $status = $quote->displayStatus();
 
-        $logo = null;
-        if ($company?->logo && is_file(public_path('storage/'.$company->logo))) {
-            $logo = $pdf
-                ? 'data:'.(mime_content_type(public_path('storage/'.$company->logo)) ?: 'image/png').';base64,'.base64_encode((string) file_get_contents(public_path('storage/'.$company->logo)))
-                : asset('storage/'.$company->logo);
-        }
+        // Solo del disco público y si es una imagen real (ver CompanyLogo).
+        $logo = $pdf ? CompanyLogo::dataUri($company) : CompanyLogo::url($company);
 
         return [
             'company' => $company,

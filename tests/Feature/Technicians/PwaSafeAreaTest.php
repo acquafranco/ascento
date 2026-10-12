@@ -25,7 +25,9 @@ class PwaSafeAreaTest extends TestCase
             ->assertSee('viewport-fit=cover', false)
             ->assertSee('black-translucent', false)
             ->assertSee('t-nav-top', false)
-            ->assertSee('padding-bottom: env(safe-area-inset-bottom)', false);
+            ->assertSee('padding-bottom: env(safe-area-inset-bottom)', false)
+            // El aviso emergente queda por encima de la barra inferior también en el iPhone.
+            ->assertSee('bottom: calc(96px + env(safe-area-inset-bottom, 0px))', false);
 
         $css = file_get_contents(resource_path('css/app.css'));
         $this->assertMatchesRegularExpression('/\.t-nav-top\s*\{[^}]*padding-top:\s*env\(safe-area-inset-top/', $css);

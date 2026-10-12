@@ -13,6 +13,7 @@ use App\Models\WorkOrder;
 use App\Models\WorkOrderMaterial;
 use App\Support\DeliveryNotes\DeliveryNoteDocument;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -264,5 +265,54 @@ class DeliveryNoteDocumentTest extends TestCase
         // Y dompdf lo pagina sin errores.
         $res = $this->actingAs($this->a['admin'])->get("/{$this->slug()}/delivery-notes/{$this->note->number}/pdf")->assertOk();
         $this->assertStringStartsWith('%PDF', $res->getContent());
+    }
+
+    // --- Revisión de seguridad --------------------------------------------------
+
+    public function test_a_logo_value_can_never_embed_another_server_file(): void
+    {
+        Storage::fake('public');
+        // Un archivo que NO es imagen, aunque se llame .png, en el disco público.
+        Storage::disk('public')->put('companies/logos/falso.png', 'SECRETO-NO-ES-IMAGEN');
+
+        foreach (['../../.env', '/etc/passwd', 'file:///etc/passwd', 'companies/../../.env', 'companies/logos/falso.png', "companies/logos/x.png\0.jpg"] as $value) {
+            $this->a['company']->forceFill(['logo' => $value])->save();
+            $html = $this->pdfHtml($this->note->fresh());
+
+            $this->assertStringNotContainsString('max-width: 52px', $html, "no hay logo para «{$value}»");
+            $this->assertStringNotContainsString(base64_encode('SECRETO-NO-ES-IMAGEN'), $html);
+            $this->actingAs($this->a['technician'])->get("/{$this->slug()}/delivery-notes/{$this->note->number}")
+                ->assertDontSee('class="rm-logo"', false);
+        }
+    }
+
+    public function test_a_note_without_public_token_still_opens_without_share_or_plan_notice(): void
+    {
+        DB::table('delivery_notes')->where('id', $this->note->id)->update(['public_token' => null]);
+
+        $this->actingAs($this->a['technician'])->get("/{$this->slug()}/delivery-notes/{$this->note->number}")->assertOk()
+            ->assertSee('Marta Encargada')
+            ->assertDontSee('id="btn-share"', false)
+            ->assertDontSee('data-plan-locked', false);
+    }
+
+    public function test_portal_users_of_another_company_cannot_reach_the_note_by_its_number(): void
+    {
+        $foreignClient = User::factory()->create(['email' => 'ajeno@otro.test']);
+        $foreignClient->forceFill(['role' => User::ROLE_CLIENT, 'company_id' => $this->b['company']->id, 'client_id' => $this->b['building']->client_id])->save();
+        $foreignClient->portalBuildings()->sync([$this->b['building']->id]);
+
+        $this->actingAs($foreignClient)->get(route('portal.delivery-note', $this->note))->assertNotFound();
+        $this->get(route('portal.delivery-note-pdf', $this->note))->assertNotFound();
+    }
+
+    public function test_the_pdf_file_itself_carries_no_internal_data(): void
+    {
+        $raw = $this->actingAs($this->a['admin'])->get("/{$this->slug()}/delivery-notes/{$this->note->number}/pdf")->assertOk()->getContent();
+
+        // Metadatos y texto sin comprimir del archivo.
+        $this->assertStringNotContainsString('NOTA INTERNA', $raw);
+        $this->assertStringNotContainsString('45678', $raw);
+        $this->assertStringNotContainsString((string) $this->a['technician']->email, $raw);
     }
 }

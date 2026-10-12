@@ -6,6 +6,7 @@ use App\Filament\Resources\Quotes\QuoteResource;
 use App\Models\Quote;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -112,5 +113,26 @@ class QuoteWebViewTest extends TestCase
         $this->actingAs($this->a['admin']);
         $res = $this->get(route('quotes.pdf', $this->quote))->assertOk();
         $this->assertStringStartsWith('%PDF', $res->getContent());
+    }
+
+    public function test_the_quote_logo_comes_only_from_real_images_on_the_public_disk(): void
+    {
+        Storage::fake('public');
+        $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
+        Storage::disk('public')->put('companies/logos/norte.png', $png);
+        Storage::disk('public')->put('companies/logos/falso.png', 'SECRETO-NO-ES-IMAGEN');
+        $render = fn () => view('quotes.pdf', ['quote' => $this->quote->fresh()->load(['items', 'building.client', 'client', 'company'])])->render();
+
+        $this->a['company']->forceFill(['logo' => 'companies/logos/norte.png'])->save();
+        $this->assertStringContainsString('src="data:image/png;base64,'.base64_encode($png).'"', $render());
+        $this->assertStringContainsString(asset('storage/companies/logos/norte.png'), $this->get($this->quote->signedPublicUrl())->getContent());
+
+        foreach (['../../.env', '/etc/passwd', 'file:///etc/passwd', 'companies/logos/falso.png'] as $value) {
+            $this->a['company']->forceFill(['logo' => $value])->save();
+            $html = $render();
+            $this->assertStringNotContainsString('data:', $html, "sin logo para «{$value}»");
+            $this->assertStringNotContainsString(base64_encode('SECRETO-NO-ES-IMAGEN'), $html);
+            $this->assertStringNotContainsString('class="qw-logo"', $this->get($this->quote->fresh()->signedPublicUrl())->getContent());
+        }
     }
 }

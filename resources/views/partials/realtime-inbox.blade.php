@@ -15,7 +15,7 @@
 @if($echoConfig)
     <script src="{{ asset('js/filament/filament/echo.js') }}"></script>
 @endif
-<div id="asc-live" role="status" aria-live="polite" style="position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 60; width: min(92vw, 420px); display: none;"></div>
+<div id="asc-live" role="status" aria-live="polite" style="position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 60; width: min(92vw, 420px); display: none;"></div>
 <script>
     (function () {
         var countUrl = @json($countUrl), inboxUrl = @json($inboxUrl), cfg = @json($echoConfig);
