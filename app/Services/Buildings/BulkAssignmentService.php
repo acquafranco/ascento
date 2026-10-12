@@ -94,6 +94,13 @@ class BulkAssignmentService
                 continue;
             }
 
+            // La frecuencia nueva cortaría un período que ya tiene su visita registrada.
+            if ($frequency !== null && ($blocked = $this->plans->blocker($building, $type, $frequency['per_month'], $frequency['every'], $frequency['start']))) {
+                $rows[] = [...$row, 'outcome' => 'skipped', 'frequency' => false, 'reason' => $blocked];
+
+                continue;
+            }
+
             if ($chosen !== []) {
                 $target = match ($mode) {
                     'add' => array_values(array_unique([...$currentIds, ...$chosen])),
@@ -147,13 +154,29 @@ class BulkAssignmentService
     }
 
     /**
-     * Aplica en una transacción y devuelve el resultado (mismo formato que plan()).
+     * Huella del resumen: qué se agrega, quita y saltea en cada edificio y la
+     * frecuencia. Si al confirmar no coincide con la del resumen que vio el
+     * admin (otro admin cambió algo en el medio), no se aplica nada.
      */
-    public function apply(int $companyId, iterable $buildingIds, array $input): array
+    public static function fingerprint(array $plan): string
+    {
+        return hash('sha256', json_encode([
+            $plan['type'], $plan['mode'],
+            $plan['frequency'] ? [$plan['frequency']['per_month'], $plan['frequency']['every'], $plan['frequency']['start']->format('Y-m')] : null,
+            collect($plan['rows'])->map(fn ($r) => [$r['building_id'], $r['outcome'], $r['attach'], $r['detach'], $r['frequency']])->sortBy(0)->values()->all(),
+        ]));
+    }
+
+    /**
+     * Aplica en una transacción y devuelve el resultado (mismo formato que plan()).
+     * Con $expectedFingerprint (la huella del resumen), si la situación cambió
+     * desde el resumen no se aplica nada y se pide revisar de nuevo.
+     */
+    public function apply(int $companyId, iterable $buildingIds, array $input, ?string $expectedFingerprint = null): array
     {
         $notify = [];
 
-        $result = DB::transaction(function () use ($companyId, $buildingIds, $input, &$notify) {
+        $result = DB::transaction(function () use ($companyId, $buildingIds, $input, $expectedFingerprint, &$notify) {
             // Bloquea los edificios: dos admins a la vez no pasan los límites.
             Building::withoutGlobalScopes()->withTrashed()->where('company_id', $companyId)
                 ->whereIn('id', collect($buildingIds)->map(fn ($id) => (int) $id)->all())
@@ -161,6 +184,10 @@ class BulkAssignmentService
 
             $plan = $this->plan($companyId, $buildingIds, $input);
             $type = $plan['type'];
+
+            if ($expectedFingerprint !== null && ! hash_equals($expectedFingerprint, self::fingerprint($plan))) {
+                throw ValidationException::withMessages(['buildings' => 'Las asignaciones cambiaron desde el resumen (¿otro admin las modificó?). No se aplicó nada: volvé a abrir la asignación y revisá el resumen.']);
+            }
 
             foreach ($plan['rows'] as $row) {
                 if ($row['outcome'] === 'skipped') {
@@ -188,9 +215,17 @@ class BulkAssignmentService
             return $plan;
         });
 
-        // Avisos solo después de confirmar los cambios en la base.
+        // Avisos solo después de confirmar los cambios en la base. Un aviso
+        // que falla no deshace ni corta la asignación (ya está guardada) ni
+        // impide los avisos a los demás técnicos: queda en el log.
+        $result['notices_failed'] = 0;
         foreach ($notify as [$building, $userId, $type, $assigned]) {
-            $this->notifier->building($building, $userId, $type, $assigned);
+            try {
+                $this->notifier->building($building, $userId, $type, $assigned);
+            } catch (\Throwable $e) {
+                $result['notices_failed']++;
+                report($e);
+            }
         }
 
         return $result;

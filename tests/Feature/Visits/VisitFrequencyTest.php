@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Visits;
 
+use App\Filament\Resources\Buildings\Pages\ListBuildings;
 use App\Models\Building;
 use App\Models\BuildingVisit;
 use App\Models\BuildingVisitPlan;
@@ -17,7 +18,9 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Livewire\Livewire;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -342,5 +345,159 @@ class VisitFrequencyTest extends TestCase
         $this->expectException(HttpException::class);
         $plan = new BuildingVisitPlan(['building_id' => $b['building']->id, 'type' => 'maintenance', 'visits_per_month' => 2, 'every_months' => 1, 'starts_on' => '2026-10-01']);
         $plan->save();
+    }
+
+    public function test_resending_the_same_remito_never_creates_another_visit(): void
+    {
+        // Quincenal: sin identidad del formulario, el reenvío quedaba como 2ª visita.
+        $this->plan('biweekly');
+        $token = (string) Str::uuid();
+
+        $this->sign(overrides: ['submission_token' => $token])->assertSessionHasNoErrors()->assertRedirect();
+        $this->sign(overrides: ['submission_token' => $token])->assertSessionHasNoErrors()
+            ->assertRedirect("/{$this->a['company']->slug}/delivery-notes")->assertSessionHas('success');
+
+        $this->assertSame(1, BuildingVisit::count());
+        $this->assertSame(1, DeliveryNote::count());
+        $this->assertSame(1, $this->eval(10)['pending']);
+
+        // Un remito nuevo (otro formulario) sí es la 2ª visita.
+        $this->sign(overrides: ['submission_token' => (string) Str::uuid()])->assertSessionHasNoErrors();
+        $this->assertSame([1, 2], BuildingVisit::orderBy('slot')->pluck('slot')->all());
+
+        // El token de otro técnico no sirve para "dar por hecho" nada ni crea visitas.
+        $colleague = User::factory()->technician()->create(['company_id' => $this->a['company']->id]);
+        $this->building->users()->attach($colleague->id, ['type' => 'maintenance']);
+        $this->plan('months', 3, '2026-11');
+        $this->sign(month: 11, overrides: ['submission_token' => $token], as: $colleague)->assertSessionHasErrors('general');
+        $this->assertSame(2, BuildingVisit::count());
+    }
+
+    public function test_the_remito_form_carries_its_own_identity(): void
+    {
+        $page = $this->actingAs($this->tech)->get("/{$this->a['company']->slug}/delivery-notes/create/building/{$this->building->id}?assignment_type=maintenance&month=10&year=2026")->assertOk();
+        $this->assertMatchesRegularExpression('/name="submission_token" value="[0-9a-f-]{36}"/', $page->getContent());
+    }
+
+    public function test_two_biweekly_visits_are_legitimate_but_never_a_third_even_without_the_app_checks(): void
+    {
+        $this->plan('biweekly');
+        $make = fn (int $slot) => BuildingVisit::create(['building_id' => $this->building->id, 'user_id' => $this->tech->id, 'visit_type' => 'fixed', 'assignment_type' => 'maintenance', 'month' => 10, 'year' => 2026, 'slot' => $slot, 'status' => 'done', 'visited_at' => now(), 'source' => 'building']);
+
+        $make(1);
+        $make(2);
+        $this->assertSame(['maintenance:2026-10:1', 'maintenance:2026-10:2'], BuildingVisit::orderBy('slot')->pluck('period_key')->all());
+
+        // Dos técnicos que calcularon el mismo número de visita a la vez: la base rechaza al segundo.
+        $this->expectException(UniqueConstraintViolationException::class);
+        $make(2);
+    }
+
+    public function test_biweekly_states_with_zero_one_and_two_visits(): void
+    {
+        $this->plan('biweekly');
+        $this->actingInPanel($this->a['admin']);
+        $status = fn (int $m) => app(MaintenanceAgenda::class)->rows($m, 2026, 'maintenance')->firstWhere('building.id', $this->building->id);
+
+        $this->assertSame(['pending', 2, 0], [$status(10)['status'], $status(10)['expected'], $status(10)['done']]);
+        $this->sign()->assertSessionHasNoErrors();
+        $this->actingInPanel($this->a['admin']);
+        $this->assertSame(['pending', 1, 1], [$status(10)['status'], $status(10)['done'], $status(10)['pending']]);
+
+        // Si octubre termina con una sola visita, queda vencido (1 de 2).
+        $this->travelTo(Carbon::parse('2026-11-03 09:00'));
+        $this->assertSame(['overdue', 1, 1], [$status(10)['status'], $status(10)['done'], $status(10)['pending']]);
+        $this->assertSame('pending', $status(11)['status']);
+        $this->assertSame('upcoming', $status(12)['status']);
+
+        $this->travelTo(Carbon::parse('2026-10-20 09:00'));
+        $this->sign()->assertSessionHasNoErrors();
+        $this->actingInPanel($this->a['admin']);
+        $this->assertSame(['done', 2, 0], [$status(10)['status'], $status(10)['done'], $status(10)['pending']]);
+    }
+
+    public function test_longer_frequencies_count_one_visit_per_period_across_the_year_change(): void
+    {
+        foreach ([2 => ['2026-10', '2026-11'], 3 => ['2026-10', '2026-12'], 6 => ['2026-10', '2027-03'], 12 => ['2026-10', '2027-09']] as $every => [$from, $to]) {
+            DeliveryNote::query()->delete();
+            BuildingVisit::query()->delete();
+            BuildingVisitPlan::withoutGlobalScopes()->delete();
+            $this->plan('months', $every, '2026-10');
+
+            [$endYear, $endMonth] = array_map('intval', explode('-', $to));
+            $period = $this->eval($endMonth, $endYear)['period'];
+            $this->assertSame([$from, $to], [$period->start->format('Y-m'), $period->end->format('Y-m')], "cada {$every} meses");
+
+            // Visita en el ÚLTIMO mes del período (cruza el año en 6 y 12).
+            $this->sign(month: $endMonth, year: $endYear)->assertSessionHasNoErrors();
+            $this->assertSame(sprintf('maintenance:%s:1', $from), BuildingVisit::sole()->period_key);
+            $this->assertTrue($this->eval(10)['covered'], "cada {$every} meses: octubre ya cubierto");
+            $this->assertSame(0, $this->eval(10)['pending']);
+            $this->sign(month: 10)->assertSessionHasErrors('general'); // una sola visita por período
+
+            // El período siguiente vuelve a tener una visita prevista.
+            $next = CarbonImmutable::create($endYear, $endMonth, 1)->addMonth();
+            $this->assertSame([1, 0, 1], [$this->eval($next->month, $next->year)['expected'], $this->eval($next->month, $next->year)['done'], $this->eval($next->month, $next->year)['pending']]);
+        }
+    }
+
+    public function test_monthly_buildings_without_a_plan_cross_december_into_january(): void
+    {
+        $this->sign(month: 12)->assertSessionHasNoErrors();
+        $this->assertSame([1, 1], [$this->eval(12)['expected'], $this->eval(12)['done']]);
+        $this->assertSame([1, 0, 1], [$this->eval(1, 2027)['expected'], $this->eval(1, 2027)['done'], $this->eval(1, 2027)['pending']]);
+        $this->sign(month: 1, year: 2027)->assertSessionHasNoErrors();
+        $this->assertSame('maintenance:2027-01:1', BuildingVisit::orderByDesc('id')->first()->period_key);
+    }
+
+    public function test_a_frequency_change_cannot_cut_a_period_whose_visit_is_already_registered(): void
+    {
+        // Trimestral agosto–octubre; la visita del período se hace en octubre.
+        $this->travelTo(Carbon::parse('2026-08-03 09:00'));
+        $this->plan('months', 3, '2026-08');
+        $this->travelTo(Carbon::parse('2026-10-14 09:00'));
+        $this->sign(month: 10)->assertSessionHasNoErrors();
+        $this->assertSame('maintenance:2026-08:1', BuildingVisit::sole()->period_key);
+
+        // Pasar a mensual desde octubre dejaría agosto–septiembre "vencido"
+        // aunque la visita se hizo: se rechaza y se ofrece noviembre.
+        try {
+            $this->plan('monthly', from: '2026-10');
+            $this->fail('Debió rechazarse');
+        } catch (ValidationException $e) {
+            $this->assertStringContainsString('noviembre 2026', $e->errors()['starts_on'][0]);
+        }
+        $this->assertSame(1, BuildingVisitPlan::withoutGlobalScopes()->count());
+        // Agosto y septiembre siguen "hechos en el período" (no vencidos).
+        $this->assertTrue($this->eval(8)['covered']);
+        $this->assertTrue($this->eval(9)['covered']);
+
+        // Desde noviembre, sí; el período agosto–octubre queda intacto.
+        $this->plan('monthly', from: '2026-11');
+        $this->assertSame(['2026-08', '2026-10', 1], [$this->eval(10)['period']->start->format('Y-m'), $this->eval(10)['period']->end->format('Y-m'), $this->eval(10)['done']]);
+        $this->assertSame(1, $this->eval(11)['pending']);
+
+        // El mismo control desde la acción del panel: aviso claro y nada guardado
+        // (tampoco se pierde la frecuencia ya programada para noviembre).
+        $this->actingInPanel($this->a['admin']);
+        Livewire::test(ListBuildings::class)
+            ->callTableAction('visitFrequency', $this->building, data: ['type' => 'maintenance', 'frequency' => 'biweekly', 'starts_on' => '2026-10'])
+            ->assertNotified('No se cambió la frecuencia');
+        $this->assertSame(2, BuildingVisitPlan::withoutGlobalScopes()->count());
+    }
+
+    public function test_with_only_monthly_buildings_the_schedule_reads_just_the_month(): void
+    {
+        DB::enableQueryLog();
+        VisitSchedule::load([$this->building->id], 10, 2026)->evaluate($this->building->id, 'maintenance', 10, 2026);
+        // Sin comillas de identificadores: igual en SQLite ("year") y MySQL (`year`).
+        $sql = collect(DB::getQueryLog())->pluck('query')->map(fn ($q) => str_replace(['"', '`'], '', $q))
+            ->first(fn ($q) => str_contains($q, 'from building_visits') && str_contains($q, 'period_key'));
+        DB::disableQueryLog();
+
+        $this->assertNotNull($sql);
+        $this->assertStringContainsString('year = ?', $sql);
+        $this->assertStringContainsString('month = ?', $sql);
+        $this->assertStringNotContainsString('year * 12', $sql);
     }
 }

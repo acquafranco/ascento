@@ -214,6 +214,8 @@ class DeliveryNoteController extends Controller
                 'elevators' => $building->elevators()->where('is_active', true)->get(['id', 'building_id', 'kind', 'label']),
                 // Si el envío volvió con errores, se conserva el lote y sus fotos ya subidas.
                 'photoBatch' => $batch,
+                // Identidad del formulario (se conserva si vuelve con errores).
+                'submissionToken' => \Illuminate\Support\Str::isUuid((string) old('submission_token')) ? (string) old('submission_token') : (string) \Illuminate\Support\Str::uuid(),
                 'stagedPhotos' => \App\Models\VisitPhoto::withoutGlobalScopes()
                     ->where('batch', $batch)->where('uploaded_by', auth()->id())
                     ->where('building_id', $building->id)->whereNull('building_visit_id')
@@ -311,6 +313,10 @@ class DeliveryNoteController extends Controller
             'materials.*.quantity' => 'required|numeric|gt:0|max:99999|decimal:0,2',
             // Lote de fotos de antes y después (ya subidas de a una).
             'photo_batch' => 'nullable|uuid',
+            // Fotos que el formulario tenía subidas (para avisar si alguna no quedó).
+            'photo_count' => 'nullable|integer|min:0|max:100',
+            // Identidad del formulario: un reenvío del mismo remito no crea otra visita.
+            'submission_token' => 'nullable|uuid',
             'photo_notes' => 'nullable|array|max:50',
             'photo_notes.*' => 'nullable|string|max:500',
             'photo_elevators' => 'nullable|array|max:50',
@@ -417,6 +423,13 @@ class DeliveryNoteController extends Controller
     $visit = null;
 
     if (! $request->filled('work_order_id')) {
+        // Reenvío del MISMO formulario (la respuesta del primero no llegó o se
+        // tocó dos veces): ya está guardado, no se crea otra visita. Sin esto,
+        // en una frecuencia quincenal el reenvío quedaba como la 2ª visita.
+        if ($this->alreadySubmitted($request)) {
+            return $this->submittedResponse();
+        }
+
         $slot = $this->periodicSlot($building, (string) $assignmentType, (int) $request->month, (int) $request->year);
 
         if (is_string($slot)) {
@@ -436,8 +449,14 @@ class DeliveryNoteController extends Controller
                 'status' => 'done',
                 'visited_at' => now(),
                 'source' => 'building',
+                'submission_token' => $request->input('submission_token'),
             ]);
         } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+            // El mismo formulario llegó dos veces a la vez: el otro envío ya lo guardó.
+            if ($this->alreadySubmitted($request)) {
+                return $this->submittedResponse();
+            }
+
             // Otro técnico registró esa misma visita en el mismo instante.
             return back()->withErrors(['general' => 'Esa visita se acaba de registrar desde otro dispositivo. Revisá la pantalla de Visitas.']);
         }
@@ -483,11 +502,21 @@ class DeliveryNoteController extends Controller
 
     // Fotos de antes y después cargadas durante el remito: quedan de esta
     // visita y este remito (solo las del técnico, edificio y tipo correctos).
+    $photoWarning = null;
     if ($visit) {
-        app(\App\Services\Visits\VisitPhotoService::class)->attach(
+        $attached = app(\App\Services\Visits\VisitPhotoService::class)->attach(
             $request->input('photo_batch'), $visit, $deliveryNote, auth()->user(),
             (array) $request->input('photo_notes', []), (array) $request->input('photo_elevators', []),
         );
+
+        // El formulario tenía más fotos subidas que las que quedaron (p. ej. un
+        // borrador de más de 24 h cuyas fotos ya se limpiaron): se avisa.
+        $missing = (int) $request->input('photo_count', 0) - $attached;
+        if ($missing > 0) {
+            $photoWarning = $missing === 1
+                ? '1 foto no quedó guardada en el remito (se subió hace más de 24 horas o superaba el límite). Avisale a la oficina si hacía falta.'
+                : $missing.' fotos no quedaron guardadas en el remito (se subieron hace más de 24 horas o superaban el límite). Avisale a la oficina si hacían falta.';
+        }
     }
 
     if ($request->filled('work_order_id')) {
@@ -596,10 +625,31 @@ class DeliveryNoteController extends Controller
         ->route('delivery-notes.index', [
             'company' => auth()->user()->company->slug,
         ])
-        ->with('success', 'Remito generado correctamente.');
+        ->with('success', 'Remito generado correctamente.')
+        ->with('warning', $photoWarning);
     });
 
 }
+
+    /** ¿Este formulario de remito (submission_token) ya se guardó, por este mismo usuario? */
+    private function alreadySubmitted(Request $request): bool
+    {
+        $token = $request->input('submission_token');
+
+        return is_string($token) && $token !== '' && BuildingVisit::withoutGlobalScopes()
+            ->where('submission_token', $token)
+            ->where('company_id', auth()->user()->company_id)
+            ->where('user_id', auth()->id())
+            ->exists();
+    }
+
+    /** Misma respuesta que el primer envío (sin crear nada). */
+    private function submittedResponse()
+    {
+        return redirect()
+            ->route('delivery-notes.index', ['company' => auth()->user()->company->slug])
+            ->with('success', 'Remito generado correctamente.');
+    }
 
 
     /**

@@ -163,7 +163,7 @@ class PortalController extends Controller
             'counts' => PortalDocuments::counts($companyId, [(int) $building->id], []),
             'lastVisits' => BuildingVisit::where('building_id', $building->id)->where('visit_type', 'fixed')
                 ->with('deliveryNote:id,building_visit_id,performed')
-                ->orderByDesc('year')->orderByDesc('month')->limit(6)->get(),
+                ->orderByDesc('year')->orderByDesc('month')->orderByDesc('slot')->limit(6)->get(),
             'buildingNames' => [$building->id => $building->name],
             'newKeys' => $this->newKeys($request),
         ]);

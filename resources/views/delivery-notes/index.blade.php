@@ -16,6 +16,9 @@
     @if(session('success'))
         <div class="t-alert-success mb-4" role="status">{{ session('success') }}</div>
     @endif
+    @if(session('warning'))
+        <div class="t-alert-warning mb-4" role="status">{{ session('warning') }}</div>
+    @endif
 
     <details class="t-card mb-4" @if($hasDate) open @endif>
         <summary class="flex min-h-[48px] cursor-pointer list-none items-center justify-between px-4 text-sm font-semibold text-ink-700">

@@ -18,9 +18,17 @@ class PruneStagedVisitPhotos extends Command
 
     public function handle(VisitPhotoService $photos): int
     {
-        $count = $photos->prune(max(1, (int) $this->option('hours')));
+        $result = $photos->prune(max(1, (int) $this->option('hours')));
 
-        $this->info("Fotos sin vincular borradas: {$count}");
+        $this->info("Fotos sin vincular borradas: {$result['deleted']}");
+
+        // Las que fallaron quedan para la próxima corrida; el código de salida
+        // lo deja registrado en el scheduler.
+        if ($result['failed'] > 0) {
+            $this->warn("No se pudieron borrar: {$result['failed']} (se reintenta en la próxima corrida).");
+
+            return self::FAILURE;
+        }
 
         return self::SUCCESS;
     }

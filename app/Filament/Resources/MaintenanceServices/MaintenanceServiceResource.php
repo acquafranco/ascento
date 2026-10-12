@@ -86,7 +86,7 @@ class MaintenanceServiceResource extends Resource
             Grid::make(3)->schema([
                 TextInput::make('amount')->label('Importe por período')->numeric()->minValue(1)->prefix('$')->required(),
                 Select::make('frequency')->label('Frecuencia de cobro')->options(collect(MaintenanceService::FREQUENCIES)->map(fn ($f) => $f[0]))->default('monthly')->required()->native(false)
-                    ->helperText('Cada cuánto se le cobra al cliente. Los mantenimientos e inspecciones se programan todos los meses.'),
+                    ->helperText('Cada cuánto se le cobra al cliente. Cada cuánto se visita el edificio se configura aparte, en Edificios → «Frecuencia de visitas» (mensual si no se cambia).'),
                 TextInput::make('payment_due_day')->label('Día de vencimiento')->numeric()->minValue(1)->maxValue(28)->default(10)->required()
                     ->helperText('Del 1 al 28 de cada período.'),
             ]),

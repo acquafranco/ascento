@@ -53,6 +53,13 @@ class PhotoProcessor
                 mkdir(dirname($fullPath), 0755, true);
             }
 
+            // Antes de decodificar: tamaño en píxeles (sin cargar la imagen).
+            // Si el formato no lo informa (p. ej. HEIC), decide el decodificador.
+            $info = @getimagesize($source);
+            if ($info && (int) $info[0] * (int) $info[1] > (int) config('media.photo_max_pixels', 50_000_000)) {
+                throw new \RuntimeException('Imagen demasiado grande en píxeles');
+            }
+
             $image = static::manager()->decode(fopen($source, 'rb'))
                 ->scaleDown(width: (int) config('media.photo_max_side', self::MAX_SIDE), height: (int) config('media.photo_max_side', self::MAX_SIDE));
 
