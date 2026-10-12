@@ -42,6 +42,8 @@ class BuildingVisit extends Model
         'assignment_type',
         // Identidad del formulario del remito (reenvíos idempotentes).
         'submission_token',
+        // Visita en curso: existe para cargarle fotos, todavía sin remito.
+        'in_progress',
     ];
 
 
@@ -50,11 +52,19 @@ class BuildingVisit extends Model
         'started_at' => 'datetime',
         'finished_at' => 'datetime',
         'slot' => 'integer',
+        'in_progress' => 'boolean',
     ];
 
 
     protected static function booted(): void
     {
+        // Una visita "en curso" (abierta desde Visitas para cargar fotos,
+        // todavía sin remito) no es historial: no aparece en remitos,
+        // planillas, portal, indicadores ni legajos. Solo la ven quienes la
+        // piden explícitamente (VisitSchedule, VisitService, la pantalla de
+        // la visita) con withoutGlobalScope('completed').
+        static::addGlobalScope('completed', fn (\Illuminate\Database\Eloquent\Builder $query) => $query->where($query->getModel()->getTable().'.in_progress', false));
+
         // Identidad de la visita periódica (edificio + "tipo:período:número",
         // único en la base): dos visitas del mismo lugar nunca se duplican.
         // El período sale de la frecuencia del edificio (VisitSchedule).

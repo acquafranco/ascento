@@ -142,7 +142,7 @@ class Indicators
             $start = now()->subMonthsNoOverflow($back)->startOfMonth();
             $end = $start->copy()->endOfMonth();
             $s = $this->agenda->summary($start->month, $start->year, 'maintenance');
-            $due = array_sum($s) - $s['upcoming'] - $s['covered']; // "hecho en el período" no es una visita de este mes
+            $due = array_sum($s) - $s['upcoming'] - $s['covered'] - $s['no_equipment']; // ni "hecho en el período" ni "sin equipos" son visitas de este mes
 
             return [
                 'month' => ucfirst($start->locale('es')->translatedFormat('M Y')),

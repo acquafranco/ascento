@@ -130,7 +130,7 @@ class PlanLimitsTest extends TestCase
         $this->actingInPanel($this->a['admin']);
 
         Livewire::test(CreateBuilding::class)
-            ->fillForm(['client_id' => $this->a['building']->client_id, 'name' => 'Edificio 20', 'address' => '20'])
+            ->fillForm(['client_id' => $this->a['building']->client_id, 'name' => 'Edificio 20', 'address' => '20', 'equipment' => [['kind' => 'elevator', 'machine_type' => 'traction']]])
             ->call('create')
             ->assertHasNoFormErrors();
 
@@ -153,7 +153,7 @@ class PlanLimitsTest extends TestCase
         $this->actingInPanel($this->a['admin']);
 
         $form = Livewire::test(CreateBuilding::class)
-            ->fillForm(['client_id' => $this->a['building']->client_id, 'name' => 'Último', 'address' => '1']);
+            ->fillForm(['client_id' => $this->a['building']->client_id, 'name' => 'Último', 'address' => '1', 'equipment' => [['kind' => 'elevator', 'machine_type' => 'traction']]]);
 
         // Otro admin ocupa el último lugar mientras tanto.
         $this->fillBuildings(20);

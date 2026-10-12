@@ -40,6 +40,7 @@ use App\Support\PhoneNumber;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
+use Tests\Concerns\MakesSignatures;
 use Tests\TestCase;
 
 /**
@@ -50,7 +51,7 @@ use Tests\TestCase;
  */
 class PreProductionAuditTest extends TestCase
 {
-    use RefreshDatabase;
+    use MakesSignatures, RefreshDatabase;
 
     /** @var array<string, mixed> */
     private array $a;
@@ -114,7 +115,7 @@ class PreProductionAuditTest extends TestCase
 
     private function signature(): string
     {
-        return 'data:image/png;base64,'.str_repeat('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ', 3);
+        return $this->signaturePng(true);
     }
 
     private function remito(array $overrides = []): array

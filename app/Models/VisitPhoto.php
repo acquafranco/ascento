@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToCompany;
+use App\Services\Visits\PhotoTarget;
+use App\Services\Visits\VisitPhotoService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 
@@ -34,6 +36,8 @@ class VisitPhoto extends Model
     public const MAX_TOTAL_BYTES = 60 * 1024 * 1024;
 
     protected $casts = [
+        'building_visit_id' => 'integer',
+        'work_order_id' => 'integer',
         'width' => 'integer',
         'height' => 'integer',
         'size' => 'integer',
@@ -65,6 +69,11 @@ class VisitPhoto extends Model
         return $this->belongsTo(PhotoSection::class, 'photo_section_id');
     }
 
+    public function workOrder()
+    {
+        return $this->belongsTo(WorkOrder::class)->withoutGlobalScopes();
+    }
+
     public function elevator()
     {
         return $this->belongsTo(Elevator::class);
@@ -75,9 +84,10 @@ class VisitPhoto extends Model
         return $this->belongsTo(User::class, 'uploaded_by')->withTrashed();
     }
 
+    /** Foto del flujo anterior subida desde el formulario del remito y nunca vinculada. */
     public function isStaged(): bool
     {
-        return $this->building_visit_id === null;
+        return $this->building_visit_id === null && $this->work_order_id === null;
     }
 
     /** Path seguro: dentro de la carpeta de la empresa y sin saltos de directorio. */
@@ -91,10 +101,14 @@ class VisitPhoto extends Model
     }
 
     /**
-     * ¿Puede verla? Misma empresa y, además: si está en preparación, solo
-     * quien la subió; si ya es de una visita, los admins de la empresa (y el
-     * SuperAdmin en la empresa elegida) y los técnicos de esa visita. Los
-     * clientes del portal, nunca.
+     * ¿Puede verla? Misma empresa y, además:
+     * - el admin de la empresa (y el SuperAdmin en la empresa elegida): todas;
+     * - quien la subió;
+     * - quien trabaja en esa visita u orden (PhotoTarget / canWorkOn): técnico
+     *   asignado al edificio para ese tipo o a la orden, o quien hizo la
+     *   visita o participó.
+     * Los clientes del portal, nunca. No depende de que las fotos estén
+     * habilitadas: desactivarlas solo impide cargas nuevas.
      */
     public function canBeViewedBy(?User $user): bool
     {
@@ -108,25 +122,37 @@ class VisitPhoto extends Model
             return false;
         }
 
-        if ($this->isStaged()) {
-            return (int) $this->uploaded_by === (int) $user->id;
-        }
-
-        if ($user->isAdmin() || $user->isSuperAdmin()) {
+        if ($user->isAdmin() || $user->isSuperAdmin() || (int) $this->uploaded_by === (int) $user->id) {
             return true;
         }
 
-        $visit = BuildingVisit::withoutGlobalScopes()->find($this->building_visit_id);
+        $target = $this->target();
 
-        return $visit !== null && (
-            (int) $visit->user_id === (int) $user->id
-            || $visit->participants()->where('users.id', $user->id)->exists()
-        );
+        return $target !== null && app(VisitPhotoService::class)->canWorkOn($user, $target);
+    }
+
+    /** Visita u orden a la que pertenece (null: foto en preparación del flujo anterior). */
+    public function target(): ?PhotoTarget
+    {
+        if ($this->building_visit_id && ($visit = BuildingVisit::withoutGlobalScopes()->find($this->building_visit_id))) {
+            return PhotoTarget::forVisit($visit);
+        }
+
+        if ($this->work_order_id && ($workOrder = WorkOrder::withoutGlobalScopes()->find($this->work_order_id))) {
+            return PhotoTarget::forWorkOrder($workOrder);
+        }
+
+        return null;
     }
 
     public function url(): string
     {
         return route('visit-photos.show', ['visitPhoto' => $this->id]);
+    }
+
+    public function downloadUrl(): string
+    {
+        return $this->url().'?download=1';
     }
 
     public function thumbUrl(): string
@@ -136,7 +162,7 @@ class VisitPhoto extends Model
 
     public function deleteFiles(): void
     {
-        foreach ([$this->path, $this->thumb_path] as $path) {
+        foreach (array_filter([$this->path, $this->thumb_path]) as $path) {
             if ($this->hasSafePath($path)) {
                 Storage::disk('local')->delete($path);
             }

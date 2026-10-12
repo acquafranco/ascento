@@ -56,7 +56,7 @@ class PhotoSection extends Model
         }
 
         return static::withoutGlobalScopes()->where('company_id', $companyId)->active()
-            ->orderBy('position')->orderBy('id')->get(['id', 'company_id', 'name', 'position']);
+            ->orderBy('position')->orderBy('id')->get(['id', 'company_id', 'name', 'position', 'is_active']);
     }
 
     public static function ensureDefaults(int $companyId): void

@@ -134,7 +134,7 @@ class CheckProduction extends Command
     {
         $manifest = public_path('build/manifest.json');
         $entries = is_readable($manifest) ? array_keys((array) json_decode((string) file_get_contents($manifest), true)) : [];
-        $missing = array_diff(['resources/css/app.css', 'resources/js/app.js', 'resources/css/public.css', 'resources/js/public.js', 'resources/js/signature.js'], $entries);
+        $missing = array_diff(['resources/css/app.css', 'resources/js/app.js', 'resources/css/public.css', 'resources/js/public.js', 'resources/js/remito-pad.js'], $entries);
 
         $this->check($missing === [], 'Assets compilados (public/build)', $entries === []
             ? 'No hay public/build/manifest.json: falta npm ci && npm run build en el deploy (las páginas se ven sin estilos)'

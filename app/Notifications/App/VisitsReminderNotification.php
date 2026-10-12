@@ -44,9 +44,9 @@ class VisitsReminderNotification extends AppNotification
         $n = $this->count.' '.($this->count === 1 ? 'visita' : 'visitas');
 
         return match ($this->kind) {
-            'pending' => "Te quedan {$n} sin remito en {$this->monthName()}.",
-            'overdue' => "En {$this->monthName()} quedaron {$n} sin remito.",
-            'overdue_summary' => "En {$this->monthName()} quedaron {$this->count} ".($this->count === 1 ? 'visita' : 'visitas').' sin remito. Revisalas en la agenda.',
+            'pending' => ($this->count === 1 ? 'Te queda ' : 'Te quedan ')."{$n} sin remito en {$this->monthName()}.",
+            'overdue' => "En {$this->monthName()} ".($this->count === 1 ? 'quedó ' : 'quedaron ')."{$n} sin remito.",
+            'overdue_summary' => "En {$this->monthName()} ".($this->count === 1 ? 'quedó ' : 'quedaron ')."{$n} sin remito. Revisalas en la agenda.",
         };
     }
 

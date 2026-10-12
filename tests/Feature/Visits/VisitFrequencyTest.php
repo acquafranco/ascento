@@ -217,7 +217,8 @@ class VisitFrequencyTest extends TestCase
         // Técnico (Visitas e inicio) y Agenda dicen lo mismo.
         $view = $this->actingAs($this->tech)->get("/{$this->a['company']->slug}/buildings")->assertOk();
         $progress = $view->viewData('progress')['maintenance'];
-        $this->assertSame(['assigned' => 1, 'expected' => 2, 'done' => 0, 'not_done' => 1, 'pending' => 1], array_intersect_key($progress, array_flip(['assigned', 'expected', 'done', 'not_done', 'pending'])));
+        // Pendientes = previstas − realizadas (incluye la "no realizada", que se informa aparte).
+        $this->assertSame(['assigned' => 1, 'expected' => 2, 'done' => 0, 'not_done' => 1, 'pending' => 2], array_intersect_key($progress, array_flip(['assigned', 'expected', 'done', 'not_done', 'pending'])));
 
         $home = app(TechnicianWorkload::class)->monthVisits($this->tech)['progress']['maintenance'];
         $this->assertSame($progress, $home);
@@ -450,7 +451,7 @@ class VisitFrequencyTest extends TestCase
         $this->assertSame('maintenance:2027-01:1', BuildingVisit::orderByDesc('id')->first()->period_key);
     }
 
-    public function test_a_frequency_change_cannot_cut_a_period_whose_visit_is_already_registered(): void
+    public function test_a_frequency_change_applies_from_the_next_valid_period_and_never_rewrites_history(): void
     {
         // Trimestral agosto–octubre; la visita del período se hace en octubre.
         $this->travelTo(Carbon::parse('2026-08-03 09:00'));
@@ -459,31 +460,45 @@ class VisitFrequencyTest extends TestCase
         $this->sign(month: 10)->assertSessionHasNoErrors();
         $this->assertSame('maintenance:2026-08:1', BuildingVisit::sole()->period_key);
 
-        // Pasar a mensual desde octubre dejaría agosto–septiembre "vencido"
-        // aunque la visita se hizo: se rechaza y se ofrece noviembre.
-        try {
-            $this->plan('monthly', from: '2026-10');
-            $this->fail('Debió rechazarse');
-        } catch (ValidationException $e) {
-            $this->assertStringContainsString('noviembre 2026', $e->errors()['starts_on'][0]);
-        }
-        $this->assertSame(1, BuildingVisitPlan::withoutGlobalScopes()->count());
-        // Agosto y septiembre siguen "hechos en el período" (no vencidos).
+        // Pedido "mensual desde octubre": octubre cae en medio del período,
+        // así que rige desde noviembre (el siguiente período válido).
+        $this->assertSame('2026-11', app(VisitPlanService::class)->effectiveStart($this->building, 'maintenance', CarbonImmutable::parse('2026-10-01'))->format('Y-m'));
+        $this->plan('monthly', from: '2026-10');
+
+        $plans = BuildingVisitPlan::withoutGlobalScopes()->orderBy('starts_on')->get();
+        $this->assertSame(['2026-08-01', '2026-11-01'], $plans->map(fn ($p) => $p->starts_on->toDateString())->all());
+
+        // Agosto–octubre queda intacto y hecho; agosto y septiembre no aparecen vencidos.
+        $this->assertSame(['2026-08', '2026-10', 1], [$this->eval(10)['period']->start->format('Y-m'), $this->eval(10)['period']->end->format('Y-m'), $this->eval(10)['done']]);
         $this->assertTrue($this->eval(8)['covered']);
         $this->assertTrue($this->eval(9)['covered']);
-
-        // Desde noviembre, sí; el período agosto–octubre queda intacto.
-        $this->plan('monthly', from: '2026-11');
-        $this->assertSame(['2026-08', '2026-10', 1], [$this->eval(10)['period']->start->format('Y-m'), $this->eval(10)['period']->end->format('Y-m'), $this->eval(10)['done']]);
+        $this->actingInPanel($this->a['admin']);
+        $this->assertSame('covered', app(MaintenanceAgenda::class)->rows(9, 2026, 'maintenance')->firstWhere('building.id', $this->building->id)['status']);
         $this->assertSame(1, $this->eval(11)['pending']);
 
-        // El mismo control desde la acción del panel: aviso claro y nada guardado
-        // (tampoco se pierde la frecuencia ya programada para noviembre).
+        // Sin visita registrada pasa lo mismo: el período en curso nunca se corta.
+        BuildingVisitPlan::withoutGlobalScopes()->delete();
+        $this->travelTo(Carbon::parse('2026-08-03 09:00'));
+        $this->plan('months', 3, '2026-08');
+        $this->travelTo(Carbon::parse('2026-09-10 09:00'));
+        $this->plan('biweekly', from: '2026-09');
+        $this->assertSame(['2026-08-01', '2026-11-01'], BuildingVisitPlan::withoutGlobalScopes()->orderBy('starts_on')->get()->map(fn ($p) => $p->starts_on->toDateString())->all());
+
+        // Al inicio de un período sí rige ese mismo mes (noviembre ya es inicio).
+        $this->assertSame('2026-11', app(VisitPlanService::class)->effectiveStart($this->building, 'maintenance', CarbonImmutable::parse('2026-11-01'))->format('Y-m'));
+
+        // La acción del panel avisa desde cuándo rige de verdad.
+        $this->travelTo(Carbon::parse('2026-10-14 09:00'));
+        BuildingVisitPlan::withoutGlobalScopes()->delete();
+        $this->travelTo(Carbon::parse('2026-08-03 09:00'));
+        $this->plan('months', 3, '2026-08');
+        $this->travelTo(Carbon::parse('2026-10-14 09:00'));
         $this->actingInPanel($this->a['admin']);
         Livewire::test(ListBuildings::class)
             ->callTableAction('visitFrequency', $this->building, data: ['type' => 'maintenance', 'frequency' => 'biweekly', 'starts_on' => '2026-10'])
-            ->assertNotified('No se cambió la frecuencia');
-        $this->assertSame(2, BuildingVisitPlan::withoutGlobalScopes()->count());
+            ->assertHasNoTableActionErrors()
+            ->assertNotified();
+        $this->assertSame(['2026-08-01', '2026-11-01'], BuildingVisitPlan::withoutGlobalScopes()->orderBy('starts_on')->get()->map(fn ($p) => $p->starts_on->toDateString())->all());
     }
 
     public function test_with_only_monthly_buildings_the_schedule_reads_just_the_month(): void

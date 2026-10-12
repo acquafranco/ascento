@@ -3,7 +3,6 @@
 namespace App\Services\Visits;
 
 use App\Models\Building;
-use App\Models\BuildingVisit;
 use App\Models\BuildingVisitPlan;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -12,7 +11,9 @@ use Illuminate\Validation\ValidationException;
 /**
  * Cambia la frecuencia de visitas de un edificio para un tipo de trabajo,
  * desde un mes (el actual o uno futuro: nunca hacia atrás, así el historial
- * conserva la frecuencia que tenía). No toca servicios, cobros ni precios.
+ * conserva la frecuencia que tenía). Si ese mes cae en medio de un período de
+ * varios meses, rige desde el siguiente período (effectiveStart). No toca
+ * servicios, cobros ni precios.
  */
 class VisitPlanService
 {
@@ -67,61 +68,29 @@ class VisitPlanService
     }
 
     /**
-     * Motivo por el que la frecuencia no puede cambiar desde $start, o null.
+     * Mes desde el que rige de verdad un cambio pedido "desde $start".
      *
-     * Un cambio en medio de un período de varios meses lo corta: el período
-     * viejo termina el mes anterior. Si ese período ya tiene su visita
-     * registrada en $start o después, esa visita quedaría fuera de su período
-     * (el período se vería vencido aunque se hizo, y su identidad chocaría
-     * con la de una visita nueva). En ese caso el cambio rige recién cuando
-     * termina el período.
+     * Un cambio nunca corta un período de varios meses ya empezado: si $start
+     * cae en medio de uno, rige desde el mes siguiente a ese período (el
+     * siguiente período válido). Así ningún período anterior se reinterpreta
+     * (no aparece vencido uno que se completó) y ninguna visita registrada
+     * queda fuera de su período. Mensual y quincenal empiezan cada mes: rige
+     * desde $start.
      */
-    public function conflict(Building $building, string $type, CarbonImmutable $start): ?string
+    public function effectiveStart(Building $building, string $type, CarbonImmutable $start): CarbonImmutable
     {
         $start = $start->startOfMonth();
-        $period = VisitSchedule::load([$building->id], $start->month, $start->year, (int) $building->company_id)
-            ->period($building->id, $type, $start->month, $start->year);
+        $current = $this->effective($building, $type, $start);
+        $every = max(1, (int) ($current?->every_months ?? 1));
 
-        if (! $period->isMultiMonth() || $period->start->equalTo($start)) {
-            return null;
+        if ($every === 1) {
+            return $start;
         }
 
-        $registered = BuildingVisit::withoutGlobalScopes()
-            ->where('building_id', $building->id)
-            ->where('visit_type', 'fixed')
-            ->where('assignment_type', $type)
-            ->whereNotNull('period_key')
-            ->whereRaw('(year * 12 + month) between ? and ?', [VisitPeriod::index($start), VisitPeriod::index($period->end)])
-            ->exists();
+        $origin = CarbonImmutable::create($current->starts_on->year, $current->starts_on->month, 1)->startOfDay();
+        $elapsed = VisitPeriod::index($start) - VisitPeriod::index($origin);
 
-        if (! $registered) {
-            return null;
-        }
-
-        $from = $period->end->addMonthNoOverflow();
-
-        return 'La visita del período '.$period->label().' ya se registró en '.$start->locale('es')->translatedFormat('F').' o después: '
-            .'la nueva frecuencia puede regir desde '.$from->locale('es')->translatedFormat('F Y').'.';
-    }
-
-    /**
-     * Lo mismo que verificará set(), sin escribir nada (para el resumen de la
-     * asignación masiva): null si se puede aplicar.
-     */
-    public function blocker(Building $building, string $type, int $perMonth, int $every, CarbonImmutable $start): ?string
-    {
-        $start = $start->startOfMonth();
-        $effective = $this->effective($building, $type, $start);
-
-        if ($effective && $effective->starts_on->isSameMonth($start)) {
-            return null;
-        }
-
-        if ([$perMonth, $every] === [$effective?->visits_per_month ?? 1, $effective?->every_months ?? 1]) {
-            return null;
-        }
-
-        return $this->conflict($building, $type, $start);
+        return $elapsed % $every === 0 ? $start : $origin->addMonthsNoOverflow((intdiv($elapsed, $every) + 1) * $every);
     }
 
     /**
@@ -140,6 +109,9 @@ class VisitPlanService
         if ($start->lt(CarbonImmutable::now()->startOfMonth())) {
             throw ValidationException::withMessages(['starts_on' => 'La frecuencia no se puede cambiar hacia atrás.']);
         }
+
+        // En medio de un período de varios meses, rige desde el siguiente.
+        $start = $this->effectiveStart($building, $type, $start);
 
         // Todo o nada: si al final no se puede, no quedan las frecuencias futuras borradas.
         return DB::transaction(fn () => $this->apply($building, $type, $perMonth, $every, $start));
@@ -174,10 +146,6 @@ class VisitPlanService
             $same->forceFill(['visits_per_month' => $perMonth, 'every_months' => $every])->save();
 
             return true;
-        }
-
-        if ($reason = $this->conflict($building, $type, $start)) {
-            throw ValidationException::withMessages(['starts_on' => $reason]);
         }
 
         $plan = new BuildingVisitPlan(['building_id' => $building->id, 'type' => $type, 'visits_per_month' => $perMonth, 'every_months' => $every, 'starts_on' => $start->toDateString()]);

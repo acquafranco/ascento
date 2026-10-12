@@ -100,6 +100,8 @@ class SendVisitReminders extends Command
             ->join('buildings', 'buildings.id', '=', 'building_user.building_id')
             ->join('users', 'users.id', '=', 'building_user.user_id')
             ->where('buildings.company_id', $company->id)->whereNull('buildings.deleted_at')->where('buildings.is_active', true)
+            // Sin equipos registrados no hay visitas que reclamar.
+            ->whereRaw('(coalesce(buildings.elevator_count, 0) + coalesce(buildings.freight_elevator_count, 0)) > 0')
             ->where('users.company_id', $company->id)->whereNull('users.deleted_at')->where('users.role', 'technician')
             ->whereIn('building_user.type', VisitSchedule::TYPES)
             ->select('building_user.user_id', 'building_user.building_id', 'building_user.type')

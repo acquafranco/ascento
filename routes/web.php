@@ -313,9 +313,21 @@ Route::prefix('{company:slug}')
         'store'
     ])->name('delivery-notes.store');
 
-    // Fotos de antes y después: se suben de a una mientras se completa el remito.
+    // Visitas: la pantalla de una visita (en curso o con remito) y sus fotos.
+    Route::post('/visits/start', [\App\Http\Controllers\VisitController::class, 'start'])
+        ->middleware('throttle:30,1')->name('visits.start');
+    Route::get('/visits/{visit}', [\App\Http\Controllers\VisitController::class, 'show'])
+        ->whereNumber('visit')->name('visits.show');
+    Route::delete('/visits/{visit}', [\App\Http\Controllers\VisitController::class, 'discard'])
+        ->whereNumber('visit')->name('visits.discard');
+    Route::get('/work-orders/{workOrder}/photos', [\App\Http\Controllers\VisitController::class, 'workOrder'])
+        ->whereNumber('workOrder')->name('work-orders.photos');
+
+    // Fotos de antes y después: se suben de a una (cada una queda guardada al instante).
     Route::post('/visit-photos', [\App\Http\Controllers\VisitPhotoController::class, 'store'])
         ->middleware('throttle:90,1')->name('visit-photos.store');
+    Route::patch('/visit-photos/section', [\App\Http\Controllers\VisitPhotoController::class, 'section'])
+        ->middleware('throttle:60,1')->name('visit-photos.section');
     Route::delete('/visit-photos/{visitPhoto}', [\App\Http\Controllers\VisitPhotoController::class, 'destroy'])
         ->whereNumber('visitPhoto')->middleware('throttle:90,1')->name('visit-photos.destroy');
 

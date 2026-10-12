@@ -52,10 +52,24 @@ class Company extends Model
         'whatsapp_business_id',
         'whatsapp_connected',
         'trial_ends_at',
+        // Documentación fotográfica por tipo de trabajo (apagada por defecto).
+        'photos_maintenance',
+        'photos_inspection',
+        'photos_work_order',
+    ];
+
+    /** Tipo de trabajo => columna que habilita sus fotos. */
+    public const PHOTO_SETTINGS = [
+        'maintenance' => 'photos_maintenance',
+        'inspection' => 'photos_inspection',
+        'work_order' => 'photos_work_order',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'photos_maintenance' => 'boolean',
+        'photos_inspection' => 'boolean',
+        'photos_work_order' => 'boolean',
         'whatsapp_connected' => 'boolean',
         'trial_ends_at' => 'datetime',
         'activity_started_at' => 'date',
@@ -104,6 +118,17 @@ class Company extends Model
     public function deliveryNotes()
     {
         return $this->hasMany(DeliveryNote::class);
+    }
+
+    /**
+     * ¿Se pueden cargar fotos NUEVAS para este tipo de trabajo? Solo rige para
+     * cargas: las fotos ya cargadas se siguen viendo con los mismos permisos.
+     */
+    public function photosEnabledFor(?string $type): bool
+    {
+        $column = self::PHOTO_SETTINGS[$type] ?? null;
+
+        return $column !== null && (bool) $this->{$column};
     }
 
     public function visitPhotos()

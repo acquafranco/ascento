@@ -71,15 +71,18 @@ class VisitIntegrityTest extends TestCase
         $slots = $this->migration('2026_11_02_100000_create_visit_plans_and_visit_slots');
         $photos = $this->migration('2026_11_02_100100_create_photo_sections_and_visit_photos');
         $tokens = $this->migration('2026_11_02_100200_add_idempotency_keys_to_visits_and_photos');
+        $fromVisits = $this->migration('2026_11_10_100000_photos_from_visits_and_company_settings');
         $visit = $this->legacyVisit(9);
 
         // Correr de nuevo sobre una base ya migrada (o cortada a mitad): no falla ni duplica.
         $slots->up();
         $tokens->up();
+        $fromVisits->up();
         $this->assertSame('maintenance:2026-09:1', DB::table('building_visits')->where('id', $visit)->value('period_key'));
 
         // Dos ciclos completos de reversión y vuelta (antes, el segundo fallaba en MySQL).
         foreach ([1, 2] as $cycle) {
+            $fromVisits->down();
             $tokens->down();
             $photos->down();
             $slots->down();
@@ -89,7 +92,10 @@ class VisitIntegrityTest extends TestCase
             $slots->up();
             $photos->up();
             $tokens->up();
+            $fromVisits->up();
             $this->assertTrue(Schema::hasColumn('building_visits', 'submission_token'));
+            $this->assertTrue(Schema::hasColumn('building_visits', 'in_progress'));
+            $this->assertTrue(Schema::hasColumn('companies', 'photos_work_order'));
             $this->assertSame('maintenance:2026-09:1', DB::table('building_visits')->where('id', $visit)->value('period_key'));
         }
 
@@ -101,6 +107,7 @@ class VisitIntegrityTest extends TestCase
         $this->legacyNote($this->legacyVisit(9), 1, 9);
         $this->legacyNote($this->legacyVisit(9), 2, 9);
 
+        $this->migration('2026_11_10_100000_photos_from_visits_and_company_settings')->down();
         $this->migration('2026_11_02_100200_add_idempotency_keys_to_visits_and_photos')->down();
         $this->migration('2026_11_02_100100_create_photo_sections_and_visit_photos')->down();
         $this->migration('2026_11_02_100000_create_visit_plans_and_visit_slots')->down();
@@ -154,6 +161,7 @@ class VisitIntegrityTest extends TestCase
 
     public function test_the_duplicate_check_before_migrating_predicts_which_visit_keeps_its_identity(): void
     {
+        $this->migration('2026_11_10_100000_photos_from_visits_and_company_settings')->down();
         $this->migration('2026_11_02_100200_add_idempotency_keys_to_visits_and_photos')->down();
         $this->migration('2026_11_02_100100_create_photo_sections_and_visit_photos')->down();
         $this->migration('2026_11_02_100000_create_visit_plans_and_visit_slots')->down();
@@ -170,6 +178,7 @@ class VisitIntegrityTest extends TestCase
         $this->migration('2026_11_02_100000_create_visit_plans_and_visit_slots')->up();
         $this->migration('2026_11_02_100100_create_photo_sections_and_visit_photos')->up();
         $this->migration('2026_11_02_100200_add_idempotency_keys_to_visits_and_photos')->up();
+        $this->migration('2026_11_10_100000_photos_from_visits_and_company_settings')->up();
         $this->assertNotNull(DB::table('building_visits')->where('id', $withNote)->value('period_key'));
         $this->assertNull(DB::table('building_visits')->where('id', $older)->value('period_key'));
     }

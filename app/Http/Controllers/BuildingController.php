@@ -69,12 +69,15 @@ public function index(Request $request)
 
     $rows = $assignments->map(function ($a) use ($schedule, $month, $year) {
         $eval = $schedule->evaluate((int) $a->building_id, $a->type, $month, $year);
+        // Sin equipos registrados: no hay visitas previstas (misma regla que la Agenda).
+        $hasEquipment = (int) $a->elevator_count + (int) $a->freight_elevator_count > 0;
+        $eval = $hasEquipment ? $eval : [...$eval, 'expected' => 0, 'done' => 0, 'not_done' => 0, 'pending' => 0];
 
         return [
             'building_id' => (int) $a->building_id,
             'type' => $a->type,
             'assigned' => true,
-            'status' => MaintenanceAgenda::statusFor($eval, true),
+            'status' => MaintenanceAgenda::statusFor($eval, true, $hasEquipment),
             'period' => $eval['period'],
             'visits' => $eval['visits'],
             'expected' => $eval['expected'],
@@ -99,7 +102,18 @@ public function index(Request $request)
     $inspectionTotalMachines = $machines('inspection');
     $inspectionRemaining = $machines('inspection', true);
 
+    // Fotos: tipos habilitados por la empresa y cuántas tiene cada visita (una consulta).
+    $company = \App\Models\Company::findOrFail($user->company_id);
+    $photoTypes = collect(VisitSchedule::TYPES)->filter(fn ($type) => $company->photosEnabledFor($type))->values()->all();
+    $visitIds = $rows->flatMap(fn ($row) => $row['visits']->pluck('id'))->all();
+    $photoCounts = $visitIds === [] ? [] : \App\Models\VisitPhoto::withoutGlobalScopes()
+        ->where('company_id', $user->company_id)->whereIn('building_visit_id', $visitIds)
+        ->selectRaw('building_visit_id, count(*) as total')->groupBy('building_visit_id')
+        ->pluck('total', 'building_visit_id')->map(fn ($n) => (int) $n)->all();
+
     return view('buildings.index', compact(
+        'photoTypes',
+        'photoCounts',
         'buildings',
         'month',
         'year',

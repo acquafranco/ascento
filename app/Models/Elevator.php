@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Legajo técnico de un equipo (ascensor o montacargas) de un edificio.
@@ -54,6 +55,9 @@ class Elevator extends Model
 
             $elevator->company_id = $building->company_id;
         });
+
+        // Los contadores del edificio salen siempre de sus equipos activos.
+        static::saved(fn (Elevator $elevator) => Building::refreshEquipmentCounts((int) $elevator->building_id));
     }
 
     public function building(): BelongsTo
@@ -114,6 +118,64 @@ class Elevator extends Model
     public function missingEssentials(): array
     {
         return array_values(array_filter(self::ESSENTIAL_FIELDS, fn ($field) => blank($this->{$field})));
+    }
+
+    public const KINDS = ['elevator' => 'Ascensor', 'freight' => 'Montacargas'];
+
+    /**
+     * Guarda los equipos del formulario del edificio: cada uno con su tipo
+     * (ascensor / montacargas) y su tracción. Nunca borra: un equipo que se
+     * quita queda inactivo con su historial. Los nuevos reciben el número
+     * siguiente de su tipo ("Ascensor 3"), sin renumerar a los existentes
+     * (reportes, órdenes y presupuestos los nombran así). El tipo de un equipo
+     * existente no cambia (su nombre es parte del historial).
+     *
+     * @param  array<int, array{id?: mixed, kind?: ?string, machine_type?: ?string}>  $items
+     */
+    public static function syncFromForm(Building $building, array $items): void
+    {
+        DB::transaction(function () use ($building, $items) {
+            $existing = static::withoutGlobalScopes()->where('building_id', $building->id)->lockForUpdate()->get()->keyBy('id');
+            $next = $existing->groupBy('kind')->map(fn ($group, $kind) => $group->map(fn ($e) => (int) preg_replace('/\D+/', '', $e->label))->max());
+            $keep = [];
+
+            foreach ($items as $item) {
+                $machine = array_key_exists((string) ($item['machine_type'] ?? ''), self::MACHINE_TYPES) ? $item['machine_type'] : null;
+                $id = (int) ($item['id'] ?? 0);
+
+                if ($id && $existing->has($id)) {
+                    $elevator = $existing[$id];
+                    $elevator->is_active = true;
+                    if ($machine !== null) {
+                        $elevator->machine_type = $machine;
+                    }
+                    $elevator->save();
+                    $keep[] = $id;
+
+                    continue;
+                }
+
+                $kind = array_key_exists((string) ($item['kind'] ?? ''), self::KINDS) ? $item['kind'] : 'elevator';
+                $number = (int) ($next[$kind] ?? 0) + 1;
+                $next[$kind] = $number;
+
+                $elevator = (new static)->forceFill([
+                    'building_id' => $building->id,
+                    'company_id' => $building->company_id,
+                    'label' => self::KINDS[$kind].' '.$number,
+                    'kind' => $kind,
+                    'is_active' => true,
+                    'machine_type' => $machine,
+                ]);
+                $elevator->save();
+                $keep[] = $elevator->id;
+            }
+
+            static::withoutGlobalScopes()->where('building_id', $building->id)->whereNotIn('id', $keep ?: [0])
+                ->where('is_active', true)->update(['is_active' => false, 'updated_at' => now()]);
+
+            Building::refreshEquipmentCounts($building->id);
+        });
     }
 
     /**

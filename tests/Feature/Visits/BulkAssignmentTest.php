@@ -4,7 +4,6 @@ namespace Tests\Feature\Visits;
 
 use App\Filament\Resources\Buildings\Pages\ListBuildings;
 use App\Models\Building;
-use App\Models\BuildingVisit;
 use App\Models\BuildingVisitPlan;
 use App\Models\User;
 use App\Services\Buildings\BulkAssignmentService;
@@ -141,7 +140,7 @@ class BulkAssignmentTest extends TestCase
     public function test_an_unexpected_error_rolls_back_everything_and_sends_no_notices(): void
     {
         $this->mock(VisitPlanService::class, function ($mock) {
-            $mock->shouldReceive('blocker')->andReturnNull();
+            $mock->shouldReceive('effectiveStart')->andReturnUsing(fn ($building, $type, $start) => $start);
             $mock->shouldReceive('set')->once()->andReturnTrue();
             $mock->shouldReceive('set')->andThrow(new \RuntimeException('falla a mitad de camino'));
         });
@@ -280,24 +279,26 @@ class BulkAssignmentTest extends TestCase
         $this->assertCount(2, $this->techsOf($this->buildings[1]));
     }
 
-    public function test_bulk_frequency_skips_a_building_whose_period_visit_is_already_registered(): void
+    public function test_bulk_frequency_never_cuts_a_running_period_and_says_from_when_it_applies(): void
     {
-        // Trimestral desde agosto (agosto–octubre) y la visita del período se hizo en octubre.
+        // Trimestral desde agosto (agosto–octubre) en el primer edificio; los otros, mensuales.
         $this->travelTo(Carbon::parse('2026-08-03 09:00'));
         app(VisitPlanService::class)->set($this->a['building'], 'maintenance', 1, 3, CarbonImmutable::parse('2026-08-01'));
         $this->travelTo(Carbon::parse('2026-10-14 09:00'));
-        BuildingVisit::create([
-            'building_id' => $this->a['building']->id, 'user_id' => $this->a['technician']->id, 'visit_type' => 'fixed',
-            'assignment_type' => 'maintenance', 'month' => 10, 'year' => 2026, 'status' => 'done', 'visited_at' => now(), 'source' => 'building',
-        ]);
 
-        $result = $this->service()->apply($this->a['company']->id, $this->ids(), ['type' => 'maintenance', 'user_ids' => [], 'mode' => 'add', 'frequency' => 'monthly', 'starts_on' => '2026-10']);
+        $input = ['type' => 'maintenance', 'user_ids' => [], 'mode' => 'add', 'frequency' => 'biweekly', 'starts_on' => '2026-10'];
+        $preview = $this->service()->plan($this->a['company']->id, $this->ids(), $input);
+        $row = collect($preview['rows'])->firstWhere('building_id', $this->a['building']->id);
+        $this->assertSame('2026-11', $row['frequency_from']);
+        $this->assertStringContainsString('noviembre 2026', $row['frequency_note']);
+        $this->assertSame('2026-10', collect($preview['rows'])->firstWhere('building_id', $this->buildings[1]->id)['frequency_from']);
 
-        $row = collect($result['rows'])->firstWhere('building_id', $this->a['building']->id);
-        $this->assertSame('skipped', $row['outcome']);
-        $this->assertStringContainsString('noviembre 2026', $row['reason']);
-        $this->assertSame(1, BuildingVisitPlan::where('building_id', $this->a['building']->id)->count()); // sigue trimestral
-        $this->assertSame(0, BuildingVisitPlan::whereIn('building_id', [$this->buildings[1]->id, $this->buildings[2]->id])->count()); // mensual = sin fila
+        $this->service()->apply($this->a['company']->id, $this->ids(), $input, BulkAssignmentService::fingerprint($preview));
+
+        // Agosto–octubre sigue trimestral; quincenal desde noviembre. Los otros, desde octubre.
+        $plans = BuildingVisitPlan::where('building_id', $this->a['building']->id)->orderBy('starts_on')->get();
+        $this->assertSame([['2026-08-01', 3, 1], ['2026-11-01', 1, 2]], $plans->map(fn ($p) => [$p->starts_on->toDateString(), $p->every_months, $p->visits_per_month])->all());
+        $this->assertSame('2026-10-01', BuildingVisitPlan::where('building_id', $this->buildings[1]->id)->sole()->starts_on->toDateString());
     }
 
     public function test_the_individual_assignment_still_works_as_before(): void

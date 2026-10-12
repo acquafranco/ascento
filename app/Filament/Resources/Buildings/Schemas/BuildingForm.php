@@ -15,6 +15,12 @@ use App\Support\CompanyContext;
 use App\Models\Building;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
+use App\Models\Elevator;
+use Filament\Actions\Action;
+use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Repeater;
+use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Section;
 
 class BuildingForm
 {
@@ -182,125 +188,84 @@ class BuildingForm
 
             /*
             |--------------------------------------------------------------------------
-            | ASCENSORES
+            | ASCENSORES Y MONTACARGAS
             |--------------------------------------------------------------------------
+            | Se registra CADA equipo con su tipo y su tracción (la tracción es
+            | de cada equipo, no del edificio). Las cantidades del edificio se
+            | calculan desde los equipos registrados. Quitar un equipo no lo
+            | borra: queda inactivo con su historial (se pide confirmación).
             */
 
-            Grid::make(4)
-            ->schema([
+            Section::make('Ascensores y montacargas')
+                ->description('Indicá cuántos hay y elegí la tracción de cada uno. Sin al menos un equipo no se programan mantenimientos ni inspecciones.')
+                ->icon('heroicon-o-arrows-up-down')
+                ->columnSpanFull()
+                ->schema([
+                    Grid::make(2)->schema([
+                        TextInput::make('equipment_elevators')
+                            ->label('Ascensores')
+                            ->numeric()->integer()->minValue(0)->maxValue(50)
+                            ->inputMode('numeric')
+                            ->dehydrated(false)
+                            ->live(onBlur: true)
+                            ->afterStateHydrated(fn (Set $set, Get $get) => $set('equipment_elevators', self::countKind($get('equipment'), 'elevator')))
+                            ->afterStateUpdated(fn ($state, Get $get, Set $set) => self::resize($get, $set, 'elevator', (int) $state)),
+                        TextInput::make('equipment_freight')
+                            ->label('Montacargas')
+                            ->numeric()->integer()->minValue(0)->maxValue(50)
+                            ->inputMode('numeric')
+                            ->dehydrated(false)
+                            ->live(onBlur: true)
+                            ->afterStateHydrated(fn (Set $set, Get $get) => $set('equipment_freight', self::countKind($get('equipment'), 'freight')))
+                            ->afterStateUpdated(fn ($state, Get $get, Set $set) => self::resize($get, $set, 'freight', (int) $state)),
+                    ]),
 
-
-                TextInput::make('elevator_count')
-                    ->numeric()
-                    ->minValue(0)
-                    ->placeholder('-')
-                    ->inputMode('numeric')
-                    ->extraInputAttributes([
-                        'class' => 'text-center'
-                    ])
-                    ->live()
-                    ->label('Asc.')
-                    ->formatStateUsing(
-                        fn ($state) =>
-                        blank($state) || $state == 0
-                            ? null
-                            : $state
-                    )
-                    ->dehydrateStateUsing(
-                        fn ($state) =>
-                        blank($state)
-                            ? 0
-                            : $state
-                    )
-                    ->afterStateUpdated(
-                        fn (Get $get, Set $set) =>
-                        self::syncElevators($get, $set)
-                    ),
-
-
-
-                TextInput::make('freight_elevator_count')
-                    ->numeric()
-                    ->minValue(0)
-                    ->placeholder('-')
-                    ->inputMode('numeric')
-                    ->extraInputAttributes([
-                        'class' => 'text-center'
-                    ])
-                    ->live()
-                    ->label('Mont.')
-                    ->formatStateUsing(
-                        fn ($state) =>
-                        blank($state) || $state == 0
-                            ? null
-                            : $state
-                    )
-                    ->dehydrateStateUsing(
-                        fn ($state) =>
-                        blank($state)
-                            ? 0
-                            : $state
-                    )
-                    ->afterStateUpdated(
-                        fn (Get $get, Set $set) =>
-                        self::syncElevators($get, $set)
-                    ),
-
-
-
-                TextInput::make('traction_elevator_count')
-                    ->numeric()
-                    ->minValue(0)
-                    ->placeholder('-')
-                    ->inputMode('numeric')
-                    ->extraInputAttributes([
-                        'class' => 'text-center'
-                    ])
-                    ->live()
-                    ->label('Tracción')
-                    ->formatStateUsing(
-                        fn ($state) =>
-                        blank($state) || $state == 0
-                            ? null
-                            : $state
-                    )
-                    ->dehydrateStateUsing(
-                        fn ($state) =>
-                        blank($state)
-                            ? 0
-                            : $state
-                    )
-                    ->afterStateUpdated(
-                        fn (Get $get, Set $set) =>
-                        self::syncElevators($get, $set)
-                    ),
-
-
-
-                TextInput::make('hydraulic_elevator_count')
-                    ->disabled()
-                    ->dehydrated()
-                    ->placeholder('-')
-                    ->extraInputAttributes([
-                        'class' => 'text-center'
-                    ])
-                    ->label('Hidráulicos')
-                    ->formatStateUsing(
-                        fn ($state) =>
-                        blank($state) || $state == 0
-                            ? null
-                            : $state
-                    )
-                    ->dehydrateStateUsing(
-                        fn ($state) =>
-                        blank($state)
-                            ? 0
-                            : $state
-                    ),
-
-            ]),
-
-
+                    Repeater::make('equipment')
+                        ->label('Equipos')
+                        ->hiddenLabel()
+                        ->schema([
+                            Hidden::make('id'),
+                            Hidden::make('label'),
+                            Select::make('kind')
+                                ->label('Tipo de equipo')
+                                ->options(Elevator::KINDS)
+                                ->default('elevator')
+                                ->required()
+                                ->native(false)
+                                // El tipo de un equipo ya registrado no cambia: su nombre es historial.
+                                ->disabled(fn (Get $get) => filled($get('id')))
+                                ->dehydrated()
+                                ->live(),
+                            Select::make('machine_type')
+                                ->label('Tracción')
+                                ->options(Elevator::MACHINE_TYPES)
+                                ->placeholder('Sin especificar')
+                                ->native(false)
+                                // Obligatoria en equipos nuevos; los existentes pueden seguir sin dato.
+                                ->required(fn (Get $get) => blank($get('id')))
+                                ->validationMessages(['required' => 'Elegí la tracción del equipo.'])
+                                ->in(array_keys(Elevator::MACHINE_TYPES)),
+                        ])
+                        ->columns(2)
+                        ->itemLabel(fn (array $state) => filled($state['label'] ?? null)
+                            ? $state['label'].(blank($state['machine_type'] ?? null) ? ' · tracción sin especificar' : '')
+                            : 'Nuevo '.mb_strtolower(Elevator::KINDS[$state['kind'] ?? 'elevator'] ?? 'equipo'))
+                        ->addActionLabel('Agregar equipo')
+                        ->reorderable(false)
+                        ->defaultItems(0)
+                        ->minItems(fn (?Building $record) => $record === null || $record->hasEquipment() ? 1 : 0)
+                        ->validationMessages(['min' => 'Registrá al menos un ascensor o montacargas.'])
+                        ->deleteAction(fn (Action $action) => $action
+                            ->requiresConfirmation()
+                            ->modalHeading('¿Quitar este equipo?')
+                            ->modalDescription('Si ya estaba registrado, no se borra: queda inactivo con su historial (reportes, órdenes, documentos). Se aplica al guardar el edificio.')
+                            ->modalSubmitActionLabel('Quitar'))
+                        ->live()
+                        ->afterStateUpdated(function (Get $get, Set $set) {
+                            $set('equipment_elevators', self::countKind($get('equipment'), 'elevator'));
+                            $set('equipment_freight', self::countKind($get('equipment'), 'freight'));
+                        }),
+                ]),
 
             // Zona / sector (texto libre del admin): filtro del mapa.
             TextInput::make('map_zone')
@@ -342,45 +307,45 @@ class BuildingForm
 
 
 
-    /**
-     * Sincroniza tipos de ascensores
-     */
-    private static function syncElevators(
-        Get $get,
-        Set $set
-    ): void
+    private static function countKind(?array $items, string $kind): int
     {
+        return collect($items ?? [])->where('kind', $kind)->count();
+    }
 
-        $ascensores = (int) $get('elevator_count');
+    /**
+     * Ajusta la lista a la cantidad indicada de un tipo: agrega equipos nuevos
+     * o quita los NUEVOS (todavía sin guardar) del final. Nunca quita equipos
+     * ya registrados por cambiar el número: para eso está el botón de cada
+     * equipo, que pide confirmación.
+     */
+    private static function resize(Get $get, Set $set, string $kind, int $wanted): void
+    {
+        $items = $get('equipment') ?? [];
+        $wanted = max(0, min(50, $wanted));
+        $current = collect($items)->where('kind', $kind);
 
-        $montacargas = (int) $get('freight_elevator_count');
+        if ($current->count() < $wanted) {
+            for ($i = $current->count(); $i < $wanted; $i++) {
+                $items[(string) \Illuminate\Support\Str::uuid()] = ['id' => null, 'label' => null, 'kind' => $kind, 'machine_type' => null];
+            }
+        } else {
+            $toRemove = $current->count() - $wanted;
+            foreach (array_reverse($items, true) as $key => $item) {
+                if ($toRemove > 0 && ($item['kind'] ?? null) === $kind && blank($item['id'] ?? null)) {
+                    unset($items[$key]);
+                    $toRemove--;
+                }
+            }
 
+            if ($toRemove > 0) {
+                Notification::make()
+                    ->title('Para dar de baja un equipo registrado, quitalo de la lista')
+                    ->body('Así se confirma cuál: queda inactivo con su historial, no se borra.')
+                    ->warning()->send();
+            }
+        }
 
-        $total = $ascensores + $montacargas;
-
-
-        $traction = min(
-            (int) $get('traction_elevator_count'),
-            $total
-        );
-
-
-        $hydraulic = max(
-            0,
-            $total - $traction
-        );
-
-
-        $set(
-            'traction_elevator_count',
-            $traction
-        );
-
-
-        $set(
-            'hydraulic_elevator_count',
-            $hydraulic
-        );
-
+        $set('equipment', $items);
+        $set($kind === 'elevator' ? 'equipment_elevators' : 'equipment_freight', collect($items)->where('kind', $kind)->count());
     }
 }
