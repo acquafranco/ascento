@@ -29,6 +29,10 @@ Schedule::command('billing:generate')->dailyAt('06:00')->withoutOverlapping();
 Schedule::command('exports:process')->everyMinute()->withoutOverlapping(30);
 Schedule::command('exports:prune')->dailyAt('03:30');
 
+// Archivos que un proceso concurrente escribió después de eliminar una
+// empresa definitivamente (red de seguridad del borrado).
+Schedule::command('companies:prune-erased-files')->dailyAt('03:45')->withoutOverlapping();
+
 // Recordatorios de la agenda (pendientes desde el día 20, vencidos del mes
 // anterior los días 1 a 5). Cada aviso sale una sola vez por mes.
 Schedule::command('notifications:visits')->dailyAt('08:00')->withoutOverlapping();

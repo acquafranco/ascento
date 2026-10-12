@@ -3,7 +3,9 @@
 namespace App\Filament\Resources\Reports\Tables;
 
 use App\Filament\Support\ClientSharing;
+use App\Models\Company;
 use App\Models\Report;
+use App\Support\CompanyContext;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -75,6 +77,7 @@ class ReportsTable
                 SelectFilter::make('kind')
                     ->label('Tipo')
                     ->options(Report::KIND_LABELS)
+                    ->visible(fn () => CompanyContext::currentId() && Company::hasWorkPhotosById((int) CompanyContext::currentId()))
                     ->default(Report::KIND_INCIDENT),
 
                 SelectFilter::make('priority')

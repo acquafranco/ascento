@@ -121,14 +121,30 @@ class Company extends Model
     }
 
     /**
-     * ¿Se pueden cargar fotos NUEVAS para este tipo de trabajo? Solo rige para
-     * cargas: las fotos ya cargadas se siguen viendo con los mismos permisos.
+     * ¿El plan incluye las funciones fotográficas (fotos de antes y después,
+     * reporte de inspección y su consulta)? Exclusivas del plan Empresa. Con
+     * otro plan las fotos y reportes ya cargados se conservan, sin acceso.
+     */
+    public function hasWorkPhotos(): bool
+    {
+        return $this->plan()->allows(PlanFeature::WorkPhotos);
+    }
+
+    /**
+     * ¿Se pueden cargar fotos NUEVAS para este tipo de trabajo? El plan las
+     * incluye y la empresa las habilitó (interruptor de «Mi empresa»).
      */
     public function photosEnabledFor(?string $type): bool
     {
         $column = self::PHOTO_SETTINGS[$type] ?? null;
 
-        return $column !== null && (bool) $this->{$column};
+        return $column !== null && (bool) $this->{$column} && $this->hasWorkPhotos();
+    }
+
+    /** Ver fotos y reportes de inspección de una empresa (por id, sin instancia). */
+    public static function hasWorkPhotosById(?int $companyId): bool
+    {
+        return $companyId !== null && (bool) static::withTrashed()->find($companyId)?->hasWorkPhotos();
     }
 
     public function visitPhotos()

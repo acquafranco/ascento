@@ -14,6 +14,7 @@ class InspectionInfolist
             JobDetail::summary()->columnSpanFull(),
             JobDetail::inspectionReport()->columnSpanFull(),
             JobDetail::legacyInspectionPhotos()->columnSpanFull(),
+            JobDetail::planLocked('Reporte de inspección')->columnSpanFull(),
         ]);
     }
 }

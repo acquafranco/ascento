@@ -112,7 +112,7 @@ class VisitController extends Controller
             'workOrder' => $target->workOrder,
             'deliveryNote' => $note,
             'inspectionReport' => $target->visit && $target->type === 'inspection'
-                ? Report::withoutGlobalScopes()->where('company_id', $company->id)->where('kind', Report::KIND_INSPECTION)->where('building_visit_id', $target->visit->id)->first(['id'])
+                ? Report::withoutGlobalScopes()->where('company_id', $company->id)->where('kind', Report::KIND_INSPECTION)->where('building_visit_id', $target->visit->id)->whereNull('deleted_at')->first(['id'])
                 : null,
             ...$photos->managerData($user, $target),
             'period' => $target->visit && $target->type !== 'work_order'

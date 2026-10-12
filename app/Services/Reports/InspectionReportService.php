@@ -2,6 +2,7 @@
 
 namespace App\Services\Reports;
 
+use App\Enums\PlanFeature;
 use App\Models\BuildingVisit;
 use App\Models\Company;
 use App\Models\Report;
@@ -9,6 +10,7 @@ use App\Models\ReportPhoto;
 use App\Models\User;
 use App\Services\Visits\PhotoTarget;
 use App\Services\Visits\VisitPhotoService;
+use App\Support\Plans\PlanGuard;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -35,6 +37,9 @@ class InspectionReportService
     /** Visita de inspección de ESA empresa (también en curso). Otra cosa → 404. */
     public function visit(Company $company, int $visitId): BuildingVisit
     {
+        // Reporte de inspección: exclusivo del plan Empresa (también ver uno ya hecho).
+        PlanGuard::for($company)->ensureFeature(PlanFeature::WorkPhotos);
+
         $visit = BuildingVisit::withoutGlobalScopes()->where('company_id', $company->id)->findOrFail($visitId);
 
         abort_unless($visit->visit_type === 'fixed' && $visit->assignment_type === 'inspection', 404);
@@ -53,6 +58,7 @@ class InspectionReportService
             ->where('company_id', $visit->company_id)
             ->where('kind', Report::KIND_INSPECTION)
             ->where('building_visit_id', $visit->id)
+            ->whereNull('deleted_at') // uno en la papelera no se muestra
             ->first();
     }
 

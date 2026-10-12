@@ -2,6 +2,7 @@
 
 namespace App\Services\Visits;
 
+use App\Enums\PlanFeature;
 use App\Models\Building;
 use App\Models\BuildingVisit;
 use App\Models\Company;
@@ -13,6 +14,7 @@ use App\Models\VisitPhoto;
 use App\Models\WorkOrder;
 use App\Services\Media\PhotoProcessor;
 use App\Support\PhotoZones;
+use App\Support\Plans\PlanGuard;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -94,6 +96,11 @@ class VisitPhotoService
      */
     public function managerData(User $user, PhotoTarget $target): array
     {
+        // Sin el plan Empresa: ni fotos ni carga (se conservan, sin acceso).
+        if (! Company::hasWorkPhotosById($target->companyId)) {
+            return ['photos' => collect(), 'sections' => collect(), 'elevators' => collect(), 'canUpload' => false, 'locked' => true];
+        }
+
         $photos = (clone $target->photos())->with(['uploader:id,name', 'elevator:id,label', 'section:id,code,name'])->orderBy('id')->get();
         $zones = PhotoSection::zonesFor($target->companyId, $target->type);
         // Fotos de zonas que ya no se ofrecen (secciones propias de antes, o
@@ -107,6 +114,7 @@ class VisitPhotoService
             'elevators' => Elevator::withoutGlobalScopes()->where('building_id', $target->buildingId)->where('company_id', $target->companyId)
                 ->where('is_active', true)->orderBy('label')->get(['id', 'label']),
             'canUpload' => $this->canUpload($user, $target) && $zones->isNotEmpty(),
+            'locked' => false,
         ];
     }
 
@@ -122,6 +130,7 @@ class VisitPhotoService
     public function upload(User $user, PhotoTarget $target, array $data, UploadedFile $file): VisitPhoto
     {
         abort_unless($this->canWorkOn($user, $target), 404);
+        $this->ensurePlan($target->companyId);
 
         if (! Company::findOrFail($target->companyId)->photosEnabledFor($target->type)) {
             throw ValidationException::withMessages(['photo' => 'La carga de fotos está desactivada para este tipo de trabajo.']);
@@ -228,6 +237,7 @@ class VisitPhotoService
                 ->lockForUpdate()->first();
 
             abort_unless($fresh, 404);
+            $this->ensurePlan((int) $fresh->company_id);
 
             $target = $fresh->target();
 
@@ -249,6 +259,7 @@ class VisitPhotoService
     public function updateSection(User $user, PhotoTarget $target, int $sectionId, ?string $notes, mixed $elevatorId): int
     {
         abort_unless($this->canWorkOn($user, $target), 404);
+        $this->ensurePlan($target->companyId);
 
         // Con las fotos desactivadas para el tipo, lo cargado queda como está.
         if (! $this->canUpload($user, $target)) {
@@ -361,6 +372,12 @@ class VisitPhotoService
         }
 
         return $photo;
+    }
+
+    /** Funciones fotográficas: solo el plan Empresa (403 con el aviso del plan). */
+    public function ensurePlan(int $companyId): void
+    {
+        PlanGuard::for(Company::findOrFail($companyId))->ensureFeature(PlanFeature::WorkPhotos);
     }
 
     private function validElevator(PhotoTarget $target, mixed $elevatorId): ?int

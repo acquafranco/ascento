@@ -4,6 +4,7 @@ namespace App\Filament\Support;
 
 use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
 use App\Filament\Resources\Reports\ReportResource;
+use App\Models\Company;
 use App\Models\DeliveryNote;
 use App\Models\Report;
 use App\Services\Visits\WorkPhotoGallery;
@@ -54,6 +55,7 @@ final class JobDetail
     public static function photos(): Section
     {
         return Section::make('Fotos de antes y después')
+            ->visible(fn (DeliveryNote $record) => self::hasPlan($record))
             ->description('Por zona: Antes a la izquierda, Después a la derecha. Uso interno: no se comparten con el cliente.')
             ->schema([
                 ViewEntry::make('work_photos')->hiddenLabel()->columnSpanFull()
@@ -69,6 +71,7 @@ final class JobDetail
     public static function inspectionReport(): Section
     {
         return Section::make('Reporte de inspección')
+            ->visible(fn (DeliveryNote $record) => self::hasPlan($record))
             ->schema([
                 ViewEntry::make('inspection_report')->hiddenLabel()->columnSpanFull()
                     ->view('filament.partials.inspection-report')
@@ -86,7 +89,7 @@ final class JobDetail
     {
         return Section::make('Fotos cargadas antes del reporte de inspección')
             ->collapsible()->collapsed()
-            ->visible(fn (DeliveryNote $record) => app(WorkPhotoGallery::class)->forDeliveryNote($record, auth()->user())->isNotEmpty())
+            ->visible(fn (DeliveryNote $record) => self::hasPlan($record) && app(WorkPhotoGallery::class)->forDeliveryNote($record, auth()->user())->isNotEmpty())
             ->schema([
                 ViewEntry::make('legacy_photos')->hiddenLabel()->columnSpanFull()
                     ->view('filament.partials.work-photos')
@@ -94,6 +97,19 @@ final class JobDetail
                         'photos' => app(WorkPhotoGallery::class)->forDeliveryNote($record, auth()->user()),
                     ]),
             ]);
+    }
+
+    /** Sin el plan Empresa: en lugar de fotos y reportes, el aviso del plan. */
+    public static function planLocked(string $title): Section
+    {
+        return Section::make($title)
+            ->visible(fn ($record) => ! self::hasPlan($record))
+            ->schema([ViewEntry::make('work_photos_locked')->hiddenLabel()->columnSpanFull()->view('filament.partials.work-photos-locked')]);
+    }
+
+    public static function hasPlan($record): bool
+    {
+        return Company::hasWorkPhotosById($record?->company_id ? (int) $record->company_id : null);
     }
 
     /** Reporte de inspección de la visita del remito (de la misma empresa). */
@@ -107,6 +123,7 @@ final class JobDetail
             ->where('company_id', $record->company_id)
             ->where('kind', Report::KIND_INSPECTION)
             ->where('building_visit_id', $record->building_visit_id)
+            ->whereNull('deleted_at')
             ->with(['photos', 'user:id,name'])
             ->first();
 

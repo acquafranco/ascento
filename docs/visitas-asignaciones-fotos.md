@@ -282,3 +282,17 @@
 - Bloqueos: una suscripción de Mercado Pago que todavía puede cobrar (cancelarla primero) o registros de otra empresa hechos por usuarios de esta.
 - Queda registrado en el log de la aplicación («Empresa eliminada definitivamente»: empresa, quién, registros y archivos). No hay tabla de auditoría.
 - Los respaldos del sistema ya generados siguen conteniendo los datos de la empresa hasta que rotan.
+
+## Plan Empresa (funciones fotográficas)
+
+- Fotos de antes y después de mantenimientos y órdenes, reporte de inspección (con o sin fotos) y la consulta de todo eso en el panel son exclusivas del plan **Empresa** (`PlanFeature::WorkPhotos`, migración `2026_11_20_100100`, que solo suma la clave a ese plan). La prueba gratis (Profesional), Inicial y Profesional no las tienen.
+- Se verifica en el servidor en cada operación: abrir la visita en curso (`visits/start`), cargar, quitar o anotar fotos, ver el archivo privado (404), reporte de inspección (ver, crear, editar, quitar fotos, PDF: 403/404), listado de Reportes del panel (sin los de inspección) e interruptores de «Mi empresa» (bloqueados). La interfaz además oculta botones y muestra el aviso del plan.
+- Inicial y Profesional siguen con visitas, firmas y remitos como siempre (el remito no pasa por la visita en curso).
+- Cambiar de plan no borra nada: fotos, reportes, archivos e interruptores quedan guardados y vuelven a verse al pasar a Empresa.
+
+## Eliminación de empresas: otras empresas y procesos concurrentes
+
+- Un usuario del portal con un acceso (aunque esté desactivado) en otra empresa se conserva y queda en esa empresa; su acceso allí sigue como estaba (desactivado = sin portal). Un usuario que no es del portal vinculado a otra empresa bloquea el borrado (no se borra ni se muda).
+- Una exportación que se está generando bloquea el borrado. Si una exportación termina después del borrado, su archivo se descarta. Una foto que se estaba procesando no se guarda (su visita ya no existe) y se borra.
+- Red de seguridad: `companies:prune-erased-files` (todos los días a las 03:45) borra las carpetas `visits/`, `reports/`, `elevators/`, `exports/` (y `reports/` del disco público) de ids de empresas que ya no existen. Nunca toca empresas existentes o desactivadas.
+- Una inspección cuyo reporte está en la papelera se puede descartar: el reporte se conserva en la papelera, desvinculado. Un reporte en la papelera no figura como hecho.

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\WorkOrders\Schemas;
 
+use App\Filament\Support\JobDetail;
 use App\Models\Building;
 use App\Models\WorkOrder;
 use App\Services\Visits\WorkPhotoGallery;
@@ -221,11 +222,15 @@ class WorkOrderForm
                     ->columnSpanFull()
                     ->visible(fn (?WorkOrder $record) => $record !== null)
                     ->schema([
+                        // Exclusivas del plan Empresa: con otro plan, el aviso (las fotos se conservan).
                         View::make('filament.partials.work-photos')
+                            ->visible(fn (?WorkOrder $record) => JobDetail::hasPlan($record))
                             ->viewData(fn (?WorkOrder $record) => [
                                 'photos' => $record ? app(WorkPhotoGallery::class)->forWorkOrder($record, Auth::user()) : collect(),
                                 'emptyText' => 'Esta orden no tiene fotos.',
                             ]),
+                        View::make('filament.partials.work-photos-locked')
+                            ->visible(fn (?WorkOrder $record) => ! JobDetail::hasPlan($record)),
                     ]),
             ]);
     }

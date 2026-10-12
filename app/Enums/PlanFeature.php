@@ -42,6 +42,10 @@ enum PlanFeature: string
     case AdvancedIndicators = 'advanced_indicators';
     case AdvancedAlerts = 'advanced_alerts';
 
+    // Fotos de antes y después (mantenimientos y órdenes), reporte de
+    // inspección con fotos y su consulta desde el panel.
+    case WorkPhotos = 'work_photos';
+
     public function label(): string
     {
         return match ($this) {
@@ -68,6 +72,7 @@ enum PlanFeature: string
             self::ReportVideos => 'Video en los reportes',
             self::AdvancedIndicators => 'Indicadores avanzados y cartera',
             self::AdvancedAlerts => 'Alertas avanzadas',
+            self::WorkPhotos => 'Fotos de los trabajos y reportes de inspección',
         };
     }
 
@@ -85,6 +90,7 @@ enum PlanFeature: string
             self::AdvancedAlerts => 'alertas de tendencias, contratos por vencer y deudas viejas',
             self::ClientPortal => 'portal para que cada consorcio o administración vea lo que le compartís de sus edificios',
             self::ReportVideos => 'un video por reporte para mostrar la falla',
+            self::WorkPhotos => 'fotos de antes y después de mantenimientos y órdenes, y reportes de inspección con fotos',
             default => mb_strtolower($this->label()),
         };
     }

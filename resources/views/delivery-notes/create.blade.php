@@ -41,6 +41,25 @@
     @endif
 
     {{-- Sin fotos en el remito: las de antes y después se cargan y se ven en su trabajo (Visitas o Trabajos). --}}
+    @if(! $workOrder && ($assignmentType ?? null) === 'inspection' && auth()->user()->company?->hasWorkPhotos() && ! ($visitInfo['blocked'] ?? null))
+        {{-- Inspección (plan Empresa): acceso al reporte antes de firmar. Fuera del formulario del remito. --}}
+        <section class="t-card mb-4 flex items-center justify-between gap-3 px-4 py-3" data-remito-inspection-report>
+            <span class="text-sm text-ink-700">Observaciones y fotos de la inspección</span>
+            @if($visitInfo['open_visit'] ?? null)
+                <a href="{{ route('inspection-reports.show', ['company' => auth()->user()->company->slug, 'visit' => $visitInfo['open_visit']->id]) }}" class="t-btn-secondary t-btn-sm shrink-0">Reporte</a>
+            @else
+                <form method="POST" action="{{ route('visits.start', ['company' => auth()->user()->company->slug]) }}">
+                    @csrf
+                    <input type="hidden" name="building_id" value="{{ $building->id }}">
+                    <input type="hidden" name="assignment_type" value="inspection">
+                    <input type="hidden" name="month" value="{{ $month }}">
+                    <input type="hidden" name="year" value="{{ $year }}">
+                    <input type="hidden" name="then" value="report">
+                    <button type="submit" class="t-btn-secondary t-btn-sm shrink-0">Crear reporte</button>
+                </form>
+            @endif
+        </section>
+    @endif
     <form method="POST" action="{{ route('delivery-notes.store', ['company' => auth()->user()->company->slug]) }}" id="remito-form" class="space-y-4"
           data-draft="remito.{{ auth()->id() }}.{{ $building->id }}.{{ $workOrder ? 'ot'.$workOrder->id : $assignmentType }}" @if($errors->any()) data-draft-restore="off" @endif>
         @csrf

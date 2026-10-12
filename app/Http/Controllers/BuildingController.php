@@ -119,9 +119,13 @@ class BuildingController extends Controller
         // Reportes de inspección ya hechos («Ver reporte» en vez de «Crear reporte»).
         $inspectionReports = $visitIds === [] ? [] : Report::withoutGlobalScopes()
             ->where('company_id', $user->company_id)->where('kind', Report::KIND_INSPECTION)
-            ->whereIn('building_visit_id', $visitIds)->pluck('id', 'building_visit_id')->all();
+            ->whereIn('building_visit_id', $visitIds)->whereNull('deleted_at')->pluck('id', 'building_visit_id')->all();
+
+        // Fotos y reportes de inspección: exclusivos del plan Empresa.
+        $workPhotos = $company->hasWorkPhotos();
 
         return view('buildings.index', compact(
+            'workPhotos',
             'inspectionReports',
             'photoTypes',
             'photoCounts',

@@ -87,6 +87,11 @@ class Report extends Model
             return false;
         }
 
+        // Reporte de inspección: exclusivo del plan Empresa (se conserva, sin acceso).
+        if ($this->isInspection() && ! Company::hasWorkPhotosById((int) $this->company_id)) {
+            return false;
+        }
+
         if ($user->isSuperAdmin()) {
             return (int) CompanyContext::currentId() === (int) $this->company_id;
         }

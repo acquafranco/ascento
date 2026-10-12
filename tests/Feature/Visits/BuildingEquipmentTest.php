@@ -26,7 +26,19 @@ use Tests\TestCase;
  */
 class BuildingEquipmentTest extends TestCase
 {
-    use InteractsWithTenants, RefreshDatabase;
+    use InteractsWithTenants {
+        makeTenant as makeTenantOnTrial;
+    }
+    use RefreshDatabase;
+
+    /** Las funciones fotográficas son del plan Empresa: las empresas de estas pruebas lo tienen. */
+    protected function makeTenant(): array
+    {
+        $tenant = $this->makeTenantOnTrial();
+        $this->giveCompanyPlan($tenant['company'], 'empresa');
+
+        return $tenant;
+    }
 
     private array $a;
 

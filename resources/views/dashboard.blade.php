@@ -10,6 +10,8 @@
     $typeLabels = \App\Services\Insights\MaintenanceAgenda::TYPES;
     $monthTotal = $month['expected'];
     $monthAssigned = $month['progress']['total']['assigned'];
+    // Reporte de inspección: exclusivo del plan Empresa.
+    $workPhotos = (bool) auth()->user()->company?->hasWorkPhotos();
 @endphp
 <x-app-layout>
 <div class="t-page">
@@ -101,6 +103,25 @@
                                     </span>
                                     <span class="t-btn-secondary t-btn-sm shrink-0">Hacer remito</span>
                                 </a>
+                                {{-- Inspección (plan Empresa): el reporte, antes de firmar el remito. --}}
+                                @if($row['type'] === 'inspection' && $workPhotos)
+                                    @php $openInspection = $row['visits']->first(fn ($v) => $v->in_progress); @endphp
+                                    <div class="-mt-1 px-4 pb-3" data-home-inspection-report>
+                                        @if($openInspection)
+                                            <a href="{{ route('inspection-reports.show', ['company' => $slug, 'visit' => $openInspection->id]) }}" class="text-sm font-semibold text-brand-700 underline">Reporte de la inspección</a>
+                                        @else
+                                            <form method="POST" action="{{ route('visits.start', ['company' => $slug]) }}">
+                                                @csrf
+                                                <input type="hidden" name="building_id" value="{{ $row['building']->id }}">
+                                                <input type="hidden" name="assignment_type" value="inspection">
+                                                <input type="hidden" name="month" value="{{ now()->month }}">
+                                                <input type="hidden" name="year" value="{{ now()->year }}">
+                                                <input type="hidden" name="then" value="report">
+                                                <button type="submit" class="text-sm font-semibold text-brand-700 underline">Crear reporte</button>
+                                            </form>
+                                        @endif
+                                    </div>
+                                @endif
                             @endforeach
                         </div>
                         @if($month['pending'] > $month['next']->count())

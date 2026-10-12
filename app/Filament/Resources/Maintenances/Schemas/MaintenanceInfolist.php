@@ -13,6 +13,7 @@ class MaintenanceInfolist
         return $schema->components([
             JobDetail::summary()->columnSpanFull(),
             JobDetail::photos()->columnSpanFull(),
+            JobDetail::planLocked('Fotos de antes y después')->columnSpanFull(),
         ]);
     }
 }

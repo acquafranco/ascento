@@ -62,6 +62,18 @@ class CompanyExportService
         try {
             $result = $this->exporter->export($export);
 
+            // La empresa (o la exportación) se eliminó mientras se generaba: el
+            // archivo no queda huérfano con sus datos.
+            if (! CompanyExport::withoutGlobalScopes()->whereKey($export->id)->exists()
+                || ! DB::table('companies')->where('id', $export->company_id)->exists()) {
+                if (str_starts_with((string) $result['path'], 'exports/'.$export->company_id.'/') && ! str_contains((string) $result['path'], '..')) {
+                    Storage::disk('local')->delete($result['path']);
+                }
+                Log::warning('Exportación descartada: la empresa se eliminó mientras se generaba', ['export_id' => $export->id, 'company_id' => $export->company_id]);
+
+                return $export;
+            }
+
             $export->forceFill([
                 'status' => CompanyExport::COMPLETED,
                 'path' => $result['path'],
@@ -86,9 +98,14 @@ class CompanyExportService
             ])->save();
         }
 
-        $this->notifyRequester($export->fresh());
+        // La exportación ya no existe (se eliminó la empresa mientras fallaba): nada que avisar.
+        if (! ($fresh = $export->fresh())) {
+            return $export;
+        }
 
-        return $export->fresh();
+        $this->notifyRequester($fresh);
+
+        return $fresh;
     }
 
     /**

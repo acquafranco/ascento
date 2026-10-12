@@ -18,7 +18,19 @@ use Tests\TestCase;
  */
 class CompanyPhotoSettingsTest extends TestCase
 {
-    use InteractsWithTenants, RefreshDatabase;
+    use InteractsWithTenants {
+        makeTenant as makeTenantOnTrial;
+    }
+    use RefreshDatabase;
+
+    /** Las funciones fotográficas son del plan Empresa: las empresas de estas pruebas lo tienen. */
+    protected function makeTenant(): array
+    {
+        $tenant = $this->makeTenantOnTrial();
+        $this->giveCompanyPlan($tenant['company'], 'empresa');
+
+        return $tenant;
+    }
 
     public function test_the_photo_switches_start_off_and_save_exactly_what_the_screen_shows(): void
     {

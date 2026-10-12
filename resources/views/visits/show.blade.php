@@ -45,7 +45,10 @@
         <div class="t-alert-error mb-4" role="alert">{{ $errors->first() }}</div>
     @endif
 
-    @if($target->type === 'inspection')
+    @if($locked ?? false)
+        {{-- Sin el plan Empresa: ni fotos ni reporte (se conservan, sin acceso). --}}
+        <section class="t-card p-4 text-sm text-ink-700" data-plan-locked="work_photos">Las fotos de los trabajos y los reportes de inspección están disponibles en el plan Empresa de tu empresa.</section>
+    @elseif($target->type === 'inspection')
         {{-- Inspección: observaciones y fotos van en su reporte (no es una reparación). --}}
         <section class="t-card p-4" data-inspection-report-card>
             <h2 class="font-bold text-ink">Reporte de inspección</h2>
