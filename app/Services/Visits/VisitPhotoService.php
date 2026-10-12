@@ -181,7 +181,9 @@ class VisitPhotoService
 
     /**
      * Quitar una foto: solo quien la subió (las fotos no forman parte del
-     * remito firmado). Bajo bloqueo; borra también sus archivos.
+     * remito firmado), mientras trabaje en esa visita u orden y las fotos de
+     * ese tipo estén habilitadas (desactivarlas congela el historial). Bajo
+     * bloqueo; borra también sus archivos.
      */
     public function remove(User $user, VisitPhoto $photo): void
     {
@@ -191,6 +193,14 @@ class VisitPhotoService
                 ->lockForUpdate()->first();
 
             abort_unless($fresh, 404);
+
+            $target = $fresh->target();
+
+            if ($target && ! $this->canUpload($user, $target)) {
+                abort_unless($this->canWorkOn($user, $target), 404);
+
+                throw ValidationException::withMessages(['photo' => 'La carga de fotos está desactivada para este tipo de trabajo: las fotos ya cargadas se conservan.']);
+            }
 
             $fresh->delete();
         });
@@ -204,6 +214,11 @@ class VisitPhotoService
     public function updateSection(User $user, PhotoTarget $target, int $sectionId, ?string $notes, mixed $elevatorId): int
     {
         abort_unless($this->canWorkOn($user, $target), 404);
+
+        // Con las fotos desactivadas para el tipo, lo cargado queda como está.
+        if (! $this->canUpload($user, $target)) {
+            throw ValidationException::withMessages(['photo' => 'La carga de fotos está desactivada para este tipo de trabajo.']);
+        }
 
         $text = trim((string) $notes);
 
@@ -285,14 +300,19 @@ class VisitPhotoService
     |--------------------------------------------------------------------------
     */
 
+    /**
+     * Bloquea la visita u orden. Si la visita se descartó mientras la foto
+     * subía (o la orden se borró), no se guarda nada: sin esto la foto
+     * quedaba apuntando a una visita inexistente (error de base o archivo
+     * huérfano).
+     */
     private function lock(PhotoTarget $target): void
     {
-        if ($target->visit) {
-            BuildingVisit::withoutGlobalScopes()->whereKey($target->visit->id)->lockForUpdate()->first();
-        }
+        $gone = ($target->visit && ! BuildingVisit::withoutGlobalScopes()->whereKey($target->visit->id)->lockForUpdate()->exists())
+            || ($target->workOrder && ! WorkOrder::withoutGlobalScopes()->whereKey($target->workOrder->id)->whereNull('deleted_at')->lockForUpdate()->exists());
 
-        if ($target->workOrder) {
-            WorkOrder::withoutGlobalScopes()->whereKey($target->workOrder->id)->lockForUpdate()->first();
+        if ($gone) {
+            throw ValidationException::withMessages(['photo' => 'Esta visita u orden ya no existe (se descartó o se borró). Recargá la página.']);
         }
     }
 

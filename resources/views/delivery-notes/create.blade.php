@@ -55,9 +55,9 @@
         <input type="hidden" name="year" value="{{ $year }}">
         <input type="hidden" name="elevator_quantity" value="{{ $building->elevator_count }}">
         <input type="hidden" name="freight_elevator_quantity" value="{{ $building->freight_elevator_count }}">
-        {{-- Si el servidor rechazó el envío por otro campo, la firma vuelve cargada (solo si es una imagen válida). --}}
+        {{-- Si el servidor rechazó el envío por otro campo, la firma vuelve cargada, solo si es una firma válida (imagen real con trazo): una en blanco o inválida se vuelve a firmar. --}}
         @php
-            $oldSignature = fn (string $field) => is_string(old($field)) && preg_match(\App\Support\DeliveryNotes\SignatureImage::PATTERN, old($field)) ? old($field) : '';
+            $oldSignature = fn (string $field) => ! $errors->has($field) && is_string(old($field)) && \App\Support\DeliveryNotes\SignatureImage::normalize(old($field))[1] === null ? old($field) : '';
         @endphp
         <input type="hidden" name="signature" id="sig-tech-input" value="{{ $oldSignature('signature') }}">
         <input type="hidden" name="client_signature" id="sig-client-input" value="{{ $oldSignature('client_signature') }}">
@@ -504,6 +504,17 @@ form.addEventListener('submit', function (e) {
 
     pads.tech.hiddenInput.value = pads.tech.dataURL;
     pads.client.hiddenInput.value = pads.client.dataURL || '';
+});
+
+// Volver atrás después de enviar (p. ej. desde una página de error sin
+// señal): el navegador puede restaurar esta página desde su caché con el
+// botón deshabilitado. Se rehabilita; el token del formulario evita duplicar.
+const submitText = document.getElementById('submit-text').textContent;
+window.addEventListener('pageshow', function (e) {
+    if (!e.persisted) return;
+    sending = false;
+    document.getElementById('submit-remito').disabled = false;
+    document.getElementById('submit-text').textContent = submitText;
 });
 
 });

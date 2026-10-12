@@ -93,7 +93,12 @@
                                         <span class="asc-small asc-muted">{{ $row['done'] }} de {{ $row['period']->expected }}</span>
                                     @endif
                                     @foreach($row['visits'] as $visit)
-                                        <div class="asc-small asc-muted">{{ $row['period']->expected > 1 ? 'Visita '.$visit->slot.': ' : '' }}{{ $visit->visited_at?->format('d/m') }} · {{ $visit->user?->name }}{{ $visit->deliveryNote?->performed === false ? ' · no realizado' : '' }}</div>
+                                        @if($visit->in_progress)
+                                            {{-- Abierta para cargar fotos y sin remito: sigue pendiente. La oficina la abre para ver sus fotos o descartarla. --}}
+                                            <div class="asc-small asc-muted" data-open-visit>{{ $row['period']->expected > 1 ? 'Visita '.$visit->slot.': ' : '' }}en curso desde el {{ ($visit->started_at ?? $visit->created_at)?->format('d/m') }} · {{ $visit->user?->name }} · sin remito @if($visitsSlug ?? null)· <a class="asc-link" href="{{ route('visits.show', ['company' => $visitsSlug, 'visit' => $visit->id]) }}" target="_blank" rel="noopener">Ver o descartar</a>@endif</div>
+                                        @else
+                                            <div class="asc-small asc-muted">{{ $row['period']->expected > 1 ? 'Visita '.$visit->slot.': ' : '' }}{{ $visit->visited_at?->format('d/m') }} · {{ $visit->user?->name }}{{ $visit->deliveryNote?->performed === false ? ' · no realizado' : '' }}</div>
+                                        @endif
                                     @endforeach
                                 </td>
                             </tr>

@@ -108,7 +108,10 @@ class Indicators
     {
         $now = now();
         $summary = $this->agenda->summary($now->month, $now->year, 'maintenance');
-        $due = $summary['done'] + $summary['not_done'] + $summary['pending'] + $summary['overdue'] + $summary['unassigned'];
+        // VISITAS previstas y realizadas, con la misma cuenta que la Agenda y
+        // la app del técnico (MaintenanceAgenda::progress): un edificio
+        // quincenal suma 2, uno trimestral solo en el mes que le toca.
+        $visits = MaintenanceAgenda::progress($this->agenda->rows($now->month, $now->year, 'maintenance'))['maintenance'];
 
         $open = WorkOrder::whereIn('status', ['pending', 'in_progress'])->get(['created_at']);
         $thisMonth = $this->claims($now->copy()->startOfMonth(), $now);
@@ -117,8 +120,8 @@ class Indicators
         return [
             [
                 'question' => '¿Estamos cumpliendo los mantenimientos de este mes?',
-                'value' => $due > 0 ? $this->pct($summary['done'], $due).'%' : '—',
-                'context' => "{$summary['done']} de {$due} hechos".($summary['not_done'] ? " · {$summary['not_done']} no realizados" : '').($summary['unassigned'] ? " · {$summary['unassigned']} sin técnico" : ''),
+                'value' => $visits['percent'] !== null ? $visits['percent'].'%' : '—',
+                'context' => "{$visits['done']} de {$visits['expected']} visitas realizadas".($visits['not_done'] ? " · {$visits['not_done']} no realizadas" : '').($summary['unassigned'] ? " · {$summary['unassigned']} sin técnico" : ''),
             ],
             [
                 'question' => '¿Cuánto trabajo tenemos abierto?',
@@ -141,12 +144,12 @@ class Indicators
         $months = collect(range(5, 0))->map(function (int $back) {
             $start = now()->subMonthsNoOverflow($back)->startOfMonth();
             $end = $start->copy()->endOfMonth();
-            $s = $this->agenda->summary($start->month, $start->year, 'maintenance');
-            $due = array_sum($s) - $s['upcoming'] - $s['covered'] - $s['no_equipment']; // ni "hecho en el período" ni "sin equipos" son visitas de este mes
+            // Visitas realizadas sobre previstas (misma cuenta que la Agenda).
+            $visits = MaintenanceAgenda::progress($this->agenda->rows($start->month, $start->year, 'maintenance'))['maintenance'];
 
             return [
                 'month' => ucfirst($start->locale('es')->translatedFormat('M Y')),
-                'maintenance' => $due > 0 ? $this->pct($s['done'], $due).'%' : '—',
+                'maintenance' => $visits['percent'] !== null ? $visits['percent'].'%' : '—',
                 'claims' => $this->claims($start, $end),
                 'completed' => WorkOrder::where('status', 'completed')->whereBetween('finished_at', [$start, $end])->count(),
                 'close_days' => $this->avgCloseDays($start, $end),

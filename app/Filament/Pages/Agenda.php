@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Enums\PlanFeature;
 use App\Filament\Concerns\RequiresPlanFeature;
+use App\Models\Company;
 use App\Models\User;
 use App\Services\Insights\MaintenanceAgenda;
 use App\Support\CompanyContext;
@@ -137,6 +138,9 @@ class Agenda extends Page
             'summary' => $agenda->summary($period->month, $period->year, $type),
             'period' => $period,
             'progress' => MaintenanceAgenda::progress($unfiltered),
+            // Visitas en curso (sin remito): el admin de la empresa las abre en
+            // la app para ver sus fotos o descartarlas (el SuperAdmin, no).
+            'visitsSlug' => auth()->user()?->isAdmin() ? Company::whereKey(CompanyContext::currentId())->value('slug') : null,
         ];
     }
 }

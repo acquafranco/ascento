@@ -99,7 +99,7 @@
                                             <a href="{{ $photo->url() }}" target="_blank" rel="noopener" aria-label="Ver foto de {{ $section->name }}, {{ mb_strtolower($stageLabel) }}">
                                                 <img src="{{ $photo->thumbUrl() }}" alt="" loading="lazy" class="h-full w-full object-cover">
                                             </a>
-                                            @if((int) $photo->uploaded_by === (int) $me)
+                                            @if($canUpload && (int) $photo->uploaded_by === (int) $me)
                                                 <button type="button" class="absolute right-1 top-1 rounded-full bg-white/90 px-2 py-0.5 text-xs font-bold text-red-700 shadow" data-remove
                                                         data-delete-url="{{ route('visit-photos.destroy', ['company' => $slug, 'visitPhoto' => $photo->id]) }}" aria-label="Quitar foto">✕</button>
                                             @endif
