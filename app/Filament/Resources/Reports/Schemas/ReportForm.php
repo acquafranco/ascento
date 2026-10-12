@@ -2,14 +2,14 @@
 
 namespace App\Filament\Resources\Reports\Schemas;
 
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Textarea;
-use Filament\Schemas\Schema;
 use App\Models\Building;
 use App\Models\Report;
 use App\Services\Reports\ReportPhotoService;
+use App\Support\ElevatorComponents;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Schemas\Schema;
 
 class ReportForm
 {
@@ -23,6 +23,8 @@ class ReportForm
                     ->searchable()
                     ->preload()
                     ->live()
+                    // El reporte de una inspección queda en el edificio de su visita.
+                    ->disabled(fn (?Report $record) => (bool) $record?->isInspection())
                     ->required(),
                 Select::make('elevator_number')
                     ->label('Ascensor')
@@ -40,10 +42,12 @@ class ReportForm
                         return array_combine($labels, $labels) ?: [];
                     })
                     ->live()
+                    ->visible(fn (?Report $record) => ! $record?->isInspection())
                     ->required(),
                 Select::make('component')
                     ->label('Componente afectado (opcional)')
-                    ->options(\App\Support\ElevatorComponents::LIST)
+                    ->visible(fn (?Report $record) => ! $record?->isInspection())
+                    ->options(ElevatorComponents::LIST)
                     ->helperText('Sirve para el análisis de fallas del ascensor.'),
                 // Las fotos NO las guarda Filament: las procesa ReportPhotoService
                 // (re-codifica, achica, disco privado). Las ya cargadas se ven y
@@ -61,7 +65,7 @@ class ReportForm
                     ->dehydrated(true)
                     ->columnSpanFull(),
                 Textarea::make('description')
-                    ->label('Descripción')
+                    ->label(fn (?Report $record) => $record?->isInspection() ? 'Observaciones de la inspección' : 'Descripción')
                     ->required()
                     ->maxLength(5000)
                     ->columnSpanFull(),
@@ -74,11 +78,14 @@ class ReportForm
                     ->label('Prioridad')
                     ->options(['baja' => 'Baja', 'media' => 'Media', 'alta' => 'Alta', 'critica' => 'Critica'])
                     ->default('baja')
+                    // Una inspección no es una reparación: sin prioridad ni estado.
+                    ->visible(fn (?Report $record) => ! $record?->isInspection())
                     ->required(),
                 Select::make('status')
                     ->label('Estado')
                     ->options(['pendiente' => 'Pendiente', 'en_revision' => 'En revision', 'resuelto' => 'Resuelto'])
                     ->default('pendiente')
+                    ->visible(fn (?Report $record) => ! $record?->isInspection())
                     ->required(),
             ]);
     }

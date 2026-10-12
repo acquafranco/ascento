@@ -73,7 +73,7 @@ class Elevator extends Model
     /** Reportes de este equipo (mismo edificio y label). */
     public function reports()
     {
-        return Report::where('building_id', $this->building_id)->where('elevator_number', $this->label);
+        return Report::incidents()->where('building_id', $this->building_id)->where('elevator_number', $this->label);
     }
 
     /** Órdenes de trabajo de este equipo. */

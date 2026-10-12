@@ -8,7 +8,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>Reporte #{{ $report->id }}</title>
+<title>{{ $report->isInspection() ? 'Reporte de inspección' : 'Reporte' }} #{{ $report->id }}</title>
 <style>
     @page { margin: 18mm 14mm 20mm 14mm; }
     * { font-family: 'DejaVu Sans', sans-serif; }
@@ -53,7 +53,7 @@
             </div>
         </td>
         <td style="width: 40%;">
-            <div class="doc-title">Reporte técnico #{{ $report->id }}</div>
+            <div class="doc-title">{{ $report->isInspection() ? 'Reporte de inspección' : 'Reporte técnico' }} #{{ $report->id }}</div>
             <div class="muted" style="text-align: right;">{{ $report->created_at?->format('d/m/Y H:i') }}</div>
         </td>
     </tr>
@@ -64,26 +64,33 @@
     <table class="data">
         <tr><td class="label">Cliente</td><td>{{ $building?->client?->name ?? '—' }}</td></tr>
         <tr><td class="label">Edificio</td><td>{{ $building?->name ?? '—' }}@if($building?->address) — {{ $building->address }}@endif</td></tr>
-        <tr><td class="label">Equipo</td><td>{{ $report->elevator_number ?: '—' }}</td></tr>
-        <tr><td class="label">Técnico</td><td>{{ $report->user?->name ?? '—' }}</td></tr>
+        <tr><td class="label">Equipo</td><td>{{ $report->elevator_number ?: ($report->isInspection() ? 'General del edificio' : '—') }}</td></tr>
+        <tr><td class="label">{{ $report->isInspection() ? 'Inspector' : 'Técnico' }}</td><td>{{ $report->user?->name ?? '—' }}</td></tr>
         <tr><td class="label">Fecha</td><td>{{ $report->created_at?->format('d/m/Y H:i') }}</td></tr>
-        <tr>
-            <td class="label">Tipo</td>
-            <td>Reporte de problema · Prioridad <span class="badge p-{{ $report->priority }}">{{ $priorities[$report->priority] ?? $report->priority }}</span></td>
-        </tr>
-        <tr><td class="label">Estado</td><td>{{ $statuses[$report->status] ?? ($report->status ?: 'Pendiente') }}</td></tr>
+        @if($report->isInspection())
+            {{-- Una inspección no es una reparación: sin prioridad ni estado. --}}
+            <tr><td class="label">Tipo</td><td>Inspección</td></tr>
+        @else
+            <tr>
+                <td class="label">Tipo</td>
+                <td>Reporte de problema · Prioridad <span class="badge p-{{ $report->priority }}">{{ $priorities[$report->priority] ?? $report->priority }}</span></td>
+            </tr>
+            <tr><td class="label">Estado</td><td>{{ $statuses[$report->status] ?? ($report->status ?: 'Pendiente') }}</td></tr>
+        @endif
     </table>
 </div>
 
 <div class="section">
-    <h2>Descripción del problema</h2>
+    <h2>{{ $report->isInspection() ? 'Observaciones de la inspección' : 'Descripción del problema' }}</h2>
     <div class="text">{{ $report->description }}</div>
 </div>
 
+@if(! $report->isInspection() || filled($report->observations))
 <div class="section">
-    <h2>Observaciones</h2>
+    <h2>{{ $report->isInspection() ? 'Notas de la oficina' : 'Observaciones' }}</h2>
     <div class="text">{{ $report->observations ?: 'Sin observaciones.' }}</div>
 </div>
+@endif
 
 @if($photos->isEmpty())
     <div class="section">

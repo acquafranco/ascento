@@ -2,41 +2,43 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Report;
-use App\Services\Reports\ReportPhotoService;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
+use App\Enums\PlanLimit;
+use App\Jobs\NotifyCompanyAdmins;
 use App\Models\Building;
 use App\Models\Company;
-
+use App\Models\Report;
+use App\Services\Reports\ReportPhotoService;
+use App\Services\Reports\ReportVideoService;
+use App\Support\ElevatorComponents;
+use App\Support\Plans\PlanGuard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Notifications\NewReportNotification;
-use App\Models\User;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class ReportController extends Controller
 {
-
-
     public function index(Company $company)
-{
-    abort_unless(
-        auth()->user()->company_id === $company->id,
-        403
-    );
-    $reports = Report::with([
+    {
+        abort_unless(
+            auth()->user()->company_id === $company->id,
+            403
+        );
+        $reports = Report::with([
             'building',
-            'user'
+            'user',
         ])
-        ->where('company_id', $company->id)
-        ->where('company_id', auth()->user()->company_id)
-        ->where('user_id', auth()->id())
-        ->latest()
-        ->paginate(15);
+            ->where('company_id', $company->id)
+            ->where('company_id', auth()->user()->company_id)
+            ->where('user_id', auth()->id())
+            // Los reportes de inspección se ven desde su inspección (Visitas).
+            ->incidents()
+            ->latest()
+            ->paginate(15);
 
-    return view('reports.index', compact('reports', 'company'));
-}
-
+        return view('reports.index', compact('reports', 'company'));
+    }
 
     public function create(Company $company)
     {
@@ -46,11 +48,11 @@ class ReportController extends Controller
         );
 
         // Cupo mensual de reportes del plan: se avisa ANTES de completar el formulario.
-        $guard = \App\Support\Plans\PlanGuard::for($company);
-        $limit = \App\Enums\PlanLimit::ReportsPerMonth;
+        $guard = PlanGuard::for($company);
+        $limit = PlanLimit::ReportsPerMonth;
 
         if (! $guard->canAdd($limit)) {
-            \App\Jobs\NotifyCompanyAdmins::reportLimitReached($company);
+            NotifyCompanyAdmins::reportLimitReached($company);
 
             return view('reports.limit', [
                 'company' => $company,
@@ -85,7 +87,6 @@ class ReportController extends Controller
             ->sortByDesc('mine')
             ->values();
 
-
         return view(
             'reports.create',
             compact(
@@ -113,12 +114,10 @@ class ReportController extends Controller
         return view('reports.show', compact('report', 'company'));
     }
 
-
     public function store(
         Request $request,
         Company $company
-    )
-    {
+    ) {
         abort_unless(
             auth()->user()->company_id === $company->id,
             403
@@ -132,8 +131,8 @@ class ReportController extends Controller
             : back()->withErrors($errors)->withInput();
 
         // Antes de procesar la foto: ¿queda cupo de reportes este mes?
-        if (! \App\Support\Plans\PlanGuard::for($company)->canAdd(\App\Enums\PlanLimit::ReportsPerMonth)) {
-            \App\Jobs\NotifyCompanyAdmins::reportLimitReached($company);
+        if (! PlanGuard::for($company)->canAdd(PlanLimit::ReportsPerMonth)) {
+            NotifyCompanyAdmins::reportLimitReached($company);
 
             $url = route('reports.create', ['company' => $company->slug]);
 
@@ -145,11 +144,11 @@ class ReportController extends Controller
             'elevator_number' => 'required|string|max:255',
             'description' => 'required|string|min:5|max:5000',
             'priority' => 'required|in:baja,media,alta,critica',
-            'component' => ['nullable', \Illuminate\Validation\Rule::in(array_keys(\App\Support\ElevatorComponents::LIST))],
+            'component' => ['nullable', Rule::in(array_keys(ElevatorComponents::LIST))],
             // Fotos opcionales (hasta 6). Solo imágenes: se decodifican y se
             // vuelven a codificar (ver ReportPhotoService).
             ...ReportPhotoService::rules(),
-            ...\App\Services\Reports\ReportVideoService::rules(),
+            ...ReportVideoService::rules(),
         ], [
             'building_id.required' => 'Tenés que seleccionar un edificio.',
             'elevator_number.required' => 'Tenés que seleccionar un equipo.',
@@ -157,7 +156,7 @@ class ReportController extends Controller
             'description.min' => 'La descripción debe tener al menos 5 caracteres.',
             'priority.required' => 'Seleccioná una prioridad.',
             ...ReportPhotoService::messages(),
-            ...\App\Services\Reports\ReportVideoService::messages(),
+            ...ReportVideoService::messages(),
         ]);
 
         $building = Building::where('id', $data['building_id'])
@@ -178,7 +177,7 @@ class ReportController extends Controller
         // crea nada (ni quedan archivos sueltos). El video se valida antes.
         try {
             if ($request->hasFile('video')) {
-                app(\App\Services\Reports\ReportVideoService::class)->check($company, $request->file('video'));
+                app(ReportVideoService::class)->check($company, $request->file('video'));
             }
 
             $report = DB::transaction(function () use ($data, $company, $request) {
@@ -196,7 +195,7 @@ class ReportController extends Controller
 
                 // Video (opcional): plan, cantidad, tamaño y formato se validan en el servicio.
                 if ($request->hasFile('video')) {
-                    app(\App\Services\Reports\ReportVideoService::class)->store($report, $request->file('video'), Auth::user());
+                    app(ReportVideoService::class)->store($report, $request->file('video'), Auth::user());
                 }
 
                 return $report;
@@ -207,12 +206,9 @@ class ReportController extends Controller
 
         $report->load('building');
 
-
         // Aviso a los admins de la empresa (campanita + push), después de
         // responder: el técnico no espera.
-        \App\Jobs\NotifyCompanyAdmins::reportCreated($report);
-
-
+        NotifyCompanyAdmins::reportCreated($report);
 
         session()->flash('success', 'Reporte creado correctamente');
         $url = route('reports.index', ['company' => $company->slug]);
@@ -220,6 +216,4 @@ class ReportController extends Controller
         return $request->expectsJson() ? response()->json(['redirect' => $url]) : redirect($url);
 
     }
-
-
 }

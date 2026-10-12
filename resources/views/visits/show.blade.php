@@ -45,12 +45,23 @@
         <div class="t-alert-error mb-4" role="alert">{{ $errors->first() }}</div>
     @endif
 
-
-    @include('photos.manager')
+    @if($target->type === 'inspection')
+        {{-- Inspección: observaciones y fotos van en su reporte (no es una reparación). --}}
+        <section class="t-card p-4" data-inspection-report-card>
+            <h2 class="font-bold text-ink">Reporte de inspección</h2>
+            <p class="mt-1 text-sm text-ink-700">{{ $inspectionReport ? 'Ya está cargado.' : 'Registrá lo que revisaste y encontraste, con fotos si tu empresa las habilitó.' }}</p>
+            <a href="{{ route('inspection-reports.show', ['company' => $slug, 'visit' => $visit->id]) }}" class="t-btn-primary mt-3 w-full">{{ $inspectionReport ? 'Ver reporte' : 'Crear reporte' }}</a>
+        </section>
+        @if($photos->isNotEmpty())
+            <div class="mt-4">@include('photos.manager')</div>
+        @endif
+    @else
+        @include('photos.manager')
+    @endif
 
     @if($inProgress)
         <section class="t-card mt-4 p-4">
-            <p class="text-sm text-ink-700">Sacá fotos cuando quieras: antes, durante o después del trabajo. Cuando termines, hacé el remito: completa esta misma visita y sus fotos quedan con él. Las fotos no son obligatorias.</p>
+            <p class="text-sm text-ink-700">{{ $target->type === 'inspection' ? 'Cuando termines la inspección, hacé el remito: completa esta misma visita.' : 'Sacá fotos cuando quieras: antes, durante o después del trabajo. Cuando termines, hacé el remito: completa esta misma visita. Las fotos quedan en el trabajo, no en el remito, y no son obligatorias.' }}</p>
             <a href="{{ route('delivery-notes.building', ['company' => $slug, 'building' => $building->id, 'month' => $visit->month, 'year' => $visit->year, 'assignment_type' => $target->type]) }}"
                class="t-btn-primary mt-3 w-full" data-make-remito>Hacer el remito</a>
         </section>

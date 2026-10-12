@@ -79,16 +79,16 @@
 
 ## Fotos de antes y después
 
-- **Se gestionan dentro de cada trabajo, no desde el remito.** El remito es el documento que se firma al terminar y no tiene carga de fotos (ni la bloquea); solo ofrece un acceso «Fotos» a la visita o la orden.
+- **Se gestionan dentro de cada trabajo, nunca en el remito.** El remito es el documento que se firma al terminar: no muestra fotos en la pantalla del técnico, el detalle, la impresión ni el PDF. Las fotos quedan guardadas en su visita u orden y se ven desde ese trabajo.
 - **En el celular del técnico, «Fotos del trabajo»** (`resources/views/photos/manager.blade.php`, el mismo en la visita y en la orden):
   1. elegir «Antes» o «Después»;
   2. elegir la parte (sección), si hay más de una;
   3. «Tomar foto» (`<input type="file" accept="image/*" capture="environment">`: en la mayoría de los celulares abre la cámara trasera; si el navegador no soporta `capture`, ofrece elegir) o «Elegir de la galería» (sin `capture`, varias a la vez);
   4. cada foto muestra «Subiendo…», después «✓ Foto guardada en …» o un error con «Reintentar».
 - **Dónde están los botones (sin cambiar de pantalla)** — `resources/views/photos/quick.blade.php`:
-  - Visitas: en la tarjeta de cada edificio, debajo de «Marcar mantenimiento» / «Marcar inspección», el recuadro «Fotos de mantenimiento» / «Fotos de inspección» con Antes / Después, la parte, «Tomar foto» y «Elegir de la galería». La primera foto abre la visita en curso del período (`POST visits/start` en JSON); el remito después completa esa misma visita.
+  - Visitas: en la tarjeta de cada edificio, debajo de «Marcar mantenimiento», el recuadro «Fotos de mantenimiento» con Antes / Después, la zona, «Tomar foto» y «Elegir de la galería». La primera foto abre la visita en curso del período (`POST visits/start` en JSON); el remito después completa esa misma visita. La inspección no tiene este recuadro: tiene «Crear reporte» / «Ver reporte» (ver abajo).
   - Trabajos: en la tarjeta de cada orden asignada al técnico, arriba de «Hacer remito y finalizar».
-  - Pantalla del remito (a la que lleva Inicio): el mismo recuadro arriba del formulario, fuera de él (no toca la firma).
+  - Pantalla del remito: sin fotos (ni botones, ni miniaturas, ni cantidad).
   - Cada recuadro muestra las fotos que se van subiendo con su estado, «✓ Foto guardada», el error con «Reintentar» y «Ver todas (N)» (la visita o la orden con todas sus fotos, observación y equipo).
   - Solo aparecen si la empresa habilitó las fotos para ese tipo de trabajo y hay trabajo pendiente o una visita en curso. Un trabajo ya hecho conserva «Fotos del trabajo (N)» para ver o agregar fotos después.
 - **Visita en curso:** «Fotos del trabajo» abre la **visita en curso** del período (`building_visits.in_progress`). Abrirla de nuevo, con un doble toque, un reintento u otro técnico, devuelve la misma.
@@ -134,7 +134,7 @@
 ### Quién las ve (siempre verificado en el servidor)
 
 - **El admin de la empresa:** todas las de su empresa, cargue quien las cargue, **dentro de cada trabajo** (no hay una galería global):
-  - mantenimientos e inspecciones: al abrir uno (su remito), la sección «Fotos del trabajo»;
+  - mantenimientos: al abrir uno (Operaciones → Mantenimientos), «Fotos de antes y después», por zona, Antes y Después uno al lado del otro; inspecciones: al abrir una, «Reporte de inspección» con «Ver reporte»;
   - órdenes de trabajo: al abrir la orden, la sección «Fotos del trabajo»;
   - separadas en «Antes» y «Después», por sección, con equipo, observación, quién y cuándo; «Ver» y «Descargar»;
   - una visita en curso (todavía sin remito) se abre desde la Agenda.
@@ -149,7 +149,7 @@
 
 ### Secciones, tablas y limpieza
 
-- **Secciones:** Operaciones → «Secciones de fotos». Se pueden agregar, renombrar, ordenar y desactivar. Desactivar conserva las fotos históricas.
+- **Zonas (definidas por el sistema, `App\Support\PhotoZones`):** ya no hay pantalla para crear, renombrar u ordenar secciones. Mantenimiento: Pozo, Sala de máquinas, Techo de cabina y Cabina y puertas. Órdenes de trabajo (reparaciones/reclamos, modernizaciones, instalaciones): Trabajo realizado y las mismas cuatro zonas. Inspección: ninguna (las fotos van en su reporte). Cada empresa tiene una fila por zona en `photo_sections` (`code`), creada sola. Las secciones que ya existían con el nombre de una zona pasan a ser esa zona (migración `2026_11_20_100000`); las propias que no coinciden no se ofrecen más, pero sus fotos se conservan y se ven con su nombre.
 - **Tablas:**
   - `photo_sections`;
   - `visit_photos` (visita, orden, remito, sección y su nombre, ascensor, antes/después, autor, fecha, observación).
@@ -266,3 +266,19 @@
    - crear uno con ascensores y montacargas de distinta tracción;
    - editar uno existente y quitar un equipo (confirmación; queda inactivo).
 6. **Fotos por empresa:** habilitar y deshabilitar cada tipo en «Mi empresa» y verificar que desaparece la carga sin perder lo histórico.
+
+## Reporte de inspección
+
+- En Visitas, cada inspección tiene «Crear reporte» (abre la inspección en curso y va al reporte) o «Ver reporte». También desde la pantalla de la visita.
+- El inspector escribe las observaciones y, si la empresa habilitó las fotos de inspecciones en «Mi empresa», agrega fotos («Tomar foto» / «Elegir de la galería», hasta 6). Con el interruptor apagado el reporte se hace igual, solo con observaciones; las fotos ya cargadas se conservan.
+- Reutiliza los reportes (`reports.kind = inspection`, `reports.building_visit_id`, uno por visita): mismas fotos privadas y PDF. No es una reparación: sin prioridad ni estado, no consume el cupo mensual de reportes, no aparece en fallas, alertas, indicadores, «Mis reportes» ni en el portal. En el panel, Reportes muestra los de falla por defecto; los de inspección se ven con el filtro «Tipo».
+- Lo ven el admin, quien lo hizo y los inspectores de esa inspección; lo edita quien lo hizo o el admin. Una inspección con reporte no se puede descartar.
+
+## Eliminación definitiva de empresas (SuperAdmin)
+
+- Empresas → ficha o lista (también desactivadas) → «Eliminar definitivamente». El modal identifica la empresa (razón social, CUIT, correo, identificador, estado) y cuánto se borra; hay que escribir el nombre exacto y confirmar que no se puede deshacer.
+- `App\Services\Companies\CompanyEraser` borra, en una transacción, todas las filas de la empresa (en orden, sin depender de cascadas), sus usuarios (con sesiones, push, avisos y pivotes) y después sus archivos (`visits/`, `reports/`, `elevators/`, `exports/` de esa empresa, foto vieja de reportes y logo si nadie más los usa). Al final verifica que ninguna tabla con `company_id` conserve filas de la empresa; si quedara alguna, se revierte todo.
+- Se conservan: otras empresas, planes, webhooks, respaldos del sistema, el SuperAdmin y los usuarios del portal que también tienen acceso a otra empresa (quedan en esa otra).
+- Bloqueos: una suscripción de Mercado Pago que todavía puede cobrar (cancelarla primero) o registros de otra empresa hechos por usuarios de esta.
+- Queda registrado en el log de la aplicación («Empresa eliminada definitivamente»: empresa, quién, registros y archivos). No hay tabla de auditoría.
+- Los respaldos del sistema ya generados siguen conteniendo los datos de la empresa hasta que rotan.

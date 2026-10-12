@@ -55,7 +55,7 @@ class ElevatorHistory
         $events = collect();
 
         if (! $type || $type === 'report') {
-            Report::where('building_id', $elevator->building_id)->where('elevator_number', $elevator->label)
+            Report::incidents()->where('building_id', $elevator->building_id)->where('elevator_number', $elevator->label)
                 ->when($since, fn ($q) => $q->where('created_at', '>=', $since))
                 ->with('user:id,name')->latest()->get()
                 ->each(fn (Report $r) => $events->push([

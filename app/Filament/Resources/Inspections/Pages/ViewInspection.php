@@ -2,8 +2,9 @@
 
 namespace App\Filament\Resources\Inspections\Pages;
 
+use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
 use App\Filament\Resources\Inspections\InspectionResource;
-use Filament\Actions\EditAction;
+use Filament\Actions\Action;
 use Filament\Resources\Pages\ViewRecord;
 
 class ViewInspection extends ViewRecord
@@ -13,7 +14,11 @@ class ViewInspection extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            EditAction::make(),
+            Action::make('deliveryNote')
+                ->label('Ver remito')
+                ->icon('heroicon-o-document-text')
+                ->color('gray')
+                ->url(fn () => DeliveryNoteResource::getUrl('view', ['record' => $this->record])),
         ];
     }
 

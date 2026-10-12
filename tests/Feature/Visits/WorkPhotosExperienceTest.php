@@ -4,11 +4,15 @@ namespace Tests\Feature\Visits;
 
 use App\Filament\Pages\Agenda;
 use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
+use App\Filament\Resources\Inspections\InspectionResource;
+use App\Filament\Resources\Maintenances\MaintenanceResource;
+use App\Filament\Resources\Reports\ReportResource;
 use App\Filament\Resources\WorkOrders\WorkOrderResource;
 use App\Models\BuildingVisit;
 use App\Models\Company;
 use App\Models\DeliveryNote;
 use App\Models\PhotoSection;
+use App\Models\Report;
 use App\Models\User;
 use App\Models\VisitPhoto;
 use App\Models\WorkOrder;
@@ -57,9 +61,8 @@ class WorkPhotosExperienceTest extends TestCase
 
     private function section(): PhotoSection
     {
-        PhotoSection::forCompany($this->a['company']->id);
-
-        return PhotoSection::withoutGlobalScopes()->where('company_id', $this->a['company']->id)->orderBy('id')->firstOrFail();
+        // Pozo: zona del sistema para mantenimientos y órdenes de trabajo.
+        return PhotoSection::zonesFor($this->a['company']->id, 'maintenance')->firstWhere('code', 'pozo');
     }
 
     private function start(string $type)
@@ -118,7 +121,7 @@ class WorkPhotosExperienceTest extends TestCase
         $this->assertFalse(class_exists('App\\Filament\\Resources\\VisitPhotos\\VisitPhotoResource'));
     }
 
-    public function test_the_admin_finds_the_photos_inside_each_maintenance_inspection_and_work_order(): void
+    public function test_the_admin_finds_the_photos_inside_each_maintenance_and_work_order_and_the_inspection_report(): void
     {
         $this->enable(['maintenance', 'inspection', 'work_order']);
 
@@ -130,11 +133,17 @@ class WorkPhotosExperienceTest extends TestCase
         $maintenanceNote = DeliveryNote::where('assignment_type', 'maintenance')->sole();
         $this->assertSame($maintenance->id, $maintenanceNote->building_visit_id);
 
-        // Inspección: una foto de antes.
+        // Inspección: sin fotos de antes y después; observaciones y una foto en su reporte.
         $inspection = $this->openVisit('inspection');
-        $this->upload(['visit_id' => $inspection->id], 'before')->assertCreated();
+        $this->upload(['visit_id' => $inspection->id], 'before')->assertStatus(422)
+            ->assertJsonValidationErrors(['photo' => 'Las fotos de la inspección se cargan en su reporte.']);
+        $this->actingAs($this->a['technician'])->post($this->url("visits/{$inspection->id}/report"), [
+            'observations' => 'Paracaídas probado. Cables con desgaste leve.',
+            'photos' => [UploadedFile::fake()->image('cable.jpg', 640, 480)],
+        ])->assertRedirect()->assertSessionHasNoErrors();
         $this->sign('inspection')->assertSessionHasNoErrors();
         $inspectionNote = DeliveryNote::where('assignment_type', 'inspection')->sole();
+        $report = Report::withoutGlobalScopes()->where('building_visit_id', $inspection->id)->sole();
 
         // Orden: una de después (sin remito todavía).
         $order = $this->workOrder();
@@ -143,15 +152,24 @@ class WorkPhotosExperienceTest extends TestCase
         $of = fn (string $field, int $id) => VisitPhoto::withoutGlobalScopes()->where($field, $id)->get();
         $this->actingInPanel($this->a['admin']);
 
-        $page = $this->get(DeliveryNoteResource::getUrl('view', ['record' => $maintenanceNote]))->assertOk()->assertSee('Fotos del trabajo')
+        $page = $this->get(MaintenanceResource::getUrl('view', ['record' => $maintenanceNote]))->assertOk()->assertSee('Fotos de antes y después')
+            ->assertSee('data-work-photos-zone="pozo"', false)
             ->assertSee('data-work-photos-stage="before"', false)->assertSee('data-work-photos-stage="after"', false);
         $of('building_visit_id', $maintenance->id)->each(fn ($p) => $page->assertSee($p->thumbUrl(), false));
-        $of('building_visit_id', $inspection->id)->each(fn ($p) => $page->assertDontSee($p->thumbUrl(), false));
         $of('work_order_id', $order->id)->each(fn ($p) => $page->assertDontSee($p->thumbUrl(), false));
 
-        $page = $this->get(DeliveryNoteResource::getUrl('view', ['record' => $inspectionNote]))->assertOk()->assertSee('Fotos del trabajo');
-        $of('building_visit_id', $inspection->id)->each(fn ($p) => $page->assertSee($p->thumbUrl(), false));
+        $page = $this->get(InspectionResource::getUrl('view', ['record' => $inspectionNote]))->assertOk()
+            ->assertSee('Reporte de inspección')->assertSee('Paracaídas probado')->assertSee('Ver reporte')
+            ->assertSee($report->photos->first()->thumbUrl(), false);
         $of('building_visit_id', $maintenance->id)->each(fn ($p) => $page->assertDontSee($p->thumbUrl(), false));
+        $this->get(ReportResource::getUrl('view', ['record' => $report]))->assertOk()
+            ->assertSee('Observaciones de la inspección')->assertDontSee('Prioridad');
+
+        // Los remitos no muestran fotos.
+        foreach ([$maintenanceNote, $inspectionNote] as $note) {
+            $this->get(DeliveryNoteResource::getUrl('view', ['record' => $note]))->assertOk()
+                ->assertDontSee('data-work-photos', false)->assertDontSee('data-inspection-report-panel', false);
+        }
 
         $page = $this->get(WorkOrderResource::getUrl('edit', ['record' => $order]))->assertOk()->assertSee('Fotos del trabajo')
             ->assertSee('data-work-photos-stage="after"', false);
@@ -164,7 +182,7 @@ class WorkPhotosExperienceTest extends TestCase
         $this->get(WorkOrderResource::getUrl('edit', ['record' => $empty]))->assertOk()->assertSee('Esta orden no tiene fotos.');
     }
 
-    public function test_work_order_photos_stay_with_its_remito_after_signing(): void
+    public function test_work_order_photos_stay_with_the_order_and_never_show_in_its_remito(): void
     {
         $this->enable(['work_order']);
         $order = $this->workOrder();
@@ -174,12 +192,14 @@ class WorkPhotosExperienceTest extends TestCase
         $note = DeliveryNote::sole();
         $this->assertSame($note->id, $photo->delivery_note_id);
 
-        // Se ve en el remito y en la orden, una sola vez cada uno.
+        // Se ve una sola vez en la orden; en el remito, nunca (pantalla, detalle ni PDF).
         $this->actingInPanel($this->a['admin']);
         $remito = $this->get(DeliveryNoteResource::getUrl('view', ['record' => $note]))->assertOk()->getContent();
-        $this->assertSame(1, substr_count($remito, 'data-work-photo="'.$photo->id.'"'));
+        $this->assertSame(0, substr_count($remito, 'data-work-photo="'.$photo->id.'"'));
         $orderPage = $this->get(WorkOrderResource::getUrl('edit', ['record' => $order]))->assertOk()->getContent();
         $this->assertSame(1, substr_count($orderPage, 'data-work-photo="'.$photo->id.'"'));
+        $this->actingAs($this->a['technician'])->get($this->url("delivery-notes/{$note->number}"))->assertOk()
+            ->assertDontSee($photo->thumbUrl(), false)->assertDontSee('visit-photos', false);
     }
 
     /*
@@ -201,7 +221,10 @@ class WorkPhotosExperienceTest extends TestCase
                 $list = $this->actingAs($this->a['technician'])->get($this->url('buildings'))->assertOk()->getContent();
                 $start = strpos($list, 'data-visit-row="'.$type.'"');
                 $end = strpos($list, 'data-visit-row=', $start + 10) ?: strpos($list, '</article>', $start);
-                $this->assertSame($type === $enabled, str_contains(substr($list, $start, $end - $start), 'data-quick-photos-for='), "{$enabled} / {$type}");
+                $row = substr($list, $start, $end - $start);
+                // Fotos de antes y después: solo mantenimiento (habilitado). La inspección, siempre su reporte.
+                $this->assertSame($type === 'maintenance' && $enabled === 'maintenance', str_contains($row, 'data-quick-photos-for='), "{$enabled} / {$type}");
+                $this->assertSame($type === 'inspection', str_contains($row, 'data-inspection-report-link='), "{$enabled} / {$type}");
             }
 
             $orderPage = $this->actingAs($this->a['technician'])->get($this->url("work-orders/{$order->id}"))->assertOk();
@@ -259,7 +282,7 @@ class WorkPhotosExperienceTest extends TestCase
         $this->assertSame($first['visit_id'], $note->building_visit_id);
         $this->assertSame(1, BuildingVisit::count());
         $this->actingInPanel($this->a['admin']);
-        $page = $this->get(DeliveryNoteResource::getUrl('view', ['record' => $note]))->assertOk();
+        $page = $this->get(MaintenanceResource::getUrl('view', ['record' => $note]))->assertOk();
         VisitPhoto::withoutGlobalScopes()->get()->each(fn ($p) => $page->assertSee($p->thumbUrl(), false));
         $this->assertSame(2, substr_count($page->getContent(), 'data-work-photo="'));
 
@@ -285,15 +308,21 @@ class WorkPhotosExperienceTest extends TestCase
         $this->assertStringContainsString('aria-label="Tomar foto"', $html);
     }
 
-    public function test_the_remito_form_offers_the_job_photos_without_mixing_them_into_the_remito(): void
+    public function test_the_remito_screen_never_shows_photos(): void
     {
-        $this->enable(['maintenance']);
+        $this->enable(['maintenance', 'inspection', 'work_order']);
+        $visit = $this->openVisit('maintenance');
+        $this->upload(['visit_id' => $visit->id], 'before')->assertCreated();
         $form = fn (string $type) => $this->actingAs($this->a['technician'])->get($this->url("delivery-notes/create/building/{$this->a['building']->id}?assignment_type={$type}&month=10&year=2026"))->assertOk();
 
-        // Los botones están en la pantalla del remito, pero fuera del formulario que se firma.
-        $html = $form('maintenance')->assertSee('data-remito-photos', false)->assertSee('aria-label="Tomar foto"', false)->assertDontSee('data-file aria-label', false)->getContent();
-        $this->assertLessThan(strpos($html, 'id="remito-form"'), strpos($html, 'data-quick-photos-for="maintenance"'));
-        $form('inspection')->assertDontSee('data-remito-photos', false);
+        // Ni botones de carga ni miniaturas ni cantidad de fotos: se cargan y se ven en su trabajo.
+        foreach (['maintenance', 'inspection'] as $type) {
+            $form($type)->assertDontSee('data-remito-photos', false)->assertDontSee('aria-label="Tomar foto"', false)
+                ->assertDontSee('data-quick-photos', false)->assertDontSee('visit-photos', false);
+        }
+        $order = $this->workOrder();
+        $this->actingAs($this->a['technician'])->get($this->url("delivery-notes/create/work-order/{$order->id}"))->assertOk()
+            ->assertDontSee('data-remito-photos', false)->assertDontSee('aria-label="Tomar foto"', false);
     }
 
     public function test_retrying_an_upload_never_duplicates_the_photo_or_the_visit(): void

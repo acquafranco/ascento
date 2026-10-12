@@ -214,8 +214,10 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
                         // «Guardar cambios»; si no, el cambio se perdía al salir).
                         ...collect(['photos_maintenance' => 'Mantenimientos', 'photos_inspection' => 'Inspecciones', 'photos_work_order' => 'Órdenes de trabajo'])
                             ->map(fn (string $label, string $column) => Forms\Components\Toggle::make($column)->label($label)
+                                // Solo verdadero o falso (también al guardar todo el formulario).
+                                ->rule('boolean')
                                 ->live()
-                                ->afterStateUpdated(fn ($livewire, $state) => $livewire->savePhotoSetting($column, (bool) $state)))
+                                ->afterStateUpdated(fn ($livewire, $state) => $livewire->savePhotoSetting($column, $state)))
                             ->values()->all(),
                     ]),
 
@@ -253,13 +255,25 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
             ]);
     }
 
-    /** Un interruptor de fotos, guardado en el momento (solo el admin de la empresa, solo esas columnas). */
-    public function savePhotoSetting(string $column, bool $on): void
+    /**
+     * Un interruptor de fotos, guardado en el momento: solo el admin de SU
+     * empresa, solo esas tres columnas y solo verdadero o falso (un valor
+     * manipulado no se guarda y la pantalla vuelve a lo guardado).
+     */
+    public function savePhotoSetting(string $column, mixed $on): void
     {
         $user = Auth::user();
 
         abort_unless(in_array($column, Company::PHOTO_SETTINGS, true), 404);
         abort_if($user->isSuperAdmin() || ! $user->isAdmin() || ! $user->company, 403);
+
+        if (! is_bool($on)) {
+            $this->data[$column] = (bool) $user->company->{$column};
+
+            Notification::make()->title('No se guardó el cambio')->body('Valor inválido para el interruptor.')->danger()->send();
+
+            return;
+        }
 
         $user->company->forceFill([$column => $on])->save();
 

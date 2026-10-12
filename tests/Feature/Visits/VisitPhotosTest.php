@@ -3,7 +3,7 @@
 namespace Tests\Feature\Visits;
 
 use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
-use App\Filament\Resources\PhotoSections\Pages\ManagePhotoSections;
+use App\Filament\Resources\Maintenances\MaintenanceResource;
 use App\Models\Building;
 use App\Models\BuildingVisit;
 use App\Models\Company;
@@ -15,6 +15,7 @@ use App\Models\VisitPhoto;
 use App\Models\WorkOrder;
 use App\Services\Visits\VisitPhotoService;
 use App\Services\Visits\VisitSchedule;
+use App\Support\PhotoZones;
 use Carbon\Carbon;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -23,7 +24,6 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Livewire\Livewire;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -57,11 +57,12 @@ class VisitPhotosTest extends TestCase
         $this->a['company']->forceFill([Company::PHOTO_SETTINGS[$type] => $on])->save();
     }
 
+    /** Zona del sistema (Pozo, Techo de cabina, Sala de máquinas…) de una empresa. */
     private function section(string $name = 'Pozo', ?int $companyId = null): PhotoSection
     {
-        PhotoSection::forCompany($companyId ?? $this->a['company']->id);
+        $code = PhotoZones::codeForLegacyName($name);
 
-        return PhotoSection::withoutGlobalScopes()->where('company_id', $companyId ?? $this->a['company']->id)->where('name', $name)->firstOrFail();
+        return PhotoSection::zonesFor($companyId ?? $this->a['company']->id, 'maintenance')->firstWhere('code', $code);
     }
 
     private function start(?User $as = null, string $type = 'maintenance', ?Building $building = null)
@@ -116,12 +117,12 @@ class VisitPhotosTest extends TestCase
         $fresh = Company::find($b['company']->id);
         $this->assertSame([false, false, false], [$fresh->photos_maintenance, $fresh->photos_inspection, $fresh->photos_work_order]);
 
-        // En A solo está habilitado mantenimiento: inspección no muestra ni acepta cargas.
+        // En A solo está habilitado mantenimiento: la inspección no tiene fotos de
+        // antes y después (sus observaciones y fotos van en su reporte).
         $this->a['building']->users()->attach($this->a['technician']->id, ['type' => 'inspection']);
         $page = $this->actingAs($this->a['technician'])->get("/{$this->a['company']->slug}/buildings")->assertOk();
         $this->assertSame(1, substr_count($page->getContent(), 'data-quick-photos-for='));
-        $this->start(type: 'inspection')->assertSessionHasErrors('general');
-        $this->assertSame(0, BuildingVisit::withoutGlobalScope('completed')->count());
+        $this->assertStringContainsString('data-inspection-report-link="start"', $page->getContent());
 
         // Una visita existente de inspección: el servidor rechaza la carga aunque se fuerce.
         $this->sign(['assignment_type' => 'inspection'])->assertSessionHasNoErrors();
@@ -129,7 +130,7 @@ class VisitPhotosTest extends TestCase
         $this->upload(['visit_id' => $inspection->id])->assertStatus(422)
             ->assertJsonValidationErrors(['photo' => 'La carga de fotos está desactivada para este tipo de trabajo.']);
         $this->actingAs($this->a['technician'])->get("/{$this->a['company']->slug}/visits/{$inspection->id}")->assertOk()
-            ->assertSee('data-photos-disabled', false)->assertDontSee('data-file aria-label', false);
+            ->assertSee('data-inspection-report-card', false)->assertDontSee('data-file aria-label', false);
 
         $this->assertSame(0, VisitPhoto::withoutGlobalScopes()->count());
         $this->assertSame([], Storage::disk('local')->allFiles());
@@ -152,7 +153,9 @@ class VisitPhotosTest extends TestCase
         $this->assertSame(0, BuildingVisit::count());
         $this->actingAs($this->a['technician'])->get("/{$this->a['company']->slug}/buildings")->assertSee('En curso · sin remito')->assertSee('Hacer remito');
         $this->actingAs($this->a['technician'])->get("/{$this->a['company']->slug}/delivery-notes/create/building/{$this->a['building']->id}?assignment_type=maintenance&month=10&year=2026")
-            ->assertOk()->assertSee('data-open-visit', false)->assertSee('con 2 fotos');
+            ->assertOk()->assertSee('data-open-visit', false)
+            // El remito no muestra fotos (ni cuántas hay): se ven en su trabajo.
+            ->assertDontSee('con 2 fotos')->assertDontSee('data-quick-photos', false)->assertDontSee('visit-photos', false);
 
         // El remito completa ESA visita: no se crea otra.
         $this->sign()->assertSessionHasNoErrors();
@@ -312,17 +315,22 @@ class VisitPhotosTest extends TestCase
         ])->assertCreated();
         $foreignPhoto = VisitPhoto::withoutGlobalScopes()->where('company_id', $b['company']->id)->sole();
 
-        // Dentro del mantenimiento (su remito): Antes y Después, de las dos personas.
+        // Dentro del mantenimiento: por zona, Antes y Después, de las dos personas.
         $this->actingInPanel($this->a['admin']);
-        $this->get(DeliveryNoteResource::getUrl('view', ['record' => $note]))->assertOk()
-            ->assertSee('Fotos del trabajo')
+        $this->get(MaintenanceResource::getUrl('view', ['record' => $note]))->assertOk()
+            ->assertSee('Fotos de antes y después')
+            ->assertSee('data-work-photos-zone="pozo"', false)
             ->assertSee('data-work-photos-stage="before"', false)->assertSee('data-work-photos-stage="after"', false)
             ->assertSee($before->thumbUrl(), false)->assertSee($after->downloadUrl(), false)
             ->assertDontSee($foreignPhoto->thumbUrl(), false);
         $this->get($before->downloadUrl())->assertOk()->assertDownload();
+        // El remito no muestra fotos.
+        $this->get(DeliveryNoteResource::getUrl('view', ['record' => $note]))->assertOk()
+            ->assertDontSee($before->thumbUrl(), false)->assertDontSee('data-work-photos', false);
 
-        // Otra empresa: ni el remito ni la foto.
+        // Otra empresa: ni el mantenimiento, ni el remito, ni la foto.
         $this->actingInPanel($b['admin']);
+        $this->get(MaintenanceResource::getUrl('view', ['record' => $note]))->assertNotFound();
         $this->get(DeliveryNoteResource::getUrl('view', ['record' => $note]))->assertNotFound();
         $this->get($before->url())->assertNotFound();
     }
@@ -395,8 +403,11 @@ class VisitPhotosTest extends TestCase
         $note->forceFill(['shared_with_client' => true])->save();
         $photo = VisitPhoto::withoutGlobalScopes()->sole();
 
+        // El remito (también el interno) no muestra fotos: se ven en su trabajo.
         $this->actingAs($this->a['technician'])->get("/{$this->a['company']->slug}/delivery-notes/{$note->number}")->assertOk()
-            ->assertSee('data-visit-photos', false)->assertSee($photo->thumbUrl(), false);
+            ->assertDontSee('data-visit-photos', false)->assertDontSee($photo->thumbUrl(), false);
+        $this->actingAs($this->a['technician'])->get("/{$this->a['company']->slug}/visits/{$note->building_visit_id}")->assertOk()
+            ->assertSee($photo->thumbUrl(), false);
 
         auth()->logout();
         $this->get(route('delivery-notes.public', ['company' => $this->a['company']->slug, 'token' => $note->public_token]))->assertOk()
@@ -518,20 +529,57 @@ class VisitPhotosTest extends TestCase
         $this->actingAs($outsider)->patchJson("/{$this->a['company']->slug}/visit-photos/section", ['visit_id' => $visit->id, 'photo_section_id' => $this->section()->id, 'notes' => 'x'])->assertNotFound();
     }
 
-    public function test_sections_are_per_company_configurable_and_deactivating_keeps_history(): void
+    public function test_photo_zones_are_defined_by_the_system_and_old_sections_keep_their_photos(): void
     {
-        $visit = $this->openVisit();
-        $this->upload(['visit_id' => $visit->id])->assertCreated();
+        $companyId = $this->a['company']->id;
 
+        // Zonas del sistema por tipo de trabajo (sin administración por empresa).
+        $this->assertSame(['pozo', 'sala_maquinas', 'techo', 'cabina'], PhotoSection::zonesFor($companyId, 'maintenance')->pluck('code')->all());
+        $this->assertSame(['trabajo', 'pozo', 'sala_maquinas', 'techo', 'cabina'], PhotoSection::zonesFor($companyId, 'work_order')->pluck('code')->all());
+        $this->assertTrue(PhotoSection::zonesFor($companyId, 'inspection')->isEmpty());
+        // Pedirlas otra vez no duplica nada.
+        PhotoSection::zonesFor($companyId, 'work_order');
+        $this->assertSame(5, PhotoSection::withoutGlobalScopes()->where('company_id', $companyId)->count());
+
+        // Ya no existe la pantalla para crear, renombrar u ordenar secciones.
         $this->actingInPanel($this->a['admin']);
-        Livewire::test(ManagePhotoSections::class)
-            ->assertCanSeeTableRecords(PhotoSection::where('company_id', $this->a['company']->id)->get())
-            ->callTableAction('toggle', $this->section());
-        $this->assertFalse($this->section()->fresh()->is_active);
+        $this->get('/admin/secciones-de-fotos')->assertNotFound();
 
-        // La foto histórica sigue en su visita y se ve; la sección no acepta nuevas.
-        $this->actingAs($this->a['technician'])->get("/{$this->a['company']->slug}/visits/{$visit->id}")->assertOk()->assertSee('Pozo');
-        $this->upload(['visit_id' => $visit->id], ['stage' => 'after'])->assertNotFound();
-        $this->assertSame(1, VisitPhoto::withoutGlobalScopes()->count());
+        // Una sección propia de antes (sin zona): sus fotos se conservan y se ven,
+        // pero no acepta fotos nuevas.
+        $visit = $this->openVisit();
+        $legacy = PhotoSection::withoutGlobalScopes()->forceCreate(['company_id' => $companyId, 'name' => 'Puertas de piso', 'position' => 9, 'is_active' => true]);
+        $old = new VisitPhoto;
+        $old->forceFill([
+            'company_id' => $companyId, 'building_id' => $this->a['building']->id, 'building_visit_id' => $visit->id,
+            'photo_section_id' => $legacy->id, 'section_name' => 'Puertas de piso', 'assignment_type' => 'maintenance', 'stage' => 'before',
+            'batch' => (string) Str::uuid(), 'path' => 'visits/'.$companyId.'/vieja.jpg', 'uploaded_by' => $this->a['technician']->id, 'attached_at' => now(),
+        ])->save();
+        Storage::disk('local')->put($old->path, 'x');
+
+        $this->actingAs($this->a['technician'])->get("/{$this->a['company']->slug}/visits/{$visit->id}")->assertOk()
+            ->assertSee('Puertas de piso')->assertSee($old->thumbUrl(), false)
+            ->assertSee('Techo de cabina')->assertSee('Cabina y puertas');
+        $this->upload(['visit_id' => $visit->id], ['photo_section_id' => $legacy->id])->assertStatus(422)
+            ->assertJsonValidationErrors(['photo' => 'Elegí una zona válida para este trabajo.']);
+        // «Trabajo realizado» es de órdenes de trabajo, no de mantenimientos.
+        $workZone = PhotoSection::zonesFor($companyId, 'work_order')->firstWhere('code', 'trabajo');
+        $this->upload(['visit_id' => $visit->id], ['photo_section_id' => $workZone->id])->assertStatus(422);
+        $this->upload(['visit_id' => $visit->id], ['photo_section_id' => $this->section('Techo')->id])->assertCreated();
+        $this->assertSame('Techo de cabina', VisitPhoto::withoutGlobalScopes()->latest('id')->first()->section_name);
+    }
+
+    public function test_sections_created_before_the_system_zones_become_those_zones(): void
+    {
+        $companyId = $this->a['company']->id;
+        DB::table('photo_sections')->where('company_id', $companyId)->delete();
+        $techo = PhotoSection::withoutGlobalScopes()->forceCreate(['company_id' => $companyId, 'name' => 'Techo de cabina', 'position' => 1, 'is_active' => false]);
+
+        $zones = PhotoSection::zonesFor($companyId, 'maintenance');
+
+        // La sección vieja con el nombre de la zona pasa a ser esa zona (sus fotos quedan agrupadas).
+        $this->assertSame($techo->id, $zones->firstWhere('code', 'techo')->id);
+        $this->assertTrue($techo->fresh()->is_active);
+        $this->assertSame(4, PhotoSection::withoutGlobalScopes()->where('company_id', $companyId)->count());
     }
 }

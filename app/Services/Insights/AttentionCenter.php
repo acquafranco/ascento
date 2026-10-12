@@ -116,7 +116,7 @@ class AttentionCenter
             $items->push($this->item('danger', 'Órdenes urgentes o de prioridad alta abiertas', 'Todavía no se terminaron.', $urgent, WorkOrderResource::getUrl()));
         }
 
-        $critical = Report::where('status', 'pendiente')->whereIn('priority', ['alta', 'critica'])->count();
+        $critical = Report::incidents()->where('status', 'pendiente')->whereIn('priority', ['alta', 'critica'])->count();
         if ($critical > 0) {
             $items->push($this->item('danger', 'Reportes de prioridad alta o crítica sin revisar', 'Los cargaron los técnicos y siguen pendientes.', $critical, ReportResource::getUrl()));
         }

@@ -209,6 +209,8 @@ class PortalController extends Controller
 
     public function report(Request $request, Report $report)
     {
+        // Los reportes de inspección son internos (no se publican en el portal).
+        abort_if($report->isInspection(), 404);
         PortalAccess::ensureShared($request->user(), $report, (int) $report->building_id);
         $this->markSeen($request, $report);
 
@@ -219,6 +221,7 @@ class PortalController extends Controller
 
     public function reportPhoto(Request $request, Report $report, ReportPhoto $photo): StreamedResponse
     {
+        abort_if($report->isInspection(), 404);
         PortalAccess::ensureShared($request->user(), $report, (int) $report->building_id);
         abort_unless((int) $photo->report_id === (int) $report->id, 404);
 
@@ -239,6 +242,7 @@ class PortalController extends Controller
     /** Video de un reporte compartido (con soporte de rangos: necesario para Safari/iPhone). */
     public function reportVideo(Request $request, Report $report): BinaryFileResponse
     {
+        abort_if($report->isInspection(), 404);
         PortalAccess::ensureShared($request->user(), $report, (int) $report->building_id);
 
         return ReportVideoController::serve($report);

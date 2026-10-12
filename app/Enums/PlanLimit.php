@@ -83,9 +83,11 @@ enum PlanLimit: string
                 ->whereNotIn('role', ['admin', 'client']) // ni admins ni usuarios del portal
                 ->where('is_super_admin', false)
                 ->count(),
-            // Incluye los eliminados: borrar un reporte no devuelve cupo.
+            // Incluye los eliminados: borrar un reporte no devuelve cupo. Los
+            // reportes de inspección son parte de la inspección: no cuentan.
             self::ReportsPerMonth => Report::withoutGlobalScopes()
                 ->where('company_id', $company->id)
+                ->where('kind', Report::KIND_INCIDENT)
                 ->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])
                 ->count(),
         };

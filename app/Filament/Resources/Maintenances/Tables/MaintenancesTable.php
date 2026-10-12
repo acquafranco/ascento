@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\Maintenances\Tables;
 
-use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
+use App\Filament\Resources\Maintenances\MaintenanceResource;
 use App\Filament\Support\ClientSharing;
 use Filament\Actions\BulkActionGroup;
 use Filament\Tables\Columns\TextColumn;
@@ -65,7 +65,7 @@ class MaintenancesTable
                         return $state;
                     }),
 
-            ])->recordUrl(fn ($record) => DeliveryNoteResource::getUrl('view', [
+            ])->recordUrl(fn ($record) => MaintenanceResource::getUrl('view', [
                 'record' => $record,
             ]))
             // Compartir con el portal del cliente (privado por defecto).
