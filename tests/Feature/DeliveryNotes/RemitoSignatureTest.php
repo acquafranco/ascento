@@ -118,9 +118,8 @@ class RemitoSignatureTest extends TestCase
         $this->a['company']->forceFill(['photos_maintenance' => true])->save();
         $this->actingAs($this->a['technician'])->post("/{$this->a['company']->slug}/visits/start", ['building_id' => $this->a['building']->id, 'assignment_type' => 'maintenance', 'month' => 10, 'year' => 2026]);
         $visit = BuildingVisit::withoutGlobalScope('completed')->sole();
-        PhotoSection::forCompany($this->a['company']->id);
         $this->actingAs($this->a['technician'])->postJson("/{$this->a['company']->slug}/visit-photos", [
-            'visit_id' => $visit->id, 'photo_section_id' => PhotoSection::withoutGlobalScopes()->where('company_id', $this->a['company']->id)->first()->id,
+            'visit_id' => $visit->id, 'photo_section_id' => PhotoSection::zonesFor($this->a['company']->id, 'maintenance')->first()->id,
             'stage' => 'before', 'photo' => UploadedFile::fake()->image('a.jpg'),
         ])->assertCreated();
 

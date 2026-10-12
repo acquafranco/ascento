@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\DeliveryNotes\Schemas;
 
 use App\Models\DeliveryNote;
-use App\Services\Visits\WorkPhotoGallery;
 use App\Support\WorkOrderLabels;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -130,19 +129,6 @@ class DeliveryNoteForm
 
                         Toggle::make('performed')
                             ->label('Trabajo realizado'),
-                    ]),
-
-                // Fotos de antes y después de este trabajo (mantenimiento,
-                // inspección u orden): solo las suyas y de esta empresa.
-                Section::make('Fotos del trabajo')
-                    ->columnSpanFull()
-                    ->visible(fn (?DeliveryNote $record) => $record !== null)
-                    ->schema([
-                        \Filament\Schemas\Components\View::make('filament.partials.work-photos')
-                            ->viewData(fn (?DeliveryNote $record) => [
-                                'photos' => $record ? app(WorkPhotoGallery::class)->forDeliveryNote($record, auth()->user()) : collect(),
-                                'emptyText' => 'Este trabajo no tiene fotos.',
-                            ]),
                     ]),
 
                 Section::make('Datos de aclaraciones')

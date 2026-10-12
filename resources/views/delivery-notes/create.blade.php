@@ -40,36 +40,7 @@
         </div>
     @endif
 
-    {{-- Fotos de antes y después: se suben acá mismo pero NO son parte del remito (quedan en la visita o la orden y no tocan la firma). Fuera del formulario. --}}
-    @php
-        $photoType = $workOrder ? 'work_order' : $assignmentType;
-        $photoSections = \App\Models\Company::find(auth()->user()->company_id)?->photosEnabledFor($photoType)
-            ? \App\Models\PhotoSection::forCompany(auth()->user()->company_id)->where('is_active', true)->values()
-            : collect();
-        $openForPhotos = $workOrder ? null : ($visitInfo['open_visit'] ?? null);
-        $slugForPhotos = auth()->user()->company->slug;
-    @endphp
-    @if($photoSections->isNotEmpty() && ! ($visitInfo['blocked'] ?? null))
-        <section class="mb-4" data-remito-photos>
-            @if($workOrder)
-                @include('photos.quick', [
-                    'slug' => $slugForPhotos, 'sections' => $photoSections, 'workOrderId' => $workOrder->id,
-                    'allUrl' => route('work-orders.show', ['company' => $slugForPhotos, 'workOrder' => $workOrder]).'#visitPhotos',
-                    'count' => \App\Models\VisitPhoto::withoutGlobalScopes()->where('company_id', $workOrder->company_id)->where('work_order_id', $workOrder->id)->count(),
-                ])
-            @else
-                @include('photos.quick', [
-                    'slug' => $slugForPhotos, 'sections' => $photoSections,
-                    'label' => $assignmentType === 'inspection' ? 'Inspección' : 'Mantenimiento',
-                    'visitId' => $openForPhotos?->id,
-                    'start' => ['building_id' => $building->id, 'assignment_type' => $assignmentType, 'month' => (int) $month, 'year' => (int) $year],
-                    'allUrl' => $openForPhotos ? route('visits.show', ['company' => $slugForPhotos, 'visit' => $openForPhotos->id]) : null,
-                    'count' => $visitInfo['open_photos'] ?? 0,
-                ])
-            @endif
-        </section>
-    @endif
-
+    {{-- Sin fotos en el remito: las de antes y después se cargan y se ven en su trabajo (Visitas o Trabajos). --}}
     <form method="POST" action="{{ route('delivery-notes.store', ['company' => auth()->user()->company->slug]) }}" id="remito-form" class="space-y-4"
           data-draft="remito.{{ auth()->id() }}.{{ $building->id }}.{{ $workOrder ? 'ot'.$workOrder->id : $assignmentType }}" @if($errors->any()) data-draft-restore="off" @endif>
         @csrf
@@ -128,7 +99,7 @@
                         <p class="mt-2 text-sm font-semibold text-red-700" data-visit-blocked>{{ $visitInfo['blocked'] }} Elegí otro mes o revisá la pantalla de Visitas.</p>
                     @elseif($visitInfo['open_visit'])
                         <p class="mt-2 text-xs text-ink-500" data-open-visit>
-                            Completa la visita en curso{{ $visitInfo['expected'] > 1 ? ' ('.$visitInfo['slot'].' de '.$visitInfo['expected'].')' : '' }}{{ $visitInfo['open_photos'] ? ', con '.$visitInfo['open_photos'].' '.($visitInfo['open_photos'] === 1 ? 'foto' : 'fotos') : '' }}.
+                            Completa la visita en curso{{ $visitInfo['expected'] > 1 ? ' ('.$visitInfo['slot'].' de '.$visitInfo['expected'].')' : '' }}.
                             <a class="font-semibold text-brand-700 underline" href="{{ route('visits.show', ['company' => auth()->user()->company->slug, 'visit' => $visitInfo['open_visit']->id]) }}">Ver la visita</a>
                         </p>
                     @elseif($visitInfo['expected'] > 1 || $visitInfo['period'])

@@ -1,14 +1,14 @@
 {{--
     «Fotos del trabajo» dentro de la tarjeta del trabajo (Visitas y Trabajos),
-    sin cambiar de pantalla: Antes / Después, la parte, «Tomar foto» (abre la
+    sin cambiar de pantalla: Antes / Después, la zona del sistema, «Tomar foto» (abre la
     cámara si el navegador lo permite) y «Elegir de la galería». Cada foto se
     sube de a una, con su identidad (client_key): «Reintentar» no la duplica.
-    En mantenimiento e inspección, la primera foto abre la visita en curso
+    En mantenimiento, la primera foto abre la visita en curso
     del período (la misma que después completa el remito). Solo se incluye
     si la empresa habilitó las fotos para ese tipo de trabajo; el servidor lo
     vuelve a verificar en cada carga.
 
-    Variables: $slug, $sections (secciones activas), $label (p. ej.
+    Variables: $slug, $sections (zonas del sistema: PhotoSection::zonesFor), $label (p. ej.
     «Mantenimiento»), y una de dos:
     - $workOrderId (orden de trabajo), o
     - $visitId (visita en curso, puede ser null) + $start (building_id,
@@ -45,15 +45,15 @@
 
     @if($sections->count() > 1)
         <label class="mt-2 block">
-            <span class="sr-only">Parte</span>
-            <select class="t-input py-2 text-sm" data-quick-section aria-label="Parte">
+            <span class="sr-only">Zona</span>
+            <select class="t-input py-2 text-sm" data-quick-section aria-label="Zona">
                 @foreach($sections as $section)
-                    <option value="{{ $section->id }}">{{ $section->name }}</option>
+                    <option value="{{ $section->id }}">{{ $section->label() }}</option>
                 @endforeach
             </select>
         </label>
     @else
-        <input type="hidden" value="{{ $first->id }}" data-quick-section data-name="{{ $first->name }}">
+        <input type="hidden" value="{{ $first->id }}" data-quick-section data-name="{{ $first->label() }}">
     @endif
 
     <div class="mt-2 grid grid-cols-2 gap-2">

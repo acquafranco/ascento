@@ -10,16 +10,15 @@ use App\Filament\Resources\Reports\Schemas\ReportForm;
 use App\Filament\Resources\Reports\Tables\ReportsTable;
 use App\Models\Report;
 use BackedEnum;
+use Filament\Infolists\Components\ImageEntry;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Filament\Infolists\Components\ImageEntry;
-use Filament\Infolists\Components\TextEntry;
-use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Grid;
-use Illuminate\Support\Facades\Storage;
 
 class ReportResource extends Resource
 {
@@ -55,8 +54,14 @@ class ReportResource extends Resource
                         ->label('Fecha')
                         ->dateTime('d/m/Y H:i'),
 
+                    TextEntry::make('kind')
+                        ->label('Tipo')
+                        ->badge()
+                        ->formatStateUsing(fn (?string $state) => Report::KIND_LABELS[$state] ?? 'Falla'),
+
                     TextEntry::make('status')
                         ->label('Estado')
+                        ->visible(fn (Report $record) => ! $record->isInspection())
                         ->badge(),
 
                     TextEntry::make('building.client.name')
@@ -66,7 +71,8 @@ class ReportResource extends Resource
                         ->label('Edificio'),
 
                     TextEntry::make('elevator_number')
-                        ->label('Ascensor'),
+                        ->label('Ascensor')
+                        ->placeholder('General del edificio'),
 
                     TextEntry::make('user.name')
                         ->label('Técnico'),
@@ -86,17 +92,18 @@ class ReportResource extends Resource
                         ->schema([
                             TextEntry::make('priority')
                                 ->label('Prioridad')
+                                ->visible(fn (Report $record) => ! $record->isInspection())
                                 ->badge(),
                         ]),
                 ]),
 
-            Section::make('Descripción')
+            Section::make(fn (Report $record) => $record->isInspection() ? 'Observaciones de la inspección' : 'Descripción')
                 ->schema([
                     TextEntry::make('description')
                         ->hiddenLabel(),
                 ]),
 
-            Section::make('Observaciones')
+            Section::make(fn (Report $record) => $record->isInspection() ? 'Notas de la oficina' : 'Observaciones')
                 ->schema([
                     TextEntry::make('observations')
                         ->hiddenLabel()

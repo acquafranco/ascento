@@ -3,7 +3,7 @@
     (mantenimiento o inspección) y dentro de la orden de trabajo.
 
     1. Elegir «Antes» o «Después».
-    2. Elegir la parte (sección), si hay más de una.
+    2. Elegir la zona del sistema (Pozo, Sala de máquinas…), si hay más de una.
     3. «Tomar foto» (abre la cámara si el navegador lo permite: capture) o
        «Elegir de la galería» (varias a la vez).
     Cada foto se sube de a una y queda guardada al instante, con su identidad
@@ -50,10 +50,10 @@
 
             @if($activeSections->count() > 1)
                 <div>
-                    <label for="photo-composer-section" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-ink-500">¿Qué parte?</label>
+                    <label for="photo-composer-section" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-ink-500">¿Qué zona?</label>
                     <select id="photo-composer-section" class="t-input py-2.5" data-composer-section>
                         @foreach($activeSections as $section)
-                            <option value="{{ $section->id }}">{{ $section->name }}</option>
+                            <option value="{{ $section->id }}">{{ $section->label() }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -76,7 +76,7 @@
             </div>
             <p class="text-xs text-ink-500" data-composer-hint aria-live="polite"></p>
             <p id="photos-status" class="hidden text-sm font-semibold" role="status" aria-live="polite"></p>
-            <p class="text-xs text-ink-500">Hasta {{ $maxGroup }} fotos por parte en «Antes» y {{ $maxGroup }} en «Después» ({{ \App\Models\VisitPhoto::MAX_PER_VISIT }} en total). Cada foto se guarda al subirla. Las ve la oficina, nunca el cliente.</p>
+            <p class="text-xs text-ink-500">Hasta {{ $maxGroup }} fotos por zona en «Antes» y {{ $maxGroup }} en «Después» ({{ \App\Models\VisitPhoto::MAX_PER_VISIT }} en total). Cada foto se guarda al subirla. Las ve la oficina, nunca el cliente.</p>
         </div>
     @elseif(! $canUpload)
         <p class="mt-1 text-xs text-ink-500" data-photos-disabled>La carga de fotos no está habilitada para este tipo de trabajo.{{ $photos->isNotEmpty() ? ' Estas son las fotos que ya se habían cargado.' : '' }}</p>
@@ -92,21 +92,23 @@
             @continue(! $section->is_active && $count === 0)
             <details class="rounded-xl border border-ink-100" data-photo-section="{{ $section->id }}" @if($count) open @endif>
                 <summary class="flex min-h-[48px] cursor-pointer select-none items-center justify-between gap-2 px-3 font-semibold text-ink">
-                    <span>{{ $section->name }}</span>
+                    <span>{{ $section->label() }}</span>
                     <span class="text-xs font-normal text-ink-500" data-section-count>{{ $count ? $count.' '.($count === 1 ? 'foto' : 'fotos') : 'Sin fotos' }}</span>
                 </summary>
                 <div class="space-y-3 border-t border-ink-100 px-3 pb-3 pt-3">
+                    {{-- Antes y Después uno al lado del otro (también en el celular). --}}
+                    <div class="grid grid-cols-2 gap-2" data-stage-pair>
                     @foreach($stages as $stage => $stageLabel)
                         @php $groupPhotos = $grouped->get($section->id.'|'.$stage, collect()); @endphp
-                        <div data-photo-group data-section="{{ $section->id }}" data-stage="{{ $stage }}" data-section-name="{{ $section->name }}" data-stage-label="{{ $stageLabel }}">
+                        <div data-photo-group data-section="{{ $section->id }}" data-stage="{{ $stage }}" data-section-name="{{ $section->label() }}" data-stage-label="{{ $stageLabel }}">
                             <div class="mb-1.5 flex items-center justify-between">
                                 <span class="text-xs font-bold uppercase tracking-wider {{ $stage === 'before' ? 'text-ink-700' : 'text-emerald-700' }}">{{ $stageLabel }}</span>
-                                <span class="text-xs text-ink-500" data-group-count>{{ $groupPhotos->count() }} de {{ $maxGroup }}</span>
+                                <span class="text-[11px] text-ink-500" data-group-count>{{ $groupPhotos->count() }}/{{ $maxGroup }}</span>
                             </div>
-                            <div class="grid grid-cols-3 gap-2" data-thumbs>
+                            <div class="grid grid-cols-2 gap-1.5" data-thumbs>
                                 @foreach($groupPhotos as $photo)
                                     <div class="relative aspect-square overflow-hidden rounded-lg bg-ink-50" data-photo-id="{{ $photo->id }}" data-state="done">
-                                        <a href="{{ $photo->url() }}" target="_blank" rel="noopener" aria-label="Ver foto de {{ $section->name }}, {{ mb_strtolower($stageLabel) }}">
+                                        <a href="{{ $photo->url() }}" target="_blank" rel="noopener" aria-label="Ver foto de {{ $section->label() }}, {{ mb_strtolower($stageLabel) }}">
                                             <img src="{{ $photo->thumbUrl() }}" alt="" loading="lazy" class="h-full w-full object-cover">
                                         </a>
                                         @if($canUpload && (int) $photo->uploaded_by === (int) $me)
@@ -118,6 +120,7 @@
                             </div>
                         </div>
                     @endforeach
+                    </div>
                     @php
                         $sectionNote = $sectionPhotos->pluck('notes')->filter()->first();
                         $sectionElevator = $sectionPhotos->pluck('elevator_id')->filter()->first();
@@ -135,7 +138,7 @@
                             </div>
                         @endif
                         <div>
-                            <label class="mb-1 block text-xs text-ink-500" for="photo-notes-{{ $section->id }}">Observación de {{ $section->name }} (opcional)</label>
+                            <label class="mb-1 block text-xs text-ink-500" for="photo-notes-{{ $section->id }}">Observación de {{ $section->label() }} (opcional)</label>
                             <input type="text" id="photo-notes-{{ $section->id }}" maxlength="500" value="{{ $sectionNote }}" class="t-input py-2.5" data-section-notes>
                         </div>
                     @else
@@ -193,7 +196,7 @@
         const n = group.querySelectorAll('[data-thumbs] > div').length;
         const full = n >= maxGroup || tiles().length >= maxTotal;
         hint.textContent = full
-            ? (tiles().length >= maxTotal ? 'Llegaste al máximo de ' + maxTotal + ' fotos.' : group.dataset.sectionName + ' · ' + group.dataset.stageLabel + ' ya tiene ' + maxGroup + ' fotos (el máximo). Elegí otra parte o quitá una.')
+            ? (tiles().length >= maxTotal ? 'Llegaste al máximo de ' + maxTotal + ' fotos.' : group.dataset.sectionName + ' · ' + group.dataset.stageLabel + ' ya tiene ' + maxGroup + ' fotos (el máximo). Elegí otra zona o quitá una.')
             : 'Se guarda en: ' + group.dataset.sectionName + ' · ' + group.dataset.stageLabel + ' (' + n + ' de ' + maxGroup + ').';
         root.querySelectorAll('[data-take-photo], [data-pick-photo]').forEach((label) => {
             label.classList.toggle('opacity-50', full);
@@ -204,7 +207,7 @@
     }
     function refresh(group) {
         const n = group.querySelectorAll('[data-thumbs] > div').length;
-        group.querySelector('[data-group-count]').textContent = n + ' de ' + maxGroup;
+        group.querySelector('[data-group-count]').textContent = n + '/' + maxGroup;
         const section = group.closest('[data-photo-section]');
         const total = section.querySelectorAll('[data-thumbs] > div').length;
         section.querySelector('[data-section-count]').textContent = total ? total + (total === 1 ? ' foto' : ' fotos') : 'Sin fotos';

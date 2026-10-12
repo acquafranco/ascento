@@ -125,8 +125,26 @@
                                 </div>
                             @endif
 
-                            {{-- Fotos de antes y después, acá mismo: Tomar foto / Elegir de la galería (si la empresa las habilitó para este trabajo) --}}
-                            @if($photosOn && $photoSections->isNotEmpty() && $status !== 'no_equipment' && ($openVisit || ($row['pending'] ?? 0) > 0))
+                            {{-- Inspección: el inspector registra observaciones y fotos en el reporte de la visita (no es una reparación). --}}
+                            @if($type === 'inspection' && $status !== 'no_equipment')
+                                @if($openVisit)
+                                    <a href="{{ route('inspection-reports.show', ['company' => $slug, 'visit' => $openVisit->id]) }}" class="t-btn-secondary t-btn-sm mt-2 w-full"
+                                       data-inspection-report-link="{{ isset($inspectionReports[$openVisit->id]) ? 'view' : 'create' }}">{{ isset($inspectionReports[$openVisit->id]) ? 'Ver reporte' : 'Crear reporte' }}</a>
+                                @elseif(($row['pending'] ?? 0) > 0)
+                                    <form method="POST" action="{{ route('visits.start', ['company' => $slug]) }}" class="mt-2">
+                                        @csrf
+                                        <input type="hidden" name="building_id" value="{{ $building->id }}">
+                                        <input type="hidden" name="assignment_type" value="inspection">
+                                        <input type="hidden" name="month" value="{{ $month }}">
+                                        <input type="hidden" name="year" value="{{ $year }}">
+                                        <input type="hidden" name="then" value="report">
+                                        <button type="submit" class="t-btn-secondary t-btn-sm w-full" data-inspection-report-link="start">Crear reporte</button>
+                                    </form>
+                                @endif
+                            @endif
+
+                            {{-- Mantenimiento: fotos de antes y después por zona, acá mismo: Tomar foto / Elegir de la galería (si la empresa las habilitó) --}}
+                            @if($type === 'maintenance' && $photosOn && $photoSections->isNotEmpty() && $status !== 'no_equipment' && ($openVisit || ($row['pending'] ?? 0) > 0))
                                 @include('photos.quick', [
                                     'slug' => $slug,
                                     'sections' => $photoSections,
@@ -150,7 +168,11 @@
                                     <span class="text-xs text-ink-500">
                                         {{ $visit->visited_at?->format('d/m') }}{{ ((int) $visit->month !== (int) $month || (int) $visit->year !== (int) $year) ? ' · corresponde a '.\Carbon\Carbon::create($visit->year, $visit->month, 1)->locale('es')->translatedFormat('F') : '' }}{{ $visit->deliveryNote ? ' · Remito #'.$visit->deliveryNote->number : '' }}
                                     </span>
-                                    @if($photosOn || ($photoCounts[$visit->id] ?? 0) > 0)
+                                    @if($type === 'inspection')
+                                        <a href="{{ route('inspection-reports.show', ['company' => $slug, 'visit' => $visit->id]) }}" class="text-xs font-semibold text-brand-700 underline"
+                                           data-inspection-report-link="{{ isset($inspectionReports[$visit->id]) ? 'view' : 'create' }}">{{ isset($inspectionReports[$visit->id]) ? 'Ver reporte' : 'Crear reporte' }}</a>
+                                    @endif
+                                    @if(($type === 'maintenance' && $photosOn) || ($photoCounts[$visit->id] ?? 0) > 0)
                                         <a href="{{ route('visits.show', ['company' => $slug, 'visit' => $visit->id]) }}" class="text-xs font-semibold text-brand-700 underline" data-work-photos-link>Fotos del trabajo ({{ $photoCounts[$visit->id] ?? 0 }})</a>
                                     @endif
                                 </div>

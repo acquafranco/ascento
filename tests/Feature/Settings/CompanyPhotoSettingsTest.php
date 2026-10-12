@@ -4,7 +4,9 @@ namespace Tests\Feature\Settings;
 
 use App\Filament\Pages\CompanySettings;
 use App\Models\Company;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -50,5 +52,32 @@ class CompanyPhotoSettingsTest extends TestCase
         // Cada uno por separado.
         Livewire::test(CompanySettings::class)->set('data.photos_maintenance', false)->set('data.photos_work_order', true)->call('save')->assertHasNoErrors();
         $this->assertSame([false, true, true], $stored());
+    }
+
+    public function test_tampered_switch_payloads_never_store_anything_but_a_boolean_for_their_own_company(): void
+    {
+        $a = $this->makeTenant();
+        $b = $this->makeTenant();
+        $this->actingInPanel($a['admin']);
+
+        // Llamada directa con un valor que no es booleano (petición manipulada): no se guarda.
+        Livewire::test(CompanySettings::class)->call('savePhotoSetting', 'photos_maintenance', 'sí, y además <script>')
+            ->assertNotified('No se guardó el cambio')->assertSet('data.photos_maintenance', false);
+        $this->assertFalse(Company::find($a['company']->id)->photos_maintenance);
+        $this->assertSame(0, (int) DB::table('companies')->where('id', $a['company']->id)->value('photos_maintenance'));
+        // Por el formulario, el interruptor convierte cualquier valor a sí/no: en la base solo hay 0 o 1.
+        Livewire::test(CompanySettings::class)->set('data.photos_inspection', 'texto')->call('save');
+        $this->assertContains((int) DB::table('companies')->where('id', $a['company']->id)->value('photos_inspection'), [0, 1]);
+
+        // Lo que se activa es SIEMPRE la empresa de quien lo toca: la otra no cambia.
+        Livewire::test(CompanySettings::class)->call('savePhotoSetting', 'photos_work_order', true);
+        $this->assertTrue(Company::find($a['company']->id)->photos_work_order);
+        $this->assertFalse(Company::find($b['company']->id)->photos_work_order);
+
+        // El SuperAdmin no los toca desde «Mi empresa» (no es su empresa).
+        auth()->logout(); // un admin de empresa no puede crear un SuperAdmin (el modelo lo impide)
+        $root = User::factory()->superAdmin()->create(['company_id' => null]);
+        $this->actingInPanel($root);
+        $this->assertFalse(CompanySettings::canAccess());
     }
 }

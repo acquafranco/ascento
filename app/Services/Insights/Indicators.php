@@ -63,7 +63,7 @@ class Indicators
 
     private function claims(CarbonInterface $from, CarbonInterface $to): int
     {
-        return Report::whereBetween('created_at', [$from, $to])->count()
+        return Report::incidents()->whereBetween('created_at', [$from, $to])->count()
             + WorkOrder::where('type', 'claim')->whereBetween('created_at', [$from, $to])->count();
     }
 

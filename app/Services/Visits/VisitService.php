@@ -6,6 +6,7 @@ use App\Models\Building;
 use App\Models\BuildingVisit;
 use App\Models\Company;
 use App\Models\DeliveryNote;
+use App\Models\Report;
 use App\Models\User;
 use App\Models\VisitPhoto;
 use Illuminate\Support\Collection;
@@ -93,7 +94,9 @@ class VisitService
 
         $company = Company::findOrFail($building->company_id);
 
-        if (! $company->photosEnabledFor($type)) {
+        // Mantenimiento: la visita en curso existe para cargar fotos. Inspección:
+        // también para su reporte (observaciones, con o sin fotos), siempre.
+        if ($type !== 'inspection' && ! $company->photosEnabledFor($type)) {
             throw ValidationException::withMessages(['visit' => 'La carga de fotos no está habilitada para este tipo de trabajo.']);
         }
 
@@ -175,6 +178,11 @@ class VisitService
             }
 
             $this->ensureCanWork($user, Building::withoutGlobalScopes()->findOrFail($fresh->building_id), $fresh->assignment_type);
+
+            // El reporte de la inspección es un registro del trabajo: no se borra al descartar.
+            if (Report::withoutGlobalScopes()->withTrashed()->where('building_visit_id', $fresh->id)->exists()) {
+                throw ValidationException::withMessages(['visit' => 'Esta inspección ya tiene un reporte: completá el remito en lugar de descartarla.']);
+            }
 
             // Un técnico no borra (al descartar) fotos que cargó otro: misma
             // regla que quitar una foto. La oficina puede descartarla entera.

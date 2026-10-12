@@ -7,7 +7,7 @@
     $status = request('status');
     // Fotos de órdenes (si la empresa las habilitó): «Tomar foto» en cada tarjeta.
     $woPhotoSections = \App\Models\Company::find(auth()->user()->company_id)?->photosEnabledFor('work_order')
-        ? \App\Models\PhotoSection::forCompany(auth()->user()->company_id)->where('is_active', true)->values()
+        ? \App\Models\PhotoSection::zonesFor(auth()->user()->company_id, 'work_order')
         : collect();
     $woPhotoCounts = $woPhotoSections->isEmpty() || $workOrders->isEmpty() ? [] : \App\Models\VisitPhoto::withoutGlobalScopes()
         ->where('company_id', auth()->user()->company_id)->whereIn('work_order_id', $workOrders->pluck('id'))

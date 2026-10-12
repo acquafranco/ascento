@@ -49,7 +49,7 @@ class FailureAnalysis
         // Filas simples (toBase conserva los scopes de empresa y de borrado):
         // solo se cuentan, no hace falta armar un modelo por cada aviso.
         $load = fn () => [
-            Report::where('created_at', '>', $since)->where('created_at', '<=', $until)->whereNotNull('elevator_number')
+            Report::incidents()->where('created_at', '>', $since)->where('created_at', '<=', $until)->whereNotNull('elevator_number')
                 ->toBase()->get(['id', 'building_id', 'elevator_number', 'component'])
                 ->groupBy(fn ($r) => $r->building_id.'|'.$r->elevator_number),
             WorkOrder::where('type', 'claim')->where('created_at', '>', $since)->where('created_at', '<=', $until)->whereNotNull('unit')
@@ -78,7 +78,7 @@ class FailureAnalysis
     {
         [$since, $until] = $this->window($days, $until);
 
-        $reports = Report::where('building_id', $elevator->building_id)->where('elevator_number', $elevator->label)
+        $reports = Report::incidents()->where('building_id', $elevator->building_id)->where('elevator_number', $elevator->label)
             ->where('created_at', '>', $since)->where('created_at', '<=', $until)
             ->get(['id', 'component']);
         $claims = WorkOrder::where('building_id', $elevator->building_id)->where('unit', $elevator->label)->where('type', 'claim')

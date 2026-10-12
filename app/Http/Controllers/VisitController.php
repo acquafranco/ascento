@@ -6,6 +6,7 @@ use App\Models\Building;
 use App\Models\BuildingVisit;
 use App\Models\Company;
 use App\Models\DeliveryNote;
+use App\Models\Report;
 use App\Models\WorkOrder;
 use App\Services\Visits\PhotoTarget;
 use App\Services\Visits\VisitPhotoService;
@@ -35,6 +36,8 @@ class VisitController extends Controller
             'assignment_type' => ['required', Rule::in(VisitSchedule::TYPES)],
             'month' => ['required', 'integer', 'between:1,12'],
             'year' => ['required', 'integer', 'between:2000,2100'],
+            // «Crear reporte» de una inspección: abre la visita y va a su reporte.
+            'then' => ['nullable', Rule::in(['report'])],
         ]);
 
         $building = Building::where('company_id', $company->id)->findOrFail($data['building_id']);
@@ -55,6 +58,10 @@ class VisitController extends Controller
                 'visit_id' => $visit->id,
                 'url' => route('visits.show', ['company' => $company->slug, 'visit' => $visit->id]),
             ]);
+        }
+
+        if (($data['then'] ?? null) === 'report' && $visit->assignment_type === 'inspection') {
+            return redirect()->route('inspection-reports.show', ['company' => $company->slug, 'visit' => $visit->id]);
         }
 
         return redirect()->route('visits.show', ['company' => $company->slug, 'visit' => $visit->id]);
@@ -104,6 +111,9 @@ class VisitController extends Controller
             'visit' => $target->visit,
             'workOrder' => $target->workOrder,
             'deliveryNote' => $note,
+            'inspectionReport' => $target->visit && $target->type === 'inspection'
+                ? Report::withoutGlobalScopes()->where('company_id', $company->id)->where('kind', Report::KIND_INSPECTION)->where('building_visit_id', $target->visit->id)->first(['id'])
+                : null,
             ...$photos->managerData($user, $target),
             'period' => $target->visit && $target->type !== 'work_order'
                 ? VisitSchedule::load([$building->id], (int) $target->visit->month, (int) $target->visit->year, (int) $building->company_id)

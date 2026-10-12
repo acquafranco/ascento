@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\Companies\Tables;
 
+use App\Filament\Resources\Companies\CompanyDeletion;
+use App\Filament\Resources\Companies\CompanyResource;
 use App\Filament\Resources\Subscriptions\SubscriptionResource;
 use App\Models\Company;
 use App\Support\SubscriptionStatus;
@@ -11,6 +13,7 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -29,7 +32,7 @@ class CompaniesTable
         return $table
             // Eager loading de lo que usan las columnas (evita N+1).
             ->modifyQueryUsing(fn (Builder $query) => $query->with(['latestSubscription', 'owner'])->withCount(['users', 'buildings']))
-            ->recordUrl(fn (Company $record) => \App\Filament\Resources\Companies\CompanyResource::getUrl('view', ['record' => $record]))
+            ->recordUrl(fn (Company $record) => CompanyResource::getUrl('view', ['record' => $record]))
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('name')
@@ -58,8 +61,8 @@ class CompaniesTable
 
                 TextColumn::make('plan_name')
                     ->label('Plan')
-                    ->state(fn ($record) => ($record instanceof \App\Models\Company ? $record : $record->company)?->plan()->shortName())
-                    ->description(fn ($record) => (($record instanceof \App\Models\Company ? $record->latestSubscription : $record)?->legacy_plan) ? 'Precio anterior conservado' : null),
+                    ->state(fn ($record) => ($record instanceof Company ? $record : $record->company)?->plan()->shortName())
+                    ->description(fn ($record) => (($record instanceof Company ? $record->latestSubscription : $record)?->legacy_plan) ? 'Precio anterior conservado' : null),
 
                 TextColumn::make('latestSubscription.current_period_end')
                     ->label('Pagado hasta')
@@ -153,8 +156,10 @@ class CompaniesTable
                         return redirect()->to('/admin');
                     }),
 
-                \Filament\Actions\ViewAction::make()->label('Ficha'),
+                ViewAction::make()->label('Ficha'),
                 EditAction::make(),
+                // Borrado definitivo (también de una desactivada), con confirmación explícita.
+                CompanyDeletion::action(),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

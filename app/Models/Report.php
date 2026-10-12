@@ -2,12 +2,17 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Models\Concerns\ConsumesPlanLimit;
 use App\Enums\PlanLimit;
-use Illuminate\Database\Eloquent\Model;
 use App\Models\Concerns\BelongsToCompany;
+use App\Models\Concerns\ConsumesPlanLimit;
+use App\Models\Concerns\SharesWithClient;
+use App\Services\Visits\PhotoTarget;
+use App\Services\Visits\VisitPhotoService;
+use App\Support\CompanyContext;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Report extends Model
 {
@@ -16,16 +21,29 @@ class Report extends Model
 
     public const PRIORITY_LABELS = ['baja' => 'Baja', 'media' => 'Media', 'alta' => 'Alta', 'critica' => 'Crítica'];
 
-    use \App\Models\Concerns\SharesWithClient;
+    /**
+     * Tipo: reporte de falla (el de siempre: prioridad, estado, avisos, cupo
+     * del plan) o reporte de una inspección (observaciones y fotos del
+     * inspector, vinculado a su visita: no es una reparación, así que no
+     * cuenta en fallas, alertas, indicadores ni en el cupo de reportes).
+     * Ni el tipo ni la visita son asignables desde un formulario.
+     */
+    public const KIND_INCIDENT = 'incident';
 
+    public const KIND_INSPECTION = 'inspection';
 
-    use HasFactory, SoftDeletes;
-    use ConsumesPlanLimit;
+    public const KIND_LABELS = [self::KIND_INCIDENT => 'Falla', self::KIND_INSPECTION => 'Inspección'];
+
     use BelongsToCompany;
+    use ConsumesPlanLimit;
+    use HasFactory, SoftDeletes;
+    use SharesWithClient;
+
     protected $fillable = [
 
         'company_id',
         'user_id',
+        // 'kind' y 'building_visit_id' no son asignables (ver InspectionReportService).
         'building_id',
         'elevator_number',
         'component',
@@ -36,7 +54,6 @@ class Report extends Model
         'status',
 
     ];
-
 
     protected static function booted(): void
     {
@@ -71,14 +88,25 @@ class Report extends Model
         }
 
         if ($user->isSuperAdmin()) {
-            return (int) \App\Support\CompanyContext::currentId() === (int) $this->company_id;
+            return (int) CompanyContext::currentId() === (int) $this->company_id;
         }
 
         if ((int) $user->company_id !== (int) $this->company_id) {
             return false;
         }
 
-        return $user->isAdmin() || (int) $this->user_id === (int) $user->id;
+        if ($user->isAdmin() || (int) $this->user_id === (int) $user->id) {
+            return true;
+        }
+
+        // Reporte de inspección: también quien trabaja en esa inspección
+        // (inspector asignado al edificio o que participó de la visita).
+        if ($this->isInspection() && $this->building_visit_id
+            && ($visit = BuildingVisit::withoutGlobalScopes()->where('company_id', $this->company_id)->find($this->building_visit_id))) {
+            return app(VisitPhotoService::class)->canWorkOn($user, PhotoTarget::forVisit($visit));
+        }
+
+        return false;
     }
 
     public function company()
@@ -86,21 +114,40 @@ class Report extends Model
         return $this->belongsTo(Company::class);
     }
 
-
     public function user()
     {
         return $this->belongsTo(User::class)->withTrashed();
     }
-
 
     public function building()
     {
         return $this->belongsTo(Building::class)->withTrashed();
     }
 
-    /** Cupo mensual de reportes (al reactivar uno borrado no se vuelve a contar: ya contaba). */
+    /**
+     * Cupo mensual de reportes (al reactivar uno borrado no se vuelve a
+     * contar: ya contaba). El reporte de una inspección es parte de la
+     * inspección: no consume cupo.
+     */
     public function planLimit(): ?PlanLimit
     {
-        return $this->exists ? null : PlanLimit::ReportsPerMonth;
+        return $this->exists || $this->isInspection() ? null : PlanLimit::ReportsPerMonth;
+    }
+
+    public function isInspection(): bool
+    {
+        return $this->kind === self::KIND_INSPECTION;
+    }
+
+    /** Solo reportes de falla (los de siempre). */
+    public function scopeIncidents(Builder $query): Builder
+    {
+        return $query->where($query->qualifyColumn('kind'), self::KIND_INCIDENT);
+    }
+
+    /** Visita de la inspección (solo reportes de inspección). */
+    public function visit()
+    {
+        return $this->belongsTo(BuildingVisit::class, 'building_visit_id')->withoutGlobalScopes();
     }
 }

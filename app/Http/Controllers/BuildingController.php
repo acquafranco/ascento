@@ -6,6 +6,7 @@ use App\Models\Building;
 use App\Models\BuildingVisit;
 use App\Models\Company;
 use App\Models\PhotoSection;
+use App\Models\Report;
 use App\Models\VisitPhoto;
 use App\Services\Insights\MaintenanceAgenda;
 use App\Services\Visits\VisitSchedule;
@@ -106,15 +107,22 @@ class BuildingController extends Controller
         // Fotos: tipos habilitados por la empresa y cuántas tiene cada visita (una consulta).
         $company = Company::findOrFail($user->company_id);
         $photoTypes = collect(VisitSchedule::TYPES)->filter(fn ($type) => $company->photosEnabledFor($type))->values()->all();
-        // Partes que se pueden fotografiar (para «Tomar foto» en la tarjeta del edificio).
-        $photoSections = $photoTypes === [] ? collect() : PhotoSection::forCompany($company->id)->where('is_active', true)->values();
+        // Zonas del sistema para «Tomar foto» en la tarjeta (solo mantenimiento:
+        // la inspección lleva sus fotos en el reporte).
+        $photoSections = in_array('maintenance', $photoTypes, true) ? PhotoSection::zonesFor($company->id, 'maintenance') : collect();
         $visitIds = $rows->flatMap(fn ($row) => $row['visits']->pluck('id'))->all();
         $photoCounts = $visitIds === [] ? [] : VisitPhoto::withoutGlobalScopes()
             ->where('company_id', $user->company_id)->whereIn('building_visit_id', $visitIds)
             ->selectRaw('building_visit_id, count(*) as total')->groupBy('building_visit_id')
             ->pluck('total', 'building_visit_id')->map(fn ($n) => (int) $n)->all();
 
+        // Reportes de inspección ya hechos («Ver reporte» en vez de «Crear reporte»).
+        $inspectionReports = $visitIds === [] ? [] : Report::withoutGlobalScopes()
+            ->where('company_id', $user->company_id)->where('kind', Report::KIND_INSPECTION)
+            ->whereIn('building_visit_id', $visitIds)->pluck('id', 'building_visit_id')->all();
+
         return view('buildings.index', compact(
+            'inspectionReports',
             'photoTypes',
             'photoCounts',
             'photoSections',

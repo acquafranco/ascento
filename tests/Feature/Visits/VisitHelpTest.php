@@ -3,8 +3,8 @@
 namespace Tests\Feature\Visits;
 
 use App\Filament\Pages\Agenda;
+use App\Filament\Pages\IndicatorsPage;
 use App\Filament\Resources\Buildings\BuildingResource;
-use App\Filament\Resources\PhotoSections\PhotoSectionResource;
 use App\Livewire\AdminOnboarding;
 use App\Models\HelpDismissal;
 use App\Support\Help\HelpTopics;
@@ -13,8 +13,8 @@ use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
 /**
- * Ayuda de la Etapa 5: explica asignación masiva, frecuencias, secciones de
- * fotos y progreso, sin reiniciar guías completadas ni volver a mostrar
+ * Ayuda de la Etapa 5: explica asignación masiva, frecuencias, reportes de
+ * inspección y progreso, sin reiniciar guías completadas ni volver a mostrar
  * ayudas que el usuario ya descartó (las claves no cambian).
  */
 class VisitHelpTest extends TestCase
@@ -29,8 +29,9 @@ class VisitHelpTest extends TestCase
         $this->assertStringContainsString('frecuencia de cobro', $help['buildings']['body']);
         $this->assertStringContainsString('no realizado', HelpTopics::get('agenda_intro')['body']);
         $this->assertStringContainsString('Quincenal', HelpTopics::get('agenda_intro')['body']);
-        $this->assertSame('photo_sections_intro', HelpTopics::forRoute('filament.ascensores_app.resources.secciones-de-fotos.index'));
-        $this->assertStringContainsString('3 fotos', HelpTopics::get('photo_sections_intro')['body']);
+        // Las zonas de fotos son del sistema: ya no hay pantalla ni ayuda de secciones.
+        $this->assertNull(HelpTopics::get('photo_sections_intro'));
+        $this->assertStringContainsString('Ver reporte', $help['inspections']['body']);
     }
 
     public function test_dismissed_helps_and_completed_guides_stay_that_way(): void
@@ -45,8 +46,8 @@ class VisitHelpTest extends TestCase
         $this->actingInPanel($admin);
         $this->get(Agenda::getUrl())->assertOk()->assertDontSee('Ascento arma solo la lista de mantenimientos');
         $this->get(BuildingResource::getUrl())->assertOk();
-        // La ayuda nueva sí aparece (nunca se descartó) y no reinicia nada.
-        $this->get(PhotoSectionResource::getUrl())->assertOk()->assertSee('Las partes del equipo que el técnico puede fotografiar');
+        // Una ayuda nunca descartada sí aparece, y no reinicia nada.
+        $this->get(IndicatorsPage::getUrl())->assertOk()->assertSee('Cada número responde una pregunta');
 
         $admin->refresh();
         $this->assertNotNull($admin->onboarding_completed_at);

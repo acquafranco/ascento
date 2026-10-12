@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Models\VisitPhoto;
 use App\Models\WorkOrder;
 use App\Services\Media\PhotoProcessor;
+use App\Support\PhotoZones;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -93,17 +94,19 @@ class VisitPhotoService
      */
     public function managerData(User $user, PhotoTarget $target): array
     {
-        $photos = (clone $target->photos())->with(['uploader:id,name', 'elevator:id,label'])->orderBy('id')->get();
-        $sections = PhotoSection::forCompany($target->companyId);
-        $legacy = $photos->whereNotIn('photo_section_id', $sections->pluck('id'))->unique('photo_section_id')
-            ->map(fn (VisitPhoto $p) => (new PhotoSection)->forceFill(['id' => $p->photo_section_id, 'name' => $p->section_name, 'is_active' => false]));
+        $photos = (clone $target->photos())->with(['uploader:id,name', 'elevator:id,label', 'section:id,code,name'])->orderBy('id')->get();
+        $zones = PhotoSection::zonesFor($target->companyId, $target->type);
+        // Fotos de zonas que ya no se ofrecen (secciones propias de antes, o
+        // fotos de inspección del flujo anterior): se ven, sin cargar nuevas.
+        $legacy = $photos->whereNotIn('photo_section_id', $zones->pluck('id'))->unique('photo_section_id')
+            ->map(fn (VisitPhoto $p) => (new PhotoSection)->forceFill(['id' => $p->photo_section_id, 'code' => $p->section?->code, 'name' => $p->section_name, 'is_active' => false]));
 
         return [
             'photos' => $photos,
-            'sections' => $sections->concat($legacy->values()),
+            'sections' => $zones->concat($legacy->values()),
             'elevators' => Elevator::withoutGlobalScopes()->where('building_id', $target->buildingId)->where('company_id', $target->companyId)
                 ->where('is_active', true)->orderBy('label')->get(['id', 'label']),
-            'canUpload' => $this->canUpload($user, $target),
+            'canUpload' => $this->canUpload($user, $target) && $zones->isNotEmpty(),
         ];
     }
 
@@ -124,9 +127,17 @@ class VisitPhotoService
             throw ValidationException::withMessages(['photo' => 'La carga de fotos está desactivada para este tipo de trabajo.']);
         }
 
+        // Solo una zona del sistema para ESTE tipo de trabajo y de ESTA empresa
+        // (un id de otra empresa: 404; una sección vieja o de otro tipo: 422).
         $section = PhotoSection::withoutGlobalScopes()
-            ->where('company_id', $target->companyId)->active()
+            ->where('company_id', $target->companyId)
             ->findOrFail($data['photo_section_id']);
+
+        if (! PhotoZones::allows($target->type, $section->code)) {
+            throw ValidationException::withMessages(['photo' => $target->type === 'inspection'
+                ? 'Las fotos de la inspección se cargan en su reporte.'
+                : 'Elegí una zona válida para este trabajo.']);
+        }
 
         $clientKey = filled($data['client_key'] ?? null) ? (string) $data['client_key'] : null;
 
@@ -153,7 +164,7 @@ class VisitPhotoService
                 $photos = $target->photos();
 
                 if ((clone $photos)->where('photo_section_id', $section->id)->where('stage', $data['stage'])->count() >= VisitPhoto::MAX_PER_GROUP) {
-                    throw ValidationException::withMessages(['photo' => 'Podés cargar hasta '.VisitPhoto::MAX_PER_GROUP.' fotos de '.$section->name.' ('.mb_strtolower(VisitPhoto::STAGES[$data['stage']]).').']);
+                    throw ValidationException::withMessages(['photo' => 'Podés cargar hasta '.VisitPhoto::MAX_PER_GROUP.' fotos de '.$section->label().' ('.mb_strtolower(VisitPhoto::STAGES[$data['stage']]).').']);
                 }
 
                 if ((clone $photos)->count() >= VisitPhoto::MAX_PER_VISIT) {
@@ -174,7 +185,7 @@ class VisitPhotoService
                     'work_order_id' => $target->workOrder?->id,
                     'delivery_note_id' => $target->deliveryNoteId(),
                     'photo_section_id' => $section->id,
-                    'section_name' => $section->name,
+                    'section_name' => $section->label(),
                     'elevator_id' => $this->validElevator($target, $data['elevator_id'] ?? null),
                     'notes' => $text !== '' ? mb_substr($text, 0, 500) : null,
                     'assignment_type' => $target->type,

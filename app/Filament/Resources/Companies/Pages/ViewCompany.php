@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Companies\Pages;
 
+use App\Filament\Resources\Companies\CompanyDeletion;
 use App\Filament\Resources\Companies\CompanyResource;
 use App\Filament\Resources\Subscriptions\SubscriptionResource;
 use App\Models\Company;
@@ -53,6 +54,7 @@ class ViewCompany extends ViewRecord
                 ->visible(fn () => $this->record->latestSubscription !== null)
                 ->url(fn () => SubscriptionResource::getUrl('view', ['record' => $this->record->latestSubscription])),
             EditAction::make(),
+            CompanyDeletion::action(),
         ];
     }
 

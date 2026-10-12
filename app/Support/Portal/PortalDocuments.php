@@ -70,7 +70,7 @@ class PortalDocuments
             'delivery_note' => DB::table('delivery_notes')->where('delivery_notes.company_id', $companyId)
                 ->whereIn('delivery_notes.building_id', $buildingIds ?: [0])->where('delivery_notes.shared_with_client', true)
                 ->selectRaw("'delivery_note' as kind, delivery_notes.id, delivery_notes.building_id, delivery_notes.created_at as happened_at, delivery_notes.number as ref, delivery_notes.description as summary, delivery_notes.assignment_type as status, null as amount"),
-            'report' => DB::table('reports')->where('reports.company_id', $companyId)->whereNull('reports.deleted_at')
+            'report' => DB::table('reports')->where('reports.company_id', $companyId)->whereNull('reports.deleted_at')->where('reports.kind', 'incident')
                 ->whereIn('reports.building_id', $buildingIds ?: [0])->where('reports.shared_with_client', true)
                 ->selectRaw("'report' as kind, reports.id, reports.building_id, reports.created_at as happened_at, reports.elevator_number as ref, reports.description as summary, reports.status as status, null as amount"),
             'quote' => DB::table('quotes')->where('quotes.company_id', $companyId)->whereNull('quotes.deleted_at')

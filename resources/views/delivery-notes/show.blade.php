@@ -7,8 +7,8 @@
     - Interno: "Compartir" (WhatsApp, correo, PDF real, copiar enlace) desde el
       plan Profesional; si el plan no lo incluye, el aviso de siempre.
     - Público: solo "Descargar PDF".
-    - Interno: fotos de antes y después de la visita (solo quien puede verlas).
-    $deliveryNote, $doc, $audience, $pdfUrl (público), $photos (interno)
+    - Sin fotos: las de antes y después se ven en su trabajo, nunca en el remito.
+    $deliveryNote, $doc, $audience, $pdfUrl (público)
 --}}
 @php
     $audience = $audience ?? 'internal';
@@ -104,10 +104,6 @@
                 </div>
             @endif
 
-            {{-- Fotos de antes y después: solo interno (nunca enlace público ni portal). --}}
-            @if ($audience === 'internal' && isset($photos) && $photos->isNotEmpty())
-                @include('delivery-notes.partials.visit-photos', ['photos' => $photos])
-            @endif
         </div>
     </main>
 </x-delivery-note-layout>

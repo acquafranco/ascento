@@ -73,9 +73,8 @@ class StageFiveAuditTest extends TestCase
 
     private function section(): PhotoSection
     {
-        PhotoSection::forCompany($this->a['company']->id);
-
-        return PhotoSection::withoutGlobalScopes()->where('company_id', $this->a['company']->id)->orderBy('id')->firstOrFail();
+        // Pozo: zona del sistema para mantenimientos y órdenes de trabajo.
+        return PhotoSection::zonesFor($this->a['company']->id, 'maintenance')->firstWhere('code', 'pozo');
     }
 
     private function upload(int $visitId, User $as, string $stage = 'before')

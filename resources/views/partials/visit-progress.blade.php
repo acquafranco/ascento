@@ -32,11 +32,19 @@
                 <strong class="text-ink">{{ $p['done'] }} de {{ $p['expected'] }}</strong> {{ $p['expected'] === 1 ? 'visita prevista realizada' : 'visitas previstas realizadas' }}
                 · {{ $p['assigned'] }} {{ $p['assigned'] === 1 ? 'edificio asignado' : 'edificios asignados' }}
             </p>
-            <dl class="mt-2 grid grid-cols-4 gap-1 text-center">
-                <div class="rounded-lg bg-ink-50 py-1"><dt class="text-[11px] font-semibold text-ink-500">Edificios</dt><dd class="text-base font-bold text-ink">{{ $p['assigned'] }}</dd></div>
-                <div><dt class="text-[11px] font-semibold text-ink-500">Previstas</dt><dd class="text-base font-bold text-ink">{{ $p['expected'] }}</dd></div>
-                <div><dt class="text-[11px] font-semibold text-ink-500">Realizadas</dt><dd class="text-base font-bold text-emerald-700">{{ $p['done'] }}</dd></div>
-                <div><dt class="text-[11px] font-semibold text-ink-500">Pendientes</dt><dd class="text-base font-bold {{ $p['pending'] ? 'text-amber-700' : 'text-ink' }}">{{ $p['pending'] }}</dd></div>
+            {{-- Cuatro indicadores iguales: misma altura, mismo fondo y número alineado (también a 320 px). --}}
+            <dl class="mt-2 grid grid-cols-4 gap-1.5 text-center" data-progress-stats>
+                @foreach([
+                    ['Edificios', $p['assigned'], 'text-ink'],
+                    ['Previstas', $p['expected'], 'text-ink'],
+                    ['Realizadas', $p['done'], 'text-emerald-700'],
+                    ['Pendientes', $p['pending'], $p['pending'] ? 'text-amber-700' : 'text-ink'],
+                ] as [$statLabel, $statValue, $statColor])
+                    <div class="flex min-h-[3.25rem] min-w-0 flex-col items-center justify-center rounded-lg bg-ink-50 px-0.5 py-1.5" data-progress-stat>
+                        <dt class="w-full truncate text-[10px] min-[360px]:text-[11px] font-semibold leading-tight text-ink-500">{{ $statLabel }}</dt>
+                        <dd class="mt-0.5 text-base font-bold leading-none {{ $statColor }}">{{ $statValue }}</dd>
+                    </div>
+                @endforeach
             </dl>
             @if($p['expected'] === 0)
                 <p class="mt-1.5 text-xs text-ink-500">Nada previsto este mes: según la frecuencia, ya se visitó en el período.</p>

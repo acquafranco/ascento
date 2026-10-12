@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\Inspections\Tables;
 
-use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
+use App\Filament\Resources\Inspections\InspectionResource;
 use App\Filament\Support\ClientSharing;
 use Filament\Actions\BulkActionGroup;
 use Filament\Tables\Columns\TextColumn;
@@ -78,7 +78,7 @@ class InspectionsTable
                     }),
 
             ])
-            ->recordUrl(fn ($record) => DeliveryNoteResource::getUrl('view', [
+            ->recordUrl(fn ($record) => InspectionResource::getUrl('view', [
                 'record' => $record,
             ]))
             // Compartir con el portal del cliente (privado por defecto).
