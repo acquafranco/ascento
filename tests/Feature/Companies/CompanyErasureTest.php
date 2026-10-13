@@ -115,6 +115,7 @@ class CompanyErasureTest extends TestCase
         $this->row('quote_items', ['company_id' => $c, 'quote_id' => $quote, ...$now]);
         $this->row('quote_events', ['company_id' => $c, 'quote_id' => $quote, ...$now]);
         $this->row('tasks', ['company_id' => $c, 'title' => 'Tarea', 'assigned_to' => $t['admin']->id, 'created_by' => $t['admin']->id, 'client_id' => $client, 'building_id' => $bld, 'quote_id' => $quote, 'work_order_id' => $order, ...$now]);
+        DB::table('task_reminder_recipients')->insert(['company_id' => $c, 'task_id' => DB::table('tasks')->where('company_id', $c)->value('id'), 'user_id' => $t['admin']->id, ...$now]);
         $this->row('client_interactions', ['company_id' => $c, 'client_id' => $client, 'building_id' => $bld, 'quote_id' => $quote, 'type' => 'call', 'result' => 'resolved', 'occurred_at' => now(), 'user_id' => $t['admin']->id, ...$now]);
         // Etapa 7: QR público y pruebas de paracaídas (con un archivo).
         $ptest = $this->row('parachute_tests', ['company_id' => $c, 'elevator_id' => $elevator, 'building_id' => $bld, 'performed_on' => '2026-10-01', 'result' => 'satisfactory', 'performed_by_id' => $u, 'recorded_by' => $t['admin']->id, ...$now]);

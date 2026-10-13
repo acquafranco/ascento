@@ -58,6 +58,12 @@ class Task extends Model
         return $this->belongsTo(User::class, 'assigned_to')->withTrashed();
     }
 
+    /** Quiénes reciben el recordatorio (vacío: el responsable o quien la creó). */
+    public function reminderRecipients()
+    {
+        return $this->belongsToMany(User::class, 'task_reminder_recipients')->withTimestamps();
+    }
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by')->withTrashed();

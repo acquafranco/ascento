@@ -18,7 +18,8 @@ class TaskNotification extends AppNotification
 
     public const REMINDER = 'reminder';
 
-    public function __construct(public Task $task, public string $reason) {}
+    /** @param  string|null  $target  destino para ESTE destinatario (el que puede abrir) */
+    public function __construct(public Task $task, public string $reason, public ?string $target = null) {}
 
     public function title(): string
     {
@@ -36,6 +37,10 @@ class TaskNotification extends AppNotification
 
     public function path(): ?string
     {
+        if ($this->target !== null) {
+            return $this->target;
+        }
+
         // «Mis tareas» (el responsable con solo «ver» también la abre y la completa desde ahí).
         $url = TaskResource::getUrl('index', ['tab' => 'mine'], panel: 'ascensores_app');
 
@@ -45,6 +50,15 @@ class TaskNotification extends AppNotification
     public function dedupeKey(): ?string
     {
         return 'task:'.$this->task->id.':'.$this->reason.':'.($this->reason === self::REMINDER ? $this->task->remind_at?->format('YmdHi') : $this->task->assigned_to);
+    }
+
+    /**
+     * El recordatorio también llega como push a los dispositivos que el
+     * destinatario activó (el aviso de asignación, solo a la campanita).
+     */
+    public function wantsPush(): bool
+    {
+        return $this->reason === self::REMINDER;
     }
 
     public function actionLabel(): string
@@ -64,6 +78,6 @@ class TaskNotification extends AppNotification
 
     public function toMail(object $notifiable): ?MailMessage
     {
-        return null; // en la app (campanita y push), no por correo
+        return null; // en la app (campanita y, el recordatorio, push), no por correo
     }
 }

@@ -243,7 +243,7 @@ class CompanyEraser
 
         // Fotos, reportes y sus archivos (filas; los archivos van después).
         // Tareas e historial de contactos (referencian clientes, edificios, presupuestos, órdenes y usuarios).
-        foreach (['tasks', 'client_interactions'] as $table) {
+        foreach (['task_reminder_recipients', 'tasks', 'client_interactions'] as $table) {
             $n += $of($table)->delete();
         }
 
