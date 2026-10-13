@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Filament\Pages\CompanySettings;
 use App\Filament\Pages\Dashboard;
+use App\Filament\Pages\HelpCenter;
 use App\Filament\Pages\Subscription;
 use App\Filament\Resources\Buildings\BuildingResource;
 use App\Filament\Resources\Clients\ClientResource;
@@ -105,6 +106,7 @@ class AdminOnboarding extends Component
             'steps' => static::steps(),
             'checklist' => $this->checklist(),
             'sectionHelp' => static::sectionHelp()[$this->section] ?? static::sectionHelp()['dashboard'],
+            'helpCenterUrl' => HelpCenter::getUrl(),
         ]);
     }
 
@@ -273,6 +275,12 @@ class AdminOnboarding extends Component
             'work_orders' => ['title' => 'Órdenes de trabajo', 'body' => 'Trabajos puntuales: elegí edificio, ascensor, técnicos, tipo de trabajo, prioridad y detalle. El técnico la toma desde el celular y la cierra con el remito.'],
             'quotes' => ['title' => 'Presupuestos', 'body' => 'Presupuestos para tus clientes con ítems, total calculado, validez y estado (borrador, enviado, aprobado, rechazado o anulado; vencido si pasa la validez). Desde cada presupuesto lo podés enviar por WhatsApp o por mail.'],
             'map' => ['title' => 'Mapa', 'body' => 'Todos tus edificios en el mapa. Se ubican solos con la dirección que cargaste; si alguno no se pudo ubicar con precisión, aparece en "Edificios sin ubicar" para que corrijas la dirección o lo marques a mano. Tocá un punto para ver el cliente y abrir el edificio.'],
+            'tasks' => ['title' => 'Tareas', 'body' => 'Pendientes de la oficina con responsable, vencimiento y recordatorio. En «Avisar a» elegís quién recibe el aviso.'],
+            'contacts' => ['title' => 'Historial de contactos', 'body' => 'Cada llamado, visita o correo con un cliente, con su resultado, y quiénes llevan tiempo sin contacto.'],
+            'public_qr' => ['title' => 'QR públicos', 'body' => 'Un código por edificio para que residentes y visitantes vean, sin cuenta, solo lo que elegís publicar.'],
+            'parachute' => ['title' => 'Pruebas de paracaídas', 'body' => 'Periodicidad por ascensor o por cliente, registro de cada prueba y aviso de las próximas y vencidas.'],
+            'repairs' => ['title' => 'Reparaciones', 'body' => 'Componentes enviados a un taller: estado, fechas, proveedor, costos e historial de cada cambio.'],
+            'staff' => ['title' => 'Administrativos', 'body' => 'Personal de oficina con permisos por área: ver o gestionar. Los cambios rigen al instante.'],
             'subscription' => ['title' => 'Mi suscripción', 'body' => 'Tu plan (Inicial, Profesional o Empresa), cuánto usaste de cada límite y cómo cambiar de plan o suscribirte con Mercado Pago.'],
         ];
     }
@@ -295,6 +303,13 @@ class AdminOnboarding extends Component
             'resources.delivery-notes.' => 'delivery_notes',
             'resources.work-orders.' => 'work_orders',
             'resources.quotes.' => 'quotes',
+            'resources.tareas.' => 'tasks',
+            'resources.contactos.' => 'contacts',
+            'pages.qr-publicos' => 'public_qr',
+            'pages.paracaidas' => 'parachute',
+            'resources.pruebas-paracaidas.' => 'parachute',
+            'resources.reparaciones.' => 'repairs',
+            'resources.administrativos.' => 'staff',
         ];
 
         foreach ($map as $needle => $section) {

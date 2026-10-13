@@ -9,6 +9,7 @@ use App\Http\Controllers\CompanyExportDownloadController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeliveryNoteController;
 use App\Http\Controllers\ElevatorDocumentController;
+use App\Http\Controllers\HelpController;
 use App\Http\Controllers\InspectionReportController;
 use App\Http\Controllers\NotificationInboxController;
 use App\Http\Controllers\ParachuteTestFileController;
@@ -128,6 +129,9 @@ Route::prefix('{company:slug}')
         | PROFILE
         |--------------------------------------------------------------------------
         */
+
+        // Ayuda de la app del técnico (Etapa 9.3).
+        Route::get('/ayuda', [HelpController::class, 'technician'])->name('help.technician');
 
         Route::controller(ProfileController::class)->group(function () {
 
@@ -494,6 +498,8 @@ Route::prefix('portal')->name('portal.')->middleware(['auth', 'portal'])->group(
     Route::get('/documentos/{elevatorDocument}', [PortalController::class, 'document'])->whereNumber('elevatorDocument')->name('document');
     // Foto de un técnico responsable de sus edificios (Etapa 8.3).
     Route::get('/responsables/{user}/foto', [PortalController::class, 'responsiblePhoto'])->whereNumber('user')->middleware('throttle:120,1')->name('responsible-photo');
+    // Ayuda del portal (Etapa 9.3).
+    Route::get('/ayuda', [HelpController::class, 'portal'])->name('help');
     Route::get('/notificaciones', [NotificationInboxController::class, 'index'])->name('notifications');
     Route::get('/notificaciones/contador', [NotificationInboxController::class, 'count'])->middleware('throttle:60,1')->name('notifications.count');
     Route::get('/notificaciones/{notification}', [NotificationInboxController::class, 'open'])->whereUuid('notification')->name('notifications.open');

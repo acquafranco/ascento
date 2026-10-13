@@ -2,7 +2,9 @@
 
 namespace App\Support\Help;
 
+use App\Filament\Pages\HelpCenter;
 use App\Livewire\AdminOnboarding;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Livewire\Livewire;
 
@@ -39,6 +41,13 @@ class HelpTopics
         'map_intro' => ['Mapa', null, 'map'],
         'attention_center' => ['Centro de atención', 'Solo lo que necesita que hagas algo hoy: mantenimientos vencidos, trabajos trabados, reportes graves, presupuestos por vencer. Si está vacío, está todo en orden.', null],
         'exports_intro' => ['Exportar datos', 'Generá un ZIP con un Excel y los adjuntos de tu empresa para tener tus datos. Se prepara en uno o dos minutos y queda disponible unos días; acá ves quién lo pidió y quién lo descargó.', null],
+        // Etapas 6 a 8.
+        'tasks_intro' => ['Tareas', 'Pendientes de la oficina con responsable, vencimiento y recordatorio. En «Avisar a» elegís quién recibe el aviso; en «Mis tareas» ves las tuyas.', null],
+        'contacts_intro' => ['Historial de contactos', 'Cada llamado, visita o correo con un cliente, con su resultado. El inicio te avisa qué clientes llevan tiempo sin contacto.', null],
+        'public_qr_intro' => ['QR públicos', 'Un código por edificio para que residentes y visitantes vean, sin cuenta, solo lo que elegís publicar. No es una certificación de seguridad.', null],
+        'parachute_intro' => ['Pruebas de paracaídas', 'Configurá la periodicidad de cada ascensor (o la del cliente) y registrá cada prueba. Ascento avisa las próximas y las vencidas; un aviso nunca cuenta como prueba hecha.', null],
+        'repairs_intro' => ['Reparaciones', 'Los componentes que mandás a un taller: estado, fechas, proveedor y costos. El estado avanza con «Cambiar estado» y cada cambio queda en el historial.', null],
+        'staff_intro' => ['Administrativos', 'Personal de oficina con acceso solo a lo que necesita: por área elegís si puede ver o gestionar. Los cambios rigen al instante.', null],
         'indicators' => ['Indicadores', 'Cada número responde una pregunta sobre tu empresa (¿cumplimos los mantenimientos?, ¿entran más reclamos?). Sirven para mirar la tendencia, no para controlar el día a día.', null],
     ];
 
@@ -51,6 +60,27 @@ class HelpTopics
             'title' => $topic[0],
             'body' => $topic[1] ?? ($sectionHelp[$topic[2]]['body'] ?? ''),
         ])->all();
+    }
+
+    /** Guía completa de cada ayuda (HelpGuides) para el enlace «Ver la guía completa». */
+    private const GUIDES = [
+        'company_setup' => 'start', 'technicians_intro' => 'start', 'clients_intro' => 'clients_buildings', 'buildings_intro' => 'assignments',
+        'elevators_intro' => 'elevators', 'technical_file' => 'elevators', 'elevator_history' => 'elevators', 'maintenance_intro' => 'visits',
+        'inspections_intro' => 'visits', 'agenda_intro' => 'agenda', 'work_orders_intro' => 'work_orders', 'delivery_notes_intro' => 'delivery_notes',
+        'budgets_intro' => 'quotes', 'reports_intro' => 'reports', 'stock_intro' => 'stock', 'services_intro' => 'services_receivables',
+        'receivables_intro' => 'services_receivables', 'map_intro' => 'map', 'attention_center' => 'insights', 'exports_intro' => 'export',
+        'indicators' => 'insights', 'tasks_intro' => 'tasks', 'contacts_intro' => 'contacts', 'public_qr_intro' => 'public_qr',
+        'parachute_intro' => 'parachute', 'repairs_intro' => 'repairs', 'staff_intro' => 'staff',
+    ];
+
+    /** Enlace a la guía completa, solo si esta persona puede ver esa guía (plan y permisos). */
+    public static function guideUrl(string $key, ?User $user): ?string
+    {
+        $guide = self::GUIDES[$key] ?? null;
+
+        return $guide && HelpGuides::find($user, HelpGuides::PANEL, $guide)
+            ? HelpCenter::getUrl(['guia' => $guide]).'#guia-'.$guide
+            : null;
     }
 
     public static function exists(string $key): bool
@@ -111,6 +141,13 @@ class HelpTopics
             'resources.stock-items.' => 'stock_intro',
             'resources.maintenance-services.' => 'services_intro',
             'resources.receivables.' => 'receivables_intro',
+            'resources.tareas.' => 'tasks_intro',
+            'resources.contactos.' => 'contacts_intro',
+            'pages.qr-publicos' => 'public_qr_intro',
+            'pages.paracaidas' => 'parachute_intro',
+            'resources.pruebas-paracaidas.' => 'parachute_intro',
+            'resources.reparaciones.' => 'repairs_intro',
+            'resources.administrativos.' => 'staff_intro',
         ];
 
         foreach ($map as $needle => $key) {

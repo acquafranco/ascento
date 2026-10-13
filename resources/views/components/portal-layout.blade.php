@@ -11,6 +11,7 @@
         ['portal.visits:maintenance', 'Mantenimientos', route('portal.visits', 'maintenance')],
         ['portal.visits:inspection', 'Inspecciones', route('portal.visits', 'inspection')],
         ['portal.notifications', 'Avisos', route('portal.notifications')],
+        ['portal.help', 'Ayuda', route('portal.help')],
     ];
     $current = request()->route()?->getName().(request()->route('type') ? ':'.request()->route('type') : '');
 @endphp

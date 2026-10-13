@@ -30,7 +30,7 @@ class HelpTip extends Component
     {
         $user = auth()->user();
 
-        if ($user instanceof User && $user->canUseOnboarding() && $this->key !== '') {
+        if ($user instanceof User && $user->canSeeHelpTips() && $this->key !== '') {
             $user->dismissHelp($this->key);
         }
 
@@ -44,7 +44,7 @@ class HelpTip extends Component
         $visible = $user instanceof User
             && $this->key !== ''
             && ! $this->dismissed
-            && $user->canUseOnboarding()
+            && $user->canSeeHelpTips()
             // Mientras corre la guía de bienvenida, no se apilan ayudas.
             && ! $user->shouldAutoStartOnboarding()
             && ! $user->hasSeenHelp($this->key);
@@ -52,6 +52,7 @@ class HelpTip extends Component
         return view('livewire.help-tip', [
             'visible' => $visible,
             'topic' => $visible ? HelpTopics::get($this->key) : null,
+            'guideUrl' => $visible ? HelpTopics::guideUrl($this->key, $user) : null,
         ]);
     }
 }
