@@ -72,6 +72,12 @@ class ParachuteReminderNotification extends AppNotification
         return $this->status === ParachuteService::OVERDUE ? 'danger' : 'warning';
     }
 
+    /** También como push a los dispositivos que la persona activó (si hay claves VAPID). */
+    public function wantsPush(): bool
+    {
+        return true;
+    }
+
     public function toMail(object $notifiable): ?MailMessage
     {
         return null; // en la app (campanita y push), no por correo

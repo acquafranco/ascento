@@ -2,7 +2,28 @@
     @include('filament.partials.insights-styles')
     @include('public-qr.partials.styles')
 
-    @if(! $building)
+    @if(isset($platform))
+        <div class="asc-card" data-qr-platform>
+            <p class="asc-c">QR de todas las empresas. «Abrir» entra a la empresa (como «Entrar») y muestra el QR con su vista previa.</p>
+            @forelse($platform as $p)
+                <div class="asc-row" style="align-items:center">
+                    <span>
+                        <strong>{{ $p->building_name }}</strong>
+                        <br><span class="asc-muted asc-small">{{ $p->company_name }}</span>
+                    </span>
+                    <span style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; justify-content:flex-end">
+                        <span class="asc-pill {{ $p->is_active && ! $p->building_deleted_at ? 'is-done' : '' }}">{{ $p->building_deleted_at ? 'Edificio desactivado' : ($p->is_active ? 'Activo' : 'Desactivado') }}</span>
+                        @if($p->is_active && ! $p->building_deleted_at)
+                            <a href="{{ $p->publicUrl() }}" target="_blank" rel="noopener" class="asc-link" style="color:#d97706">Ver público</a>
+                        @endif
+                        <button type="button" wire:click="openForSuperAdmin({{ $p->id }})" class="asc-link" style="color:#d97706">Abrir →</button>
+                    </span>
+                </div>
+            @empty
+                <p class="asc-muted asc-small">Ninguna empresa generó un QR todavía.</p>
+            @endforelse
+        </div>
+    @elseif(! $building)
         <div class="asc-card" data-qr-list>
             @forelse($buildings as $b)
                 @php $p = $pages->get($b->id); @endphp

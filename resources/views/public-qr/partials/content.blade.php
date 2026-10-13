@@ -53,6 +53,15 @@
                         @else
                             <p class="qr-line qr-muted">Sin pruebas de paracaídas registradas</p>
                         @endif
+                        @if($e['next_test'])
+                            <p class="qr-line" data-qr="next-test">{!! $tag('Observación pendiente', 'warn') !!}
+                                @if($e['next_test']['overdue'])
+                                    Prueba de paracaídas prevista para el {{ $d($e['next_test']['date']) }}, todavía sin registrar
+                                @else
+                                    Próxima prueba de paracaídas prevista: {{ $d($e['next_test']['date']) }}
+                                @endif
+                            </p>
+                        @endif
                     @endif
                 </div>
             @empty

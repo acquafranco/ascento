@@ -7,8 +7,8 @@ use App\Models\BuildingPublicPage;
 use App\Models\Company;
 use App\Models\DeliveryNote;
 use App\Models\Elevator;
-use App\Models\ParachuteTest;
 use App\Models\WorkOrder;
+use App\Services\Parachute\ParachuteService;
 use App\Support\WorkOrderLabels;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
@@ -24,7 +24,9 @@ use Illuminate\Support\Facades\Storage;
  * - Trabajo realizado: fecha del último mantenimiento con remito realizado.
  * - Inspección registrada: fecha de la última inspección con remito
  *   realizado y de la última prueba de paracaídas registrada.
- * - Observación pendiente: una prueba registrada como no satisfactoria, y
+ * - Observación pendiente: una prueba registrada como no satisfactoria, la
+ *   próxima prueba de paracaídas prevista cuando ya corresponde avisarla
+ *   (dentro de los días de aviso o vencida, sin prueba registrada), y
  *   trabajos pendientes (solo tipo y estado, nunca notas).
  * - Evaluación o certificación profesional: Ascento no la emite; se aclara.
  *
@@ -34,6 +36,8 @@ use Illuminate\Support\Facades\Storage;
  */
 class PublicBuildingInfo
 {
+    public function __construct(private ParachuteService $parachutes) {}
+
     public function for(BuildingPublicPage $page): array
     {
         $companyId = (int) $page->company_id;
@@ -61,12 +65,12 @@ class PublicBuildingInfo
             $dates->push($inspection);
         }
 
+        // Última prueba y, si ya corresponde avisar (próxima o vencida, igual
+        // que el recordatorio), la fecha prevista: la misma cuenta del panel.
         $tests = collect();
         if ($page->show_safety_tests && $elevators->isNotEmpty()) {
-            $tests = ParachuteTest::withoutGlobalScopes()->where('company_id', $companyId)->whereIn('elevator_id', $elevators->pluck('id'))
-                ->orderByDesc('performed_on')->orderByDesc('id')->get(['elevator_id', 'performed_on', 'result'])
-                ->groupBy('elevator_id')->map->first();
-            $dates->push(...$tests->pluck('performed_on'));
+            $tests = $this->parachutes->overview($companyId, (int) $page->building_id)->keyBy(fn (array $row) => $row['elevator']->id);
+            $dates->push(...$tests->pluck('last')->filter()->pluck('performed_on'));
         }
 
         $pending = [];
@@ -83,7 +87,9 @@ class PublicBuildingInfo
             if ($status) {
                 $dates->push($e->public_status_updated_at);
             }
-            $test = $tests->get($e->id);
+            $row = $tests->get($e->id);
+            $test = $row['last'] ?? null;
+            $due = $row && in_array($row['status'], [ParachuteService::UPCOMING, ParachuteService::OVERDUE], true);
 
             return [
                 'label' => $e->label,
@@ -91,6 +97,7 @@ class PublicBuildingInfo
                 'status' => $status,
                 'status_at' => $status ? $e->public_status_updated_at : null,
                 'test' => $test ? ['date' => $test->performed_on, 'ok' => $test->isSatisfactory()] : null,
+                'next_test' => $due ? ['date' => $row['next_due'], 'overdue' => $row['status'] === ParachuteService::OVERDUE] : null,
             ];
         })->all() : [];
 

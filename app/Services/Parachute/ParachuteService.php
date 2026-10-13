@@ -119,14 +119,15 @@ class ParachuteService
     /* ------------------------------------------------------------- ESTADO */
 
     /**
-     * Estado de cada ascensor activo de la empresa (sin scopes: sirve igual
-     * en el panel y en el scheduler).
+     * Estado de cada ascensor activo de la empresa, o solo de un edificio
+     * (sin scopes: sirve igual en el panel, el scheduler y el QR público).
      *
      * @return Collection<int, array{elevator: Elevator, building: ?Building, client: ?Client, schedule: ?ParachuteSchedule, interval: ?int, interval_source: ?string, notice_days: int, last: ?ParachuteTest, last_ok: ?ParachuteTest, next_due: ?CarbonInterface, status: string}>
      */
-    public function overview(int $companyId): Collection
+    public function overview(int $companyId, ?int $buildingId = null): Collection
     {
         $elevators = Elevator::withoutGlobalScopes()->where('company_id', $companyId)->where('is_active', true)
+            ->when($buildingId !== null, fn ($q) => $q->where('building_id', $buildingId))
             ->with(['building' => fn ($q) => $q->withoutGlobalScopes()->withTrashed()->select('id', 'name', 'client_id', 'deleted_at', 'company_id')])
             ->orderBy('building_id')->orderBy('label')->get()
             ->filter(fn (Elevator $e) => $e->building && $e->building->deleted_at === null)

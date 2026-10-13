@@ -16,6 +16,7 @@ Alcance: puntos 7.1 a 7.4 del plan maestro. Lo que depende de otra etapa o neces
 | Fecha del último mantenimiento con remito **realizado** | Trabajo realizado | Por defecto |
 | Fecha de la última inspección con remito **realizado** (inspección periódica u orden de tipo inspección) | Inspección registrada | Por defecto |
 | Última prueba de paracaídas registrada: fecha, y si **no fue satisfactoria** | Inspección registrada / Observación pendiente | Solo si se habilita |
+| Próxima prueba de paracaídas prevista, **solo cuando ya corresponde avisarla** (dentro de los días de aviso, o vencida y todavía sin registrar) | Observación pendiente | Con el bloque anterior |
 | Trabajos pendientes: cantidad por tipo y estado, nunca notas | Observación pendiente | Solo si se habilita |
 | Teléfono y correo **de la empresa** | Contacto | Solo si se habilita |
 | Fecha de actualización (la más reciente de lo mostrado) | — | Siempre |
@@ -46,6 +47,7 @@ Alcance: puntos 7.1 a 7.4 del plan maestro. Lo que depende de otra etapa o neces
   - «Gestionar»: todo lo que cambia algo. Lo verifica `PublicQrService` en el servidor, además de ocultar los botones.
   - El dueño, como siempre, puede todo.
   - Otra empresa: 404.
+- **SuperAdmin:** sin una empresa elegida, «QR públicos» lista los QR de **todas** las empresas (empresa, edificio, estado y el enlace público si está activo). «Abrir» entra a la empresa de ese QR, igual que «Entrar», y muestra el detalle con la vista previa. Con una empresa elegida, ve lo mismo que su dueño.
 - **Registro de actividad:** generar, desactivar, regenerar y los cambios de lo publicado o del estado informado. Nunca se guarda el token.
 
 ## 3. Pruebas de paracaídas (7.3)
@@ -88,7 +90,8 @@ Alcance: puntos 7.1 a 7.4 del plan maestro. Lo que depende de otra etapa o neces
 - **Sin duplicados:** un aviso por ascensor, motivo, fecha prevista y destinatario. Repetir el comando no duplica. Si cambia la fecha (una prueba nueva u otra periodicidad), corresponde un aviso nuevo.
 - **Estado del aviso:** se registra en los avisos internos existentes: a quién, cuándo y si lo leyó. Se marca como leído desde la campanita, como cualquier otro. La pantalla muestra, por ascensor, el último aviso y cuántos lo leyeron.
 - **No es una prueba hecha:** el texto aclara que «todavía no hay una prueba registrada para esa fecha». Un aviso nunca cambia el estado: solo un registro lo hace.
-- **Por dónde llega:** campanita y push, igual que los demás avisos internos. Sin correo, sin WhatsApp y sin servicios externos nuevos. En las pruebas automáticas no sale ningún push.
+- **Por dónde llega:** campanita y push a los dispositivos que cada persona activó (`wantsPush`), con el mismo sistema de avisos internos. Sin correo, sin WhatsApp y sin servicios externos nuevos. Las pruebas automáticas usan un servicio de push simulado.
+- **En el QR:** si el edificio publica las pruebas de paracaídas, el mismo día en que corresponde el recordatorio el QR muestra la fecha prevista («Próxima prueba de paracaídas prevista» o «prevista para el …, todavía sin registrar»). Sale de la misma cuenta que el panel y el recordatorio (`ParachuteService::overview`), así que desaparece al registrar la prueba nueva. La periodicidad la elige el dueño o un administrativo con «Inspecciones y reportes: gestionar».
 - **Registro de cambios de fechas y responsables:** los cambios de fecha y resultado de las pruebas, y de periodicidad, aviso, inspector y responsable, quedan en el registro de actividad.
 
 ## 5. Datos y migración
