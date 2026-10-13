@@ -1,0 +1,73 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Enums\PermissionArea;
+use App\Models\Building;
+use App\Models\BuildingPublicPage;
+use App\Models\Company;
+use App\Services\PublicQr\PublicBuildingInfo;
+use App\Services\PublicQr\PublicQrService;
+use App\Support\Access\Access;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Str;
+
+/**
+ * QR público de un edificio (Etapa 7).
+ *
+ * show(): página de SOLO LECTURA, sin cuenta. El token se busca en cada
+ * pedido: si se desactivó o regeneró, el enlace anterior responde 404 (lo
+ * mismo que un token inexistente, sin pistas). No tiene formularios ni
+ * enlaces al portal o al panel, no se indexa y no se guarda en caché.
+ *
+ * download(): la imagen del QR, para quien gestiona o ve el QR del edificio
+ * en el panel (área «QR y datos públicos»).
+ */
+class PublicQrController extends Controller
+{
+    public function show(string $token, PublicBuildingInfo $info): Response
+    {
+        $page = strlen($token) === PublicQrService::TOKEN_LENGTH
+            ? BuildingPublicPage::withoutGlobalScopes()->where('token', $token)->where('is_active', true)->first()
+            : null;
+
+        $company = $page ? Company::find($page->company_id) : null;
+        // Sin scopes (no hay sesión), pero un edificio desactivado no se publica.
+        $building = $page ? Building::withoutGlobalScopes()->where('company_id', $page->company_id)->whereNull('deleted_at')->find($page->building_id) : null;
+
+        if (! $page || ! $company || ! $company->hasActiveAccess() || ! $building) {
+            return $this->headers(response()->view('public-qr.unavailable', [], 404));
+        }
+
+        return $this->headers(response()->view('public-qr.show', ['info' => $info->for($page), 'preview' => false]));
+    }
+
+    public function download(Request $request, Building $building, string $format, PublicQrService $service): Response
+    {
+        abort_unless(Access::can($request->user(), PermissionArea::PublicPages), 404);
+
+        $page = $service->pageOf($building);
+        abort_unless($page && $page->is_active, 404);
+
+        $png = $format === 'png';
+
+        return response($service->image($page, $png ? 'png' : 'svg'), 200, [
+            'Content-Type' => $png ? 'image/png' : 'image/svg+xml',
+            'Content-Disposition' => 'attachment; filename="qr-'.Str::slug($building->name ?: 'edificio').'.'.($png ? 'png' : 'svg').'"',
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    private function headers(Response $response): Response
+    {
+        return $response->withHeaders([
+            'X-Robots-Tag' => 'noindex, nofollow',
+            'Cache-Control' => 'no-store, max-age=0',
+            'Referrer-Policy' => 'no-referrer',
+            'X-Content-Type-Options' => 'nosniff',
+            'X-Frame-Options' => 'DENY',
+        ]);
+    }
+}
