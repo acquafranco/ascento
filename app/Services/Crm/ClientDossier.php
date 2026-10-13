@@ -53,7 +53,7 @@ class ClientDossier
 
         $sections = [
             'buildings' => $can(PermissionArea::Buildings) ? $this->buildings($companyId, $buildingIds) : null,
-            'quotes' => $can(PermissionArea::Quotes) ? $this->quotes($companyId, $client, $buildingIds) : null,
+            'quotes' => $can(PermissionArea::Quotes) && $this->company->plan()->allows(PlanFeature::Quotes) ? $this->quotes($companyId, $client, $buildingIds) : null,
             'work_orders' => $can(PermissionArea::WorkOrders) ? $this->workOrders($companyId, $buildingIds) : null,
             'delivery_notes' => $can(PermissionArea::Documents) ? $this->deliveryNotes($companyId, $buildingIds) : null,
             'receivables' => $can(PermissionArea::Receivables) ? $this->receivables($companyId, $client) : null,

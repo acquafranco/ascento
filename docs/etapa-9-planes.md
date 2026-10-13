@@ -128,3 +128,12 @@ Todo usa `PlanGuard`, el mismo mecanismo de las funciones anteriores, sin un sis
   - el motivo que escribe el SuperAdmin al confirmar.
 - **Solo se agregan filas:** el modelo rechaza editarlas o borrarlas.
 - **Quién lo consulta:** el SuperAdmin, en «Planes». Los dueños y administrativos de las empresas no entran.
+
+## 9. Cierre de la revisión
+
+- **Presupuestos en tareas:**
+  - Sin presupuestos en el plan, el formulario de tareas no muestra el selector.
+  - `TaskService` rechaza asociar, cambiar o quitar el presupuesto de una tarea, aunque llegue un pedido manipulado.
+  - Las tareas que ya tenían un presupuesto lo conservan tal cual, también cuando se editan otros datos.
+- **Ficha del cliente:** el bloque de presupuestos pendientes exige el permiso del usuario **y** el plan.
+- **Esenciales:** `SubscriptionPlan::allows()` devuelve siempre verdadero para las funciones esenciales, aunque una fila histórica del plan no tenga sus claves. Las configurables siguen dependiendo de `feature_keys`.

@@ -49,7 +49,7 @@ class TaskService
     {
         $this->ensureCanManage($actor);
         $companyId = $this->companyOf($actor);
-        $clean = $this->validated($companyId, $data);
+        $clean = $this->validated($companyId, $data, null);
 
         $recipients = $this->validatedRecipients($companyId, $data);
 
@@ -77,7 +77,7 @@ class TaskService
         $this->ensureSameCompany($actor, $task);
         $previousAssignee = $task->assigned_to;
 
-        $task->fill($this->validated((int) $task->company_id, $data));
+        $task->fill($this->validated((int) $task->company_id, $data, $task));
         $recipients = $this->validatedRecipients((int) $task->company_id, $data);
 
         // Recordatorio nuevo: se vuelve a avisar en esa fecha (a quienes estén elegidos entonces).
@@ -246,7 +246,7 @@ class TaskService
             ->mapWithKeys(fn (User $user) => [$user->id => $user->name])->all();
     }
 
-    private function validated(int $companyId, array $data): array
+    private function validated(int $companyId, array $data, ?Task $task): array
     {
         $clean = array_intersect_key($data, array_flip([
             'title', 'description', 'priority', 'status', 'due_at', 'remind_at', 'assigned_to',
@@ -267,6 +267,13 @@ class TaskService
             if (! $assignee || ! $this->eligible($assignee, $companyId)) {
                 throw ValidationException::withMessages(['assigned_to' => 'El responsable tiene que ser el dueño o un administrativo de la empresa con acceso a tareas.']);
             }
+        }
+
+        // Presupuestos: función del plan. Sin ella no se asocia ni se cambia el
+        // presupuesto de una tarea; el que ya tenía se conserva tal cual.
+        if (array_key_exists('quote_id', $clean) && (int) $clean['quote_id'] !== (int) $task?->quote_id
+            && ! PlanGuard::companyAllows($companyId, PlanFeature::Quotes)) {
+            throw ValidationException::withMessages(['quote_id' => 'Tu plan no incluye presupuestos.']);
         }
 
         // Vínculos: de esta empresa (un id ajeno se rechaza, no se ignora).

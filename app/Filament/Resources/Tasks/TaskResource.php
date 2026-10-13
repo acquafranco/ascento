@@ -117,7 +117,9 @@ class TaskResource extends Resource
                     ->options(fn () => Building::where('company_id', $company())->orderBy('name')->pluck('name', 'id')),
                 Select::make('elevator_id')->label('Ascensor')->searchable()
                     ->options(fn () => Elevator::where('company_id', $company())->with('building:id,name')->get()->mapWithKeys(fn ($e) => [$e->id => trim(($e->building?->name ?? '').' · '.$e->label)])),
+                // Solo con presupuestos en el plan (el servidor también lo verifica en TaskService).
                 Select::make('quote_id')->label('Presupuesto')->searchable()
+                    ->visible(fn () => \App\Support\Plans\PlanGuard::currentAllows(\App\Enums\PlanFeature::Quotes))
                     ->options(fn () => Quote::where('company_id', $company())->latest()->limit(200)->get()->mapWithKeys(fn ($q) => [$q->id => $q->numberLabel().' · '.$q->title])),
                 Select::make('work_order_id')->label('Orden de trabajo')->searchable()
                     ->options(fn () => WorkOrder::where('company_id', $company())->latest()->limit(200)->with('building:id,name')->get()->mapWithKeys(fn ($o) => [$o->id => '#'.$o->id.' · '.($o->building?->name ?? '')])),
