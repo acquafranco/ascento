@@ -81,12 +81,13 @@ class PublicBuildingInfo
         $repairs = collect();
         if ($page->show_repairs) {
             $repairs = RepairComponent::withoutGlobalScopes()->where('company_id', $companyId)->where('building_id', $page->building_id)
-                ->whereIn('status', RepairComponent::AWAY)->orderBy('id')->get(['elevator_id', 'component_type', 'status', 'updated_at'])
+                ->whereIn('status', RepairComponent::AWAY)->orderBy('id')->get(['elevator_id', 'component_type', 'status', 'sent_at'])
                 ->map(fn (RepairComponent $r) => [
                     'elevator_id' => $r->elevator_id,
                     'component' => RepairComponent::TYPES[$r->component_type] ?? 'Componente',
                     'status' => RepairComponent::STATUSES[$r->status] ?? $r->status,
-                    'at' => $r->updated_at,
+                    // Desde cuándo está fuera (la fecha de envío), no la de una edición interna.
+                    'at' => $r->sent_at,
                 ]);
             $dates->push(...$repairs->pluck('at'));
         }

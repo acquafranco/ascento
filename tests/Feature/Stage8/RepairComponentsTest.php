@@ -247,6 +247,39 @@ class RepairComponentsTest extends TestCase
         $this->invalid(fn () => $this->service()->update($this->a['admin'], $c->fresh(), ['sent_at' => null]), 'sent_at');
     }
 
+    public function test_a_component_keeps_moving_when_its_links_change_after_registering_it(): void
+    {
+        // Registrado con orden de trabajo y un administrativo de seguimiento.
+        $follow = $this->staff(['repairs' => 'view'], 'Seguimiento');
+        $this->inPanel($this->a['admin']);
+        $order = WorkOrder::factory()->create(['building_id' => $this->a['building']->id, 'company_id' => $this->a['company']->id]);
+        $c = $this->make(['status' => 'sent', 'sent_at' => '2026-10-10', 'work_order_id' => $order->id, 'follow_up_user_id' => $follow->id]);
+
+        // Después: el responsable pierde el área, se borra la orden y se desactiva el edificio.
+        app(StaffManager::class)->setPermissions($this->a['admin'], $follow, ['repairs' => 'none']);
+        $order->delete();
+        $this->a['building']->delete();
+        $this->inPanel($this->a['admin']);
+
+        // El componente igual sigue su curso hasta volver (los vínculos que ya tenía se conservan).
+        $this->service()->changeStatus($this->a['admin'], $c->fresh(), RepairComponent::IN_REPAIR);
+        $this->service()->changeStatus($this->a['admin'], $c->fresh(), RepairComponent::REPAIRED);
+        $this->service()->changeStatus($this->a['admin'], $c->fresh(), RepairComponent::RECEIVED, ['returned_at' => '2026-10-14']);
+        $this->service()->update($this->a['admin'], $c->fresh(), ['notes' => 'Volvió bien']);
+        $c = $c->fresh();
+        $this->assertSame([RepairComponent::RECEIVED, $order->id, $follow->id, 'Volvió bien'], [$c->status, $c->work_order_id, $c->follow_up_user_id, $c->notes]);
+        // También desde «Corregir» en el panel: el edificio y la orden que ya tenía siguen como opción.
+        Livewire::test(EditRepairComponent::class, ['record' => $c->getRouteKey()])
+            ->assertFormFieldExists('building_id')
+            ->fillForm(['notes' => 'Corregido en el panel'])->call('save')->assertHasNoFormErrors();
+        $this->assertSame(['Corregido en el panel', (int) $this->a['building']->id, $order->id], [$c->fresh()->notes, (int) $c->fresh()->building_id, $c->fresh()->work_order_id]);
+
+        // Pero no se puede elegir de nuevo algo que ya no corresponde.
+        $other = $this->make(['building_id' => Building::factory()->create(['company_id' => $this->a['company']->id])->id, 'elevator_id' => null]);
+        $this->invalid(fn () => $this->service()->update($this->a['admin'], $other, ['follow_up_user_id' => $follow->id]), 'follow_up_user_id');
+        $this->invalid(fn () => $this->service()->update($this->a['admin'], $other, ['building_id' => $this->a['building']->id]), 'building_id');
+    }
+
     public function test_staff_need_the_repairs_area_and_manage_to_change_anything(): void
     {
         $c = $this->make(['status' => 'sent', 'sent_at' => '2026-10-10']);
@@ -346,7 +379,7 @@ class RepairComponentsTest extends TestCase
         $html = $scan();
         $this->assertStringContainsString('Variador en reparación: <strong>en reparación</strong>', $html);
         $this->assertStringContainsString('data-qr="building-repairs"', $html);
-        $this->assertStringContainsString('Placa electrónica: <strong>enviado</strong>', $html);
+        $this->assertStringContainsString('Placa electrónica: <strong>enviado</strong> <span class="qr-muted">(11/10/2026)</span>', $html); // desde la fecha de envío
         // Ni pendientes ni cancelados; nunca proveedor, montos, falla ni notas.
         $this->assertStringNotContainsString('Motor', $html);
         $this->assertStringNotContainsString('Control:', $html);
