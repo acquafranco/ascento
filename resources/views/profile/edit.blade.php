@@ -13,6 +13,12 @@
             </div>
         @endif
 
+        @if ($user->role === 'technician')
+            <section class="t-card p-4 sm:p-6">
+                @include('profile.partials.photo')
+            </section>
+        @endif
+
         <section class="t-card p-4 sm:p-6">
             @include('profile.partials.update-profile-information-form')
         </section>

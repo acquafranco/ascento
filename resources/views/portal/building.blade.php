@@ -63,7 +63,7 @@
                     @foreach($elevators as $elevator)
                         <li class="p-row">
                             <span>{{ $elevator->label }}</span>
-                            <span class="p-muted">{{ trim($elevator->manufacturer.' '.$elevator->model) ?: '—' }}{{ $elevator->year ? ' · '.$elevator->year : '' }}</span>
+                            <span class="p-muted">{{ trim($elevator->manufacturer.' '.$elevator->model) ?: '—' }}{{ $elevator->year ? ' · '.$elevator->year : '' }}@if(filled($elevator->controller_brand) || filled($elevator->controller_model))<br>Control: {{ trim($elevator->controller_brand.' '.$elevator->controller_model) }}@endif</span>
                         </li>
                     @endforeach
                 </ul>

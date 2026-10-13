@@ -281,10 +281,10 @@ class CompanyDataExporter
             $this->scoped(Building::class, true), fn ($b) => [$b->id, $b->client_id, $this->name('clients', $b->client_id), $b->name, $b->address, $b->locality, $b->municipality, $b->province, $b->neighborhood, $b->contact_person, $b->phone,
                 (int) $b->elevator_count, (int) $b->freight_elevator_count, (int) $b->traction_elevator_count, (int) $b->hydraulic_elevator_count, $b->latitude !== null ? (float) $b->latitude : null, $b->longitude !== null ? (float) $b->longitude : null, $b->notes, (bool) $b->is_active, $b->deleted_at !== null, $b->created_at]);
 
-        $this->sheet('Ascensores', ['ID', 'Edificio ID', 'Edificio', 'Equipo', 'Tipo', 'Activo', 'Fabricante', 'Modelo', 'N° de serie', 'Año', 'Capacidad (kg)', 'Personas', 'Velocidad (m/s)', 'Paradas', 'Instalación*', 'Instalador', 'Máquina', 'Controlador', 'Motor', 'Puertas', 'Operador de puertas', 'Otros componentes', 'Notas'],
+        $this->sheet('Ascensores', ['ID', 'Edificio ID', 'Edificio', 'Equipo', 'Tipo', 'Activo', 'Fabricante', 'Modelo', 'N° de serie', 'Año', 'Capacidad (kg)', 'Personas', 'Velocidad (m/s)', 'Paradas', 'Instalación*', 'Instalador', 'Máquina', 'Controlador', 'Marca del control', 'Modelo del control', 'Motor', 'Puertas', 'Operador de puertas', 'Otros componentes', 'Notas'],
             $this->scoped(Elevator::class), fn ($e) => [$e->id, $e->building_id, $this->name('buildings', $e->building_id), $e->label, $e->kind === 'freight' ? 'Montacargas' : 'Ascensor', (bool) $e->is_active,
                 $e->manufacturer, $e->model, $e->serial_number, $e->year, $e->capacity_kg, $e->capacity_people, $e->speed_ms !== null ? (float) $e->speed_ms : null, $e->stops, $e->installed_at, $e->installer,
-                Elevator::MACHINE_TYPES[$e->machine_type] ?? $e->machine_type, $e->controller, $e->motor, $e->doors, $e->door_operator, $e->components, $e->notes]);
+                Elevator::MACHINE_TYPES[$e->machine_type] ?? $e->machine_type, $e->controller, $e->controller_brand, $e->controller_model, $e->motor, $e->doors, $e->door_operator, $e->components, $e->notes]);
 
         $documents = $this->scoped(ElevatorDocument::class);
         $this->sheet('Documentos de ascensores', ['ID', 'Ascensor ID', 'Edificio', 'Equipo', 'Tipo', 'Título', 'Archivo en el ZIP', 'Vence*', 'Compartido con el cliente', 'Subido'],

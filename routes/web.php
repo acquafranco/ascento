@@ -23,6 +23,7 @@ use App\Http\Controllers\ReportPdfController;
 use App\Http\Controllers\ReportPhotoController;
 use App\Http\Controllers\ReportVideoController;
 use App\Http\Controllers\TechnicianCountersController;
+use App\Http\Controllers\TechnicianPhotoController;
 use App\Http\Controllers\TelegramLinkController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\VisitController;
@@ -134,6 +135,13 @@ Route::prefix('{company:slug}')
 
             Route::patch('/profile', 'update')
                 ->name('profile.update');
+
+            // Foto de perfil del técnico (Etapa 8.2).
+            Route::post('/profile/foto', 'updatePhoto')
+                ->middleware('throttle:20,1')->name('profile.photo.update');
+
+            Route::delete('/profile/foto', 'destroyPhoto')
+                ->name('profile.photo.destroy');
 
         });
 
@@ -432,6 +440,12 @@ Route::get('/files/parachute-tests/{parachuteTestFile}', ParachuteTestFileContro
     ->middleware(['auth', 'subscription'])
     ->whereNumber('parachuteTestFile')
     ->name('parachute-test-files.show');
+
+// Foto de perfil de un técnico (Etapa 8.2): privada (ver TechnicianPhotoController).
+Route::get('/files/technician-photos/{user}', TechnicianPhotoController::class)
+    ->middleware(['auth', 'subscription'])
+    ->whereNumber('user')
+    ->name('technician-photos.show');
 
 // Imagen del QR público de un edificio (Etapa 7), para el panel.
 Route::get('/qr-codes/{building}/download/{format}', [PublicQrController::class, 'download'])
