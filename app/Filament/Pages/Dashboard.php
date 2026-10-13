@@ -9,14 +9,22 @@ use App\Filament\Widgets\QuotesStatusChart;
 use App\Filament\Widgets\StaffNotice;
 use App\Filament\Widgets\WelcomeBanner;
 use App\Filament\Widgets\WorkTrendChart;
+use App\Support\Access\Access;
 use Filament\Pages\Page;
 
 class Dashboard extends Page
 {
+    /** Aviso a los bloques: cambiaron los permisos de quien mira. */
+    public const ACCESS_CHANGED = 'dashboard-access-changed';
+
+    /** Huella de los permisos de un administrativo al abrir el inicio (null: dueño o SuperAdmin). */
+    public ?string $accessKey = null;
+
     protected string $view = 'filament.pages.dashboard';
 
     public function mount($company = null): void
     {
+        $this->accessKey = static::accessKey();
 
         if ($company) {
 
@@ -28,6 +36,30 @@ class Dashboard extends Page
 
         }
 
+    }
+
+    public static function accessKey(): ?string
+    {
+        $user = auth()->user();
+
+        return Access::isStaff($user) ? md5(json_encode(Access::permissionsOf($user))) : null;
+    }
+
+    /**
+     * Consulta liviana y periódica (solo administrativos): si cambiaron sus
+     * permisos, los bloques se actualizan y los que ya no puede ver se
+     * retiran, sin recargar la página. Lo que se ve lo decide igual el
+     * servidor en cada bloque.
+     */
+    public function checkAccess(): void
+    {
+        $this->skipRender();
+        $key = static::accessKey();
+
+        if ($key !== $this->accessKey) {
+            $this->accessKey = $key;
+            $this->dispatch(self::ACCESS_CHANGED);
+        }
     }
 
     public static function getNavigationLabel(): string

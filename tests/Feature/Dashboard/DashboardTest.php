@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Dashboard;
 
+use App\Enums\PlanFeature;
+use App\Enums\PlanLimit;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Widgets\AdminStats;
 use App\Filament\Widgets\FollowUpPanel;
@@ -12,12 +14,14 @@ use App\Filament\Widgets\WelcomeBanner;
 use App\Filament\Widgets\WorkTrendChart;
 use App\Models\Quote;
 use App\Models\Receivable;
+use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Services\Crm\ClientInteractionService;
 use App\Services\Insights\DashboardSummary;
 use App\Services\Staff\StaffManager;
 use App\Services\Tasks\TaskService;
+use App\Support\Access\Access;
 use Carbon\Carbon;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -164,6 +168,10 @@ class DashboardTest extends TestCase
             ->assertDontSee('Presupuestos por vencer')->assertDontSee('Para atender');
         $this->get(Dashboard::getUrl())->assertOk()->assertSee('Bienvenido')
             ->assertDontSeeLivewire(AdminStats::class)->assertDontSeeLivewire(WorkTrendChart::class)->assertSeeLivewire(FollowUpPanel::class);
+        // Un pedido armado a mano para montar bloques que no ve: vacíos, sin datos ni error.
+        Livewire::test(QuotesStatusChart::class)->assertOk()->assertSeeHtml('data-dashboard-block-removed')->assertDontSee('Esperando respuesta');
+        Livewire::test(AdminStats::class)->assertOk()->assertSeeHtml('data-dashboard-block-removed')->assertDontSee('Órdenes pendientes')->assertDontSee('$50.000');
+        Livewire::test(WorkTrendChart::class)->assertOk()->assertSeeHtml('data-dashboard-block-removed')->assertDontSee('Órdenes terminadas');
 
         // Remitos y órdenes: sus tarjetas y solo la serie de órdenes (los reclamos piden también reportes).
         $marcos = $this->staff(['documents' => 'view', 'work_orders' => 'view'], 'Marcos');
@@ -207,26 +215,70 @@ class DashboardTest extends TestCase
         $this->get(Dashboard::getUrl())->assertOk()->assertSeeLivewire(StaffNotice::class)->assertDontSeeLivewire(AdminStats::class);
     }
 
-    public function test_permissions_revoked_mid_session_stop_the_updates(): void
+    public function test_permissions_revoked_mid_session_remove_the_blocks_without_an_error(): void
     {
         $this->fill($this->a);
         $ana = $this->staff(['work_orders' => 'view', 'quotes' => 'view'], 'Ana');
 
+        $page = Livewire::test(Dashboard::class);
+        $this->assertNotNull($page->get('accessKey'));
+        $page->call('checkAccess')->assertNotDispatched(Dashboard::ACCESS_CHANGED); // sin cambios, nada
         $stats = Livewire::test(AdminStats::class)->assertSee('Órdenes pendientes');
-        $chart = Livewire::test(QuotesStatusChart::class);
+        $chart = Livewire::test(QuotesStatusChart::class)->assertSee('Presupuestos (últimos 90 días)');
+        $follow = Livewire::test(FollowUpPanel::class)->assertSee('Presupuestos por vencer');
 
-        // El dueño le quita Presupuestos: deja de verse en el próximo pedido.
+        // El dueño le quita Presupuestos: el inicio lo detecta y avisa a los bloques.
         $this->actingAs($this->a['admin']);
         app(StaffManager::class)->setPermissions($this->a['admin'], $ana, ['quotes' => 'none']);
         $this->actingAs($ana->fresh());
-        $stats->call('$refresh')->assertSee('Órdenes pendientes')->assertDontSee('Presupuestos esperando respuesta');
-        $chart->call('$refresh')->assertForbidden();
+        $page->call('checkAccess')->assertDispatched(Dashboard::ACCESS_CHANGED);
+        $page->call('checkAccess')->assertNotDispatched(Dashboard::ACCESS_CHANGED); // una sola vez
 
-        // Y sin ninguna área de tarjetas: tampoco las tarjetas.
+        // Cada bloque se actualiza sin error: el que ya no corresponde se retira
+        // vacío, sin datos y sin consultar presupuestos.
+        DB::enableQueryLog();
+        $chart->call('$refresh')->assertOk()->assertSeeHtml('data-dashboard-block-removed')->assertDontSee('Presupuestos')->assertDontSee('Esperando respuesta');
+        $follow->call('$refresh')->assertOk()->assertSeeHtml('data-dashboard-block-removed')->assertDontSee('Presupuestos por vencer');
+        $this->assertSame([], array_filter(array_column(DB::getQueryLog(), 'query'), fn ($q) => str_contains($q, 'quotes')));
+        DB::disableQueryLog();
+        $stats->call('$refresh')->assertOk()->assertSee('Órdenes pendientes')->assertDontSee('Presupuestos esperando respuesta')->assertDontSee('$3.000');
+
+        // Sin ninguna área de tarjetas: también se retiran, sin error.
         $this->actingAs($this->a['admin']);
         app(StaffManager::class)->setPermissions($this->a['admin'], $ana->fresh(), ['work_orders' => 'none']);
         $this->actingAs($ana->fresh());
-        $stats->call('$refresh')->assertForbidden();
+        $stats->call('$refresh')->assertOk()->assertSeeHtml('data-dashboard-block-removed')->assertDontSee('Órdenes pendientes');
+
+        // El dueño no tiene huella ni consulta periódica.
+        $this->inPanel($this->a['admin']);
+        $this->assertNull(Livewire::test(Dashboard::class)->get('accessKey'));
+    }
+
+    public function test_staff_with_only_visits_always_have_a_block(): void
+    {
+        // Todo plan que admite administrativos incluye el gráfico de 6 meses
+        // (su línea de mantenimientos es el bloque de «Visitas»). Si algún día
+        // un plan los admite sin él, esta prueba avisa antes de que un
+        // administrativo quede con el inicio vacío.
+        foreach (SubscriptionPlan::where('is_active', true)->get() as $plan) {
+            if ($plan->limit(PlanLimit::AdminUsers) !== 0) {
+                $this->assertTrue($plan->allows(PlanFeature::CompanyIndicators), $plan->slug);
+            }
+        }
+
+        $ana = $this->staff(['visits' => 'view'], 'Visitas');
+        $this->assertTrue(WorkTrendChart::canView());
+        $this->assertFalse(StaffNotice::canView());
+        $payload = $this->chartPayload(WorkTrendChart::class);
+        $this->assertStringContainsString('Mantenimientos cumplidos (%)', $payload);
+        $this->assertStringNotContainsString('Órdenes terminadas', $payload);
+
+        // En Inicial (0 administrativos) o al bajar a él, el administrativo queda
+        // suspendido: no entra al panel, así que no hay inicio vacío posible.
+        $this->giveCompanyPlan($this->a['company'], 'inicial');
+        $this->assertSame(Access::BLOCK_PLAN, Access::staffBlockReason($ana->fresh()));
+        $this->inPanel($ana->fresh());
+        $this->get(Dashboard::getUrl())->assertRedirect(route('staff.blocked'));
     }
 
     public function test_numbers_never_cross_companies(): void

@@ -57,6 +57,21 @@ class WorkTrendChart extends ChartWidget
         return QuotesStatusChart::canView() ? ['default' => 'full', 'lg' => 1] : 'full';
     }
 
+    public function rendering(): void
+    {
+        // Revocado: el bloque se retira sin calcular ni enviar datos.
+        if (static::canView()) {
+            parent::rendering();
+        }
+    }
+
+    public function updateChartData(): void
+    {
+        if (static::canView()) {
+            parent::updateChartData();
+        }
+    }
+
     protected function getType(): string
     {
         return 'bar';

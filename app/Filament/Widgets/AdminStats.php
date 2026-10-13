@@ -3,8 +3,10 @@
 namespace App\Filament\Widgets;
 
 use App\Enums\PermissionArea as Area;
+use App\Filament\Pages\Dashboard;
 use App\Filament\Widgets\Concerns\DashboardBlock;
 use App\Services\Insights\DashboardSummary;
+use App\Support\Access\Access;
 use App\Support\Realtime;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -39,9 +41,9 @@ class AdminStats extends StatsOverviewWidget
     {
         $user = auth()->user();
 
-        return $user && Realtime::enabled()
+        return ($user && Realtime::enabled()
             ? ['echo-private:App.Models.User.'.$user->id.',.dashboard.counters' => '$refresh']
-            : [];
+            : []) + (Access::isStaff($user) ? [Dashboard::ACCESS_CHANGED => '$refresh'] : []);
     }
 
     protected function getColumns(): int|array

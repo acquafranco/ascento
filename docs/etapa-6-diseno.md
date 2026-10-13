@@ -420,8 +420,12 @@ Están en Indicadores, protegidos por `PlanFeature::CompanyIndicators`. Cada tar
 - **Permisos (`App\Support\Access\AreaGate`, compartido con Indicadores):**
   - Cada tarjeta, serie y línea se consulta solo si el usuario tiene «ver» en todas sus áreas.
   - Lo que no puede ver no llega a la página: ni en los datos de los gráficos (de donde salen los tooltips) ni en los totales.
-  - Cada widget declara `canView()` y `PanelAccessHook` lo vuelve a verificar en cada pedido de Livewire de un administrativo. Si le quitan un permiso a mitad de sesión, la actualización siguiente responde 403.
+  - **Permiso quitado a mitad de sesión:** cada bloque verifica `canView()` en cada pedido de Livewire (trait `DashboardBlock`). Sin permiso, se dibuja vacío y desaparece de la pantalla, sin recargar y sin el aviso de error de Livewire. Tampoco calcula ni envía sus datos; en los gráficos se corta antes de calcularlos (`rendering` y `updateChartData`).
+    - Esto reemplaza, solo para los bloques del inicio, el 403 de Filament (`CanAuthorizeAccess`) y el de `PanelAccessHook`. Cualquier otro widget conserva el 403.
+  - **Cuándo se entera la pantalla:** el inicio de un administrativo consulta cada 30 s una huella de sus permisos (`Dashboard::checkAccess`, sin dibujar nada). Si cambió, avisa a los bloques (`dashboard-access-changed`), que se actualizan. Las tarjetas, además, se actualizan solas como antes. El dueño y el SuperAdmin no tienen esta consulta.
+  - **Un bloque recién habilitado** aparece al volver a abrir el inicio.
   - El dueño ve todo. El SuperAdmin sigue igual: sin empresa elegida, el estado de la plataforma; con una empresa, su inicio.
+- **Administrativo con solo «Visitas»:** su bloque es la línea de mantenimientos del gráfico de 6 meses. Todo plan que admite administrativos (Profesional y Empresa) incluye ese gráfico. En Inicial el límite es 0: al bajar a ese plan, el administrativo queda suspendido y no entra al panel. Una prueba verifica esta relación entre planes y avisa si cambia.
 - **Consultas:**
   - Cada widget pide solo su bloque, y el gráfico de trabajo calcula una vez por pedido.
   - Las tarjetas tienen un tope probado de 20 consultas.
