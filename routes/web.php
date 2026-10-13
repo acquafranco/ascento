@@ -18,6 +18,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicQrController;
 use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\QuoteDocumentController;
+use App\Http\Controllers\RepairComponentFileController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReportPdfController;
 use App\Http\Controllers\ReportPhotoController;
@@ -440,6 +441,12 @@ Route::get('/files/parachute-tests/{parachuteTestFile}', ParachuteTestFileContro
     ->middleware(['auth', 'subscription'])
     ->whereNumber('parachuteTestFile')
     ->name('parachute-test-files.show');
+
+// Documentos y fotos de componentes en reparación (Etapa 8.4): privados.
+Route::get('/files/repairs/{repairComponentFile}', RepairComponentFileController::class)
+    ->middleware(['auth', 'subscription'])
+    ->whereNumber('repairComponentFile')
+    ->name('repair-component-files.show');
 
 // Foto de perfil de un técnico (Etapa 8.2): privada (ver TechnicianPhotoController).
 Route::get('/files/technician-photos/{user}', TechnicianPhotoController::class)

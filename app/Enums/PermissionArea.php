@@ -27,6 +27,8 @@ enum PermissionArea: string
     case Contacts = 'contacts';
     // Etapa 7: QR público de los edificios (generar, desactivar, qué se publica).
     case PublicPages = 'public_pages';
+    // Etapa 8.4: componentes enviados a reparación.
+    case Repairs = 'repairs';
 
     public const VIEW = 'view';
 
@@ -50,6 +52,7 @@ enum PermissionArea: string
             self::Tasks => 'Tareas y recordatorios',
             self::Contacts => 'Historial de contactos',
             self::PublicPages => 'QR y datos públicos',
+            self::Repairs => 'Reparaciones',
         };
     }
 

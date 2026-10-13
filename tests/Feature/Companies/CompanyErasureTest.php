@@ -122,6 +122,9 @@ class CompanyErasureTest extends TestCase
         $this->row('parachute_test_files', ['company_id' => $c, 'parachute_test_id' => $ptest, 'path' => "elevators/{$c}/parachute/p.pdf", 'mime' => 'application/pdf', 'uploaded_by' => $u, ...$now]);
         $this->row('parachute_schedules', ['company_id' => $c, 'elevator_id' => $elevator, 'inspector_id' => $u, 'responsible_id' => $t['admin']->id, ...$now]);
         $this->row('building_public_pages', ['company_id' => $c, 'building_id' => $bld, 'token' => Str::random(48), 'generated_by' => $t['admin']->id, ...$now]);
+        // Etapa 8.4: componente en reparación (con un archivo).
+        $repair = $this->row('repair_components', ['company_id' => $c, 'building_id' => $bld, 'elevator_id' => $elevator, 'work_order_id' => $order, 'component_type' => 'drive', 'failure' => 'x', 'status' => 'sent', 'sent_at' => '2026-10-01', 'follow_up_user_id' => $u, 'created_by' => $t['admin']->id, ...$now]);
+        $this->row('repair_component_files', ['company_id' => $c, 'repair_component_id' => $repair, 'path' => "repairs/{$c}/r.pdf", 'mime' => 'application/pdf', 'uploaded_by' => $u, ...$now]);
         $receivable = $this->row('receivables', ['company_id' => $c, 'client_id' => $client, 'building_id' => $bld, 'quote_id' => $quote, 'maintenance_service_id' => $service, ...$now]);
         $this->row('receivable_payments', ['company_id' => $c, 'receivable_id' => $receivable, ...$now]);
         $item = $this->row('stock_items', ['company_id' => $c, ...$now]);
@@ -146,7 +149,7 @@ class CompanyErasureTest extends TestCase
         $avatar = 'avatars/'.$c.'/'.Str::random(40).'.jpg';
         DB::table('users')->where('id', $u)->update(['avatar' => $avatar]);
 
-        foreach (["elevators/{$c}/doc.pdf", "elevators/{$c}/parachute/p.pdf", "visits/{$c}/a.jpg", "visits/{$c}/a-thumb.jpg", "reports/{$c}/photos/r.jpg", "reports/{$c}/videos/v.mp4", "exports/{$c}/datos.zip", "visits/{$c}/suelto.jpg", $avatar] as $path) {
+        foreach (["elevators/{$c}/doc.pdf", "elevators/{$c}/parachute/p.pdf", "visits/{$c}/a.jpg", "visits/{$c}/a-thumb.jpg", "reports/{$c}/photos/r.jpg", "reports/{$c}/videos/v.mp4", "exports/{$c}/datos.zip", "visits/{$c}/suelto.jpg", $avatar, "repairs/{$c}/r.pdf"] as $path) {
             Storage::disk('local')->put($path, 'x');
         }
         Storage::disk('public')->put("reports/legacy-{$c}.jpg", 'x');
@@ -195,7 +198,7 @@ class CompanyErasureTest extends TestCase
         $this->assertNotNull(User::find($this->root->id));
 
         // Archivos: los de A, todos; los de B, ninguno.
-        foreach (['elevators', 'visits', 'reports', 'exports', 'avatars'] as $root) {
+        foreach (['elevators', 'visits', 'reports', 'exports', 'avatars', 'repairs'] as $root) {
             $this->assertSame([], Storage::disk('local')->allFiles("{$root}/{$idA}"), $root);
             $this->assertNotSame([], Storage::disk('local')->allFiles("{$root}/{$idB}"), $root);
         }

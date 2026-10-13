@@ -20,6 +20,8 @@ use App\Models\Quote;
 use App\Models\QuoteItem;
 use App\Models\Receivable;
 use App\Models\ReceivablePayment;
+use App\Models\RepairComponent;
+use App\Models\RepairComponentFile;
 use App\Models\Report;
 use App\Models\ReportPhoto;
 use App\Models\ReportVideo;
@@ -365,6 +367,21 @@ class CompanyDataExporter
         $this->scoped(ParachuteTestFile::class)->orderBy('parachute_test_id')->chunkById(self::CHUNK, function ($files) {
             foreach ($files as $file) {
                 $this->attach((string) $file->path, 'elevators/', 'adjuntos/paracaidas/prueba-'.$file->parachute_test_id.'-'.$file->id.'.'.pathinfo((string) $file->path, PATHINFO_EXTENSION), "Prueba de paracaídas #{$file->parachute_test_id}");
+            }
+        });
+
+        // Componentes enviados a reparación (Etapa 8.4) y sus archivos.
+        $this->sheet('Reparaciones', ['ID', 'Edificio', 'Ascensor', 'Orden ID', 'Componente', 'Detalle', 'Marca', 'Modelo', 'N° de serie', 'Falla', 'Estado', 'Envío', 'Proveedor o taller',
+            'Seguimiento', 'Presupuesto', 'Costo final', 'Devolución estimada', 'Devolución', 'Observaciones', 'Registró', 'Alta'],
+            $this->scoped(RepairComponent::class),
+            fn ($r) => [$r->id, $this->name('buildings', $r->building_id), $this->name('elevators', $r->elevator_id), $r->work_order_id, RepairComponent::TYPES[$r->component_type] ?? $r->component_type,
+                $r->description, $r->brand, $r->model, $r->serial_number, $r->failure, RepairComponent::STATUSES[$r->status] ?? $r->status, $r->sent_at, $r->provider,
+                $this->name('users', $r->follow_up_user_id), $this->money($r->quote_amount), $this->money($r->final_cost), $r->expected_return_at, $r->returned_at, $r->notes,
+                $this->name('users', $r->created_by), $r->created_at]);
+
+        $this->scoped(RepairComponentFile::class)->orderBy('repair_component_id')->chunkById(self::CHUNK, function ($files) {
+            foreach ($files as $file) {
+                $this->attach((string) $file->path, 'repairs/', 'adjuntos/reparaciones/componente-'.$file->repair_component_id.'-'.$file->id.'.'.pathinfo((string) $file->path, PATHINFO_EXTENSION), "Reparación #{$file->repair_component_id}");
             }
         });
 

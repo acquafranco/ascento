@@ -63,10 +63,24 @@
                             </p>
                         @endif
                     @endif
+                    @if($info['show']['repairs'])
+                        @foreach($e['repairs'] as $r)
+                            <p class="qr-line" data-qr="repair">{!! $tag('Información administrativa', 'admin') !!} {{ $r['component'] }} en reparación: <strong>{{ mb_strtolower($r['status']) }}</strong> <span class="qr-muted">({{ $d($r['at']) }})</span></p>
+                        @endforeach
+                    @endif
                 </div>
             @empty
                 <p class="qr-muted">No hay equipos registrados.</p>
             @endforelse
+        </section>
+    @endif
+
+    @if($info['show']['repairs'] && $info['building_repairs'])
+        <section class="qr-card" data-qr="building-repairs">
+            <h2 class="qr-h2">Componentes en reparación</h2>
+            @foreach($info['building_repairs'] as $r)
+                <p class="qr-line">{!! $tag('Información administrativa', 'admin') !!} {{ $r['component'] }}: <strong>{{ mb_strtolower($r['status']) }}</strong> <span class="qr-muted">({{ $d($r['at']) }})</span></p>
+            @endforeach
         </section>
     @endif
 

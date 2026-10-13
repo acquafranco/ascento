@@ -70,3 +70,59 @@ Se entrega en tres PRs: **8.1 y 8.2**, **8.3** y **8.4**. Las decisiones tomadas
   - La ruta del panel sigue cerrada para el portal.
 - **Solo lectura:** el portal no tiene ninguna acción sobre técnicos ni asignaciones, y la ruta de la foto solo admite `GET`.
 - **Cambios en las asignaciones o en los edificios autorizados:** rigen en el pedido siguiente.
+
+## 4. Componentes enviados a reparación (8.4)
+
+- **Qué había:** nada equivalente.
+  - Las órdenes de trabajo registran tareas en el edificio, no el envío de una pieza a un taller.
+  - El stock registra materiales, no reparaciones de terceros.
+  - Por eso se creó un módulo propio: «Reparaciones», en Operaciones (`/admin/reparaciones`).
+- **Qué se registra:**
+  - edificio (obligatorio), ascensor (opcional, del mismo edificio) y orden de trabajo (opcional, del mismo edificio);
+  - componente: variador, motor, placa electrónica, control u otro, con un detalle libre;
+  - marca, modelo, número de serie y descripción de la falla;
+  - fecha de envío, proveedor o taller y responsable del seguimiento;
+  - presupuesto de reparación, costo final, devolución estimada y devolución real;
+  - observaciones, y documentos o fotos (PDF o imágenes de hasta 20 MB, en el disco privado, verificados por su contenido).
+- **Empresa propietaria:** la empresa del registro (`company_id`), que no se elige ni se puede cambiar. El cliente sale del edificio y no se copia.
+- **Estados y transiciones:** solo se avanza a un estado permitido; `RepairService` lo verifica bajo bloqueo de la fila.
+
+| Desde | Puede pasar a |
+|---|---|
+| Pendiente de envío | Enviado, Cancelado |
+| Enviado | En diagnóstico, Esperando presupuesto, En reparación, Cancelado |
+| En diagnóstico | Esperando presupuesto, En reparación, Cancelado |
+| Esperando presupuesto | Esperando autorización, Cancelado |
+| Esperando autorización | En reparación, Cancelado |
+| En reparación | Reparado, Cancelado |
+| Reparado | Recibido |
+| Recibido / Cancelado | (finales) |
+
+- **Reglas:**
+  - un componente enviado **nunca** pasa a «Reparado» sin pasar por «En reparación»;
+  - «Enviado» pide la fecha de envío, que no puede ser futura;
+  - «Recibido» pide la fecha de devolución, que no puede ser anterior al envío;
+  - la devolución estimada no puede ser anterior al envío;
+  - los montos no pueden ser negativos;
+  - el estado no se edita en «Corregir»: solo con «Cambiar estado».
+- **Historial de cambios:** el alta, cada cambio de dato o de estado («de → a») y cada archivo adjunto quedan en el registro de actividad, y la ficha los muestra con nombres en vez de ids.
+- **Sin borrado:** un componente se cancela, no se borra.
+- **Permisos:** área nueva de administrativos, **«Reparaciones»**.
+  - «Ver»: listado, ficha, historial y archivos.
+  - «Gestionar»: registrar, corregir, cambiar de estado y adjuntar.
+  - Lo verifica `RepairService` en el servidor, además de ocultar los botones.
+  - El dueño puede todo; el SuperAdmin, dentro de la empresa elegida.
+  - Los técnicos no entran al panel. Otra empresa recibe 404.
+  - El área nueva queda **apagada** para los administrativos existentes.
+- **Responsable del seguimiento:** el dueño, un técnico o un administrativo vigente con «Reparaciones», de la empresa.
+- **QR público:** bloque «Componentes en reparación», **apagado por defecto**.
+  - Si la empresa lo publica, muestra por equipo solo el tipo de componente y su estado, con la fecha, mientras el componente está fuera de la empresa (de «Enviado» a «Reparado»). Los componentes sin equipo van en un bloque del edificio.
+  - Nunca muestra proveedor, montos, falla, detalle ni observaciones.
+  - Un componente pendiente de envío, recibido o cancelado no figura.
+- **Datos:**
+  - la migración `2026_12_25_100000_create_repair_components` solo agrega y es reversible;
+  - tablas nuevas: `repair_components` y `repair_component_files`, y la columna `building_public_pages.show_repairs`;
+  - la exportación completa suma la hoja «Reparaciones» y los archivos;
+  - el borrado definitivo de una empresa incluye todo.
+- **Planes:** en todos los planes, sin restricciones ni límites nuevos.
+- **Fuera de alcance:** pagos, facturación y sistemas externos.

@@ -15,6 +15,7 @@ use App\Models\ParachuteTest;
 use App\Models\Quote;
 use App\Models\Receivable;
 use App\Models\ReceivablePayment;
+use App\Models\RepairComponent;
 use App\Models\StockMovement;
 use App\Models\Task;
 use App\Models\User;
@@ -52,9 +53,12 @@ final class ActivityLogger
         Task::class => ['title', 'priority', 'status', 'due_at', 'remind_at', 'assigned_to', 'client_id', 'building_id'],
         ClientInteraction::class => ['client_id', 'type', 'result', 'occurred_at', 'building_id', 'quote_id', 'work_order_id'],
         // Etapa 7. Del QR nunca se registra el token (generated_at marca cada código nuevo).
-        BuildingPublicPage::class => ['building_id', 'is_active', 'generated_at', 'deactivated_at', 'show_elevators', 'show_status', 'show_last_maintenance', 'show_last_inspection', 'show_safety_tests', 'show_pending_work', 'show_contact'],
+        BuildingPublicPage::class => ['building_id', 'is_active', 'generated_at', 'deactivated_at', 'show_elevators', 'show_status', 'show_last_maintenance', 'show_last_inspection', 'show_safety_tests', 'show_pending_work', 'show_contact', 'show_repairs'],
         ParachuteSchedule::class => ['elevator_id', 'interval_months', 'notice_days', 'inspector_id', 'responsible_id'],
         ParachuteTest::class => ['elevator_id', 'performed_on', 'result', 'performed_by_id', 'performed_by_name', 'inspector_name', 'inspector_registration'],
+        // Etapa 8.4: el historial de cada componente en reparación.
+        RepairComponent::class => ['status', 'building_id', 'elevator_id', 'work_order_id', 'component_type', 'description', 'brand', 'model', 'serial_number', 'failure',
+            'sent_at', 'provider', 'follow_up_user_id', 'quote_amount', 'final_cost', 'expected_return_at', 'returned_at', 'notes'],
     ];
 
     /** Nombres que nunca se guardan, aunque alguien los sume a FIELDS por error. */
