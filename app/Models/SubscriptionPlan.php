@@ -177,7 +177,7 @@ class SubscriptionPlan extends Model
             ['Notificaciones push en el celular', $all],
             ['Exportación de los datos de tu empresa', $all],
             ['Presupuestos con PDF y envío por correo', $feature(PlanFeature::Quotes)],
-            ['Remitos digitales para el cliente (PDF y enlace)', $feature(PlanFeature::DigitalDeliveryNotes)],
+            ['Remitos digitales para el cliente (PDF y enlace)', $all],
             ['Portal para clientes', $feature(PlanFeature::ClientPortal)],
             ['Video en los informes', $feature(PlanFeature::ReportVideos)],
             ['Fotos de antes y después y reportes de inspección', $feature(PlanFeature::WorkPhotos)],
@@ -192,7 +192,7 @@ class SubscriptionPlan extends Model
     {
         $lines = array_map(fn (PlanLimit $limit) => $limit->planLabel($this->limit($limit)), PlanLimit::cases());
 
-        foreach ([PlanFeature::Quotes, PlanFeature::DigitalDeliveryNotes, PlanFeature::ClientPortal, PlanFeature::ClientContacts, PlanFeature::ReportVideos, PlanFeature::CompanyIndicators, PlanFeature::FailureAnalysis, PlanFeature::AdvancedIndicators, PlanFeature::AdvancedAlerts, PlanFeature::WorkPhotos] as $feature) {
+        foreach ([PlanFeature::Quotes, PlanFeature::ClientPortal, PlanFeature::ClientContacts, PlanFeature::ReportVideos, PlanFeature::CompanyIndicators, PlanFeature::FailureAnalysis, PlanFeature::AdvancedIndicators, PlanFeature::AdvancedAlerts, PlanFeature::WorkPhotos] as $feature) {
             if ($this->allows($feature)) {
                 $lines[] = $feature->label();
             }

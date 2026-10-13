@@ -20,9 +20,20 @@ Se entrega en tres PRs: **9.2 planes y control de acceso** (este documento), **9
   - Los administrativos tienen su propio límite.
   - Desactivar libera cupo y reactivar lo vuelve a controlar.
 - **Funciones que ya dependían del plan, sin cambios:**
-  - Profesional: presupuestos, remitos digitales, portal, video, indicadores de empresa, historial avanzado y análisis de fallas.
+  - Profesional: presupuestos, portal, video, indicadores de empresa, historial avanzado y análisis de fallas.
   - Empresa: indicadores avanzados, alertas avanzadas y fotos de los trabajos.
 - **Prueba gratis:** sigue siendo Empresa completo (`SubscriptionPlan::TRIAL_PLAN`).
+
+## 1.1 Remitos digitales: en los tres planes
+
+Regla comercial: los remitos digitales son una función central y **no dependen de la suscripción**.
+
+- **Qué incluyen:** en Inicial, Profesional y Empresa, el técnico crea, completa y firma el remito con el flujo normal, lo ve en el historial y lo comparte con el cliente (PDF, enlace, WhatsApp o correo). El dueño lo descarga en PDF desde el panel. El enlace y el PDF del cliente abren siempre.
+- **Qué había antes:** Inicial firmaba el remito, pero no podía descargarlo en PDF desde el panel ni compartirlo.
+  - La migración `2026_12_30_100100_digital_delivery_notes_on_every_plan` suma `digital_delivery_notes` a todos los planes. Al revertirla, se quita solo de los que no lo tenían.
+  - Se quitaron los controles de plan de la descarga del PDF, del listado de remitos y de la pantalla del remito.
+- **Es parte de la base** (`PlanFeature::structural()`): el SuperAdmin no puede quitarlo desde «Planes».
+- **Fotos de antes y después:** siguen siendo una función aparte, solo de Empresa («Fotos de los trabajos y reportes de inspección»). El remito no las necesita: sin ese plan se crea, se firma y se comparte igual.
 
 ## 2. Funciones nuevas en la matriz
 
@@ -70,7 +81,7 @@ Todo usa `PlanGuard`, el mismo mecanismo de las funciones anteriores, sin un sis
 
 - **Pantalla «Planes»** (`/admin/planes`, solo el SuperAdmin): para cada plan que se vende, qué funciones incluye.
   - El precio y los límites se ven, pero **no se editan** desde ahí.
-  - La base del producto (edificios, clientes, técnicos, mantenimientos, inspecciones, órdenes, reportes e historial) no se puede quitar.
+  - La base del producto (edificios, clientes, técnicos, mantenimientos, inspecciones, órdenes, reportes, historial y remitos digitales) no se puede quitar.
   - Guardar pide confirmación y muestra el resumen de cambios.
   - Lo verifica `PlanFeatureManager` en el servidor. Cada cambio queda en el log de la aplicación, con quién lo hizo, el plan, lo que se sumó y lo que se quitó.
 - **Desactivar una función** aplica a todas las empresas de ese plan desde ese momento, sin borrar datos.

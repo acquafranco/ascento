@@ -112,7 +112,7 @@ class PlanLimitsTest extends TestCase
         }
 
         $this->assertFalse(SubscriptionPlan::findBySlug('inicial')->allows(PlanFeature::Quotes));
-        $this->assertFalse(SubscriptionPlan::findBySlug('inicial')->allows(PlanFeature::DigitalDeliveryNotes));
+        $this->assertTrue(SubscriptionPlan::findBySlug('inicial')->allows(PlanFeature::DigitalDeliveryNotes)); // en todos los planes
         $this->assertTrue(SubscriptionPlan::findBySlug('profesional')->allows(PlanFeature::Quotes));
         $this->assertTrue(SubscriptionPlan::findBySlug('empresa')->allows(PlanFeature::DigitalDeliveryNotes));
     }
@@ -417,7 +417,7 @@ class PlanLimitsTest extends TestCase
 
         $this->assertSame('Alcanzaste el límite de 20 edificios de tu plan Inicial.', $this->guard()->limitReachedMessage(PlanLimit::Buildings));
         $this->assertSame(
-            'Con Profesional podés administrar hasta 70 edificios y además obtenés hasta 150 clientes, hasta 10 técnicos, reportes sin límite mensual, hasta 1 usuario administrativo, presupuestos, remitos digitales para el cliente y portal para clientes.',
+            'Con Profesional podés administrar hasta 70 edificios y además obtenés hasta 150 clientes, hasta 10 técnicos, reportes sin límite mensual, hasta 1 usuario administrativo, presupuestos y portal para clientes.',
             $this->guard()->upgradePitch(PlanLimit::Buildings),
         );
 

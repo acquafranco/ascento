@@ -14,8 +14,8 @@
     $audience = $audience ?? 'internal';
     // Compartir arma el enlace público (y su PDF) con el token del remito: sin
     // token (remitos muy viejos) no se ofrece, en vez de fallar la página.
-    $planAllowsSharing = $deliveryNote->company?->plan()->allows(\App\Enums\PlanFeature::DigitalDeliveryNotes) ?? false;
-    $canShareDigitally = $audience === 'internal' && filled($deliveryNote->public_token) && $planAllowsSharing;
+    // Remito digital (PDF, enlace, WhatsApp o correo): en todos los planes.
+    $canShareDigitally = $audience === 'internal' && filled($deliveryNote->public_token);
     $color = $doc['company']['color'];
     $onColor = $doc['company']['on_color'];
 @endphp
@@ -94,13 +94,6 @@
             @elseif ($audience === 'public')
                 <div class="rm-actions">
                     <a class="rm-btn" href="{{ $pdfUrl }}" target="_blank" rel="noopener" style="background: {{ $color }}; color: {{ $onColor }};">⬇ Descargar PDF</a>
-                </div>
-            @elseif (auth()->check() && $audience === 'internal' && ! $planAllowsSharing)
-                <div class="rm-locked" data-plan-locked="digital_delivery_notes">
-                    📄 Compartir el remito con el cliente (PDF, WhatsApp o correo) está disponible desde el plan <strong>Profesional</strong>.
-                    @if (auth()->user()->isAdmin())
-                        <a href="{{ \App\Support\Plans\PlanUpsell::url(feature: \App\Enums\PlanFeature::DigitalDeliveryNotes) }}" style="font-weight:600;text-decoration:underline">Ver planes</a>
-                    @endif
                 </div>
             @endif
 

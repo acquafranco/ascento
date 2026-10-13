@@ -89,7 +89,7 @@ class PlanFeaturesAndMigrationTest extends TestCase
         $this->assertNull(QuoteResource::getNavigationBadge());
     }
 
-    public function test_digital_delivery_notes_are_from_profesional_but_the_signed_record_is_for_everyone(): void
+    public function test_digital_delivery_notes_are_in_every_plan(): void
     {
         $note = DeliveryNote::factory()->create([
             'building_id' => $this->a['building']->id,
@@ -98,27 +98,22 @@ class PlanFeaturesAndMigrationTest extends TestCase
         $showUrl = "/{$this->a['company']->slug}/delivery-notes/{$note->number}";
         $pdfUrl = "{$showUrl}/pdf";
 
-        $this->onPlan('inicial');
+        foreach (['inicial', 'profesional', 'empresa'] as $slug) {
+            $this->onPlan($slug);
 
-        // El técnico ve su remito (registro del trabajo) pero no lo comparte.
-        $this->actingAs($this->a['technician'])->get($showUrl)
-            ->assertOk()
-            ->assertSee('disponible desde el plan')
-            ->assertDontSee('Compartir remito');
+            // El técnico ve su remito y lo comparte (PDF, enlace, WhatsApp o correo).
+            $this->actingAs($this->a['technician'])->get($showUrl)
+                ->assertOk()
+                ->assertSee('Compartir remito')
+                ->assertDontSee('disponible desde el plan');
 
-        // El admin que pide el PDF ve el upgrade, no un 403.
-        $this->actingAs($this->a['admin'])->get($pdfUrl)
-            ->assertRedirect(SubscriptionPage::getUrl(['funcion' => 'digital_delivery_notes'], panel: 'ascensores_app').'#planes');
+            // El admin descarga el PDF.
+            $this->assertSame('application/pdf', $this->actingAs($this->a['admin'])->get($pdfUrl)->assertOk()->headers->get('Content-Type'));
 
-        // Un link ya enviado a un cliente sigue abriendo.
-        auth()->logout();
-        $this->get("/{$this->a['company']->slug}/public/delivery-notes/{$note->public_token}")->assertOk();
-
-        $this->onPlan('profesional');
-
-        $this->actingAs($this->a['technician'])->get($showUrl)
-            ->assertOk()
-            ->assertSee('Compartir remito');
+            // El enlace para el cliente abre.
+            auth()->logout();
+            $this->get("/{$this->a['company']->slug}/public/delivery-notes/{$note->public_token}")->assertOk();
+        }
     }
 
     /*
