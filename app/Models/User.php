@@ -345,7 +345,13 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
      */
     public function photoUrl(): ?string
     {
-        return $this->avatar ? route('technician-photos.show', ['user' => $this->id, 'v' => substr(md5($this->avatar), 0, 8)]) : null;
+        return $this->avatar ? route('technician-photos.show', ['user' => $this->id, 'v' => $this->photoVersion()]) : null;
+    }
+
+    /** Versión de la foto actual: una URL con otra versión (una foto reemplazada o quitada) ya no responde. */
+    public function photoVersion(): ?string
+    {
+        return $this->avatar ? substr(hash('sha256', $this->avatar), 0, 16) : null;
     }
 
     /** Iniciales para cuando no hay foto. */

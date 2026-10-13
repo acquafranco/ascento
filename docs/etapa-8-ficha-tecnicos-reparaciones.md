@@ -36,10 +36,16 @@ Se entrega en tres PRs: **8.1 y 8.2**, **8.3** y **8.4**. Las decisiones tomadas
 - **Almacenamiento:** disco privado, en `avatars/{empresa}/{aleatorio}.jpg`.
   - Al reemplazarla o quitarla, se borra el archivo anterior.
   - El borrado definitivo de una empresa incluye esas fotos.
-- **Acceso:** solo por la ruta `/files/technician-photos/{usuario}`, que exige sesión.
-  - La ven el propio técnico y quien opera el panel de su empresa; cualquier otro recibe 404.
-  - La ruta solo sirve archivos de la carpeta de fotos, así que no expone otros archivos aunque la columna tuviera otra ruta.
-  - Se sirve con `Cache-Control: private`.
+- **Acceso:** solo por la ruta `/files/technician-photos/{usuario}?v={versión}`, que exige sesión y una empresa con acceso vigente.
+  - **Quién la ve:** el propio técnico, el dueño, el SuperAdmin dentro de esa empresa y un administrativo vigente con «Técnicos».
+  - **Quién no:** otra empresa, otro técnico, un administrativo sin esa área o desactivado, el portal (hasta la 8.3) y quien no tenga sesión.
+  - **Siempre 404:** un id de alguien que no es técnico, de un técnico desactivado o inexistente, y una versión distinta de la actual.
+  - **Solo su carpeta:** sirve únicamente archivos de `avatars/{empresa del técnico}/`, aunque la columna tuviera otra ruta.
+- **Fotos reemplazadas o quitadas:**
+  - la URL lleva la versión de la foto, así que la de una foto anterior responde 404;
+  - se sirve con `Cache-Control: private, no-cache` y `ETag`: el navegador pregunta cada vez y recibe 304 si no cambió, de modo que nunca muestra una foto vieja desde su caché;
+  - el cambio se hace bajo bloqueo de la fila, así que dos reemplazos simultáneos no dejan archivos huérfanos;
+  - si falla el guardado, se borra el archivo nuevo.
 - **Sin foto:** se muestran las iniciales (componente `x-user-photo`).
 - **Dónde se ve:**
   - la lista de técnicos del panel;

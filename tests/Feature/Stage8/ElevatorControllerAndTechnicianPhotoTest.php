@@ -151,6 +151,7 @@ class ElevatorControllerAndTechnicianPhotoTest extends TestCase
         $this->assertNull($tech->fresh()->avatar);
         Storage::disk('local')->assertMissing($second);
         $this->get(route('technician-photos.show', ['user' => $tech->id]))->assertNotFound();
+        $this->get($tech->photoUrl() ?? '/files/technician-photos/'.$tech->id)->assertNotFound();
     }
 
     public function test_only_valid_images_within_the_limits_are_accepted(): void
@@ -246,10 +247,143 @@ class ElevatorControllerAndTechnicianPhotoTest extends TestCase
         $this->get($url)->assertOk();
         $this->assertTrue($this->photos()->canChange($super, $tech->fresh()));
 
-        // La ruta no sirve otras rutas guardadas en la columna.
+        // La ruta no sirve otras rutas guardadas en la columna, aunque la versión coincida.
         $tech->forceFill(['avatar' => 'elevators/'.$this->a['company']->id.'/doc.pdf'])->saveQuietly();
         Storage::disk('local')->put('elevators/'.$this->a['company']->id.'/doc.pdf', 'x');
         $this->inPanel($this->a['admin']);
-        $this->get(route('technician-photos.show', ['user' => $tech->id]))->assertNotFound();
+        $this->get($tech->fresh()->photoUrl())->assertNotFound();
+    }
+
+    public function test_manipulated_ids_versions_and_paths_never_reveal_a_photo(): void
+    {
+        $tech = $this->a['technician'];
+        $this->inPanel($this->a['admin']);
+        $this->photos()->replace($this->a['admin'], $tech, UploadedFile::fake()->image('t.jpg', 300, 300));
+        $tech = $tech->fresh();
+        $base = '/files/technician-photos/';
+
+        $this->get($tech->photoUrl())->assertOk();
+        // Sin versión, con otra o con una inyectada: 404.
+        $this->get($base.$tech->id)->assertNotFound();
+        $this->get($base.$tech->id.'?v=0000000000000000')->assertNotFound();
+        $this->get($base.$tech->id.'?v[]='.$tech->photoVersion())->assertNotFound();
+        // Ids que no son números, o de usuarios que no son técnicos: 404.
+        $this->get($base.'..%2F..%2F.env?v='.$tech->photoVersion())->assertNotFound();
+        $this->get($base.$this->a['admin']->id.'?v='.$tech->photoVersion())->assertNotFound();
+        $this->get($base.'999999?v='.$tech->photoVersion())->assertNotFound();
+
+        // Un admin con la columna cargada a mano tampoco se sirve (solo técnicos).
+        $this->a['admin']->forceFill(['avatar' => $tech->avatar])->saveQuietly();
+        $this->get($this->a['admin']->fresh()->photoUrl())->assertNotFound();
+
+        // La foto de un técnico apuntando a la carpeta de OTRA empresa: 404.
+        $b = $this->makeTenant();
+        $foreign = 'avatars/'.$b['company']->id.'/'.str_repeat('a', 40).'.jpg';
+        Storage::disk('local')->put($foreign, 'x');
+        $other = User::factory()->create(['company_id' => $this->a['company']->id, 'role' => 'technician', 'job_type' => 'maintenance']);
+        $other->forceFill(['avatar' => $foreign])->saveQuietly();
+        $this->inPanel($this->a['admin']);
+        $this->get($other->fresh()->photoUrl())->assertNotFound();
+
+        // Técnico desactivado: su foto deja de servirse.
+        $tech->delete();
+        $this->get($tech->photoUrl())->assertNotFound();
+    }
+
+    public function test_replaced_or_removed_photos_are_gone_from_urls_cache_and_disk(): void
+    {
+        $tech = $this->a['technician'];
+        $this->inPanel($this->a['admin']);
+        $this->photos()->replace($this->a['admin'], $tech, UploadedFile::fake()->image('1.jpg', 300, 300));
+        $firstUrl = $tech->fresh()->photoUrl();
+        $firstPath = $tech->fresh()->avatar;
+
+        // El navegador vuelve a preguntar siempre (no-cache) y, sin cambios, recibe 304.
+        $response = $this->get($firstUrl)->assertOk();
+        $this->assertStringContainsString('no-cache', $response->headers->get('Cache-Control'));
+        $this->assertStringNotContainsString('max-age', $response->headers->get('Cache-Control'));
+        $this->assertStringNotContainsString('public', $response->headers->get('Cache-Control'));
+        $etag = $response->headers->get('ETag');
+        $this->get($firstUrl, ['If-None-Match' => $etag])->assertStatus(304);
+
+        // Reemplazada: la URL y el ETag anteriores ya no responden; solo queda el archivo nuevo.
+        $this->photos()->replace($this->a['admin'], $tech->fresh(), UploadedFile::fake()->image('2.jpg', 300, 300));
+        $this->get($firstUrl)->assertNotFound();
+        $this->get($firstUrl, ['If-None-Match' => $etag])->assertNotFound();
+        Storage::disk('local')->assertMissing($firstPath);
+        $this->assertSame([$tech->fresh()->avatar], Storage::disk('local')->allFiles('avatars'));
+        $secondUrl = $tech->fresh()->photoUrl();
+        $this->assertNotSame($firstUrl, $secondUrl);
+        $this->get($secondUrl)->assertOk();
+
+        // Quitada: ninguna URL anterior responde y no queda ningún archivo.
+        $this->photos()->remove($this->a['admin'], $tech->fresh());
+        $this->get($secondUrl)->assertNotFound();
+        $this->get($firstUrl)->assertNotFound();
+        $this->assertSame([], Storage::disk('local')->allFiles('avatars'));
+
+        // Varios reemplazos seguidos (técnico y dueño): siempre un solo archivo, el vigente.
+        foreach ([$tech, $this->a['admin'], $tech, $this->a['admin']] as $actor) {
+            $actor->is($tech) ? $this->actingAs($tech) : $this->inPanel($actor);
+            $this->photos()->replace($actor, $tech->fresh(), UploadedFile::fake()->image('n.jpg', 200, 200));
+        }
+        $this->assertSame([$tech->fresh()->avatar], Storage::disk('local')->allFiles('avatars'));
+        // Quitar sin foto no hace nada ni registra.
+        $this->photos()->remove($this->a['admin'], $tech->fresh());
+        $before = ActivityLog::where('action', 'user.photo_removed')->count();
+        $this->photos()->remove($this->a['admin'], $tech->fresh());
+        $this->assertSame($before, ActivityLog::where('action', 'user.photo_removed')->count());
+    }
+
+    public function test_who_can_see_a_photo_by_role(): void
+    {
+        $tech = $this->a['technician'];
+        $this->inPanel($this->a['admin']);
+        $this->photos()->replace($this->a['admin'], $tech, UploadedFile::fake()->image('t.jpg', 300, 300));
+        $url = $tech->fresh()->photoUrl();
+        $this->get($url)->assertOk(); // dueño
+
+        // Administrativo: con «Técnicos», sí; sin esa área o desactivado, no.
+        User::where('company_id', $this->a['company']->id)->where('role', User::ROLE_STAFF)->get()->each->delete();
+        $this->actingAs($this->a['admin']);
+        $staff = app(StaffManager::class)->create($this->a['admin'], ['name' => 'Ana Oficina', 'email' => 'ana@demo.test', 'password' => 'clave-segura-123'], ['visits' => 'manage']);
+        $this->inPanel($staff);
+        $this->get($url)->assertNotFound();
+        $this->inPanel($this->a['admin']);
+        app(StaffManager::class)->setPermissions($this->a['admin'], $staff, ['technicians' => 'view']);
+        $this->inPanel($staff->fresh());
+        $this->get($url)->assertOk();
+        $this->actingAs($this->a['admin']);
+        app(StaffManager::class)->deactivate($this->a['admin'], $staff->fresh());
+        $this->flushSession();
+        $this->actingAs(User::withTrashed()->find($staff->id));
+        $this->assertNotSame(200, $this->get($url)->getStatusCode());
+
+        // Usuario del portal del cliente de ese edificio: todavía no (llega con el PR 2), 404.
+        $portal = User::factory()->create(['email' => 'consorcio@demo.test']);
+        $portal->forceFill(['role' => User::ROLE_CLIENT, 'company_id' => $this->a['company']->id, 'client_id' => $this->a['building']->client_id])->save();
+        $portal->portalBuildings()->sync([$this->a['building']->id]);
+        $this->flushSession();
+        $this->actingAs($portal);
+        $this->assertNotSame(200, $this->get($url)->getStatusCode());
+
+        // SuperAdmin con OTRA empresa elegida: 404; con la del técnico: sí.
+        auth()->logout();
+        $b = $this->makeTenant();
+        $super = User::factory()->superAdmin()->create();
+        $this->inPanel($super);
+        session(['selected_company_id' => $b['company']->id]);
+        $this->get($url)->assertNotFound();
+        $this->assertFalse($this->photos()->canChange($super, $tech->fresh()));
+        session(['selected_company_id' => $this->a['company']->id]);
+        $this->get($url)->assertOk();
+
+        // El propio técnico, sí; con la empresa sin acceso vigente, ya no.
+        $this->flushSession();
+        $this->actingAs($tech->fresh());
+        $this->get($url)->assertOk();
+        $this->a['company']->forceFill(['is_active' => false])->save();
+        $this->actingAs($tech->fresh()); // instancia nueva: como en un pedido real, sin la empresa en memoria
+        $this->assertSame(403, $this->get($url)->getStatusCode());
     }
 }
