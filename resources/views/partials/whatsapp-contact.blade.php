@@ -11,7 +11,7 @@
       escrito por la persona solo se usa como texto del enlace (encodeURIComponent).
 --}}
 @php
-    $waNumber = config('app.whatsapp_contact');
+    $waNumber = \App\Support\Sales\SalesAssistant::whatsappNumber(); // null: contacto por correo
     $launcher = $launcher ?? true;
     $topics = \App\Support\Sales\SalesAssistant::topics();
     $buildingRanges = \App\Support\Sales\SalesAssistant::buildingRanges();
@@ -284,6 +284,7 @@
             if (data.email) lines.push('Correo: ' + data.email);
             if (data.message) lines.push('', data.message);
 
+            // Mismo formato que SalesAssistant::whatsappUrl(): wa.me/<número>?text=<mensaje codificado>.
             const url = 'https://wa.me/' + number + '?text=' + encodeURIComponent(lines.join('\n'));
             document.getElementById('wa-retry').href = url;
             show(document.getElementById('wa-done'));

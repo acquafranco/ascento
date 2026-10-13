@@ -136,21 +136,51 @@ class SalesAssistantTest extends TestCase
         $this->assertStringContainsString('<option>21 a 70</option>', $html);
     }
 
-    public function test_the_hours_are_not_published_until_configured(): void
+    public function test_the_confirmed_number_is_used_for_every_commercial_whatsapp_link(): void
     {
-        $this->assertNull(SalesAssistant::hours());
-        $this->assertStringNotContainsString('data-wa-hours', $this->home());
+        $this->assertSame('5491173728421', SalesAssistant::whatsappNumber());
+        $this->assertSame('+54 9 11 7372-8421', SalesAssistant::displayNumber());
+        $this->assertSame('https://wa.me/5491173728421?text=Hola%2C%20equipo%20de%20Ascento.%0ATema%3A%20Planes%20y%20precios',
+            SalesAssistant::whatsappUrl("Hola, equipo de Ascento.\nTema: Planes y precios"));
 
-        config(['app.whatsapp_hours' => 'lunes a viernes de 9 a 18']);
-        $this->assertStringContainsString('Horario de atención: lunes a viernes de 9 a 18.', $this->home());
+        $html = $this->home();
+        // El asistente arma el enlace con ese número y el pie lo muestra (sin números escritos a mano).
+        $this->assertStringContainsString('const number = "5491173728421";', $html);
+        $this->assertStringContainsString("'https://wa.me/' + number + '?text=' + encodeURIComponent(lines.join('\\n'))", $html);
+        $this->assertStringContainsString('WhatsApp: +54 9 11 7372-8421', $html);
+        preg_match_all('#wa\.me/(\d+)#', $html, $m);
+        $this->assertSame([], array_values(array_diff(array_unique($m[1]), ['5491173728421'])));
     }
 
-    public function test_without_a_number_there_is_no_whatsapp_handoff(): void
+    public function test_round_the_clock_attention_is_shown_without_out_of_hours_messages(): void
     {
-        config(['app.whatsapp_contact' => '']);
+        $this->assertSame('todos los días, las 24 horas, incluidos fines de semana y feriados', SalesAssistant::hours());
         $html = $this->home();
+        $this->assertStringContainsString('Horario de atención: todos los días, las 24 horas, incluidos fines de semana y feriados.', $html);
+        foreach (['fuera de horario', 'día hábil', 'te respondemos en', 'apenas podamos'] as $promise) {
+            $this->assertStringNotContainsStringIgnoringCase($promise, $html, $promise);
+        }
 
+        // Se puede ocultar sin tocar código (ASCENTO_WHATSAPP_HOURS vacío).
+        config(['app.whatsapp_hours' => '']);
+        $this->assertStringNotContainsString('data-wa-hours', $this->home());
+    }
+
+    public function test_without_a_valid_number_the_contact_is_by_email(): void
+    {
+        foreach (['', '0111234567', '12345', '5491173728421999999'] as $invalid) {
+            config(['app.whatsapp_contact' => $invalid]);
+            $this->assertNull(SalesAssistant::whatsappNumber(), $invalid);
+            $this->assertNull(SalesAssistant::whatsappUrl('Hola'), $invalid);
+        }
+
+        config(['app.whatsapp_contact' => '']);
+        Once::flush();
+        $html = $this->home();
         $this->assertStringNotContainsString('data-wa-handoff>Escribir por WhatsApp', $html);
+        $this->assertStringNotContainsString('data-wa-number', $html);
         $this->assertStringContainsString('mailto:'.config('app.support_email'), $html);
+        $this->assertStringContainsString('Escribinos a '.config('app.support_email').' con tu consulta.', $this->text('human'));
+        $this->assertStringNotContainsString('WhatsApp', $this->text('trial'));
     }
 }

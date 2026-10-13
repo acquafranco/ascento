@@ -40,6 +40,8 @@ final class SalesAssistant
             $trialLine = $trial
                 ? 'Podés probarlo gratis '.SubscriptionPlan::TRIAL_DAYS.' días con todas las funciones del plan '.$trial.', sin tarjeta.'
                 : 'Podés probarlo gratis '.SubscriptionPlan::TRIAL_DAYS.' días, sin tarjeta.';
+            // Sin número válido, el contacto es por correo (y los textos lo dicen).
+            $channel = self::whatsappNumber() ? 'por WhatsApp' : 'a '.config('app.support_email');
             $t = fn (string $key, string $label, array $answer, array $actions = [], bool $handoff = true, string $kind = self::SALES) => compact('key', 'label', 'kind', 'answer', 'actions', 'handoff');
 
             $topics = [
@@ -56,7 +58,7 @@ final class SalesAssistant
                 $t('plans', 'Planes y precios', self::plansAnswer($plans, $trialLine), ['plans', 'trial']),
                 $t('trial', 'Probar gratis o pedir una demostración', [
                     $trialLine.' Creás la cuenta desde la página y empezás a cargar tu empresa.',
-                    'Si preferís que te lo mostremos, escribinos por WhatsApp y coordinamos una demostración.',
+                    'Si preferís que te lo mostremos, escribinos '.$channel.' y coordinamos una demostración.',
                 ], ['trial']),
             ];
 
@@ -90,10 +92,12 @@ final class SalesAssistant
 
             $topics[] = $t('support', 'Ya uso Ascento y necesito ayuda', [
                 'Dentro de Ascento, en «Ayuda», tenés guías paso a paso según lo que podés usar.',
-                'Si no se resuelve, escribinos a '.config('app.support_email').' o por WhatsApp.',
+                'Si no se resuelve, escribinos '.(self::whatsappNumber() ? 'por WhatsApp o a '.config('app.support_email') : 'a '.config('app.support_email')).'.',
                 'Nunca te vamos a pedir tu contraseña ni códigos de verificación.',
             ]);
-            $topics[] = $t('human', 'Hablar con una persona', ['Dejanos tus datos y se abre WhatsApp con tu consulta lista.']);
+            $topics[] = $t('human', 'Hablar con una persona', [self::whatsappNumber()
+                ? 'Dejanos tus datos y se abre WhatsApp con tu consulta lista.'
+                : 'Escribinos a '.config('app.support_email').' con tu consulta.']);
 
             // Respuestas fijas: no son consultas comerciales y no se derivan a ventas.
             $topics[] = $t('residents', 'Soy vecino o de la administración de un edificio', [
@@ -138,7 +142,38 @@ final class SalesAssistant
         return $ranges;
     }
 
-    /** Horario de atención publicado (null = todavía no se publica). */
+    /**
+     * Número de WhatsApp comercial (solo dígitos) o null si no hay uno válido:
+     * internacional, de 10 a 15 dígitos y sin 0 inicial (E.164). Sin número,
+     * el asistente ofrece el correo de soporte.
+     */
+    public static function whatsappNumber(): ?string
+    {
+        $number = (string) config('app.whatsapp_contact');
+
+        return preg_match('/^[1-9]\d{9,14}$/', $number) ? $number : null;
+    }
+
+    /** El número para mostrar: «+54 9 11 7372-8421» (otros países: «+<dígitos>»). */
+    public static function displayNumber(): ?string
+    {
+        $number = self::whatsappNumber();
+        if ($number === null) {
+            return null;
+        }
+
+        return preg_match('/^549(11)(\d{4})(\d{4})$/', $number, $m) ? "+54 9 {$m[1]} {$m[2]}-{$m[3]}" : '+'.$number;
+    }
+
+    /** Enlace de WhatsApp con el mensaje armado (lo envía la persona). */
+    public static function whatsappUrl(string $text = ''): ?string
+    {
+        $number = self::whatsappNumber();
+
+        return $number === null ? null : 'https://wa.me/'.$number.($text === '' ? '' : '?text='.rawurlencode($text));
+    }
+
+    /** Horario de atención publicado (null = no se muestra). */
     public static function hours(): ?string
     {
         return filled($hours = config('app.whatsapp_hours')) ? (string) $hours : null;

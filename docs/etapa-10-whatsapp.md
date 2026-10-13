@@ -10,8 +10,11 @@
 - Las demostraciones las coordina el dueño a mano por WhatsApp; no hay agenda online.
 - Las urgencias se orientan a los servicios de emergencia locales y a la empresa mantenedora, sin el 911 para todos los países y sin diagnosticar.
 - A consorcios y vecinos se los orienta a la administración del edificio o a la empresa mantenedora.
-- No se publica un horario de atención: queda configurable (`ASCENTO_WHATSAPP_HOURS`) hasta que se confirme.
-- **El número comercial y el estado de WhatsApp Business no están verificados.** El dueño los tiene que confirmar antes de configurar los mensajes definitivos de la app Business.
+- **Confirmado por el dueño el 13/10/2026:**
+  - el número oficial de WhatsApp Business es **5491173728421** (+54 9 11 7372-8421) y ya está configurado en su app WhatsApp Business;
+  - la atención es **todos los días, las 24 horas, incluidos fines de semana y feriados**.
+  - Los dos son valores por defecto en `config/app.php` y se pueden reemplazar con `ASCENTO_WHATSAPP_NUMBER` y `ASCENTO_WHATSAPP_HOURS`.
+- La web solo abre WhatsApp con el mensaje armado. No hay API ni mensajes automáticos dentro de WhatsApp Business.
 - La pantalla del SuperAdmin es chica: respuestas rápidas para copiar y un aviso de cambios en los planes. No es un constructor de chatbots.
 
 **Objetivo:** que quien consulta por WhatsApp sobre Ascento reciba respuestas correctas a lo frecuente y llegue a una persona solo cuando hace falta, con la consulta ya ordenada.
@@ -86,7 +89,7 @@ Si alguien escribe directo al WhatsApp sin pasar por la web, el mensaje de bienv
 > Ascento no es un servicio de emergencias ni de mantenimiento. Si hay peligro inmediato con un ascensor, comunicate con los servicios de emergencia de tu zona y con la empresa responsable del mantenimiento.
 > Ascento nunca te va a pedir contraseñas ni códigos por WhatsApp.
 
-**Mensaje de ausencia:** igual que el de bienvenida, más «Te respondemos apenas podamos». **No se publica un horario** hasta que el dueño lo confirme.
+**Mensaje de ausencia:** no corresponde, porque la atención es continua. Ningún mensaje dice que estamos fuera de horario ni promete un plazo de respuesta.
 
 ---
 
@@ -266,7 +269,7 @@ El botón «Hablemos» (inicio, ingreso y registro) abre un asistente en lugar d
 | `resources/views/partials/whatsapp-contact.blade.php` | El formulario pasa a ser el asistente: temas, respuestas escritas en el servidor y escapadas por Blade, y los datos. Sin dependencias. |
 | `app/Models/SubscriptionPlan.php` | Constante `TRIAL_DAYS = 30` (no cambia el plazo). |
 | `app/Http/Controllers/Auth/RegisteredUserController.php` | El registro usa `TRIAL_DAYS` en vez de `30` escrito a mano. |
-| `config/app.php`, `docs/operacion-produccion.md` | `ASCENTO_WHATSAPP_HOURS` (vacío = no se publica horario). |
+| `config/app.php`, `docs/operacion-produccion.md`, `.env.example` | Número confirmado y `ASCENTO_WHATSAPP_HOURS`, por defecto «todos los días, las 24 horas, incluidos fines de semana y feriados». Vacío lo oculta. |
 | `tests/Feature/Public/SalesAssistantTest.php` (nuevo), `WhatsAppContactTest.php` | Pruebas. |
 
 **Privacidad, autorización y abuso (revisado)**
@@ -298,10 +301,8 @@ El botón «Hablemos» (inicio, ingreso y registro) abre un asistente en lugar d
 
 ### Fase 3: configuración manual de la app Business (la hace el dueño)
 
-Antes de empezar, el dueño **verifica el número comercial y si ya usa la app WhatsApp Business**.
-
-Después configura en el teléfono:
-- mensaje de bienvenida y mensaje de ausencia (sección 3, sin horario hasta confirmarlo);
+El número y la app WhatsApp Business ya están confirmados (13/10/2026). El dueño configura en el teléfono:
+- el mensaje de bienvenida de la sección 3 (sin mensaje de ausencia, porque la atención es continua);
 - las respuestas rápidas de la fase 2;
 - las etiquetas «Ventas», «Demostración», «Soporte», «Persona» y «Sin respuesta».
 
@@ -311,6 +312,6 @@ El sistema no hace ninguna de estas tareas.
 
 ## 10. Decisiones pendientes
 
-1. **Número comercial y WhatsApp Business:** verificarlos antes de la fase 3. Hasta entonces, la web sigue usando `5491173728421` como ya lo hace hoy.
-2. **Horario de atención:** cuando se confirme, se carga en `ASCENTO_WHATSAPP_HOURS`, sin tocar código.
+1. ~~Número comercial y WhatsApp Business~~: confirmados el 13/10/2026 (5491173728421, ya en la app Business).
+2. ~~Horario de atención~~: confirmado (todos los días, las 24 horas, incluidos fines de semana y feriados).
 3. **Nombre y empresa obligatorios** antes de abrir WhatsApp. Se mantienen como en el formulario anterior porque son el mínimo para una consulta de empresa. Si preferís que todo sea opcional, es un cambio chico.
