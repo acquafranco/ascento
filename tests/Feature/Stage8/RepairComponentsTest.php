@@ -387,10 +387,10 @@ class RepairComponentsTest extends TestCase
 
         foreach ([$public, $preview] as $html) {
             $repairs = implode("\n", $lines($html));
-            // Estados públicos: enviado, «en reparación» para todo lo del taller, reparado a la espera.
+            // Estados públicos: enviado y, para todo lo que sigue en el taller (también «Reparado», que todavía no volvió), «en reparación».
             $this->assertSame(1, substr_count($repairs, 'Enviado a reparación'));
-            $this->assertSame(4, substr_count($repairs, '<strong>En reparación</strong>')); // diagnóstico, presupuesto, autorización, reparación
-            $this->assertSame(1, substr_count($repairs, 'Reparado, a la espera de su devolución'));
+            $this->assertSame(5, substr_count($repairs, '<strong>En reparación</strong>')); // diagnóstico, presupuesto, autorización, reparación y reparado
+            $this->assertStringNotContainsString('Reparado', $repairs);
             // Nunca la negociación ni el detalle del taller; ni recibidos, cancelados o pendientes.
             foreach (['Esperando presupuesto', 'Esperando autorización', 'En diagnóstico', 'Recibido', 'Cancelado', 'Pendiente de envío'] as $hidden) {
                 $this->assertStringNotContainsString($hidden, $repairs);
@@ -404,6 +404,12 @@ class RepairComponentsTest extends TestCase
             $this->assertStringNotContainsString((string) $secret, $preview);
         }
         $this->assertSame(array_keys(RepairComponent::PUBLIC_STATUSES), RepairComponent::AWAY); // lo publicable = lo que está fuera
+        $this->assertSame(['Enviado a reparación', 'En reparación'], array_values(array_unique(RepairComponent::PUBLIC_STATUSES)));
+        // El panel privado conserva el estado real.
+        $this->inPanel($this->a['admin']);
+        $this->assertSame(1, RepairComponent::where('status', RepairComponent::REPAIRED)->count());
+        $repaired = RepairComponent::where('status', RepairComponent::REPAIRED)->sole();
+        $this->get('/admin/reparaciones/'.$repaired->id)->assertOk()->assertSee('data-repair-status', false)->assertSeeInOrder(['data-repair-status', 'Reparado'], false);
     }
 
     public function test_qr_staff_without_repairs_see_only_what_the_public_sees(): void

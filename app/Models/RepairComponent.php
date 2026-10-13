@@ -84,7 +84,8 @@ class RepairComponent extends Model
         self::AWAITING_QUOTE => 'En reparación',
         self::AWAITING_APPROVAL => 'En reparación',
         self::IN_REPAIR => 'En reparación',
-        self::REPAIRED => 'Reparado, a la espera de su devolución',
+        // Reparado en el taller no es devuelto: hasta que vuelva, sigue «en reparación».
+        self::REPAIRED => 'En reparación',
     ];
 
     /** Fuera de la empresa (en el proveedor o taller): lo que puede informar el QR. */
