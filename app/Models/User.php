@@ -278,19 +278,19 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     }
 
     /**
-     * La guía de bienvenida del panel es para administradores de empresa
-     * (el SuperAdmin no tiene "Mi empresa" ni opera una empresa propia).
-     */
-    /**
      * Ayudas de cada pantalla del panel (HelpTip): el dueño y los
      * administrativos vigentes (solo llegan a las pantallas de sus áreas).
      * La guía de bienvenida sigue siendo del dueño (canUseOnboarding).
      */
     public function canSeeHelpTips(): bool
     {
-        return $this->canUseOnboarding() || \App\Support\Access\Access::isActiveStaff($this);
+        return $this->canUseOnboarding() || Access::isActiveStaff($this);
     }
 
+    /**
+     * La guía de bienvenida del panel es para administradores de empresa
+     * (el SuperAdmin no tiene "Mi empresa" ni opera una empresa propia).
+     */
     public function canUseOnboarding(): bool
     {
         return $this->isAdmin() && ! $this->isSuperAdmin() && $this->company_id !== null;

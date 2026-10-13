@@ -241,4 +241,34 @@ class HelpGuidesTest extends TestCase
         $this->assertNotSame(200, $this->get('/'.$b['company']->slug.'/ayuda')->getStatusCode());
         $this->assertNotSame(200, $this->get('/portal/ayuda')->getStatusCode());
     }
+
+    public function test_guides_follow_the_effective_plan_and_permissions(): void
+    {
+        // Con el área de visitas pero sin las fotos en el plan: no hay guía de fotos (y nada de otras áreas).
+        $this->onPlan('profesional');
+        $ana = $this->staff(['visits' => 'manage']);
+        $this->inPanel($ana);
+        $keys = $this->keys($ana, HelpGuides::PANEL);
+        $this->assertContains('visits', $keys);
+        $this->assertNotContains('work_photos', $keys);
+        $this->assertNotContains('quotes', $keys);
+
+        $this->onPlan('empresa');
+        $this->inPanel($ana);
+        $this->assertContains('work_photos', $this->keys($ana, HelpGuides::PANEL));
+
+        // Desactivado por el dueño: sin ayudas de pantalla ni pantalla «Ayuda».
+        $this->actingAs($this->a['admin']);
+        app(StaffManager::class)->deactivate($this->a['admin'], $ana);
+        $this->inPanel($ana);
+        $this->assertFalse($ana->fresh()->canSeeHelpTips());
+        $this->assertFalse(HelpCenter::canAccess());
+
+        // El dueño usa la ayuda del panel, no la de la app del técnico.
+        $this->flushSession();
+        $this->actingAs($this->a['admin']->fresh());
+        $this->assertSame(403, $this->get('/'.$this->a['company']->slug.'/ayuda')->getStatusCode());
+        $this->assertSame([], HelpGuides::for($this->a['admin'], HelpGuides::TECHNICIAN));
+        $this->assertSame([], HelpGuides::for($this->a['admin'], HelpGuides::PORTAL));
+    }
 }
