@@ -41,7 +41,7 @@ final class ActivityLogger
     public const FIELDS = [
         Client::class => ['name', 'type', 'contact_person', 'phone', 'email', 'is_active', 'parachute_interval_months'],
         Building::class => ['name', 'address', 'client_id', 'locality', 'is_active', 'elevator_count', 'freight_elevator_count'],
-        Elevator::class => ['manufacturer', 'model', 'serial_number', 'machine_type', 'controller', 'is_active', 'public_status'],
+        Elevator::class => ['manufacturer', 'model', 'serial_number', 'machine_type', 'controller', 'controller_brand', 'controller_model', 'is_active', 'public_status'],
         ElevatorDocument::class => ['type', 'title', 'expires_at'],
         WorkOrder::class => ['type', 'status', 'priority', 'building_id', 'unit'],
         Quote::class => ['title', 'status', 'amount', 'valid_until', 'building_id', 'client_id'],

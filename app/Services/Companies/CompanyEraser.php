@@ -44,7 +44,7 @@ class CompanyEraser
     private const BILLABLE = [Subscription::PENDING, Subscription::AUTHORIZED, Subscription::PAST_DUE, Subscription::PAUSED];
 
     /** Carpetas por empresa ({raíz}/{id}/…) en cada disco. */
-    private const COMPANY_DIRECTORIES = [['local', 'visits'], ['local', 'reports'], ['local', 'elevators'], ['local', 'exports'], ['public', 'reports']];
+    private const COMPANY_DIRECTORIES = [['local', 'visits'], ['local', 'reports'], ['local', 'elevators'], ['local', 'exports'], ['local', 'avatars'], ['public', 'reports']];
 
     /**
      * Qué se va a borrar (para la confirmación) y qué lo impide.
@@ -361,6 +361,7 @@ class CompanyEraser
         DB::table('elevator_documents')->where('company_id', $id)->pluck('path')->each(fn ($path) => $add('local', $path, 'elevators'));
         DB::table('parachute_test_files')->where('company_id', $id)->pluck('path')->each(fn ($path) => $add('local', $path, 'elevators'));
         DB::table('company_exports')->where('company_id', $id)->pluck('path')->each(fn ($path) => $add('local', $path, 'exports'));
+        DB::table('users')->where('company_id', $id)->whereNotNull('avatar')->pluck('avatar')->each(fn ($path) => $add('local', $path, 'avatars'));
 
         // Foto vieja de reportes (columna reports.photo) y logo: solo si ninguna otra empresa usa ese archivo.
         $legacy = DB::table('reports')->where('company_id', $id)->whereNotNull('photo')->pluck('photo')->all();

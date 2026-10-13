@@ -36,7 +36,6 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
         'name',
         'email',
         'password',
-        'avatar',
         'role',
         'job_type',
         'phone',
@@ -337,6 +336,24 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     {
         return $this->belongsToMany(WorkOrder::class, 'work_order_user')
             ->withTimestamps();
+    }
+
+    /**
+     * Foto de perfil del técnico (Etapa 8.2), por la ruta con permiso; null
+     * si no tiene (se muestran sus iniciales). La versión cambia al
+     * reemplazarla, así el navegador no muestra la anterior.
+     */
+    public function photoUrl(): ?string
+    {
+        return $this->avatar ? route('technician-photos.show', ['user' => $this->id, 'v' => substr(md5($this->avatar), 0, 8)]) : null;
+    }
+
+    /** Iniciales para cuando no hay foto. */
+    public function initials(): string
+    {
+        $words = preg_split('/\s+/', trim((string) $this->name)) ?: [];
+
+        return mb_strtoupper(collect($words)->filter()->take(2)->map(fn ($w) => mb_substr($w, 0, 1))->implode('')) ?: '?';
     }
 
     public function isTechnician(): bool

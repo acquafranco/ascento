@@ -33,7 +33,7 @@ class Elevator extends Model
 
     protected $fillable = [
         'manufacturer', 'model', 'serial_number', 'year', 'capacity_kg', 'capacity_people', 'speed_ms', 'stops',
-        'installed_at', 'installer', 'machine_type', 'controller', 'motor', 'doors', 'door_operator', 'components', 'notes',
+        'installed_at', 'installer', 'machine_type', 'controller', 'controller_brand', 'controller_model', 'motor', 'doors', 'door_operator', 'components', 'notes',
     ];
 
     protected $casts = [

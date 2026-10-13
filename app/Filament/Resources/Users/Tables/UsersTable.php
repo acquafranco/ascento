@@ -2,22 +2,32 @@
 
 namespace App\Filament\Resources\Users\Tables;
 
+use App\Enums\PlanLimit;
+use App\Support\PhoneNumber;
+use App\Support\Plans\PlanRestoreGuard;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
-use Filament\Tables\Filters\TrashedFilter;
-use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ViewColumn;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class UsersTable
 {
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (\Illuminate\Database\Eloquent\Builder $query) => $query->withCount('pushSubscriptions'))
+            ->modifyQueryUsing(fn (Builder $query) => $query->withCount('pushSubscriptions'))
             ->columns([
+
+                // Foto de perfil (Etapa 8.2) o sus iniciales.
+                ViewColumn::make('photo')
+                    ->label('')
+                    ->view('filament.columns.user-photo'),
 
                 TextColumn::make('name')
                     ->label('Nombre')
@@ -30,7 +40,7 @@ class UsersTable
 
                 TextColumn::make('phone')
                     ->label('Teléfono')
-                    ->formatStateUsing(fn (?string $state) => \App\Support\PhoneNumber::format($state))
+                    ->formatStateUsing(fn (?string $state) => PhoneNumber::format($state))
                     ->toggleable(),
 
                 TextColumn::make('role')
@@ -43,19 +53,19 @@ class UsersTable
                     ->badge(),
 
                 TextColumn::make('job_type')
-            ->label('Tipo de trabajo')
-            ->formatStateUsing(fn ($state) => match (strtolower($state)) {
+                    ->label('Tipo de trabajo')
+                    ->formatStateUsing(fn ($state) => match (strtolower($state)) {
 
-                'technician', 'technico' => 'Técnico',
-                'client' => 'Cliente',
+                        'technician', 'technico' => 'Técnico',
+                        'client' => 'Cliente',
 
-                'electrician', 'electricista' => 'Electricista',
+                        'electrician', 'electricista' => 'Electricista',
 
-                null, '' => 'Sin definir',
+                        null, '' => 'Sin definir',
 
-                default => ucfirst($state),
-            })
-            ->badge(),
+                        default => ucfirst($state),
+                    })
+                    ->badge(),
 
                 // ¿Le llegan los avisos de órdenes nuevas al celular?
                 TextColumn::make('push_subscriptions_count')
@@ -81,7 +91,7 @@ class UsersTable
                 TrashedFilter::make()->label('Desactivados'),
             ])
             ->recordActions([
-                RestoreAction::make()->before(\App\Support\Plans\PlanRestoreGuard::before(\App\Enums\PlanLimit::Technicians))->label('Reactivar'),
+                RestoreAction::make()->before(PlanRestoreGuard::before(PlanLimit::Technicians))->label('Reactivar'),
 
                 // 🔥 VER USUARIO (correcto en Filament)
                 EditAction::make()
@@ -96,7 +106,7 @@ class UsersTable
                         ->label('Desactivar seleccionados')
                         ->modalHeading('Desactivar seleccionados')
                         ->modalSubmitActionLabel('Desactivar'),
-                    RestoreBulkAction::make()->before(\App\Support\Plans\PlanRestoreGuard::beforeBulk(\App\Enums\PlanLimit::Technicians))->label('Reactivar seleccionados'),
+                    RestoreBulkAction::make()->before(PlanRestoreGuard::beforeBulk(PlanLimit::Technicians))->label('Reactivar seleccionados'),
                 ]),
             ]);
     }

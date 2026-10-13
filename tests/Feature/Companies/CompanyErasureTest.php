@@ -142,8 +142,11 @@ class CompanyErasureTest extends TestCase
         DB::table('client_portal_buildings')->insert(['user_id' => $portal->id, 'building_id' => $bld, ...$now]);
 
         DB::table('companies')->where('id', $c)->update(['logo' => "companies/logos/logo-{$c}.png"]);
+        // Etapa 8.2: foto de perfil del técnico.
+        $avatar = 'avatars/'.$c.'/'.Str::random(40).'.jpg';
+        DB::table('users')->where('id', $u)->update(['avatar' => $avatar]);
 
-        foreach (["elevators/{$c}/doc.pdf", "elevators/{$c}/parachute/p.pdf", "visits/{$c}/a.jpg", "visits/{$c}/a-thumb.jpg", "reports/{$c}/photos/r.jpg", "reports/{$c}/videos/v.mp4", "exports/{$c}/datos.zip", "visits/{$c}/suelto.jpg"] as $path) {
+        foreach (["elevators/{$c}/doc.pdf", "elevators/{$c}/parachute/p.pdf", "visits/{$c}/a.jpg", "visits/{$c}/a-thumb.jpg", "reports/{$c}/photos/r.jpg", "reports/{$c}/videos/v.mp4", "exports/{$c}/datos.zip", "visits/{$c}/suelto.jpg", $avatar] as $path) {
             Storage::disk('local')->put($path, 'x');
         }
         Storage::disk('public')->put("reports/legacy-{$c}.jpg", 'x');
@@ -192,7 +195,7 @@ class CompanyErasureTest extends TestCase
         $this->assertNotNull(User::find($this->root->id));
 
         // Archivos: los de A, todos; los de B, ninguno.
-        foreach (['elevators', 'visits', 'reports', 'exports'] as $root) {
+        foreach (['elevators', 'visits', 'reports', 'exports', 'avatars'] as $root) {
             $this->assertSame([], Storage::disk('local')->allFiles("{$root}/{$idA}"), $root);
             $this->assertNotSame([], Storage::disk('local')->allFiles("{$root}/{$idB}"), $root);
         }
