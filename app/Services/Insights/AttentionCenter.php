@@ -168,8 +168,7 @@ class AttentionCenter
         }
 
         if (PlanGuard::for($company)->allows(PlanFeature::Quotes)) {
-            $expiring = Quote::where('status', Quote::SENT)->whereNotNull('valid_until')
-                ->whereBetween('valid_until', [today(), today()->addDays(5)])->count();
+            $expiring = Quote::expiringWithin(5)->count();
             if ($expiring > 0) {
                 $items->push($this->item('warning', 'Presupuestos enviados que vencen en 5 días', 'Conviene llamar al cliente antes de que venzan.', $expiring, $this->link(QuoteResource::class)));
             }

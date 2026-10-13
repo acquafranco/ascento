@@ -3,8 +3,12 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Widgets\AdminStats;
+use App\Filament\Widgets\FollowUpPanel;
 use App\Filament\Widgets\PlatformOverviewWidget;
+use App\Filament\Widgets\QuotesStatusChart;
+use App\Filament\Widgets\StaffNotice;
 use App\Filament\Widgets\WelcomeBanner;
+use App\Filament\Widgets\WorkTrendChart;
 use Filament\Pages\Page;
 
 class Dashboard extends Page
@@ -51,9 +55,19 @@ class Dashboard extends Page
             return [PlatformOverviewWidget::class];
         }
 
+        // Cada bloque decide si se ve según las áreas de quien mira (dueño: todos).
         return [
+            StaffNotice::class,
             AdminStats::class,
+            WorkTrendChart::class,
+            QuotesStatusChart::class,
+            FollowUpPanel::class,
         ];
+    }
+
+    public function getFooterWidgetsColumns(): int|array
+    {
+        return ['default' => 1, 'lg' => 2];
     }
 
     public static function getNavigationIcon(): string
