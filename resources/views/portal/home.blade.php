@@ -30,6 +30,8 @@
         @endif
     </section>
 
+    @include('portal.partials.responsibles', ['responsibles' => $responsibles])
+
     <section class="p-sec">
         <div class="p-sec-head">
             <h2>Lo último compartido</h2>

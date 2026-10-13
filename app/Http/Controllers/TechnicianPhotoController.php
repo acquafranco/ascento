@@ -49,6 +49,14 @@ class TechnicianPhotoController extends Controller
     public function __invoke(Request $request, User $user): Response|StreamedResponse
     {
         abort_unless(static::canView($request->user(), $user), 404);
+
+        return static::serve($request, $user);
+    }
+
+    /** Sirve la foto vigente (también lo usa el portal, con su propio permiso). */
+    public static function serve(Request $request, User $user): Response|StreamedResponse
+    {
+        abort_unless($user->role === 'technician' && $user->avatar, 404);
         $version = $request->query('v');
         abort_unless(is_string($version) && $user->photoVersion() !== null && hash_equals($user->photoVersion(), $version), 404);
         abort_unless(static::servable($user), 404);

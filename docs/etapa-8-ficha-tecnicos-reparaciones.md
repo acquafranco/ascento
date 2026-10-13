@@ -53,3 +53,20 @@ Se entrega en tres PRs: **8.1 y 8.2**, **8.3** y **8.4**. Las decisiones tomadas
   - el portal del cliente (8.3).
 - **Registro de actividad:** los cambios hechos desde el panel quedan como `user.photo_updated` y `user.photo_removed`.
 - **Exportación:** las fotos de perfil no se incluyen en la exportación completa, porque son datos personales de cada técnico.
+
+## 3. Responsables en el portal del cliente (8.3)
+
+- **Quiénes aparecen:** los técnicos asignados (mantenimiento o inspección, en `building_user`) a los edificios que esa persona tiene autorizados en el portal, de la empresa activa.
+  - Nunca toda la plantilla: un técnico de otro edificio, de otro cliente o sin edificios no aparece.
+  - Tampoco un técnico desactivado, ni uno de otra empresa aunque estuviera asignado a un edificio de esta.
+  - La regla vive en `PortalResponsibles`, que usa `PortalAccess`, el mismo criterio del resto del portal.
+- **Qué se muestra:** foto (o iniciales), nombre, rol («Mantenimiento», «Inspección» o los dos) y los edificios asignados.
+  - En el inicio del portal: «Quiénes atienden tus edificios».
+  - En la ficha del edificio: «Responsables de este edificio».
+- **Contacto:** solo el teléfono y el correo de la empresa, de «Mi empresa». Nunca los datos personales del técnico.
+- **Foto:** la ruta propia del portal, `/portal/responsables/{técnico}/foto?v={versión}`, la sirve solo si el técnico es responsable de uno de sus edificios.
+  - Usa la misma versión, el mismo `no-cache` y la misma carpeta privada que el panel.
+  - Cualquier otro caso responde 404.
+  - La ruta del panel sigue cerrada para el portal.
+- **Solo lectura:** el portal no tiene ninguna acción sobre técnicos ni asignaciones, y la ruta de la foto solo admite `GET`.
+- **Cambios en las asignaciones o en los edificios autorizados:** rigen en el pedido siguiente.

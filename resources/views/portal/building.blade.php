@@ -53,6 +53,8 @@
         @endif
     </section>
 
+    @include('portal.partials.responsibles', ['responsibles' => $responsibles, 'title' => 'Responsables de este edificio', 'single' => true])
+
     <section class="p-sec">
         <details class="p-acc">
             <summary>Equipos ({{ $elevators->count() }}) <span class="p-muted">ver</span></summary>
