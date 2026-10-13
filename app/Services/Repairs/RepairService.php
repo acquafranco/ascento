@@ -194,7 +194,9 @@ class RepairService
         $follow = null;
         if (filled($data['follow_up_user_id'] ?? null)) {
             $follow = User::withTrashed()->find((int) $data['follow_up_user_id']);
-            $sameCompany = $follow && (int) $follow->company_id === $companyId;
+            // Conservado: de la misma empresa y con un rol que pudo ser responsable (nunca portal ni SuperAdmin).
+            $sameCompany = $follow && (int) $follow->company_id === $companyId && ! $follow->isSuperAdmin()
+                && in_array($follow->role, ['admin', 'technician', User::ROLE_STAFF], true);
             if (! $follow || ! ($kept('follow_up_user_id') ? $sameCompany : $this->eligible($follow, $companyId))) {
                 $errors['follow_up_user_id'] = 'Elegí una persona de la empresa con acceso a reparaciones.';
             }

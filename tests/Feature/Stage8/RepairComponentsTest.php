@@ -2,10 +2,12 @@
 
 namespace Tests\Feature\Stage8;
 
+use App\Filament\Pages\PublicQrPage;
 use App\Filament\Resources\RepairComponents\Pages\CreateRepairComponent;
 use App\Filament\Resources\RepairComponents\Pages\EditRepairComponent;
 use App\Filament\Resources\RepairComponents\Pages\ListRepairComponents;
 use App\Filament\Resources\RepairComponents\Pages\ViewRepairComponent;
+use App\Filament\Resources\RepairComponents\RepairComponentResource;
 use App\Models\ActivityLog;
 use App\Models\Building;
 use App\Models\Elevator;
@@ -280,6 +282,154 @@ class RepairComponentsTest extends TestCase
         $this->invalid(fn () => $this->service()->update($this->a['admin'], $other, ['building_id' => $this->a['building']->id]), 'building_id');
     }
 
+    public function test_kept_links_are_never_a_way_into_another_company(): void
+    {
+        $c = $this->make(['status' => 'sent', 'sent_at' => '2026-10-10']);
+        auth()->logout();
+        $b = $this->makeTenant();
+        $bOrder = WorkOrder::factory()->create(['building_id' => $b['building']->id, 'company_id' => $b['company']->id]);
+        $this->inPanel($this->a['admin']);
+
+        // Elegir algo de otra empresa (no es un vínculo conservado): rechazado.
+        $this->invalid(fn () => $this->service()->update($this->a['admin'], $c->fresh(), ['building_id' => $b['building']->id, 'elevator_id' => null]), 'building_id');
+        $this->invalid(fn () => $this->service()->update($this->a['admin'], $c->fresh(), ['work_order_id' => $bOrder->id]), 'work_order_id');
+        $this->invalid(fn () => $this->service()->update($this->a['admin'], $c->fresh(), ['follow_up_user_id' => $b['technician']->id]), 'follow_up_user_id');
+
+        // Aunque el dato ya estuviera mal guardado (manipulado en la base), conservarlo no lo vuelve válido.
+        foreach ([['follow_up_user_id' => $b['technician']->id], ['work_order_id' => $bOrder->id], ['building_id' => $b['building']->id, 'elevator_id' => null]] as $tampered) {
+            RepairComponent::whereKey($c->id)->update($tampered);
+            $this->invalid(fn () => $this->service()->changeStatus($this->a['admin'], $c->fresh(), RepairComponent::IN_REPAIR), array_key_first($tampered));
+            $this->assertSame(RepairComponent::SENT, RepairComponent::withoutGlobalScopes()->find($c->id)->status);
+            RepairComponent::whereKey($c->id)->update(['follow_up_user_id' => null, 'work_order_id' => null, 'building_id' => $this->a['building']->id, 'elevator_id' => $this->elevator->id]);
+        }
+
+        // Un usuario del portal o el SuperAdmin nunca quedan como responsables conservados.
+        $portal = User::factory()->create(['email' => 'portal@cliente.test']);
+        $portal->forceFill(['role' => User::ROLE_CLIENT, 'company_id' => $this->a['company']->id, 'client_id' => $this->a['building']->client_id])->save();
+        RepairComponent::whereKey($c->id)->update(['follow_up_user_id' => $portal->id]);
+        $this->inPanel($this->a['admin']);
+        $this->invalid(fn () => $this->service()->changeStatus($this->a['admin'], $c->fresh(), RepairComponent::IN_REPAIR), 'follow_up_user_id');
+    }
+
+    public function test_correct_identifies_deactivated_deleted_and_no_access_links(): void
+    {
+        $follow = $this->staff(['repairs' => 'view'], 'Seguimiento');
+        $this->inPanel($this->a['admin']);
+        $order = WorkOrder::factory()->create(['building_id' => $this->a['building']->id, 'company_id' => $this->a['company']->id]);
+        $c = $this->make(['status' => 'sent', 'sent_at' => '2026-10-10', 'work_order_id' => $order->id, 'follow_up_user_id' => $follow->id]);
+
+        // Vigentes: sin marca.
+        $this->assertSame($this->a['building']->name, RepairComponentResource::buildingOptions($c->fresh())[$this->a['building']->id]);
+        $this->assertStringNotContainsString('(borrada)', RepairComponentResource::workOrderOptions($this->a['building']->id, $c->fresh())[$order->id]);
+        $this->assertSame('Seguimiento', RepairComponentResource::followUpOptions($c->fresh())[$follow->id]);
+
+        app(StaffManager::class)->setPermissions($this->a['admin'], $follow, ['repairs' => 'none']);
+        $order->delete();
+        $this->a['building']->delete();
+        $this->inPanel($this->a['admin']);
+        $fresh = $c->fresh();
+        $this->assertSame($this->a['building']->name.' (desactivado)', RepairComponentResource::buildingOptions($fresh)[$this->a['building']->id]);
+        $this->assertStringEndsWith('(borrada)', RepairComponentResource::workOrderOptions($this->a['building']->id, $fresh)[$order->id]);
+        $this->assertSame('Seguimiento (sin acceso)', RepairComponentResource::followUpOptions($fresh)[$follow->id]);
+
+        // Solo para ese componente: en un alta no se ofrecen.
+        $this->assertArrayNotHasKey($this->a['building']->id, RepairComponentResource::buildingOptions());
+        $this->assertArrayNotHasKey($order->id, RepairComponentResource::workOrderOptions($this->a['building']->id));
+        $this->assertArrayNotHasKey($follow->id, RepairComponentResource::followUpOptions());
+
+        // El administrativo desactivado también figura «sin acceso».
+        $this->actingAs($this->a['admin']);
+        app(StaffManager::class)->deactivate($this->a['admin'], $follow->fresh());
+        $this->inPanel($this->a['admin']);
+        $this->assertSame('Seguimiento (sin acceso)', RepairComponentResource::followUpOptions($c->fresh())[$follow->id]);
+    }
+
+    public function test_the_qr_and_its_preview_publish_only_the_public_status(): void
+    {
+        // Un componente en cada estado, con datos privados que nunca deben salir.
+        $private = ['brand' => 'MarcaPrivada', 'model' => 'ModeloPrivado', 'serial_number' => 'SERIE-PRIV', 'description' => 'DetallePrivado',
+            'provider' => 'TallerPrivado', 'quote_amount' => '765432', 'final_cost' => '765431', 'notes' => 'NotaPrivada', 'failure' => 'FallaPrivada'];
+        $paths = [
+            RepairComponent::SENT => [],
+            RepairComponent::DIAGNOSIS => [RepairComponent::DIAGNOSIS],
+            RepairComponent::AWAITING_QUOTE => [RepairComponent::AWAITING_QUOTE],
+            RepairComponent::AWAITING_APPROVAL => [RepairComponent::AWAITING_QUOTE, RepairComponent::AWAITING_APPROVAL],
+            RepairComponent::IN_REPAIR => [RepairComponent::IN_REPAIR],
+            RepairComponent::REPAIRED => [RepairComponent::IN_REPAIR, RepairComponent::REPAIRED],
+            RepairComponent::RECEIVED => [RepairComponent::IN_REPAIR, RepairComponent::REPAIRED, RepairComponent::RECEIVED],
+            RepairComponent::CANCELLED => [RepairComponent::CANCELLED],
+        ];
+        $types = array_keys(RepairComponent::TYPES);
+        $i = 0;
+        foreach ($paths as $status => $steps) {
+            $e = $this->elevatorOf($this->a, 'Equipo Q'.$i);
+            $c = $this->make($private + ['elevator_id' => $e->id, 'component_type' => $types[$i % count($types)], 'status' => 'sent', 'sent_at' => '2026-10-0'.($i + 1)]);
+            foreach ($steps as $to) {
+                $this->service()->changeStatus($this->a['admin'], $c->fresh(), $to, $to === RepairComponent::RECEIVED ? ['returned_at' => '2026-10-14'] : []);
+            }
+            $this->assertSame($status, $c->fresh()->status);
+            $i++;
+        }
+        $this->make($private + ['component_type' => 'motor']); // pendiente de envío
+
+        $qr = app(PublicQrService::class);
+        $page = $qr->updateSections($this->a['admin'], $qr->generate($this->a['admin'], $this->a['building']), ['show_repairs' => true]);
+
+        // Vista previa (panel) y página pública: exactamente las mismas líneas.
+        // (sin los marcadores de bloque que Livewire agrega en el panel)
+        $lines = fn (string $html) => preg_match_all('#<p class="qr-line"[^>]*>.*?</p>#s', preg_replace('#<!--\[if (END)?BLOCK\]><!\[endif\]-->#', '', $html), $m) ? array_values(array_filter($m[0], fn ($l) => str_contains($l, 'desde el'))) : [];
+        $preview = Livewire::test(PublicQrPage::class, ['buildingId' => $this->a['building']->id])->html();
+        auth()->logout();
+        $this->flushSession();
+        $public = $this->get('/qr/'.$page->fresh()->token)->assertOk()->getContent();
+        $this->assertCount(6, $lines($public)); // los 6 que están fuera; ni el pendiente, ni el recibido, ni el cancelado
+        $this->assertSame($lines($public), $lines($preview));
+
+        foreach ([$public, $preview] as $html) {
+            $repairs = implode("\n", $lines($html));
+            // Estados públicos: enviado, «en reparación» para todo lo del taller, reparado a la espera.
+            $this->assertSame(1, substr_count($repairs, 'Enviado a reparación'));
+            $this->assertSame(4, substr_count($repairs, '<strong>En reparación</strong>')); // diagnóstico, presupuesto, autorización, reparación
+            $this->assertSame(1, substr_count($repairs, 'Reparado, a la espera de su devolución'));
+            // Nunca la negociación ni el detalle del taller; ni recibidos, cancelados o pendientes.
+            foreach (['Esperando presupuesto', 'Esperando autorización', 'En diagnóstico', 'Recibido', 'Cancelado', 'Pendiente de envío'] as $hidden) {
+                $this->assertStringNotContainsString($hidden, $repairs);
+            }
+            foreach ($private + ['admin' => $this->a['admin']->name] as $secret) {
+                $this->assertStringNotContainsString((string) $secret, $repairs);
+            }
+        }
+        foreach ($private as $secret) {
+            $this->assertStringNotContainsString((string) $secret, $public);
+            $this->assertStringNotContainsString((string) $secret, $preview);
+        }
+        $this->assertSame(array_keys(RepairComponent::PUBLIC_STATUSES), RepairComponent::AWAY); // lo publicable = lo que está fuera
+    }
+
+    public function test_qr_staff_without_repairs_see_only_what_the_public_sees(): void
+    {
+        $c = $this->make(['status' => 'sent', 'sent_at' => '2026-10-10', 'provider' => 'TallerPrivado', 'quote_amount' => '765432', 'failure' => 'FallaPrivada', 'notes' => 'NotaPrivada', 'brand' => 'MarcaPrivada']);
+        $this->service()->changeStatus($this->a['admin'], $c, RepairComponent::AWAITING_QUOTE);
+        $file = $this->service()->attach($this->a['admin'], $c->fresh(), UploadedFile::fake()->createWithContent('presupuesto.pdf', "%PDF-1.4\n%%EOF"));
+        $qr = app(PublicQrService::class);
+        $qr->updateSections($this->a['admin'], $qr->generate($this->a['admin'], $this->a['building']), ['show_repairs' => true]);
+
+        $this->staff(['public_pages' => 'manage'], 'Solo QR');
+        $html = $this->get('/admin/qr-publicos?edificio='.$this->a['building']->id)->assertOk()->getContent();
+        $this->assertStringContainsString('Variador: <strong>En reparación</strong>', $html);
+        foreach (['TallerPrivado', '765432', '765.432', 'FallaPrivada', 'NotaPrivada', 'MarcaPrivada', 'Esperando presupuesto', 'presupuesto.pdf', '/admin/reparaciones', $file->url()] as $secret) {
+            $this->assertStringNotContainsString($secret, $html);
+        }
+        $component = Livewire::test(PublicQrPage::class, ['buildingId' => $this->a['building']->id]);
+        $this->assertStringNotContainsString('TallerPrivado', json_encode($component->instance()->all()));
+
+        // Y nada del módulo privado: ni listado, ni ficha, ni archivos, ni cambios.
+        $this->get('/admin/reparaciones')->assertForbidden();
+        $this->get('/admin/reparaciones/'.$c->id)->assertForbidden();
+        $this->get($file->url())->assertNotFound();
+        $this->denied(fn () => $this->service()->changeStatus(auth()->user(), $c->fresh(), RepairComponent::CANCELLED), 403);
+    }
+
     public function test_staff_need_the_repairs_area_and_manage_to_change_anything(): void
     {
         $c = $this->make(['status' => 'sent', 'sent_at' => '2026-10-10']);
@@ -377,9 +527,9 @@ class RepairComponentsTest extends TestCase
         $qr->updateSections($this->a['admin'], $page, ['show_repairs' => true]);
         auth()->logout();
         $html = $scan();
-        $this->assertStringContainsString('Variador en reparación: <strong>en reparación</strong>', $html);
+        $this->assertStringContainsString('Variador: <strong>En reparación</strong> <span class="qr-muted">(desde el 10/10/2026)</span>', $html);
         $this->assertStringContainsString('data-qr="building-repairs"', $html);
-        $this->assertStringContainsString('Placa electrónica: <strong>enviado</strong> <span class="qr-muted">(11/10/2026)</span>', $html); // desde la fecha de envío
+        $this->assertStringContainsString('Placa electrónica: <strong>Enviado a reparación</strong> <span class="qr-muted">(desde el 11/10/2026)</span>', $html); // desde la fecha de envío
         // Ni pendientes ni cancelados; nunca proveedor, montos, falla ni notas.
         $this->assertStringNotContainsString('Motor', $html);
         $this->assertStringNotContainsString('Control:', $html);

@@ -73,6 +73,20 @@ class RepairComponent extends Model
         self::CANCELLED => [],
     ];
 
+    /**
+     * Cómo se informa cada estado en el QR público (y su vista previa): sin
+     * revelar la negociación comercial ni el detalle del taller. El panel
+     * privado sigue mostrando el estado real (STATUSES).
+     */
+    public const PUBLIC_STATUSES = [
+        self::SENT => 'Enviado a reparación',
+        self::DIAGNOSIS => 'En reparación',
+        self::AWAITING_QUOTE => 'En reparación',
+        self::AWAITING_APPROVAL => 'En reparación',
+        self::IN_REPAIR => 'En reparación',
+        self::REPAIRED => 'Reparado, a la espera de su devolución',
+    ];
+
     /** Fuera de la empresa (en el proveedor o taller): lo que puede informar el QR. */
     public const AWAY = [self::SENT, self::DIAGNOSIS, self::AWAITING_QUOTE, self::AWAITING_APPROVAL, self::IN_REPAIR, self::REPAIRED];
 
@@ -127,6 +141,12 @@ class RepairComponent extends Model
     public function componentLabel(): string
     {
         return trim((self::TYPES[$this->component_type] ?? 'Componente').($this->description ? ' · '.$this->description : ''));
+    }
+
+    /** Estado para el QR público; null si no se publica (pendiente, recibido o cancelado). */
+    public static function publicStatus(string $status): ?string
+    {
+        return self::PUBLIC_STATUSES[$status] ?? null;
     }
 
     /** @return list<string> estados a los que puede pasar */

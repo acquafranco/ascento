@@ -76,21 +76,25 @@ class PublicBuildingInfo
             $dates->push(...$tests->pluck('last')->filter()->pluck('performed_on'));
         }
 
-        // Componentes fuera de la empresa (Etapa 8.4): solo tipo y estado,
-        // nunca proveedor, montos, falla ni notas.
+        // Componentes fuera de la empresa (Etapa 8.4): solo el tipo, el estado
+        // PÚBLICO (RepairComponent::PUBLIC_STATUSES, sin presupuestos ni
+        // autorizaciones) y desde cuándo. Nunca proveedor, montos, falla,
+        // marca, modelo, serie, detalle, notas ni historial. Lo mismo para la
+        // página pública y la vista previa del panel (las dos usan esto).
         $repairs = collect();
         if ($page->show_repairs) {
             $repairs = RepairComponent::withoutGlobalScopes()->where('company_id', $companyId)->where('building_id', $page->building_id)
-                ->whereIn('status', RepairComponent::AWAY)->orderBy('id')->get(['elevator_id', 'component_type', 'status', 'sent_at'])
+                ->whereIn('status', array_keys(RepairComponent::PUBLIC_STATUSES))->orderBy('id')->get(['elevator_id', 'component_type', 'status', 'sent_at'])
                 ->map(fn (RepairComponent $r) => [
                     'elevator_id' => $r->elevator_id,
                     'component' => RepairComponent::TYPES[$r->component_type] ?? 'Componente',
-                    'status' => RepairComponent::STATUSES[$r->status] ?? $r->status,
+                    'status' => RepairComponent::publicStatus((string) $r->status),
                     // Desde cuándo está fuera (la fecha de envío), no la de una edición interna.
                     'at' => $r->sent_at,
                 ]);
             $dates->push(...$repairs->pluck('at'));
         }
+        $public = fn ($r) => ['component' => $r['component'], 'status' => $r['status'], 'at' => $r['at']];
         $shownElevators = $page->show_elevators ? $elevators->pluck('id') : collect();
 
         $pending = [];
@@ -102,7 +106,7 @@ class PublicBuildingInfo
                 ->all();
         }
 
-        $items = $page->show_elevators ? $elevators->map(function (Elevator $e) use ($page, $tests, $dates, $repairs) {
+        $items = $page->show_elevators ? $elevators->map(function (Elevator $e) use ($page, $tests, $dates, $repairs, $public) {
             $status = $page->show_status && $e->public_status ? Elevator::PUBLIC_STATUSES[$e->public_status] ?? null : null;
             if ($status) {
                 $dates->push($e->public_status_updated_at);
@@ -118,7 +122,7 @@ class PublicBuildingInfo
                 'status_at' => $status ? $e->public_status_updated_at : null,
                 'test' => $test ? ['date' => $test->performed_on, 'ok' => $test->isSatisfactory()] : null,
                 'next_test' => $due ? ['date' => $row['next_due'], 'overdue' => $row['status'] === ParachuteService::OVERDUE] : null,
-                'repairs' => $repairs->where('elevator_id', $e->id)->values()->all(),
+                'repairs' => $repairs->where('elevator_id', $e->id)->map($public)->values()->all(),
             ];
         })->all() : [];
 
@@ -151,7 +155,7 @@ class PublicBuildingInfo
             'last_inspection' => $inspection ? Carbon::parse($inspection) : null,
             'pending' => $pending,
             // Los de un equipo que no se muestra (o sin equipo) van en un bloque del edificio.
-            'building_repairs' => $repairs->reject(fn ($r) => $r['elevator_id'] && $shownElevators->contains($r['elevator_id']))->values()->all(),
+            'building_repairs' => $repairs->reject(fn ($r) => $r['elevator_id'] && $shownElevators->contains($r['elevator_id']))->map($public)->values()->all(),
             'updated_at' => $dates->filter()->map(fn ($d) => $d instanceof CarbonInterface ? $d : Carbon::parse($d))->max(),
         ];
     }

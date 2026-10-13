@@ -84,7 +84,14 @@ Se entrega en tres PRs: **8.1 y 8.2**, **8.3** y **8.4**. Las decisiones tomadas
   - fecha de envío, proveedor o taller y responsable del seguimiento;
   - presupuesto de reparación, costo final, devolución estimada y devolución real;
   - observaciones, y documentos o fotos (PDF o imágenes de hasta 20 MB, en el disco privado, verificados por su contenido).
-- **Empresa propietaria:** la empresa del registro (`company_id`), que no se elige ni se puede cambiar. El cliente sale del edificio y no se copia.
+- **Propiedad y responsables:** el plan maestro pide registrar la «empresa propietaria», pero no la define, y la documentación anterior tampoco. Por ahora se interpreta así, sin campos nuevos:
+  - **Empresa de mantenimiento que gestiona la reparación:** la que la registra en Ascento (`company_id`). Se asigna sola, no se elige ni se puede cambiar, y todo se aísla por ella.
+  - **Cliente o consorcio asociado al edificio:** sale del edificio vinculado (`buildings.client_id`); no se copia ni se elige aparte. La ficha lo muestra junto al edificio.
+  - **Propietario del equipo:** no se registra. Si en el futuro se determina que es una entidad distinta del cliente del edificio (por ejemplo, el dueño de la pieza o un tercero), habrá que definirlo y agregarlo como un dato propio, con su migración.
+- **Vínculos que dejan de estar vigentes:** si después del alta se desactiva el edificio, se borra la orden de trabajo vinculada o el responsable pierde el acceso, el componente puede seguir avanzando y corregirse.
+  - Se conservan los vínculos que ya tenía; en «Corregir» aparecen marcados «(desactivado)», «(borrada)» o «(sin acceso)».
+  - Elegir uno nuevo exige que esté vigente.
+  - Conservar un vínculo nunca habilita a otra empresa: el edificio y la orden se buscan siempre en la empresa del componente, y el responsable tiene que ser de esa empresa con rol de dueño, técnico o administrativo. Un dato manipulado se rechaza.
 - **Estados y transiciones:** solo se avanza a un estado permitido; `RepairService` lo verifica bajo bloqueo de la fila.
 
 | Desde | Puede pasar a |
@@ -116,9 +123,24 @@ Se entrega en tres PRs: **8.1 y 8.2**, **8.3** y **8.4**. Las decisiones tomadas
   - El área nueva queda **apagada** para los administrativos existentes.
 - **Responsable del seguimiento:** el dueño, un técnico o un administrativo vigente con «Reparaciones», de la empresa.
 - **QR público:** bloque «Componentes en reparación», **apagado por defecto**.
-  - Si la empresa lo publica, muestra por equipo solo el tipo de componente y su estado, con la fecha, mientras el componente está fuera de la empresa (de «Enviado» a «Reparado»). Los componentes sin equipo van en un bloque del edificio.
-  - Nunca muestra proveedor, montos, falla, detalle ni observaciones.
-  - Un componente pendiente de envío, recibido o cancelado no figura.
+  - Si la empresa lo publica, muestra por equipo solo el tipo de componente, un **estado público** y desde cuándo está fuera (la fecha de envío). Los componentes sin equipo van en un bloque del edificio.
+  - El estado público no revela la negociación comercial ni el detalle del taller (`RepairComponent::PUBLIC_STATUSES`). El panel privado sigue mostrando el estado real.
+
+| Estado real (panel) | En el QR |
+|---|---|
+| Pendiente de envío | No figura |
+| Enviado | Enviado a reparación |
+| En diagnóstico | En reparación |
+| Esperando presupuesto | En reparación |
+| Esperando autorización | En reparación |
+| En reparación | En reparación |
+| Reparado | Reparado, a la espera de su devolución |
+| Recibido | No figura |
+| Cancelado | No figura |
+
+  - Nunca muestra proveedor, presupuesto, costo, falla, marca, modelo, serie, detalle, observaciones, archivos ni historial.
+  - **La vista previa del panel** («QR públicos») usa exactamente la misma información que la página pública (`PublicBuildingInfo`).
+  - Un administrativo con «QR y datos públicos» pero sin «Reparaciones» ve en la vista previa solo lo que vería cualquiera en el QR. No accede al listado, la ficha, los archivos ni los cambios de reparaciones.
 - **Datos:**
   - la migración `2026_12_25_100000_create_repair_components` solo agrega y es reversible;
   - tablas nuevas: `repair_components` y `repair_component_files`, y la columna `building_public_pages.show_repairs`;
