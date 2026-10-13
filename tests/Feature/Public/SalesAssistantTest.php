@@ -55,13 +55,15 @@ class SalesAssistantTest extends TestCase
         $text = $this->text('plans');
 
         foreach (SubscriptionPlan::offered() as $plan) {
-            $this->assertStringContainsString($plan->shortName().': '.$plan->formattedPrice().' por mes.', $text);
-            $this->assertStringContainsString($plan->limit(PlanLimit::Buildings) === null ? 'Edificios sin límite' : 'Hasta '.$plan->limit(PlanLimit::Buildings).' edificios', $text);
+            $this->assertStringContainsString($plan->shortName().' · '.$plan->formattedPrice().': ', $text);
+            $this->assertStringContainsString($plan->limit(PlanLimit::Buildings) === null ? 'edificios sin límite' : 'hasta '.$plan->limit(PlanLimit::Buildings).' edificios', $text);
+            // El detalle desplegable tiene todos los límites del plan.
+            $this->assertStringContainsString($plan->shortName().': '.implode(' · ', array_map(fn (PlanLimit $l) => $l->planLabel($plan->limit($l)), PlanLimit::cases())).'.', $text);
         }
         // Lo que suma cada plan sale de la comparativa real.
-        $this->assertMatchesRegularExpression('/Profesional: .*Todo lo de Inicial, más: [^\n]*portal para clientes/u', $text);
-        $this->assertMatchesRegularExpression('/Empresa: .*Todo lo de Profesional, más: [^\n]*fotos de antes y después/u', $text);
-        $this->assertDoesNotMatchRegularExpression('/Inicial: [^\n]*portal/u', $text);
+        $this->assertMatchesRegularExpression('/Profesional · [^\n]*Suma: [^\n]*portal para clientes/u', $text);
+        $this->assertMatchesRegularExpression('/Empresa · [^\n]*Suma: [^\n]*fotos de antes y después/u', $text);
+        $this->assertDoesNotMatchRegularExpression('/Inicial · [^\n]*portal/u', $text);
         // La prueba gratis: plan y días de la configuración.
         $this->assertStringContainsString('gratis '.SubscriptionPlan::TRIAL_DAYS.' días con todas las funciones del plan Empresa', $text);
         $this->assertSame(30, SubscriptionPlan::TRIAL_DAYS);
@@ -74,7 +76,7 @@ class SalesAssistantTest extends TestCase
         // Si el portal pasa a ser solo de Empresa, la respuesta lo dice.
         $this->withoutFeatures(['profesional'], [PlanFeature::ClientPortal]);
         $this->assertStringContainsString('Está en el plan Empresa.', $this->text('portal'));
-        $this->assertDoesNotMatchRegularExpression('/Profesional: [^\n]*portal/u', $this->text('plans'));
+        $this->assertDoesNotMatchRegularExpression('/Profesional · [^\n]*portal/u', $this->text('plans'));
 
         // Si ningún plan lo incluye, el tema desaparece y los planes no lo mencionan.
         $this->withoutFeatures(['empresa'], [PlanFeature::ClientPortal]);
@@ -86,7 +88,7 @@ class SalesAssistantTest extends TestCase
     public function test_essential_features_are_in_every_plan(): void
     {
         $this->assertStringContainsString('Está en todos los planes.', $this->text('delivery_notes'));
-        $this->assertStringContainsString('remitos digitales para el cliente', $this->text('plans'));
+        $this->assertStringContainsString('Remitos digitales para el cliente', $this->text('plans'));
     }
 
     public function test_emergencies_and_residents_get_a_fixed_answer_without_sales_handoff(): void
@@ -99,7 +101,7 @@ class SalesAssistantTest extends TestCase
 
         $text = $this->text('emergency');
         $this->assertStringContainsString('no es un servicio de emergencias ni de mantenimiento', $text);
-        $this->assertStringContainsString('servicios de emergencia de tu zona', $text);
+        $this->assertStringContainsString('servicio de emergencias de tu zona', $text);
         $this->assertStringContainsString('empresa responsable del mantenimiento', $text);
         $this->assertStringNotContainsString('911', $text); // no se da un número de un solo país
 
@@ -134,6 +136,68 @@ class SalesAssistantTest extends TestCase
         // Rangos de edificios: de los topes reales de los planes.
         $this->assertSame(['Hasta 20', '21 a 70', '71 a 300', 'Más de 300'], SalesAssistant::buildingRanges());
         $this->assertStringContainsString('<option>21 a 70</option>', $html);
+    }
+
+    public function test_commercial_topics_come_first_and_the_emergency_option_last(): void
+    {
+        $keys = SalesAssistant::keys();
+        $this->assertSame(['plans', 'trial'], array_slice($keys, 0, 2));
+        $this->assertSame('emergency', end($keys));
+
+        // En la página, la urgencia es el último botón de la lista y no hay ninguno antes de los temas.
+        $html = $this->home();
+        preg_match_all('#data-wa-pick="([a-z_]+)"#', $html, $m);
+        $this->assertSame($keys[0], $m[1][0]);
+        $this->assertSame('emergency', end($m[1]));
+        $this->assertSame(1, substr_count($html, 'data-wa-pick="emergency"'));
+    }
+
+    public function test_answers_are_short_with_details_and_a_button_per_plan(): void
+    {
+        $html = $this->home();
+        preg_match('#data-wa-topic="plans".*?</section>#s', $html, $m);
+        $section = $m[0];
+
+        // Lo largo queda plegado.
+        $this->assertStringContainsString('<summary>Qué incluyen todos los planes</summary>', $section);
+        $this->assertStringContainsString('<summary>Todos los límites</summary>', $section);
+        // La línea del plan es corta («y N más») y la lista completa está en «Qué suma cada plan».
+        $this->assertStringContainsString('<summary>Qué suma cada plan</summary>', $section);
+        $this->assertMatchesRegularExpression('/Profesional · [^<]*Suma: [^<]* y \\d+ más\\./u', $section);
+        $this->assertMatchesRegularExpression('/Profesional \\(suma\\): [^<]*centro de atención avanzado e indicadores de empresa\\./u', $section);
+        // Los botones por plan van antes de las acciones.
+        $this->assertLessThan(strpos($section, 'class="wa-actions"'), strpos($section, 'data-wa-subject='));
+        // Un botón por plan ofrecido, que pasa a WhatsApp con ese plan como tema.
+        foreach (SubscriptionPlan::offered() as $plan) {
+            $this->assertStringContainsString('data-wa-handoff data-wa-subject="Plan '.$plan->shortName().'"', $section);
+        }
+        $this->assertStringContainsString('>Pedir una demostración</button>', $html);
+    }
+
+    public function test_the_visitor_can_continue_to_whatsapp_without_personal_data(): void
+    {
+        $html = $this->home();
+        preg_match('#<form id="wa-form".*?</form>#s', $html, $m);
+
+        $this->assertStringNotContainsString('required', $m[0]);
+        $this->assertStringNotContainsString('name="email"', $m[0]); // por WhatsApp ya hay contacto
+        $this->assertStringContainsString('Todos los datos son opcionales', $m[0]);
+        // El mensaje solo suma lo que la persona completó.
+        $this->assertStringContainsString("if (data.name) lines.push('Nombre: ' + data.name);", $html);
+        $this->assertStringContainsString("if (data.company) lines.push('Empresa: ' + data.company);", $html);
+    }
+
+    public function test_the_assistant_does_not_get_in_the_way_of_the_login(): void
+    {
+        $this->withoutVite();
+        $html = $this->get('/login')->assertOk()->getContent();
+
+        // Cerrado hasta que se toca «Escribinos»: el formulario de ingreso sigue siendo lo principal.
+        $this->assertMatchesRegularExpression('#<dialog id="wa-dialog" class="wa-dialog"[^>]*>#', $html);
+        $this->assertDoesNotMatchRegularExpression('#<dialog id="wa-dialog"[^>]*\sopen#', $html);
+        $this->assertStringContainsString('name="password"', $html);
+        $this->assertStringNotContainsString('class="wa-launch"', $html); // sin botón flotante en el ingreso
+        $this->assertLessThan(strpos($html, 'id="wa-dialog"'), strpos($html, 'name="password"'));
     }
 
     public function test_the_confirmed_number_is_used_for_every_commercial_whatsapp_link(): void

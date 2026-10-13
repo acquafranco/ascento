@@ -30,83 +30,87 @@ final class SalesAssistant
     public const FIXED = 'fixed';
 
     /**
-     * @return list<array{key: string, label: string, kind: string, answer: list<string|list<string>>, actions: list<string>, handoff: bool}>
+     * Temas en el orden en que se muestran: primero lo que lleva a probar o a
+     * hablar con nosotros, al final las consultas que no son comerciales
+     * (vecinos y urgencias).
+     *
+     * Bloques de la respuesta: string = párrafo; lista de strings = viñetas;
+     * ['details' => título, 'items' => [...]] = detalle desplegable.
+     * subjects = consultas puntuales («Plan Profesional») con su botón.
+     *
+     * @return list<array{key: string, label: string, kind: string, answer: list<mixed>, actions: list<string>, handoff: bool, cta: string, subjects: list<string>}>
      */
     public static function topics(): array
     {
         return once(function () {
             $plans = SubscriptionPlan::offered();
             $trial = SubscriptionPlan::findBySlug(SubscriptionPlan::TRIAL_PLAN)?->shortName();
-            $trialLine = $trial
-                ? 'Podés probarlo gratis '.SubscriptionPlan::TRIAL_DAYS.' días con todas las funciones del plan '.$trial.', sin tarjeta.'
-                : 'Podés probarlo gratis '.SubscriptionPlan::TRIAL_DAYS.' días, sin tarjeta.';
+            $trialLine = 'Podés probarlo gratis '.SubscriptionPlan::TRIAL_DAYS.' días'.($trial ? ' con todas las funciones del plan '.$trial : '').', sin tarjeta.';
             // Sin número válido, el contacto es por correo (y los textos lo dicen).
-            $channel = self::whatsappNumber() ? 'por WhatsApp' : 'a '.config('app.support_email');
-            $t = fn (string $key, string $label, array $answer, array $actions = [], bool $handoff = true, string $kind = self::SALES) => compact('key', 'label', 'kind', 'answer', 'actions', 'handoff');
+            $whatsapp = self::whatsappNumber() !== null;
+            $channel = $whatsapp ? 'por WhatsApp' : 'a '.config('app.support_email');
+            $t = fn (string $key, string $label, array $answer, array $actions = [], bool $handoff = true, string $kind = self::SALES, string $cta = 'Consultar por WhatsApp', array $subjects = []) => compact('key', 'label', 'kind', 'answer', 'actions', 'handoff', 'cta', 'subjects');
 
             $topics = [
+                $t('plans', 'Planes y precios', self::plansAnswer($plans, $trialLine), ['trial', 'plans'],
+                    subjects: $plans->map(fn (SubscriptionPlan $p) => 'Plan '.$p->shortName())->all()),
+                $t('trial', 'Probar gratis o pedir una demostración', [
+                    $trialLine.' Te registrás desde la página y empezás a cargar tu empresa.',
+                    'Si preferís que te lo mostremos, escribinos '.$channel.' y coordinamos una demostración.',
+                ], ['trial'], cta: 'Pedir una demostración'),
                 $t('what', 'Qué es Ascento', [
-                    'Ascento es un sistema para empresas de mantenimiento de ascensores. Reúne clientes, edificios, ascensores, técnicos, mantenimientos, órdenes de trabajo y remitos en un solo lugar.',
-                    'Funciona en la computadora y en el celular, sin instalar nada.',
+                    'Un sistema para empresas de mantenimiento de ascensores: clientes, edificios, equipos, técnicos, mantenimientos, órdenes de trabajo y remitos en un solo lugar.',
+                    'Se usa desde la computadora y el celular, sin instalar nada.',
                 ], ['trial', 'plans']),
                 $t('how', 'Cómo funciona', [[
-                    'Creás tu cuenta y cargás los datos de tu empresa.',
-                    'Sumás edificios, ascensores, clientes y técnicos.',
-                    'Cada técnico ve en el celular solo lo suyo y cierra cada trabajo con el remito firmado.',
+                    'Cargás tu empresa, tus edificios, ascensores y técnicos.',
+                    'Cada técnico ve en el celular lo suyo y cierra el trabajo con el remito firmado.',
                     'Desde el panel ves qué falta, qué se hizo y qué necesita atención.',
                 ]], ['trial']),
-                $t('plans', 'Planes y precios', self::plansAnswer($plans, $trialLine), ['plans', 'trial']),
-                $t('trial', 'Probar gratis o pedir una demostración', [
-                    $trialLine.' Creás la cuenta desde la página y empezás a cargar tu empresa.',
-                    'Si preferís que te lo mostremos, escribinos '.$channel.' y coordinamos una demostración.',
-                ], ['trial']),
             ];
 
-            if ($available = self::availability($plans, PlanFeature::ClientPortal)) {
-                $topics[] = $t('portal', 'Portal para tus clientes', [
-                    'Cada consorcio o administración entra con su usuario y ve solo los edificios que le habilitás y lo que marcás como compartido: remitos, reportes, presupuestos y documentos.',
-                    'Lo invitás por correo desde la ficha del cliente.',
-                    $available,
-                ], ['plans']);
-            }
             if ($available = self::availability($plans, PlanFeature::Agenda)) {
                 $topics[] = $t('maintenance', 'Mantenimientos e inspecciones', [
-                    'Cada edificio tiene su frecuencia de visitas y su técnico. La agenda del mes muestra qué está hecho, qué no se pudo hacer, qué está pendiente y qué venció.',
-                    'Una visita cuenta como hecha solo con el remito firmado.',
+                    'Cada edificio tiene su frecuencia de visitas y su técnico. La agenda del mes muestra lo hecho, lo pendiente y lo vencido; una visita cuenta como hecha solo con el remito firmado.',
                     $available,
                 ], ['trial']);
             }
             if ($available = self::availability($plans, PlanFeature::WorkOrders, PlanFeature::DigitalDeliveryNotes)) {
                 $topics[] = $t('delivery_notes', 'Remitos digitales', [
-                    'El técnico cierra el trabajo en el celular con su firma y, si querés, la del cliente. El remito queda numerado y lo compartís en PDF o con un enlace por WhatsApp o correo.',
+                    'El técnico firma el remito en el celular (y el cliente también, si querés). Queda numerado y lo compartís en PDF o con un enlace por WhatsApp o correo.',
                     $available,
                 ], ['trial']);
             }
+            if ($available = self::availability($plans, PlanFeature::ClientPortal)) {
+                $topics[] = $t('portal', 'Portal para tus clientes', [
+                    'Cada consorcio o administración entra con su usuario y ve solo lo que le compartís de sus edificios: remitos, reportes, presupuestos y documentos.',
+                    $available,
+                ], ['plans']);
+            }
             if ($available = self::availability($plans, PlanFeature::PublicQr)) {
                 $topics[] = $t('qr', 'QR público del edificio', [
-                    'Cada edificio puede tener un QR. Quien lo escanea ve, sin cuenta, solo lo que la empresa eligió publicar: estado informado de cada ascensor, último mantenimiento e inspección registrados, pruebas de paracaídas y componentes en reparación.',
+                    'Quien escanea el QR del edificio ve, sin cuenta, solo lo que la empresa publica: estado informado de cada ascensor, último mantenimiento e inspección, pruebas de paracaídas y componentes en reparación.',
                     'No muestra datos del cliente ni montos. Es información administrativa, no una certificación de seguridad.',
                     $available,
                 ], ['trial']);
             }
 
             $topics[] = $t('support', 'Ya uso Ascento y necesito ayuda', [
-                'Dentro de Ascento, en «Ayuda», tenés guías paso a paso según lo que podés usar.',
-                'Si no se resuelve, escribinos '.(self::whatsappNumber() ? 'por WhatsApp o a '.config('app.support_email') : 'a '.config('app.support_email')).'.',
-                'Nunca te vamos a pedir tu contraseña ni códigos de verificación.',
+                'En Ascento, entrá a «Ayuda»: hay guías paso a paso según lo que podés usar.',
+                'Si no se resuelve, escribinos '.($whatsapp ? 'por WhatsApp o a '.config('app.support_email') : 'a '.config('app.support_email')).'. Nunca te vamos a pedir tu contraseña ni códigos.',
             ]);
-            $topics[] = $t('human', 'Hablar con una persona', [self::whatsappNumber()
-                ? 'Dejanos tus datos y se abre WhatsApp con tu consulta lista.'
+            $topics[] = $t('human', 'Hablar con una persona', [$whatsapp
+                ? 'Se abre WhatsApp con tu consulta lista. Los datos son opcionales.'
                 : 'Escribinos a '.config('app.support_email').' con tu consulta.']);
 
-            // Respuestas fijas: no son consultas comerciales y no se derivan a ventas.
+            // Al final, con respuesta fija y sin pasar a ventas: no son consultas comerciales.
             $topics[] = $t('residents', 'Soy vecino o de la administración de un edificio', [
-                'Ascento es un sistema de gestión para empresas de mantenimiento de ascensores. No atiende edificios ni tiene información de tu ascensor para compartir por acá.',
+                'Ascento es un sistema de gestión para empresas de mantenimiento de ascensores. No atiende edificios ni tiene información de tu ascensor.',
                 'Para cualquier consulta sobre el ascensor, comunicate con la administración del edificio o con la empresa que hace el mantenimiento.',
             ], [], false, self::FIXED);
-            $topics[] = $t('emergency', 'Hay una urgencia con un ascensor', [
-                'Ascento no es un servicio de emergencias ni de mantenimiento, y no puede ayudarte con una falla desde acá.',
-                'Si hay peligro inmediato, por ejemplo una persona atrapada o herida, comunicate con los servicios de emergencia de tu zona. Avisá también a la empresa responsable del mantenimiento del ascensor o a la administración del edificio.',
+            $topics[] = $t('emergency', 'Tengo una urgencia con un ascensor', [
+                'Ascento no es un servicio de emergencias ni de mantenimiento, y no puede resolver una falla desde acá.',
+                'Si hay peligro inmediato, por ejemplo una persona atrapada o herida, comunicate con el servicio de emergencias de tu zona y con la empresa responsable del mantenimiento del ascensor.',
             ], [], false, self::FIXED);
 
             return $topics;
@@ -200,10 +204,11 @@ final class SalesAssistant
     }
 
     /**
-     * Planes con precio, límites y lo que suma cada uno, a partir de la misma
-     * comparativa de la página de inicio (comparisonRows).
+     * Planes en pocas líneas (precio, límites principales y lo que suma cada
+     * uno) y el detalle completo desplegable. Sale de la misma comparativa de
+     * la página de inicio (comparisonRows) y de PlanLimit::planLabel().
      *
-     * @return list<string|list<string>>
+     * @return list<mixed>
      */
     private static function plansAnswer(Collection $plans, string $trialLine): array
     {
@@ -214,34 +219,47 @@ final class SalesAssistant
         $rows = SubscriptionPlan::comparisonRows($plans);
         $features = array_values(array_filter($rows, fn ($row) => is_bool(reset($row[1]))));
         $everywhere = array_column(array_filter($features, fn ($row) => ! in_array(false, $row[1], true)), 0);
+        $main = [PlanLimit::Buildings, PlanLimit::Technicians, PlanLimit::ReportsPerMonth];
+        $label = fn (SubscriptionPlan $plan, PlanLimit $l) => mb_strtolower(mb_substr($text = $l->planLabel($plan->limit($l)), 0, 1)).mb_substr($text, 1);
 
         $items = [];
+        $limits = [];
+        $adds = [];
+        // En la línea del plan van hasta 3 funciones; el resto, en «Qué suma cada plan».
+        $short = fn (array $labels) => count($labels) > 3
+            ? self::join(array_slice($labels, 0, 3)).' y '.(count($labels) - 3).' más'
+            : self::join($labels);
         $previous = null;
         foreach ($plans as $plan) {
-            // Los límites, con las mismas frases que «Mi suscripción» (PlanLimit::planLabel).
-            $line = $plan->shortName().': '.$plan->formattedPrice().' por mes. '
-                .implode(' · ', array_map(fn (PlanLimit $l) => $l->planLabel($plan->limit($l)), PlanLimit::cases())).'.';
+            $parts = array_map(fn (PlanLimit $l) => $label($plan, $l), $main);
+            $line = $plan->shortName().' · '.$plan->formattedPrice().': '.implode(', ', array_slice($parts, 0, -1)).' y '.end($parts).'.';
 
-            $own = array_column(array_filter($features, fn ($row) => $row[1][$plan->slug] && ! in_array($row[0], $everywhere, true)), 0);
+            $has = array_column(array_filter($features, fn ($row) => $row[1][$plan->slug]), 0);
+            $own = array_values(array_diff($has, $everywhere));
             if ($previous !== null) {
                 $before = array_column(array_filter($features, fn ($row) => $row[1][$previous->slug]), 0);
-                $added = array_values(array_diff($own, $before));
-                // Si el plan anterior tiene algo que este no, se lista todo lo propio (no «todo lo de…»).
-                $line .= array_diff($before, array_column(array_filter($features, fn ($row) => $row[1][$plan->slug]), 0)) === []
-                    ? ($added === [] ? '' : ' Todo lo de '.$previous->shortName().', más: '.self::join($added).'.')
-                    : ($own === [] ? '' : ' Incluye además: '.self::join($own).'.');
-            } elseif ($own !== []) {
-                $line .= ' Incluye además: '.self::join($own).'.';
+                $added = array_values(array_diff($has, $before));
+                // Si el plan anterior tiene algo que este no, se lista todo lo propio (no «suma»).
+                [$word, $list] = array_diff($before, $has) === [] ? ['Suma', $added] : ['Incluye', $own];
+            } else {
+                [$word, $list] = ['Incluye', $own];
+            }
+            if ($list !== []) {
+                $line .= ' '.$word.': '.$short($list).'.';
+                $adds[] = $plan->shortName().' ('.mb_strtolower($word).'): '.self::join($list).'.';
             }
             $items[] = $line;
+            $limits[] = $plan->shortName().': '.implode(' · ', array_map(fn (PlanLimit $l) => $l->planLabel($plan->limit($l)), PlanLimit::cases())).'.';
             $previous = $plan;
         }
 
         return [
-            ($plans->every(fn (SubscriptionPlan $p) => $p->currency === 'ARS') ? 'Precios mensuales en pesos argentinos. ' : '')
-                .'En todos los planes: '.self::join($everywhere).'.',
+            ($plans->every(fn (SubscriptionPlan $p) => $p->currency === 'ARS') ? 'Precios por mes, en pesos argentinos.' : 'Precios por mes.'),
             $items,
-            $trialLine.' La comparativa completa está en la página, en «Planes».',
+            $trialLine,
+            ...($adds === [] ? [] : [['details' => 'Qué suma cada plan', 'items' => $adds]]),
+            ['details' => 'Qué incluyen todos los planes', 'items' => array_map(fn (string $l) => mb_strtoupper(mb_substr($l, 0, 1)).mb_substr($l, 1), $everywhere)],
+            ['details' => 'Todos los límites', 'items' => $limits],
         ];
     }
 

@@ -1,6 +1,6 @@
-# Etapa 10: asistente automático dentro de WhatsApp (propuesta técnica)
+# Etapa 10: asistente automático dentro de WhatsApp (alternativa futura)
 
-**Estado:** propuesta para decidir arquitectura y costo. No se implementó nada, no se contrató nada y no se tocó la cuenta de Meta. Investigación del 13/10/2026; las fuentes están al final.
+**Estado:** **alternativa futura, no aprobada ni implementada.** El 13/10/2026 el dueño decidió cerrar la Etapa 10 sin gastos adicionales: queda el asistente web que abre WhatsApp con el mensaje armado (`docs/etapa-10-whatsapp.md`). Esta propuesta se conserva para evaluarla más adelante. **Tiene costos recurrentes:** Meta cobra cada respuesta automática desde el 1/10/2026, más la IA si se usa. Las tarifas y requisitos son los investigados el 13/10/2026 y hay que volver a verificarlos antes de retomarla.
 
 **Objetivo:** que alguien escriba al WhatsApp Business de Ascento (+54 9 11 7372-8421) y un asistente automático, dentro del mismo chat:
 1. responda en lenguaje natural con datos reales de la app (funciones, planes, precios, límites, prueba gratis);
