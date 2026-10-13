@@ -11,10 +11,10 @@ Route::post('/whatsapp/webhook', [WhatsAppWebhookController::class, 'handle']);
 // Notificaciones de Mercado Pago (configurar esta URL en la app de MP,
 // eventos "Planes y suscripciones"). Ver MercadoPagoWebhookController.
 Route::post('/mercadopago/webhook', MercadoPagoWebhookController::class)
-    ->middleware('throttle:120,1')
+    ->middleware('throttle:120,1,mercadopago.webhook')
     ->name('mercadopago.webhook');
 
 // Bot de Telegram (avisos). Se registra con: php artisan telegram:setup
 Route::post('/telegram/webhook', TelegramWebhookController::class)
-    ->middleware('throttle:120,1')
+    ->middleware('throttle:120,1,telegram.webhook')
     ->name('telegram.webhook');

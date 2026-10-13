@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Company;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Contracts\Encryption\DecryptException;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 
 class WhatsAppController extends Controller
 {
@@ -23,7 +23,7 @@ class WhatsAppController extends Controller
             'user_id' => auth()->id(),
         ]);
 
-        $url = 'https://www.facebook.com/v26.0/dialog/oauth?' . http_build_query([
+        $url = 'https://www.facebook.com/v26.0/dialog/oauth?'.http_build_query([
             'client_id' => $appId,
             'redirect_uri' => $redirectUri,
             'state' => $state,
@@ -83,7 +83,7 @@ class WhatsAppController extends Controller
 
         \Log::info('WhatsApp negocios disponibles', [
             'company_id' => $company->id,
-            'businesses' => $businesses,
+            'businesses' => count($businesses), // solo la cantidad: nombres y datos de Meta del cliente, no
         ]);
 
         $business = collect($businesses)->first();
@@ -105,7 +105,7 @@ class WhatsAppController extends Controller
 
         \Log::info('WhatsApp WABAs disponibles', [
             'business_id' => $businessId,
-            'wabas' => $wabas,
+            'wabas' => count($wabas),
         ]);
 
         $waba = collect($wabas)->first();
@@ -127,7 +127,7 @@ class WhatsAppController extends Controller
 
         \Log::info('WhatsApp números disponibles', [
             'waba_id' => $wabaId,
-            'phones' => $phones,
+            'phones' => count($phones), // sin números de teléfono en el log
         ]);
 
         $phone = collect($phones)->first();

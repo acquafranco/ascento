@@ -10,6 +10,8 @@ use App\Models\User;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -183,5 +185,83 @@ class SecurityFindingsTest extends TestCase
         // Quien la cambió sigue adentro en este dispositivo.
         $this->get("/{$slug}/profile")->assertOk();
         $this->assertAuthenticatedAs($tech);
+    }
+
+    /*
+    | H4. Reportes (fotos y video) y remitos (firmas de hasta 1 MB) se
+    | procesan en el servidor y no tenían tope de pedidos: con reportes sin
+    | límite mensual, una cuenta comprometida podía saturar el servidor.
+    */
+    public function test_heavy_technician_submissions_have_a_rate_limit(): void
+    {
+        $slug = $this->a['company']->slug;
+        $this->actingAs($this->a['technician']);
+
+        foreach (['reports.store', 'delivery-notes.store'] as $name) {
+            $statuses = [];
+            for ($i = 0; $i < 21; $i++) {
+                $statuses[] = $this->post(route($name, ['company' => $slug]), [])->getStatusCode();
+            }
+            $this->assertNotContains(429, array_slice($statuses, 0, 20), "{$name}: el uso normal no se frena");
+            $this->assertSame(429, end($statuses), "{$name}: sin tope de pedidos");
+        }
+    }
+
+    /*
+    | H5. Los «throttle:N,M» sin prefijo comparten UN contador por usuario (o
+    | por IP sin sesión): consultar el contador de avisos (60/min) agotaba el
+    | cupo de otra ruta con tope más bajo, como probar las notificaciones (3/min).
+    */
+    public function test_each_rate_limited_route_has_its_own_counter(): void
+    {
+        $slug = $this->a['company']->slug;
+        $this->actingAs($this->a['technician']);
+
+        for ($i = 0; $i < 10; $i++) {
+            $this->getJson(route('notifications.count'))->assertOk();
+        }
+        // Ninguna prueba de notificación se pidió todavía: no puede estar agotada.
+        $this->assertNotSame(429, $this->postJson(route('push-subscriptions.test', ['company' => $slug]))->getStatusCode());
+
+        // Sin sesión: escanear QR (60/min por IP) no bloquea «Olvidé mi contraseña» (6/min).
+        auth()->logout();
+        $this->flushSession();
+        for ($i = 0; $i < 10; $i++) {
+            $this->get('/qr/'.str_repeat('x', 48));
+        }
+        $this->assertNotSame(429, $this->post('/forgot-password', ['email' => 'alguien@ejemplo.test'])->getStatusCode());
+    }
+
+    /*
+    | B1. Conexión de WhatsApp por empresa (en desuso, pero con las rutas
+    | activas): el token quedaba visible al serializar la empresa y el log
+    | guardaba la lista de negocios, cuentas y teléfonos de Meta del cliente.
+    */
+    public function test_whatsapp_credentials_and_meta_data_never_reach_arrays_or_logs(): void
+    {
+        $company = $this->a['company'];
+        $company->forceFill(['whatsapp_access_token' => 'TOKEN-SECRETO-DE-META'])->save();
+        $this->assertArrayNotHasKey('whatsapp_access_token', $company->fresh()->toArray());
+        $this->assertStringNotContainsString('TOKEN-SECRETO-DE-META', $company->fresh()->toJson());
+
+        Http::fake([
+            'graph.facebook.com/*/oauth/access_token' => Http::response(['access_token' => 'TOKEN-NUEVO']),
+            'graph.facebook.com/*/me/businesses' => Http::response(['data' => [['id' => '111', 'name' => 'Ascensores Privados SA']]]),
+            'graph.facebook.com/*/owned_whatsapp_business_accounts' => Http::response(['data' => [['id' => '222', 'name' => 'Cuenta privada']]]),
+            'graph.facebook.com/*/phone_numbers' => Http::response(['data' => [['id' => '333', 'display_phone_number' => '+54 9 11 5555-0000']]]),
+        ]);
+        $logged = [];
+        Log::listen(function ($message) use (&$logged) {
+            $logged[] = json_encode([$message->message, $message->context]);
+        });
+
+        $state = encrypt(['company_id' => $company->id, 'user_id' => $this->a['admin']->id]);
+        $this->actingAs($this->a['admin'])->get('/whatsapp/callback?code=1&state='.urlencode($state))->assertRedirect();
+
+        $all = implode("\n", $logged);
+        $this->assertNotSame('', $all);
+        foreach (['Ascensores Privados SA', 'Cuenta privada', '5555-0000', 'TOKEN-NUEVO'] as $private) {
+            $this->assertStringNotContainsString($private, $all, $private);
+        }
     }
 }
