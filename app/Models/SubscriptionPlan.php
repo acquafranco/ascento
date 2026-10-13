@@ -110,8 +110,17 @@ class SubscriptionPlan extends Model
         return $this->limit(PlanLimit::ReportsPerMonth);
     }
 
+    /**
+     * ¿El plan incluye la función? Las esenciales, siempre (aunque una fila
+     * histórica no tenga la clave guardada); las configurables, según
+     * feature_keys.
+     */
     public function allows(PlanFeature $feature): bool
     {
+        if ($feature->isEssential()) {
+            return true;
+        }
+
         return in_array($feature->value, (array) $this->feature_keys, true);
     }
 
