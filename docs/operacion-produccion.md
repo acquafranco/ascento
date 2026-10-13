@@ -169,8 +169,10 @@ termina. **No cambies a `QUEUE_CONNECTION=sync` ni borres la tabla.**
 | `ASCENTO_ADMIN_NOTIFICATION_EMAIL` | correo del equipo de Ascento | Aviso por correo de cada empresa nueva. Vacío: solo campanita, push y Telegram de los SuperAdmin. |
 | `BACKUP_OFFSITE_DISK` / `BACKUP_OFFSITE_PATH` | vacío / `ascento-backups` | Copia externa automática de cada backup cifrado (p. ej. `s3` con las variables `AWS_*`). Ver docs/backups.md. |
 | `ASCENTO_VERIFIED_SENDER_SINCE` | `2026-10-12` (por defecto) | Las cuentas creadas desde esa fecha confirman su correo antes de enviar presupuestos o invitaciones al portal. Las anteriores no se bloquean. Vacío: desactivado. |
-| `ASCENTO_WHATSAPP_NUMBER` | `5491173728421` (por defecto, confirmado el 13/10/2026) | WhatsApp Business oficial: lo usan el asistente de consultas y el pie de la web. Un valor inválido deja el contacto por correo. |
-| `ASCENTO_WHATSAPP_HOURS` | «todos los días, las 24 horas, incluidos fines de semana y feriados» (por defecto) | Completa «Horario de atención: …» en el asistente. Definida y vacía, no se muestra. |
+| `ASCENTO_WHATSAPP_NUMBER` | `5491173728421` (por defecto, confirmado el 13/10/2026) | WhatsApp Business oficial: lo usan el asistente de consultas y el pie de la web. **Sin la variable** se usa el valor por defecto. **Definida vacía** (`=` o `=""`) o con un número inválido, no hay WhatsApp y el contacto es por correo. |
+| `ASCENTO_WHATSAPP_HOURS` | «todos los días, las 24 horas, incluidos fines de semana y feriados» (por defecto) | Completa «Horario de atención: …» en el asistente. **Sin la variable** se usa el valor por defecto. **Definida vacía**, no se muestra ningún horario. |
+
+> **Valores con espacios en el `.env`: siempre entre comillas** (`ASCENTO_WHATSAPP_HOURS="todos los días, las 24 horas"`). Sin comillas, el `.env` es inválido y **la aplicación entera no arranca**. Después de cambiar el `.env` hay que regenerar la configuración (`php artisan config:cache`, que hace el deploy); si no, sigue el valor anterior.
 | `SUPER_ADMIN_EMAIL` | ya no tiene un valor por defecto en el código | Lo exige el seeder del SuperAdmin. |
 | `FFMPEG_BINARY` / `FFPROBE_BINARY` | `/usr/bin/ffmpeg` / `/usr/bin/ffprobe` | Opcional: comprimir videos y medir su duración. |
 
