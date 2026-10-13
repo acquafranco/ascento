@@ -137,25 +137,16 @@ class DeliveryNotesTable
                     // El remito siempre pertenece a la empresa en la que se
                     // está operando: alcanza con su propia relación (ya
                     // cargada), sin un Company::find() por fila.
-                    ->url(fn ($record) => self::canSharePdf()
-                        ? route('delivery-notes.pdf', [
-                            'company' => $record->company?->slug,
-                            'deliveryNote' => $record,
-                        ])
-                        // Sin remitos digitales en el plan: explica y ofrece actualizar.
-                        : \App\Support\Plans\PlanUpsell::url(feature: \App\Enums\PlanFeature::DigitalDeliveryNotes))
-                    ->tooltip(fn ($record) => self::canSharePdf() ? null : 'Disponible desde el plan Profesional')
-                    ->openUrlInNewTab(fn ($record) => (bool) self::canSharePdf()),
+                    // Remito digital: en todos los planes.
+                    ->url(fn ($record) => route('delivery-notes.pdf', [
+                        'company' => $record->company?->slug,
+                        'deliveryNote' => $record,
+                    ]))
+                    ->openUrlInNewTab(),
             ])
             // Compartir con el portal del cliente (privado por defecto).
             ->pushColumns([\App\Filament\Support\ClientSharing::column()])
             ->pushToolbarActions([\Filament\Actions\BulkActionGroup::make(\App\Filament\Support\ClientSharing::bulkActions())->label('Portal del cliente')]);
 
-    }
-
-    /** Se resuelve una vez por request (todas las filas son de la misma empresa). */
-    private static function canSharePdf(): bool
-    {
-        return once(fn () => (bool) \App\Support\Plans\PlanUpsell::currentCompany()?->plan()->allows(\App\Enums\PlanFeature::DigitalDeliveryNotes));
     }
 }

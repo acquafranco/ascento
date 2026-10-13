@@ -190,7 +190,7 @@ class PlanGuard
             }
         }
 
-        foreach ([PlanFeature::Quotes, PlanFeature::DigitalDeliveryNotes, PlanFeature::ClientPortal] as $each) {
+        foreach ([PlanFeature::Quotes, PlanFeature::ClientPortal] as $each) {
             if (! $current->allows($each) && $target->allows($each)) {
                 $gains[$each->value] = mb_strtolower($each->label());
             }

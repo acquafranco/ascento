@@ -157,7 +157,7 @@ class DeliveryNoteDocumentTest extends TestCase
         $this->actingAs($this->b['admin'])->get("/{$this->b['company']->slug}/delivery-notes/{$this->note->number}/pdf")->assertNotFound();
     }
 
-    public function test_the_pdf_requires_the_digital_delivery_notes_feature(): void
+    public function test_the_pdf_is_available_on_the_inicial_plan(): void
     {
         $plan = SubscriptionPlan::findBySlug('inicial');
         Subscription::updateOrCreate(['company_id' => $this->a['company']->id], [
@@ -167,8 +167,9 @@ class DeliveryNoteDocumentTest extends TestCase
         $this->a['company']->forgetPlan();
         $this->a['company']->forceFill(['trial_ends_at' => now()->subDay()])->save();
 
-        $res = $this->actingAs($this->a['admin'])->get("/{$this->slug()}/delivery-notes/{$this->note->number}/pdf");
-        $this->assertNotSame('application/pdf', $res->headers->get('Content-Type'));
+        // Los remitos digitales están en todos los planes.
+        $res = $this->actingAs($this->a['admin'])->get("/{$this->slug()}/delivery-notes/{$this->note->number}/pdf")->assertOk();
+        $this->assertSame('application/pdf', $res->headers->get('Content-Type'));
     }
 
     // --- Enlace público -----------------------------------------------------------

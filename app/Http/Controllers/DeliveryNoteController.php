@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Enums\PermissionArea;
-use App\Enums\PlanFeature;
 use App\Jobs\NotifyCompanyAdmins;
 use App\Models\Building;
 use App\Models\BuildingVisit;
@@ -18,7 +17,6 @@ use App\Services\Visits\VisitService;
 use App\Support\Access\Access;
 use App\Support\DeliveryNotes\DeliveryNoteDocument;
 use App\Support\DeliveryNotes\SignatureImage;
-use App\Support\Plans\PlanGuard;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
@@ -682,9 +680,7 @@ class DeliveryNoteController extends Controller
 
     public function pdf(Company $company, DeliveryNote $deliveryNote)
     {
-        // Remito en PDF = remito digital para el cliente (desde Profesional).
-        PlanGuard::for($company)->ensureFeature(PlanFeature::DigitalDeliveryNotes);
-
+        // Remito digital: en todos los planes (no depende de la suscripción).
         abort_unless(
             $deliveryNote->company_id === $company->id,
             404

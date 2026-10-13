@@ -23,7 +23,7 @@ class SubscriptionPlanSeeder extends Seeder
             'max_reports_per_month' => 15,
             'is_recommended' => false,
             'sort_order' => 1,
-            'feature_keys' => ['buildings', 'clients', 'technicians', 'maintenances', 'inspections', 'work_orders', 'reports', 'history', 'map', 'agenda', 'attention_center', 'elevator_file', 'indicators', 'tasks', 'public_qr', 'parachute_tests', 'repairs'],
+            'feature_keys' => ['buildings', 'clients', 'technicians', 'maintenances', 'inspections', 'work_orders', 'reports', 'history', 'map', 'digital_delivery_notes', 'agenda', 'attention_center', 'elevator_file', 'indicators', 'tasks', 'public_qr', 'parachute_tests', 'repairs'],
         ],
         SubscriptionPlan::PROFESIONAL => [
             'name' => 'Ascento Profesional',

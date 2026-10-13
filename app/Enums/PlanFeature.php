@@ -66,7 +66,7 @@ enum PlanFeature: string
             self::History => 'Historial',
             self::Map => 'Mapa de edificios',
             self::Quotes => 'Presupuestos',
-            self::DigitalDeliveryNotes => 'Remitos digitales para el cliente',
+            self::DigitalDeliveryNotes => 'Remitos digitales (PDF y enlace para el cliente)',
             self::Agenda => 'Agenda de mantenimientos',
             self::AttentionCenter => 'Centro de atención',
             self::ElevatorFile => 'Legajo técnico del ascensor',
@@ -113,7 +113,7 @@ enum PlanFeature: string
     {
         return [
             self::Buildings, self::Clients, self::Technicians, self::Maintenances, self::Inspections,
-            self::WorkOrders, self::Reports, self::History, self::Map,
+            self::WorkOrders, self::Reports, self::History, self::Map, self::DigitalDeliveryNotes,
             self::Agenda, self::AttentionCenter, self::ElevatorFile, self::Indicators,
             self::Tasks, self::PublicQr, self::ParachuteTests, self::Repairs,
         ];
@@ -121,11 +121,13 @@ enum PlanFeature: string
 
     /**
      * La base del producto: no se puede sacar de un plan (los otros módulos
-     * dependen de ella). El resto lo puede activar o desactivar el SuperAdmin.
+     * dependen de ella). Los remitos digitales son parte de la base: el
+     * remito firmado cierra cada trabajo y se comparte con el cliente en
+     * todos los planes. El resto lo puede activar o desactivar el SuperAdmin.
      */
     public static function structural(): array
     {
-        return [self::Buildings, self::Clients, self::Technicians, self::Maintenances, self::Inspections, self::WorkOrders, self::Reports, self::History];
+        return [self::Buildings, self::Clients, self::Technicians, self::Maintenances, self::Inspections, self::WorkOrders, self::Reports, self::History, self::DigitalDeliveryNotes];
     }
 
     /** @return list<self> las que el SuperAdmin puede activar o desactivar por plan */

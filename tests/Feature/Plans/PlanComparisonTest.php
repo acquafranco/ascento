@@ -29,10 +29,11 @@ class PlanComparisonTest extends TestCase
         $this->assertSame(['inicial' => 'Hasta 3', 'profesional' => 'Hasta 10', 'empresa' => 'Hasta 25'], $m['Usuarios técnicos u operativos']);
         $this->assertSame(['inicial' => 'Hasta 15', 'profesional' => 'Sin límite', 'empresa' => 'Sin límite'], $m['Informes por mes']);
 
-        foreach (['Portal para clientes', 'Video en los informes', 'Presupuestos con PDF y envío por correo', 'Remitos digitales para el cliente (PDF y enlace)'] as $paid) {
+        foreach (['Portal para clientes', 'Video en los informes', 'Presupuestos con PDF y envío por correo'] as $paid) {
             $this->assertSame(['inicial' => false, 'profesional' => true, 'empresa' => true], $m[$paid], $paid);
         }
-        foreach (['Mapa de edificios', 'Exportación de los datos de tu empresa', 'Avisos en la app en tiempo real', 'Notificaciones push en el celular', 'Stock, servicios y cobranzas', 'Mantenimientos, inspecciones y agenda mensual'] as $common) {
+        // Los remitos digitales, en los tres planes.
+        foreach (['Remitos digitales para el cliente (PDF y enlace)', 'Mapa de edificios', 'Exportación de los datos de tu empresa', 'Avisos en la app en tiempo real', 'Notificaciones push en el celular', 'Stock, servicios y cobranzas', 'Mantenimientos, inspecciones y agenda mensual'] as $common) {
             $this->assertSame(['inicial' => true, 'profesional' => true, 'empresa' => true], $m[$common], $common);
         }
         $this->assertSame(['inicial' => false, 'profesional' => false, 'empresa' => true], $m['Indicadores avanzados y alertas de tendencias']);
