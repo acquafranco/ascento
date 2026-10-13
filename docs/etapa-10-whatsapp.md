@@ -1,6 +1,21 @@
 # Etapa 10: orientar las consultas por WhatsApp (propuesta)
 
-**Estado:** propuesta para aprobar. No se implementó nada y no hay integración con WhatsApp.
+**Estado:** enfoque A + B **aprobado** el 13/10/2026: asistente guiado en la web y app gratuita WhatsApp Business. La API oficial y cualquier servicio pago quedan para una etapa posterior, con una evaluación aparte. La fase 1 está implementada (sección 9). No hay integración con WhatsApp.
+
+**Uso principal:** captar empresas, responder consultas comerciales y convertir interesados en demostraciones o pruebas gratuitas.
+
+**Condiciones de la aprobación:**
+- Datos reales de planes, precios, límites y funciones, sin prometer lo que el plan no incluye.
+- A WhatsApp solo pasan el tema y lo que la persona escriba voluntariamente. Nunca contraseñas ni códigos.
+- Las demostraciones las coordina el dueño a mano por WhatsApp; no hay agenda online.
+- Las urgencias se orientan a los servicios de emergencia locales y a la empresa mantenedora, sin el 911 para todos los países y sin diagnosticar.
+- A consorcios y vecinos se los orienta a la administración del edificio o a la empresa mantenedora.
+- **Confirmado por el dueño el 13/10/2026:**
+  - el número oficial de WhatsApp Business es **5491173728421** (+54 9 11 7372-8421) y ya está configurado en su app WhatsApp Business;
+  - la atención es **todos los días, las 24 horas, incluidos fines de semana y feriados**.
+  - Los dos son valores por defecto en `config/app.php` y se pueden reemplazar con `ASCENTO_WHATSAPP_NUMBER` y `ASCENTO_WHATSAPP_HOURS`.
+- La web solo abre WhatsApp con el mensaje armado. No hay API ni mensajes automáticos dentro de WhatsApp Business.
+- La pantalla del SuperAdmin es chica: respuestas rápidas para copiar y un aviso de cambios en los planes. No es un constructor de chatbots.
 
 **Objetivo:** que quien consulta por WhatsApp sobre Ascento reciba respuestas correctas a lo frecuente y llegue a una persona solo cuando hace falta, con la consulta ya ordenada.
 
@@ -71,14 +86,16 @@ Si alguien escribe directo al WhatsApp sin pasar por la web, el mensaje de bienv
 **Mensaje de bienvenida propuesto (app Business):**
 
 > ¡Hola! Gracias por escribir a Ascento, el sistema para empresas de mantenimiento de ascensores. Contanos en qué te ayudamos: planes, demostración, portal de clientes, mantenimientos, remitos o QR. Mientras tanto, las respuestas a las dudas más comunes están en ascento.online/#faq.
-> Si tenés una urgencia con un ascensor, comunicate con tu empresa de mantenimiento o con emergencias (911): Ascento no atiende ascensores.
+> Ascento no es un servicio de emergencias ni de mantenimiento. Si hay peligro inmediato con un ascensor, comunicate con los servicios de emergencia de tu zona y con la empresa responsable del mantenimiento.
 > Ascento nunca te va a pedir contraseñas ni códigos por WhatsApp.
 
-**Mensaje de ausencia (fuera de horario):** igual, más «Te respondemos el próximo día hábil». El horario no está definido hoy: es una decisión tuya.
+**Mensaje de ausencia:** no corresponde, porque la atención es continua. Ningún mensaje dice que estamos fuera de horario ni promete un plazo de respuesta.
 
 ---
 
 ## 4. Árbol de opciones y respuestas
+
+Los textos definitivos de la fase 1 están en `app/Support/Sales/SalesAssistant.php`. Si difieren de esta sección, valen esos.
 
 Cada respuesta indica **de dónde sale el dato**. Los valores entre `{llaves}` se completan desde la configuración real al mostrar la respuesta (sección 8); nunca se escriben a mano. Los valores entre paréntesis son los de hoy, solo como ejemplo.
 
@@ -143,7 +160,9 @@ Pasa directo a una persona (sección 6) con los datos mínimos.
 
 ### 5.1 Urgencias
 Si el mensaje habla de una persona atrapada, un ascensor que no frena o un accidente, la respuesta es **siempre** la misma y no se intenta vender nada:
-> Ascento es un sistema de gestión y no atiende ascensores. Si hay una persona atrapada o en peligro, llamá al 911 o a bomberos, y avisá a la empresa de mantenimiento del edificio.
+> Ascento no es un servicio de emergencias ni de mantenimiento, y no puede ayudarte con una falla desde acá. Si hay peligro inmediato, por ejemplo una persona atrapada o herida, comunicate con los servicios de emergencia de tu zona. Avisá también a la empresa responsable del mantenimiento del ascensor o a la administración del edificio.
+
+No se da un número de emergencias fijo, porque depende del país.
 
 Quien atiende no promete asistencia técnica ni da indicaciones sobre el equipo.
 
@@ -222,24 +241,77 @@ El problema es que la app Business guarda **copias de texto** de las respuestas 
 
 ---
 
-## 9. Plan de implementación (solo si se aprueba)
+## 9. Fases (aprobadas el 13/10/2026)
 
-| Fase | Qué | Costo | Requiere |
-|---|---|---|---|
-| 1 | `WhatsAppAnswers` y pruebas; el formulario «Hablemos» pasa a ser un asistente con el árbol de la sección 4 y arma el mensaje con el tema y los rangos | Ninguno | Tu aprobación de los textos |
-| 2 | Pantalla del SuperAdmin con las respuestas rápidas y el aviso de cambios de planes | Ninguno | Fase 1 |
-| 3 | Configuración manual de la app Business: bienvenida, ausencia, respuestas rápidas y etiquetas «Ventas», «Soporte», «Persona», «Sin respuesta» | Ninguno | Acceso al teléfono del número comercial: lo hace una persona, no el sistema |
-| 4 (opcional) | Bot con Cloud API | A estudiar | Aprobación aparte, verificación del negocio en Meta, tarifas vigentes, número dedicado y revisión de seguridad |
+Cada fase va en su propia rama y con su propio PR. No hay migraciones, dependencias ni servicios pagos.
 
-Sin migraciones en las fases 1 a 3. La fase 2 podría registrar la fecha de «Copiadas» en `settings` existentes; se confirma al implementar.
+### Fase 1: asistente en la web (rama `etapa-10/asistente-web`, **lista**)
+
+**Qué cambia para el visitante**
+
+El botón «Hablemos» (inicio, ingreso y registro) abre un asistente en lugar del formulario directo:
+1. **Temas:**
+   - arriba de todo, «¿Hay una urgencia con un ascensor?»;
+   - después, los temas comerciales;
+   - al final, «Otras consultas» (vecinos o administración).
+2. **Respuesta** del tema, con datos reales y botones «Probar gratis {días} días», «Ver los planes» o «Escribir por WhatsApp», según el tema.
+3. **Datos para WhatsApp:**
+   - obligatorios: nombre y empresa;
+   - opcionales: rango de edificios (sale de los topes de los planes), correo y mensaje.
+   - Se abre WhatsApp con «Tema», lo que escribió la persona y nada más.
+4. **Urgencias y vecinos:** respuesta fija, **sin** botón a WhatsApp ni enlaces comerciales.
+
+**Archivos**
+
+| Archivo | Cambio |
+|---|---|
+| `app/Support/Sales/SalesAssistant.php` (nuevo) | Temas y respuestas. Toman los planes de `comparisonRows()`, los límites de `PlanLimit::planLabel()`, el plan de cada función de `cheapestWith()`/`allowsAll()` y la prueba de `TRIAL_PLAN`/`TRIAL_DAYS`. Un tema cuya función no está en ningún plan no se ofrece. |
+| `resources/views/partials/whatsapp-contact.blade.php` | El formulario pasa a ser el asistente: temas, respuestas escritas en el servidor y escapadas por Blade, y los datos. Sin dependencias. |
+| `app/Models/SubscriptionPlan.php` | Constante `TRIAL_DAYS = 30` (no cambia el plazo). |
+| `app/Http/Controllers/Auth/RegisteredUserController.php` | El registro usa `TRIAL_DAYS` en vez de `30` escrito a mano. |
+| `config/app.php`, `docs/operacion-produccion.md`, `.env.example` | Número confirmado y `ASCENTO_WHATSAPP_HOURS`, por defecto «todos los días, las 24 horas, incluidos fines de semana y feriados». Vacío lo oculta. |
+| `tests/Feature/Public/SalesAssistantTest.php` (nuevo), `WhatsAppContactTest.php` | Pruebas. |
+
+**Privacidad, autorización y abuso (revisado)**
+- **Sin endpoint ni almacenamiento.** Las respuestas viajan con la página y el enlace lo arma el navegador, así que no hay nada que saturar ni datos que se guarden. Una prueba confirma que no se agregan rutas.
+- **Sin autorización que revisar:** es contenido público, el mismo para todos, y no lee datos de ninguna empresa (solo los planes ofrecidos, que ya publica la página).
+- **Entradas:**
+  - topes de 80, 100, 120 y 600 caracteres;
+  - se quitan los caracteres de control;
+  - el texto va solo dentro del enlace (`encodeURIComponent`);
+  - el rango de edificios se acepta solo si es una de las opciones;
+  - el tema sale del servidor, no de lo que se escriba.
+- **XSS:** las respuestas las escribe el servidor y Blade las escapa. Lo que escribe la persona nunca se inserta como HTML.
+- **No se piden** contraseñas, códigos ni pagos. El asistente avisa dos veces que no se escriban.
+- **Sin número configurado:** no hay botón a WhatsApp y se ofrece el correo de soporte.
+- **Rendimiento:** las respuestas se calculan una vez por request (`once`), con la misma consulta de planes que ya hace la página.
+
+### Fase 2: pantalla del SuperAdmin «Respuestas para WhatsApp»
+
+- **Qué hace:**
+  - Lista las respuestas rápidas (atajo y texto plano) que genera `SalesAssistant`, cada una con un botón «Copiar».
+  - Muestra el aviso «Los datos de los planes cambiaron desde la última actualización» cuando cambian los precios, los límites o las funciones desde la última vez que se marcó «Ya las actualicé en WhatsApp».
+  - Para detectar el cambio guarda una huella de los datos de los planes.
+- **Archivos previstos:**
+  - nueva página Filament solo para el SuperAdmin;
+  - `SalesAssistant::quickReplies()` y `fingerprint()`;
+  - guardar la huella en la tabla de configuración existente o en un archivo de `storage` (se confirma al implementar, sin migración si es posible);
+  - pruebas: solo la ve el SuperAdmin, el aviso aparece al cambiar un plan y desaparece al marcar.
+- **Fuera de alcance:** editar respuestas desde la pantalla o armar árboles. Es un constructor de chatbots y quedó excluido.
+
+### Fase 3: configuración manual de la app Business (la hace el dueño)
+
+El número y la app WhatsApp Business ya están confirmados (13/10/2026). El dueño configura en el teléfono:
+- el mensaje de bienvenida de la sección 3 (sin mensaje de ausencia, porque la atención es continua);
+- las respuestas rápidas de la fase 2;
+- las etiquetas «Ventas», «Demostración», «Soporte», «Persona» y «Sin respuesta».
+
+El sistema no hace ninguna de estas tareas.
 
 ---
 
-## 10. Decisiones que necesito de vos
+## 10. Decisiones pendientes
 
-1. **Aprobar el enfoque A + B** y descartar por ahora el bot (C).
-2. **El número comercial:** confirmar que `5491173728421` sigue siendo el número y si ya usa la app WhatsApp Business.
-3. **Horario de atención** para el mensaje de ausencia.
-4. **Textos:** aprobar los de la sección 4 y los de urgencia y cliente final (5.1 y 5.2).
-5. **Demostraciones:** quién las coordina y si conviene que la web pida también ciudad o provincia.
-6. **Documento comercial desactualizado:** `docs/validacion-comercial.md` todavía dice que la prueba gratis es con Profesional (hoy es Empresa) y que los remitos digitales son desde Profesional (hoy están en todos los planes). Propongo corregirlo en un cambio aparte, solo de documentación.
+1. ~~Número comercial y WhatsApp Business~~: confirmados el 13/10/2026 (5491173728421, ya en la app Business).
+2. ~~Horario de atención~~: confirmado (todos los días, las 24 horas, incluidos fines de semana y feriados).
+3. **Nombre y empresa obligatorios** antes de abrir WhatsApp. Se mantienen como en el formulario anterior porque son el mínimo para una consulta de empresa. Si preferís que todo sea opcional, es un cambio chico.

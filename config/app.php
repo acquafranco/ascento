@@ -90,10 +90,17 @@ return [
     // equipo de Ascento). Vacío: solo la campanita/push de los SuperAdmin.
     'admin_notification_email' => env('ASCENTO_ADMIN_NOTIFICATION_EMAIL'),
 
-    // WhatsApp comercial de Ascento (formato internacional, solo dígitos:
-    // +54 9 11 7372-8421). Lo usa el formulario de contacto de las páginas
-    // públicas; no envía nada solo: abre WhatsApp con el mensaje armado.
+    // WhatsApp Business oficial de Ascento, confirmado por el dueño el
+    // 13/10/2026 (formato internacional, solo dígitos: +54 9 11 7372-8421).
+    // Lo usan el asistente de consultas y el pie de las páginas públicas: no
+    // envía nada solo, abre WhatsApp con el mensaje armado. Un valor que no
+    // sea un número internacional válido deja el contacto por correo.
     'whatsapp_contact' => preg_replace('/\D/', '', (string) env('ASCENTO_WHATSAPP_NUMBER', '5491173728421')),
+
+    // Atención por WhatsApp que muestra el asistente, como texto libre que
+    // completa la frase «Horario de atención: …». Confirmado el 13/10/2026:
+    // todos los días, las 24 horas. ASCENTO_WHATSAPP_HOURS= (vacío) lo oculta.
+    'whatsapp_hours' => trim((string) env('ASCENTO_WHATSAPP_HOURS', 'todos los días, las 24 horas, incluidos fines de semana y feriados')),
 
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 

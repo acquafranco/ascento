@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\Company;
+use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Rules\Cuit;
 use App\Support\Auth\PasswordPolicy;
@@ -148,7 +149,7 @@ class RegisteredUserController extends Controller
                     // no venza, EnsureActiveSubscription deja pasar aunque no
                     // haya ninguna suscripción cargada todavía.
 
-                    'trial_ends_at' => now()->addDays(30),
+                    'trial_ends_at' => now()->addDays(SubscriptionPlan::TRIAL_DAYS),
 
                 ]);
 

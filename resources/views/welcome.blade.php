@@ -585,7 +585,9 @@
                     <div class="text-xs font-semibold text-white/40 uppercase tracking-wide">Contacto</div>
                     <ul class="mt-4 space-y-2.5 text-sm">
                         <li><a href="mailto:{{ config('app.support_email') }}" class="hover:text-white transition-colors">{{ config('app.support_email') }}</a></li>
-                        <li><button type="button" data-whatsapp-open class="hover:text-white transition-colors">WhatsApp: +54 9 11 7372-8421</button></li>
+                        @if ($waDisplay = \App\Support\Sales\SalesAssistant::displayNumber())
+                            <li><button type="button" data-whatsapp-open data-wa-number class="hover:text-white transition-colors">WhatsApp: {{ $waDisplay }}</button></li>
+                        @endif
                         <li>Buenos Aires, Argentina</li>
                     </ul>
                 </div>
