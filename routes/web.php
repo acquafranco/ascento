@@ -485,6 +485,8 @@ Route::prefix('portal')->name('portal.')->middleware(['auth', 'portal'])->group(
     Route::get('/presupuestos/{quote}', [PortalController::class, 'quote'])->whereNumber('quote')->name('quote');
     Route::get('/presupuestos/{quote}/pdf', [QuoteDocumentController::class, 'portalPdf'])->whereNumber('quote')->middleware('throttle:30,1')->name('quote-pdf');
     Route::get('/documentos/{elevatorDocument}', [PortalController::class, 'document'])->whereNumber('elevatorDocument')->name('document');
+    // Foto de un técnico responsable de sus edificios (Etapa 8.3).
+    Route::get('/responsables/{user}/foto', [PortalController::class, 'responsiblePhoto'])->whereNumber('user')->middleware('throttle:120,1')->name('responsible-photo');
     Route::get('/notificaciones', [NotificationInboxController::class, 'index'])->name('notifications');
     Route::get('/notificaciones/contador', [NotificationInboxController::class, 'count'])->middleware('throttle:60,1')->name('notifications.count');
     Route::get('/notificaciones/{notification}', [NotificationInboxController::class, 'open'])->whereUuid('notification')->name('notifications.open');

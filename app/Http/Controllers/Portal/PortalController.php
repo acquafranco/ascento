@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Portal;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\DeliveryNoteController;
 use App\Http\Controllers\ReportVideoController;
+use App\Http\Controllers\TechnicianPhotoController;
 use App\Models\Building;
 use App\Models\BuildingVisit;
 use App\Models\DeliveryNote;
@@ -13,12 +14,15 @@ use App\Models\ElevatorDocument;
 use App\Models\Quote;
 use App\Models\Report;
 use App\Models\ReportPhoto;
+use App\Models\User;
 use App\Services\Reports\ReportPhotoService;
 use App\Support\DeliveryNotes\DeliveryNoteDocument;
 use App\Support\Portal\PortalAccess;
 use App\Support\Portal\PortalDocuments;
+use App\Support\Portal\PortalResponsibles;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -79,6 +83,7 @@ class PortalController extends Controller
             'buildings' => $buildings,
             'lastVisits' => $lastVisits,
             'recent' => PortalDocuments::paginate($companyId, $ids, [], 5),
+            'responsibles' => PortalResponsibles::for($user),
             'buildingNames' => $buildings->pluck('name', 'id'),
             'newKeys' => $this->newKeys($request),
         ]);
@@ -165,8 +170,20 @@ class PortalController extends Controller
                 ->with('deliveryNote:id,building_visit_id,performed')
                 ->orderByDesc('year')->orderByDesc('month')->orderByDesc('slot')->limit(6)->get(),
             'buildingNames' => [$building->id => $building->name],
+            'responsibles' => PortalResponsibles::for($user, [(int) $building->id]),
             'newKeys' => $this->newKeys($request),
         ]);
+    }
+
+    /**
+     * Foto de un responsable (Etapa 8.3): solo de un técnico asignado a
+     * alguno de los edificios autorizados de la empresa activa. Otro: 404.
+     */
+    public function responsiblePhoto(Request $request, User $user): Response|StreamedResponse
+    {
+        abort_unless(PortalResponsibles::isResponsibleFor($request->user(), $user), 404);
+
+        return TechnicianPhotoController::serve($request, $user);
     }
 
     /** Cambiar de empresa (solo una con acceso activo). */
