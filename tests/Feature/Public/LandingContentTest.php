@@ -123,15 +123,15 @@ class LandingContentTest extends TestCase
         $this->assertStringContainsString('Indicadores avanzados y alertas de tendencias', $html);
     }
 
-    public function test_the_hero_shows_a_real_demo_screenshot_instead_of_made_up_numbers(): void
+    public function test_the_hero_keeps_the_animated_floor_indicator(): void
     {
+        // Decisión del dueño (13/10/2026): la portada vuelve a la ilustración
+        // animada original (indicador de piso), en lugar de la captura.
         $html = $this->home();
 
-        $this->assertMatchesRegularExpression('#data-hero-shot>.*?images/landing/tecnico-inicio\.jpg#su', $html);
-        $this->assertStringContainsString('Captura real de la app del técnico, con datos de demostración.', $html);
-        $this->assertFileExists(public_path('images/landing/tecnico-inicio.jpg'));
-        foreach (['Edificio Alsina 1420', 'floorDigit', 'Indicador de posición'] as $fake) {
-            $this->assertStringNotContainsString($fake, $html, $fake);
-        }
+        $this->assertStringContainsString('id="floorDigit"', $html);
+        $this->assertStringContainsString('Indicador de posición', $html);
+        $this->assertStringContainsString("const floorDigit = document.getElementById('floorDigit');", $html);
+        $this->assertStringNotContainsString('data-hero-shot', $html);
     }
 }

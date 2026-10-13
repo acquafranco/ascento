@@ -7,7 +7,7 @@ app** con **datos ficticios** de la base de demo, nunca de producción. Están e
 - **Teléfono** (técnico y portal): 640 px de ancho, todas con la misma proporción.
 - **Escritorio** (panel de la empresa): 1280×800 (16:10).
 - Son JPEG livianos, de 44 a 112 KB cada uno, y se cargan solo al llegar a esa parte de la página.
-- La portada (arriba de todo) muestra `tecnico-inicio.jpg` con la leyenda «Captura real de la app del técnico, con datos de demostración». No usa números inventados: si se vuelve a capturar, se actualiza sola.
+- La portada (arriba de todo) **no** es una captura: es la ilustración animada original (indicador de piso). El dueño decidió conservarla el 13/10/2026. Sus números son decorativos.
 
 ## Qué se captura
 
