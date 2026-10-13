@@ -134,7 +134,7 @@ Se entrega en tres PRs: **8.1 y 8.2**, **8.3** y **8.4**. Las decisiones tomadas
 | Esperando presupuesto | En reparación |
 | Esperando autorización | En reparación |
 | En reparación | En reparación |
-| Reparado | Reparado, a la espera de su devolución |
+| Reparado | En reparación (todavía no volvió a la empresa) |
 | Recibido | No figura |
 | Cancelado | No figura |
 
