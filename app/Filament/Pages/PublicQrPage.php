@@ -9,6 +9,7 @@ use App\Models\Elevator;
 use App\Services\PublicQr\PublicBuildingInfo;
 use App\Services\PublicQr\PublicQrService;
 use App\Support\Access\Access;
+use App\Support\CompanyContext;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -20,6 +21,8 @@ use Livewire\Attributes\Url;
  * regenerar, qué se publica, el estado informado de cada ascensor y la
  * vista previa de lo que verá quien escanee. Ver: «QR y datos públicos»;
  * todo lo que cambia algo pide «gestionar» (lo verifica PublicQrService).
+ * El SuperAdmin sin empresa elegida ve los QR de todas las empresas y entra
+ * a la de cada uno para abrirlo.
  */
 class PublicQrPage extends Page
 {
@@ -198,8 +201,35 @@ class PublicQrPage extends Page
         return $building ? app(PublicQrService::class)->pageOf($building) : null;
     }
 
+    /** SuperAdmin sin empresa elegida: los QR de todas las empresas (solo lectura). */
+    private function platformView(): bool
+    {
+        return (bool) auth()->user()?->isSuperAdmin() && CompanyContext::currentId() === null;
+    }
+
+    /** SuperAdmin: entra a la empresa del QR (como «Entrar») y abre su detalle. */
+    public function openForSuperAdmin(int $pageId): void
+    {
+        abort_unless(auth()->user()?->isSuperAdmin(), 403);
+
+        $page = BuildingPublicPage::withoutGlobalScopes()->findOrFail($pageId);
+        CompanyContext::set($page->company_id);
+
+        $this->redirect(static::getUrl(['edificio' => $page->building_id]));
+    }
+
     protected function getViewData(): array
     {
+        if ($this->buildingId === null && $this->platformView()) {
+            $all = BuildingPublicPage::withoutGlobalScopes()
+                ->join('companies', 'companies.id', '=', 'building_public_pages.company_id')
+                ->join('buildings', 'buildings.id', '=', 'building_public_pages.building_id')
+                ->orderBy('companies.name')->orderBy('buildings.name')
+                ->get(['building_public_pages.*', 'companies.name as company_name', 'buildings.name as building_name', 'buildings.deleted_at as building_deleted_at']);
+
+            return ['building' => null, 'platform' => $all];
+        }
+
         if ($this->buildingId === null) {
             $buildings = Building::query()->orderBy('name')->get(['id', 'name', 'address', 'locality', 'company_id']);
             $pages = BuildingPublicPage::query()->whereIn('building_id', $buildings->pluck('id'))->get()->keyBy('building_id');
