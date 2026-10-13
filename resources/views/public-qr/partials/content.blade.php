@@ -65,7 +65,7 @@
                     @endif
                     @if($info['show']['repairs'])
                         @foreach($e['repairs'] as $r)
-                            <p class="qr-line" data-qr="repair">{!! $tag('Información administrativa', 'admin') !!} {{ $r['component'] }} en reparación: <strong>{{ mb_strtolower($r['status']) }}</strong> <span class="qr-muted">({{ $d($r['at']) }})</span></p>
+                            <p class="qr-line" data-qr="repair">{!! $tag('Información administrativa', 'admin') !!} {{ $r['component'] }}: <strong>{{ $r['status'] }}</strong>@if($r['at']) <span class="qr-muted">(desde el {{ $d($r['at']) }})</span>@endif</p>
                         @endforeach
                     @endif
                 </div>
@@ -79,7 +79,7 @@
         <section class="qr-card" data-qr="building-repairs">
             <h2 class="qr-h2">Componentes en reparación</h2>
             @foreach($info['building_repairs'] as $r)
-                <p class="qr-line">{!! $tag('Información administrativa', 'admin') !!} {{ $r['component'] }}: <strong>{{ mb_strtolower($r['status']) }}</strong> <span class="qr-muted">({{ $d($r['at']) }})</span></p>
+                <p class="qr-line">{!! $tag('Información administrativa', 'admin') !!} {{ $r['component'] }}: <strong>{{ $r['status'] }}</strong>@if($r['at']) <span class="qr-muted">(desde el {{ $d($r['at']) }})</span>@endif</p>
             @endforeach
         </section>
     @endif
