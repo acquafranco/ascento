@@ -31,6 +31,9 @@ class SubscriptionPlan extends Model
      */
     public const TRIAL_PLAN = self::EMPRESA;
 
+    /** Días de la prueba gratis al registrarse (RegisteredUserController). */
+    public const TRIAL_DAYS = 30;
+
     protected $fillable = [
         'name',
         'slug',

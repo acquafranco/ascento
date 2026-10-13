@@ -169,7 +169,8 @@ termina. **No cambies a `QUEUE_CONNECTION=sync` ni borres la tabla.**
 | `ASCENTO_ADMIN_NOTIFICATION_EMAIL` | correo del equipo de Ascento | Aviso por correo de cada empresa nueva. Vacío: solo campanita, push y Telegram de los SuperAdmin. |
 | `BACKUP_OFFSITE_DISK` / `BACKUP_OFFSITE_PATH` | vacío / `ascento-backups` | Copia externa automática de cada backup cifrado (p. ej. `s3` con las variables `AWS_*`). Ver docs/backups.md. |
 | `ASCENTO_VERIFIED_SENDER_SINCE` | `2026-10-12` (por defecto) | Las cuentas creadas desde esa fecha confirman su correo antes de enviar presupuestos o invitaciones al portal. Las anteriores no se bloquean. Vacío: desactivado. |
-| `ASCENTO_WHATSAPP_NUMBER` | `5491173728421` (por defecto) | WhatsApp del formulario de contacto público. |
+| `ASCENTO_WHATSAPP_NUMBER` | `5491173728421` (por defecto) | WhatsApp del asistente de consultas público. Verificar el número antes de configurar los mensajes definitivos (Etapa 10). |
+| `ASCENTO_WHATSAPP_HOURS` | vacío (por defecto) | Horario de atención que muestra el asistente. Vacío = no se publica ninguno. |
 | `SUPER_ADMIN_EMAIL` | ya no tiene un valor por defecto en el código | Lo exige el seeder del SuperAdmin. |
 | `FFMPEG_BINARY` / `FFPROBE_BINARY` | `/usr/bin/ffmpeg` / `/usr/bin/ffprobe` | Opcional: comprimir videos y medir su duración. |
 

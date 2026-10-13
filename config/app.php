@@ -95,6 +95,10 @@ return [
     // públicas; no envía nada solo: abre WhatsApp con el mensaje armado.
     'whatsapp_contact' => preg_replace('/\D/', '', (string) env('ASCENTO_WHATSAPP_NUMBER', '5491173728421')),
 
+    // Horario de atención por WhatsApp que muestra el asistente de consultas
+    // (Etapa 10). Vacío = no se publica ningún horario (pendiente de confirmar).
+    'whatsapp_hours' => trim((string) env('ASCENTO_WHATSAPP_HOURS', '')),
+
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 
     'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),

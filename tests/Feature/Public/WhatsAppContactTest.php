@@ -28,8 +28,8 @@ class WhatsAppContactTest extends TestCase
             ->assertSee('id="wa-dialog"', false)
             ->assertSee('data-whatsapp-open', false)
             ->assertSee('"5491173728421"', false)
-            ->assertSee('Quiero solicitar una demostración')
-            ->assertSee('El mensaje lo enviás vos desde WhatsApp')
+            ->assertSee('Probar gratis o pedir una demostración')
+            ->assertSee('que enviás vos desde WhatsApp')
             ->assertDontSee('action="/whatsapp', false); // no hay envío al servidor
 
         $this->get('/login')->assertOk()->assertSee('id="wa-dialog"', false)->assertSee('Escribinos por WhatsApp');

@@ -1,21 +1,25 @@
 {{--
-    Contacto por WhatsApp (páginas públicas). Un panel con un formulario corto
-    que arma la consulta y abre WhatsApp con el mensaje listo: el mensaje lo
-    envía la persona desde WhatsApp (acá no se envía ni se guarda nada).
+    Asistente de consultas (páginas públicas, Etapa 10). Responde las dudas
+    frecuentes con datos reales (App\Support\Sales\SalesAssistant) y, si hace
+    falta una persona, abre WhatsApp con el tema y lo que la persona quiso
+    contar. El mensaje lo envía ella desde WhatsApp: acá no se envía ni se
+    guarda nada, y no hay ningún endpoint.
     - Se abre desde cualquier elemento con [data-whatsapp-open] (y un acceso
       discreto abajo a la derecha si $launcher es true).
     - Sin dependencias: <dialog> nativo, CSS propio (prefijo wa-) y JS simple.
-    - Lo escrito solo se usa como texto del enlace (encodeURIComponent).
+    - Las respuestas se escriben en el servidor (escapadas por Blade); lo
+      escrito por la persona solo se usa como texto del enlace (encodeURIComponent).
 --}}
 @php
     $waNumber = config('app.whatsapp_contact');
     $launcher = $launcher ?? true;
-    $reasons = [
-        'Quiero conocer Ascento',
-        'Quiero solicitar una demostración',
-        'Necesito ayuda',
-        'Tengo una consulta comercial',
-        'Otro motivo',
+    $topics = \App\Support\Sales\SalesAssistant::topics();
+    $buildingRanges = \App\Support\Sales\SalesAssistant::buildingRanges();
+    $hours = \App\Support\Sales\SalesAssistant::hours();
+    $trialDays = \App\Models\SubscriptionPlan::TRIAL_DAYS;
+    $actions = [
+        'trial' => [Route::has('register') ? route('register') : url('/register'), 'Probar gratis '.$trialDays.' días'],
+        'plans' => [url('/').'#planes', 'Ver los planes'],
     ];
 @endphp
 @once
@@ -50,6 +54,22 @@
     .wa-done { text-align: center; padding: 8px 0 4px; }
     .wa-done strong { display: block; font-size: 17px; margin-bottom: 6px; }
     .wa-done p { margin: 0 0 14px; color: #5B6472; }
+    .wa-topics { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+    .wa-topic { display: flex; width: 100%; min-height: 48px; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border: 1px solid #E6E8EC; border-radius: 12px; background: #fff; color: #11161D; font: 600 15px/1.3 system-ui, -apple-system, 'Segoe UI', sans-serif; text-align: left; cursor: pointer; }
+    .wa-topic:hover { border-color: #FF6600; background: #FFF7F0; }
+    .wa-topic::after { content: '›'; color: #5B6472; font-size: 20px; line-height: 1; }
+    .wa-topic-fixed { background: #F4F5F7; font-weight: 500; }
+    .wa-topic-alert { border-color: #FCA5A5; background: #FEF2F2; color: #991B1B; }
+    .wa-topic-urgent { min-height: 44px; margin-bottom: 12px; font-size: 14px; }
+    .wa-sub { margin: 18px 0 8px; color: #5B6472; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+    .wa-answer h3 { margin: 0 0 10px; font-size: 17px; font-weight: 700; }
+    .wa-answer p { margin: 0 0 10px; color: #2A313C; }
+    .wa-answer ul { margin: 0 0 10px; padding-left: 20px; color: #2A313C; }
+    .wa-answer li { margin-bottom: 6px; }
+    .wa-alert { padding: 12px 14px; border-radius: 12px; background: #FEF2F2; }
+    .wa-link { color: #C2410C; font-weight: 700; }
+    .wa-back { margin-top: 12px; padding: 0; border: 0; background: none; color: #5B6472; font: 600 14px/1.4 system-ui, -apple-system, sans-serif; text-decoration: underline; cursor: pointer; }
+    .wa-chosen { margin: 0 0 14px; padding: 10px 12px; border-radius: 12px; background: #F4F5F7; color: #2A313C; font-size: 14px; }
 </style>
 @endonce
 
@@ -64,12 +84,60 @@
 
 <dialog id="wa-dialog" class="wa-dialog" aria-labelledby="wa-title" aria-describedby="wa-desc">
     <div class="wa-head">
-        <h2 id="wa-title">Hablemos por WhatsApp</h2>
-        <p id="wa-desc">Completá estos datos y se abre WhatsApp con tu consulta lista. El mensaje lo enviás vos desde WhatsApp.</p>
+        <h2 id="wa-title">¿En qué te ayudamos?</h2>
+        <p id="wa-desc">Elegí un tema para ver la respuesta. Si querés hablar con una persona, seguimos por WhatsApp.</p>
         <button type="button" class="wa-x" data-wa-close aria-label="Cerrar">&times;</button>
     </div>
-    <div class="wa-body">
-        <form id="wa-form" novalidate>
+    <div class="wa-body" aria-live="polite">
+        {{-- 1. Temas --}}
+        <div data-wa-view="topics">
+            {{-- Arriba de todo, para que nadie con una urgencia tenga que buscarla. --}}
+            <button type="button" class="wa-topic wa-topic-alert wa-topic-urgent" data-wa-pick="emergency">¿Hay una urgencia con un ascensor?</button>
+            <ul class="wa-topics">
+                @foreach (collect($topics)->where('kind', \App\Support\Sales\SalesAssistant::SALES) as $topic)
+                    <li><button type="button" class="wa-topic" data-wa-pick="{{ $topic['key'] }}">{{ $topic['label'] }}</button></li>
+                @endforeach
+            </ul>
+            <p class="wa-sub">Otras consultas</p>
+            <ul class="wa-topics">
+                @foreach (collect($topics)->where('kind', \App\Support\Sales\SalesAssistant::FIXED)->where('key', '!=', 'emergency') as $topic)
+                    <li><button type="button" class="wa-topic wa-topic-fixed" data-wa-pick="{{ $topic['key'] }}">{{ $topic['label'] }}</button></li>
+                @endforeach
+            </ul>
+            <p class="wa-note">Nunca te vamos a pedir contraseñas, códigos de verificación ni pagos por WhatsApp.</p>
+        </div>
+
+        {{-- 2. Respuestas (una por tema) --}}
+        @foreach ($topics as $topic)
+            <section class="wa-answer" data-wa-view="topic" data-wa-topic="{{ $topic['key'] }}" data-wa-label="{{ $topic['label'] }}" hidden>
+                <h3>{{ $topic['label'] }}</h3>
+                <div @class(['wa-alert' => $topic['key'] === 'emergency'])>
+                    @foreach ($topic['answer'] as $block)
+                        @if (is_array($block))
+                            <ul>@foreach ($block as $item)<li>{{ $item }}</li>@endforeach</ul>
+                        @else
+                            <p>{{ $block }}</p>
+                        @endif
+                    @endforeach
+                </div>
+                <div class="wa-actions">
+                    @if ($topic['handoff'] && $waNumber)
+                        <button type="button" class="wa-btn wa-btn-primary" data-wa-handoff>Escribir por WhatsApp</button>
+                    @endif
+                    @foreach ($topic['actions'] as $action)
+                        <a class="wa-btn wa-btn-secondary" href="{{ $actions[$action][0] }}" data-wa-follow>{{ $actions[$action][1] }}</a>
+                    @endforeach
+                </div>
+                @if ($topic['handoff'] && ! $waNumber)
+                    <p class="wa-note">Escribinos a <a class="wa-link" href="mailto:{{ config('app.support_email') }}">{{ config('app.support_email') }}</a>.</p>
+                @endif
+                <button type="button" class="wa-back" data-wa-back>Ver otros temas</button>
+            </section>
+        @endforeach
+
+        {{-- 3. Datos para WhatsApp (todos opcionales salvo nombre y empresa) --}}
+        <form id="wa-form" data-wa-view="form" novalidate hidden>
+            <p class="wa-chosen">Tema: <strong data-wa-chosen></strong></p>
             <div class="wa-field">
                 <label for="wa-name">Nombre</label>
                 <input id="wa-name" name="name" autocomplete="name" maxlength="80" required>
@@ -78,18 +146,20 @@
                 <label for="wa-company">Empresa</label>
                 <input id="wa-company" name="company" autocomplete="organization" maxlength="100" required>
             </div>
+            @if ($buildingRanges)
+                <div class="wa-field">
+                    <label for="wa-buildings">Edificios que mantienen <span>(opcional)</span></label>
+                    <select id="wa-buildings" name="buildings">
+                        <option value="">Prefiero no decirlo</option>
+                        @foreach ($buildingRanges as $range)
+                            <option>{{ $range }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
             <div class="wa-field">
                 <label for="wa-email">Correo <span>(opcional)</span></label>
                 <input id="wa-email" name="email" type="email" autocomplete="email" maxlength="120" inputmode="email">
-            </div>
-            <div class="wa-field">
-                <label for="wa-reason">Motivo</label>
-                <select id="wa-reason" name="reason" required>
-                    <option value="">Elegí una opción</option>
-                    @foreach($reasons as $reason)
-                        <option>{{ $reason }}</option>
-                    @endforeach
-                </select>
             </div>
             <div class="wa-field">
                 <label for="wa-message">Mensaje <span>(opcional)</span></label>
@@ -97,11 +167,15 @@
             </div>
             <div class="wa-actions">
                 <button type="submit" class="wa-btn wa-btn-primary">Continuar en WhatsApp</button>
-                <button type="button" class="wa-btn wa-btn-secondary" data-wa-close>Cerrar</button>
+                <button type="button" class="wa-btn wa-btn-secondary" data-wa-back>Volver</button>
             </div>
-            <p class="wa-note">No guardamos estos datos: solo se usan para armar el mensaje.</p>
+            @if ($hours)
+                <p class="wa-note" data-wa-hours>Horario de atención: {{ $hours }}.</p>
+            @endif
+            <p class="wa-note">No guardamos estos datos: solo se usan para armar el mensaje, que enviás vos desde WhatsApp. No escribas contraseñas ni códigos.</p>
         </form>
-        <div id="wa-done" class="wa-done" hidden>
+
+        <div id="wa-done" class="wa-done" data-wa-view="done" hidden>
             <strong>Abrimos WhatsApp con tu consulta</strong>
             <p>Revisá el mensaje y tocá <b>Enviar</b> en WhatsApp para que nos llegue.</p>
             <div class="wa-actions">
@@ -117,21 +191,46 @@
         const number = @json($waNumber);
         const dialog = document.getElementById('wa-dialog');
         const form = document.getElementById('wa-form');
-        const done = document.getElementById('wa-done');
         const launcher = document.querySelector('[data-wa-launcher]');
-        if (!dialog || !form || !number) return;
+        if (!dialog || !form) return;
+
+        let topic = null; // sección del tema elegido
+
+        const show = (view) => {
+            dialog.querySelectorAll('[data-wa-view]').forEach((el) => { el.hidden = el !== view; });
+            dialog.querySelector('.wa-body').scrollTop = 0;
+            const focusable = view.querySelector('h3, input, button');
+            if (focusable) { if (focusable.tagName === 'H3') focusable.setAttribute('tabindex', '-1'); setTimeout(() => focusable.focus(), 30); }
+        };
+        const showTopics = () => show(dialog.querySelector('[data-wa-view="topics"]'));
+        const showForm = () => {
+            dialog.querySelector('[data-wa-chosen]').textContent = topic.dataset.waLabel;
+            show(form);
+        };
+        const pick = (key) => {
+            topic = dialog.querySelector('[data-wa-topic="' + key + '"]');
+            if (!topic) return showTopics();
+            // «Hablar con una persona» va directo a los datos.
+            if (key === 'human' && number) return showForm();
+            show(topic);
+        };
 
         const open = (event) => {
             event?.preventDefault();
-            form.hidden = false;
-            done.hidden = true;
+            topic = null;
             if (typeof dialog.showModal === 'function') dialog.showModal(); else dialog.setAttribute('open', '');
-            setTimeout(() => document.getElementById('wa-name').focus(), 50);
+            showTopics();
         };
         const close = () => (dialog.close ? dialog.close() : dialog.removeAttribute('open'));
 
         document.querySelectorAll('[data-whatsapp-open]').forEach((el) => el.addEventListener('click', open));
         dialog.querySelectorAll('[data-wa-close]').forEach((el) => el.addEventListener('click', close));
+        dialog.querySelectorAll('[data-wa-follow]').forEach((el) => el.addEventListener('click', close));
+        dialog.querySelectorAll('[data-wa-pick]').forEach((el) => el.addEventListener('click', () => pick(el.dataset.waPick)));
+        dialog.querySelectorAll('[data-wa-handoff]').forEach((el) => el.addEventListener('click', showForm));
+        dialog.querySelectorAll('[data-wa-back]').forEach((el) => el.addEventListener('click', () => (
+            el.closest('form') && topic && topic.querySelector('[data-wa-handoff]') && topic.dataset.waTopic !== 'human' ? show(topic) : showTopics()
+        )));
         dialog.addEventListener('click', (e) => { if (e.target === dialog) close(); }); // tocar afuera
 
         // El acceso discreto aparece recién al bajar (no tapa el inicio).
@@ -155,44 +254,39 @@
             error.textContent = message;
         };
 
-        const clean = (value) => value.replace(/\s+/g, ' ').trim();
+        // Una línea, sin caracteres de control, con tope de largo.
+        const clean = (value, max) => value.replace(/[\u0000-\u001F\u007F]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
 
         // El error de un campo se borra apenas se corrige.
-        form.querySelectorAll('input, select').forEach((input) => {
-            input.addEventListener(input.tagName === 'SELECT' ? 'change' : 'input', () => setError(input, ''));
-        });
+        form.querySelectorAll('input').forEach((input) => input.addEventListener('input', () => setError(input, '')));
 
         form.addEventListener('submit', (event) => {
             event.preventDefault();
+            if (!number || !topic) return;
             const f = form.elements;
             const data = {
-                name: clean(f.name.value), company: clean(f.company.value), email: clean(f.email.value),
-                reason: f.reason.value, message: f.message.value.trim(),
+                name: clean(f.name.value, 80), company: clean(f.company.value, 100), email: clean(f.email.value, 120),
+                buildings: f.buildings ? f.buildings.value : '',
+                message: f.message.value.replace(/[\u0000-\u0009\u000B-\u001F\u007F]+/g, ' ').trim().slice(0, 600),
             };
             const checks = [
                 [f.name, data.name.length >= 2 ? '' : 'Escribí tu nombre.'],
                 [f.company, data.company.length >= 2 ? '' : 'Escribí el nombre de tu empresa.'],
                 [f.email, !data.email || /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(data.email) ? '' : 'Revisá el correo (o dejalo vacío).'],
-                [f.reason, data.reason ? '' : 'Elegí el motivo de la consulta.'],
             ];
             checks.forEach(([input, message]) => setError(input, message));
             const firstInvalid = checks.find(([, message]) => message);
             if (firstInvalid) { firstInvalid[0].focus(); return; }
 
-            const lines = [
-                'Hola, equipo de Ascento.',
-                '',
-                'Motivo: ' + data.reason,
-                'Nombre: ' + data.name,
-                'Empresa: ' + data.company,
-            ];
+            // Solo el tema y lo que la persona escribió (nada más).
+            const lines = ['Hola, equipo de Ascento.', '', 'Tema: ' + topic.dataset.waLabel, 'Nombre: ' + data.name, 'Empresa: ' + data.company];
+            if (data.buildings && [...f.buildings.options].some((o) => o.value === data.buildings)) lines.push('Edificios: ' + data.buildings);
             if (data.email) lines.push('Correo: ' + data.email);
             if (data.message) lines.push('', data.message);
 
             const url = 'https://wa.me/' + number + '?text=' + encodeURIComponent(lines.join('\n'));
             document.getElementById('wa-retry').href = url;
-            form.hidden = true;
-            done.hidden = false;
+            show(document.getElementById('wa-done'));
             // En el celular abre la app; en la computadora, WhatsApp Web.
             window.open(url, '_blank', 'noopener');
         });
