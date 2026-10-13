@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Reports\Pages;
 
+use App\Http\Controllers\ReportVideoController;
 use App\Models\Company;
 use App\Models\Report;
 use App\Models\ReportVideo;
@@ -30,7 +31,7 @@ class ReportVideoActions
                 ->modalContent(fn (Report $record) => view('partials.report-video', ['video' => $record->video, 'src' => route('reports.video', $record), 'statusUrl' => route('reports.video.status', $record)]))
                 ->modalSubmitAction(false)
                 ->modalCancelActionLabel('Cerrar')
-                ->visible(fn (Report $record) => $record->video !== null),
+                ->visible(fn (Report $record) => $record->video !== null && ReportVideoController::planAllows($record)),
             Action::make('uploadVideo')
                 ->label('Agregar video')
                 ->icon('heroicon-o-video-camera')
@@ -62,10 +63,11 @@ class ReportVideoActions
                 ->color('danger')
                 ->requiresConfirmation()
                 ->action(function (Report $record) {
+                    abort_unless(ReportVideoController::planAllows($record), 403);
                     $record->video && app(ReportVideoService::class)->delete($record->video);
                     Notification::make()->title('Video eliminado')->success()->send();
                 })
-                ->visible(fn (Report $record) => $record->video !== null),
+                ->visible(fn (Report $record) => $record->video !== null && ReportVideoController::planAllows($record)),
         ];
     }
 }

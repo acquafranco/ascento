@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\PermissionArea;
+use App\Models\Company;
 use App\Models\Report;
 use App\Models\ReportVideo;
 use App\Services\Reports\ReportVideoService;
@@ -35,6 +36,7 @@ class ReportVideoController extends Controller
     public function status(Request $request, Report $report): JsonResponse
     {
         abort_unless($report->canBeViewedBy($request->user()), 404);
+        abort_unless(static::planAllows($report), 404);
 
         $video = ReportVideo::withoutGlobalScopes()->where('report_id', $report->id)->where('company_id', $report->company_id)->first();
         abort_unless($video, 404);
@@ -67,6 +69,7 @@ class ReportVideoController extends Controller
         // Un administrativo solo modifica el video si gestiona «Inspecciones y reportes».
         abort_if(Access::isStaff($request->user())
             && ! Access::can($request->user(), PermissionArea::Inspections, PermissionArea::MANAGE), 403);
+        abort_unless(static::planAllows($report), 403);
 
         if ($video = $report->video) {
             app(ReportVideoService::class)->delete($video);
@@ -75,8 +78,16 @@ class ReportVideoController extends Controller
         return back()->with('status', 'Video eliminado.');
     }
 
+    /** Video en los reportes: función del plan. Sin ella, los videos se conservan pero no se sirven. */
+    public static function planAllows(Report $report): bool
+    {
+        return ReportVideoService::allowedFor(Company::find($report->company_id));
+    }
+
     public static function serve(Report $report): BinaryFileResponse
     {
+        abort_unless(static::planAllows($report), 404);
+
         /** @var ReportVideo|null $video */
         $video = ReportVideo::withoutGlobalScopes()->where('report_id', $report->id)->where('company_id', $report->company_id)->first();
         $path = $video && $video->status !== ReportVideo::FAILED ? $video->fullPath() : null;

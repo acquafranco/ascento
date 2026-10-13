@@ -471,7 +471,11 @@ class ReportVideoService
             ->update(['status' => ReportVideo::PENDING]);
 
         $done = 0;
-        ReportVideo::withoutGlobalScopes()->where('status', ReportVideo::PENDING)->orderBy('id')->limit($max)->get()
+        // Solo de empresas cuyo plan incluye videos: los demás quedan pendientes y se procesan si vuelven a tenerlo.
+        $companies = ReportVideo::withoutGlobalScopes()->where('status', ReportVideo::PENDING)->distinct()->pluck('company_id')
+            ->filter(fn ($id) => static::allowedFor(Company::find($id)))->values();
+
+        ReportVideo::withoutGlobalScopes()->where('status', ReportVideo::PENDING)->whereIn('company_id', $companies)->orderBy('id')->limit($max)->get()
             ->each(function (ReportVideo $video) use (&$done) {
                 $this->process($video);
                 $done++;

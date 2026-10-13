@@ -43,7 +43,7 @@
                 </div>
             @endif
 
-            @if($report->video)
+            @if($report->video && \App\Http\Controllers\ReportVideoController::planAllows($report))
                 <h2 class="t-section">Video</h2>
                 @include('partials.report-video', ['video' => $report->video, 'src' => route('reports.video', $report), 'statusUrl' => route('reports.video.status', $report)])
             @endif
