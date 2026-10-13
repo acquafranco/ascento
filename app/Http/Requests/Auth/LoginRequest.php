@@ -44,6 +44,7 @@ class LoginRequest extends FormRequest
 
         if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
             RateLimiter::hit($this->throttleKey());
+            RateLimiter::hit($this->ipThrottleKey(), self::IP_DECAY_SECONDS);
 
             throw ValidationException::withMessages([
                 'email' => trans('auth.failed'),
@@ -60,13 +61,23 @@ class LoginRequest extends FormRequest
      */
     public function ensureIsNotRateLimited(): void
     {
-        if (! RateLimiter::tooManyAttempts($this->throttleKey(), 5)) {
+        // Dos límites: 5 fallos por correo + IP (Breeze) y, además, fallos por IP
+        // sola, para que una IP no pruebe contraseñas contra muchas cuentas
+        // (Etapa 11, H2). Solo cuentan los fallos: una oficina con varios
+        // técnicos que entran bien desde la misma red no se bloquea.
+        $key = match (true) {
+            RateLimiter::tooManyAttempts($this->throttleKey(), 5) => $this->throttleKey(),
+            RateLimiter::tooManyAttempts($this->ipThrottleKey(), self::IP_MAX_FAILURES) => $this->ipThrottleKey(),
+            default => null,
+        };
+
+        if ($key === null) {
             return;
         }
 
         event(new Lockout($this));
 
-        $seconds = RateLimiter::availableIn($this->throttleKey());
+        $seconds = RateLimiter::availableIn($key);
 
         throw ValidationException::withMessages([
             'email' => trans('auth.throttle', [
@@ -79,6 +90,16 @@ class LoginRequest extends FormRequest
     /**
      * Get the rate limiting throttle key for the request.
      */
+    /** Fallos de ingreso permitidos por IP en la ventana (de cualquier cuenta). */
+    public const IP_MAX_FAILURES = 30;
+
+    public const IP_DECAY_SECONDS = 600;
+
+    public function ipThrottleKey(): string
+    {
+        return 'login-ip|'.$this->ip();
+    }
+
     public function throttleKey(): string
     {
         return Str::transliterate(Str::lower($this->string('email')).'|'.$this->ip());

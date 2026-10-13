@@ -17,6 +17,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Exceptions\PostTooLargeException;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Exceptions\InvalidSignatureException;
+use Illuminate\Session\Middleware\AuthenticateSession;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -38,7 +39,10 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         // Cabeceras de seguridad en todas las respuestas web.
-        $middleware->web(append: [SecurityHeaders::class]);
+        // AuthenticateSession: si la contraseña cambia (otro dispositivo, «Olvidé
+        // mi contraseña»), las demás sesiones se cierran también en la app del
+        // técnico y el portal, no solo en el panel (Etapa 11, H3).
+        $middleware->web(append: [SecurityHeaders::class, AuthenticateSession::class]);
 
         $middleware->redirectUsersTo(function () {
             if (! auth()->check()) {
