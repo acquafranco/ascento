@@ -40,6 +40,9 @@ Schedule::command('tasks:remind')->everyFiveMinutes()->withoutOverlapping(10);
 
 Schedule::command('notifications:visits')->dailyAt('08:00')->withoutOverlapping();
 
+// Pruebas de paracaídas próximas o vencidas (Etapa 7): una vez por día, sin duplicar.
+Schedule::command('parachute:remind')->dailyAt('08:15')->withoutOverlapping();
+
 // Fotos de visitas subidas para un remito que nunca se firmó (24 h).
 Schedule::command('visit-photos:prune')->dailyAt('03:45')->withoutOverlapping();
 

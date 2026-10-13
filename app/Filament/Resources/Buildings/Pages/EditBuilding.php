@@ -2,9 +2,11 @@
 
 namespace App\Filament\Resources\Buildings\Pages;
 
+use App\Filament\Pages\PublicQrPage;
 use App\Filament\Resources\Buildings\BuildingResource;
 use App\Models\Elevator;
 use App\Services\Geocoding\AddressAutocomplete;
+use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Str;
@@ -50,6 +52,10 @@ class EditBuilding extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            // QR público del edificio (Etapa 7): su propia pantalla y su propia área.
+            Action::make('publicQr')->label('QR público')->icon('heroicon-o-qr-code')->color('gray')
+                ->url(fn () => PublicQrPage::getUrl(['edificio' => $this->record->id]))
+                ->visible(fn () => PublicQrPage::canAccess()),
             DeleteAction::make()
                 ->label('Desactivar')
                 ->modalHeading('Desactivar edificio')

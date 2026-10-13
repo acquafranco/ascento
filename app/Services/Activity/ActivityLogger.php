@@ -4,11 +4,14 @@ namespace App\Services\Activity;
 
 use App\Models\ActivityLog;
 use App\Models\Building;
+use App\Models\BuildingPublicPage;
 use App\Models\Client;
 use App\Models\ClientInteraction;
 use App\Models\Elevator;
 use App\Models\ElevatorDocument;
 use App\Models\MaintenanceService;
+use App\Models\ParachuteSchedule;
+use App\Models\ParachuteTest;
 use App\Models\Quote;
 use App\Models\Receivable;
 use App\Models\ReceivablePayment;
@@ -36,9 +39,9 @@ final class ActivityLogger
 {
     /** Modelos auditados → campos que se pueden guardar en «changes». */
     public const FIELDS = [
-        Client::class => ['name', 'type', 'contact_person', 'phone', 'email', 'is_active'],
+        Client::class => ['name', 'type', 'contact_person', 'phone', 'email', 'is_active', 'parachute_interval_months'],
         Building::class => ['name', 'address', 'client_id', 'locality', 'is_active', 'elevator_count', 'freight_elevator_count'],
-        Elevator::class => ['manufacturer', 'model', 'serial_number', 'machine_type', 'controller', 'is_active'],
+        Elevator::class => ['manufacturer', 'model', 'serial_number', 'machine_type', 'controller', 'is_active', 'public_status'],
         ElevatorDocument::class => ['type', 'title', 'expires_at'],
         WorkOrder::class => ['type', 'status', 'priority', 'building_id', 'unit'],
         Quote::class => ['title', 'status', 'amount', 'valid_until', 'building_id', 'client_id'],
@@ -48,6 +51,10 @@ final class ActivityLogger
         StockMovement::class => ['type', 'quantity', 'stock_item_id', 'reason'],
         Task::class => ['title', 'priority', 'status', 'due_at', 'remind_at', 'assigned_to', 'client_id', 'building_id'],
         ClientInteraction::class => ['client_id', 'type', 'result', 'occurred_at', 'building_id', 'quote_id', 'work_order_id'],
+        // Etapa 7. Del QR nunca se registra el token (generated_at marca cada código nuevo).
+        BuildingPublicPage::class => ['building_id', 'is_active', 'generated_at', 'deactivated_at', 'show_elevators', 'show_status', 'show_last_maintenance', 'show_last_inspection', 'show_safety_tests', 'show_pending_work', 'show_contact'],
+        ParachuteSchedule::class => ['elevator_id', 'interval_months', 'notice_days', 'inspector_id', 'responsible_id'],
+        ParachuteTest::class => ['elevator_id', 'performed_on', 'result', 'performed_by_id', 'performed_by_name', 'inspector_name', 'inspector_registration'],
     ];
 
     /** Nombres que nunca se guardan, aunque alguien los sume a FIELDS por error. */

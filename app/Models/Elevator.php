@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -43,6 +44,7 @@ class Elevator extends Model
         'speed_ms' => 'decimal:2',
         'stops' => 'integer',
         'installed_at' => 'date',
+        'public_status_updated_at' => 'datetime',
     ];
 
     protected static function booted(): void
@@ -63,6 +65,16 @@ class Elevator extends Model
     public function building(): BelongsTo
     {
         return $this->belongsTo(Building::class)->withTrashed();
+    }
+
+    public function parachuteSchedule(): HasOne
+    {
+        return $this->hasOne(ParachuteSchedule::class);
+    }
+
+    public function parachuteTests(): HasMany
+    {
+        return $this->hasMany(ParachuteTest::class);
     }
 
     public function documents(): HasMany
@@ -121,6 +133,16 @@ class Elevator extends Model
     }
 
     public const KINDS = ['elevator' => 'Ascensor', 'freight' => 'Montacargas'];
+
+    /**
+     * Estado que la empresa decide informar en el QR público (Etapa 7). Es
+     * informativo: no es una certificación de seguridad.
+     */
+    public const PUBLIC_STATUSES = [
+        'in_service' => 'En servicio',
+        'out_of_service' => 'Fuera de servicio',
+        'under_maintenance' => 'En mantenimiento o reparación',
+    ];
 
     /**
      * Guarda los equipos del formulario del edificio: cada uno con su tipo

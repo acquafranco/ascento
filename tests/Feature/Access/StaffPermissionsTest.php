@@ -13,6 +13,8 @@ use App\Filament\Pages\CompanyOverview;
 use App\Filament\Pages\CompanySettings;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\IndicatorsPage;
+use App\Filament\Pages\ParachuteTestsPage;
+use App\Filament\Pages\PublicQrPage;
 use App\Filament\Pages\Subscription as SubscriptionPage;
 use App\Filament\Pages\SystemBackups;
 use App\Filament\Resources\Buildings\BuildingResource;
@@ -26,6 +28,7 @@ use App\Filament\Resources\Elevators\ElevatorResource;
 use App\Filament\Resources\Inspections\InspectionResource;
 use App\Filament\Resources\Maintenances\MaintenanceResource;
 use App\Filament\Resources\MaintenanceServices\MaintenanceServiceResource;
+use App\Filament\Resources\ParachuteTests\ParachuteTestResource;
 use App\Filament\Resources\Quotes\QuoteResource;
 use App\Filament\Resources\Receivables\ReceivableResource;
 use App\Filament\Resources\Reports\ReportResource;
@@ -94,6 +97,7 @@ class StaffPermissionsTest extends TestCase
         WorkOrderResource::class => PermissionArea::WorkOrders,
         TaskResource::class => PermissionArea::Tasks,
         ClientInteractionResource::class => PermissionArea::Contacts,
+        ParachuteTestResource::class => PermissionArea::Inspections,
     ];
 
     private const PAGES = [
@@ -101,6 +105,8 @@ class StaffPermissionsTest extends TestCase
         AttentionCenterPage::class => PermissionArea::Attention,
         IndicatorsPage::class => PermissionArea::Indicators,
         BuildingsMap::class => PermissionArea::Buildings,
+        ParachuteTestsPage::class => PermissionArea::Inspections,
+        PublicQrPage::class => PermissionArea::PublicPages,
     ];
 
     /** Nunca para un administrativo, con cualquier permiso. */

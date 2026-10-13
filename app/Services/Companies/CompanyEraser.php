@@ -247,6 +247,11 @@ class CompanyEraser
             $n += $of($table)->delete();
         }
 
+        // Etapa 7: QR públicos y pruebas de paracaídas (antes que ascensores, edificios y usuarios).
+        foreach (['parachute_test_files', 'parachute_tests', 'parachute_schedules', 'building_public_pages'] as $table) {
+            $n += $of($table)->delete();
+        }
+
         foreach (['visit_photos', 'report_videos', 'report_photos', 'reports'] as $table) {
             $n += $of($table)->delete();
         }
@@ -354,6 +359,7 @@ class CompanyEraser
             });
         DB::table('report_videos')->where('company_id', $id)->pluck('path')->each(fn ($path) => $add('local', $path, 'reports'));
         DB::table('elevator_documents')->where('company_id', $id)->pluck('path')->each(fn ($path) => $add('local', $path, 'elevators'));
+        DB::table('parachute_test_files')->where('company_id', $id)->pluck('path')->each(fn ($path) => $add('local', $path, 'elevators'));
         DB::table('company_exports')->where('company_id', $id)->pluck('path')->each(fn ($path) => $add('local', $path, 'exports'));
 
         // Foto vieja de reportes (columna reports.photo) y logo: solo si ninguna otra empresa usa ese archivo.

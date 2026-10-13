@@ -24,6 +24,7 @@ use App\Notifications\App\ExportFinishedNotification;
 use App\Services\Elevators\ElevatorDocumentService;
 use App\Services\Exports\CompanyDataExporter;
 use App\Services\Exports\CompanyExportService;
+use App\Services\Parachute\ParachuteService;
 use App\Services\Reports\ReportPhotoService;
 use App\Services\Stock\StockService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -220,6 +221,28 @@ class CompanyExportTest extends TestCase
             $names = collect(range(0, $opened['zip']->numFiles - 1))->map(fn ($i) => $opened['zip']->getNameIndex($i));
             $this->assertTrue($names->contains(fn ($n) => str_contains($n, 'reporte-'.$inspection->id.'-foto-1')), $slug);
         }
+    }
+
+    public function test_parachute_tests_and_their_files_are_exported(): void
+    {
+        // Etapa 7: política, pruebas realizadas y sus documentos.
+        $elevator = (new Elevator)->forceFill(['building_id' => $this->a['building']->id, 'company_id' => $this->a['company']->id, 'label' => 'Equipo exportado', 'kind' => 'elevator', 'is_active' => true]);
+        $elevator->save();
+        $this->actingInPanel($this->a['admin']);
+        $service = app(ParachuteService::class);
+        $service->configure($this->a['admin'], $elevator, ['interval_months' => 12, 'notice_days' => 20]);
+        $test = $service->record($this->a['admin'], ['elevator_id' => $elevator->id, 'performed_on' => now()->subDay()->toDateString(), 'result' => 'unsatisfactory',
+            'performed_by_name' => 'Inspector Externo', 'inspector_name' => 'Ing. Exportada', 'observations' => 'Observación exportada'],
+            [UploadedFile::fake()->createWithContent('acta.pdf', "%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF")]);
+        auth()->logout();
+
+        $opened = $this->open($this->generate());
+        $policy = collect($opened['sheets']['Política de paracaídas'])->firstWhere(0, $elevator->id);
+        $this->assertSame([12, 20], [$policy[3], $policy[4]]);
+        $row = collect($opened['sheets']['Pruebas de paracaídas'])->firstWhere(0, $test->id);
+        $this->assertSame(['No satisfactoria', 'Inspector Externo', 'Ing. Exportada', 'Observación exportada'], [$row[5], $row[6], $row[7], $row[9]]);
+        $names = collect(range(0, $opened['zip']->numFiles - 1))->map(fn ($i) => $opened['zip']->getNameIndex($i));
+        $this->assertTrue($names->contains(fn ($n) => str_starts_with($n, 'adjuntos/paracaidas/prueba-'.$test->id.'-')));
     }
 
     public function test_no_other_company_data_and_no_secrets(): void

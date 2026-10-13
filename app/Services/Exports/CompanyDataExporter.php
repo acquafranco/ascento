@@ -12,6 +12,9 @@ use App\Models\DeliveryNote;
 use App\Models\Elevator;
 use App\Models\ElevatorDocument;
 use App\Models\MaintenanceService;
+use App\Models\ParachuteSchedule;
+use App\Models\ParachuteTest;
+use App\Models\ParachuteTestFile;
 use App\Models\PortalMembership;
 use App\Models\Quote;
 use App\Models\QuoteItem;
@@ -344,6 +347,23 @@ class CompanyDataExporter
         $this->sheet('Historial de contactos', ['ID', 'Fecha', 'Cliente ID', 'Tipo', 'Resultado', 'Observaciones', 'Registró', 'Edificio ID', 'Presupuesto ID', 'Orden ID'],
             $this->scoped(ClientInteraction::class),
             fn ($i) => [$i->id, $i->occurred_at, $i->client_id, ClientInteraction::TYPES[$i->type] ?? $i->type, ClientInteraction::RESULTS[$i->result] ?? $i->result, $i->notes, $i->user_name, $i->building_id, $i->quote_id, $i->work_order_id]);
+
+        // Pruebas de paracaídas (Etapa 7): política por ascensor, pruebas realizadas y sus archivos.
+        $this->sheet('Política de paracaídas', ['Ascensor ID', 'Edificio', 'Equipo', 'Periodicidad (meses)', 'Aviso (días antes)', 'Inspector', 'Responsable'],
+            $this->scoped(ParachuteSchedule::class),
+            fn ($p) => [$p->elevator_id, $this->name('buildings', $this->names['elevator_building'][$p->elevator_id] ?? null), $this->name('elevators', $p->elevator_id),
+                $p->interval_months, $p->notice_days, $this->name('users', $p->inspector_id), $this->name('users', $p->responsible_id)]);
+
+        $this->sheet('Pruebas de paracaídas', ['ID', 'Fecha', 'Ascensor ID', 'Edificio', 'Equipo', 'Resultado', 'La realizó', 'Inspector o profesional', 'Matrícula', 'Observaciones', 'Registró'],
+            $this->scoped(ParachuteTest::class),
+            fn ($t) => [$t->id, $t->performed_on, $t->elevator_id, $this->name('buildings', $t->building_id), $this->name('elevators', $t->elevator_id), ParachuteTest::RESULTS[$t->result] ?? $t->result,
+                $t->performed_by_id ? $this->name('users', $t->performed_by_id) : $t->performed_by_name, $t->inspector_name, $t->inspector_registration, $t->observations, $this->name('users', $t->recorded_by)]);
+
+        $this->scoped(ParachuteTestFile::class)->orderBy('parachute_test_id')->chunkById(self::CHUNK, function ($files) {
+            foreach ($files as $file) {
+                $this->attach((string) $file->path, 'elevators/', 'adjuntos/paracaidas/prueba-'.$file->parachute_test_id.'-'.$file->id.'.'.pathinfo((string) $file->path, PATHINFO_EXTENSION), "Prueba de paracaídas #{$file->parachute_test_id}");
+            }
+        });
 
         $photoIndex = [];
         // Todos los reportes, también los de inspección (son datos de la empresa, con cualquier plan).

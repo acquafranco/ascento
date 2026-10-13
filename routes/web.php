@@ -11,9 +11,11 @@ use App\Http\Controllers\DeliveryNoteController;
 use App\Http\Controllers\ElevatorDocumentController;
 use App\Http\Controllers\InspectionReportController;
 use App\Http\Controllers\NotificationInboxController;
+use App\Http\Controllers\ParachuteTestFileController;
 use App\Http\Controllers\Portal\PortalController;
 use App\Http\Controllers\Portal\PortalInvitationController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PublicQrController;
 use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\QuoteDocumentController;
 use App\Http\Controllers\ReportController;
@@ -69,6 +71,11 @@ Route::get(
     [DeliveryNoteController::class, 'showPublic']
 
 )->middleware('throttle:60,1')->name('delivery-notes.public');
+
+// QR público de un edificio (Etapa 7): solo lectura, sin cuenta, token aleatorio.
+Route::get('/qr/{token}', [PublicQrController::class, 'show'])
+    ->where('token', '[A-Za-z0-9]{1,64}')
+    ->middleware('throttle:60,1')->name('public-qr.show');
 
 Route::get('/{company:slug}/public/delivery-notes/{token}/pdf', [DeliveryNoteController::class, 'publicPdf'])
     ->middleware('throttle:30,1')->name('delivery-notes.public.pdf');
@@ -419,6 +426,18 @@ Route::get('/files/visit-photos/{visitPhoto}', [VisitPhotoController::class, 'sh
     ->middleware(['auth', 'subscription'])
     ->whereNumber('visitPhoto')
     ->name('visit-photos.show');
+
+// Documentos y fotos de pruebas de paracaídas (Etapa 7): privados.
+Route::get('/files/parachute-tests/{parachuteTestFile}', ParachuteTestFileController::class)
+    ->middleware(['auth', 'subscription'])
+    ->whereNumber('parachuteTestFile')
+    ->name('parachute-test-files.show');
+
+// Imagen del QR público de un edificio (Etapa 7), para el panel.
+Route::get('/qr-codes/{building}/download/{format}', [PublicQrController::class, 'download'])
+    ->middleware(['auth', 'subscription', 'throttle:30,1'])
+    ->whereNumber('building')->whereIn('format', ['svg', 'png'])
+    ->name('public-qr.download');
 
 Route::get('/files/elevator-documents/{elevatorDocument}', ElevatorDocumentController::class)
     ->middleware(['auth', 'subscription'])
