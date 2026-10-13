@@ -44,7 +44,7 @@ class CompanyEraser
     private const BILLABLE = [Subscription::PENDING, Subscription::AUTHORIZED, Subscription::PAST_DUE, Subscription::PAUSED];
 
     /** Carpetas por empresa ({raíz}/{id}/…) en cada disco. */
-    private const COMPANY_DIRECTORIES = [['local', 'visits'], ['local', 'reports'], ['local', 'elevators'], ['local', 'exports'], ['local', 'avatars'], ['public', 'reports']];
+    private const COMPANY_DIRECTORIES = [['local', 'visits'], ['local', 'reports'], ['local', 'elevators'], ['local', 'exports'], ['local', 'avatars'], ['local', 'repairs'], ['public', 'reports']];
 
     /**
      * Qué se va a borrar (para la confirmación) y qué lo impide.
@@ -248,7 +248,7 @@ class CompanyEraser
         }
 
         // Etapa 7: QR públicos y pruebas de paracaídas (antes que ascensores, edificios y usuarios).
-        foreach (['parachute_test_files', 'parachute_tests', 'parachute_schedules', 'building_public_pages'] as $table) {
+        foreach (['repair_component_files', 'repair_components', 'parachute_test_files', 'parachute_tests', 'parachute_schedules', 'building_public_pages'] as $table) {
             $n += $of($table)->delete();
         }
 
@@ -360,6 +360,7 @@ class CompanyEraser
         DB::table('report_videos')->where('company_id', $id)->pluck('path')->each(fn ($path) => $add('local', $path, 'reports'));
         DB::table('elevator_documents')->where('company_id', $id)->pluck('path')->each(fn ($path) => $add('local', $path, 'elevators'));
         DB::table('parachute_test_files')->where('company_id', $id)->pluck('path')->each(fn ($path) => $add('local', $path, 'elevators'));
+        DB::table('repair_component_files')->where('company_id', $id)->pluck('path')->each(fn ($path) => $add('local', $path, 'repairs'));
         DB::table('company_exports')->where('company_id', $id)->pluck('path')->each(fn ($path) => $add('local', $path, 'exports'));
         DB::table('users')->where('company_id', $id)->whereNotNull('avatar')->pluck('avatar')->each(fn ($path) => $add('local', $path, 'avatars'));
 

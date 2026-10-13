@@ -25,6 +25,7 @@ use App\Services\Elevators\ElevatorDocumentService;
 use App\Services\Exports\CompanyDataExporter;
 use App\Services\Exports\CompanyExportService;
 use App\Services\Parachute\ParachuteService;
+use App\Services\Repairs\RepairService;
 use App\Services\Reports\ReportPhotoService;
 use App\Services\Stock\StockService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -243,6 +244,22 @@ class CompanyExportTest extends TestCase
         $this->assertSame(['No satisfactoria', 'Inspector Externo', 'Ing. Exportada', 'Observación exportada'], [$row[5], $row[6], $row[7], $row[9]]);
         $names = collect(range(0, $opened['zip']->numFiles - 1))->map(fn ($i) => $opened['zip']->getNameIndex($i));
         $this->assertTrue($names->contains(fn ($n) => str_starts_with($n, 'adjuntos/paracaidas/prueba-'.$test->id.'-')));
+    }
+
+    public function test_repair_components_and_their_files_are_exported(): void
+    {
+        // Etapa 8.4: componentes en reparación y sus documentos.
+        $this->actingInPanel($this->a['admin']);
+        $repair = app(RepairService::class)->create($this->a['admin'], ['building_id' => $this->a['building']->id, 'component_type' => 'drive', 'brand' => 'Yaskawa',
+            'failure' => 'No arranca', 'status' => 'sent', 'sent_at' => now()->subDay()->toDateString(), 'provider' => 'Taller Exportado', 'quote_amount' => '125000.5'],
+            [UploadedFile::fake()->createWithContent('remito-taller.pdf', "%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF")]);
+        auth()->logout();
+
+        $opened = $this->open($this->generate());
+        $row = collect($opened['sheets']['Reparaciones'])->firstWhere(0, $repair->id);
+        $this->assertSame(['Variador', 'Yaskawa', 'No arranca', 'Enviado', 'Taller Exportado', 125000.5], [$row[4], $row[6], $row[9], $row[10], $row[12], $row[14]]);
+        $names = collect(range(0, $opened['zip']->numFiles - 1))->map(fn ($i) => $opened['zip']->getNameIndex($i));
+        $this->assertTrue($names->contains(fn ($n) => str_starts_with($n, 'adjuntos/reparaciones/componente-'.$repair->id.'-')));
     }
 
     public function test_no_other_company_data_and_no_secrets(): void

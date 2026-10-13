@@ -7,6 +7,7 @@ use App\Models\BuildingPublicPage;
 use App\Models\Company;
 use App\Models\DeliveryNote;
 use App\Models\Elevator;
+use App\Models\RepairComponent;
 use App\Models\WorkOrder;
 use App\Services\Parachute\ParachuteService;
 use App\Support\WorkOrderLabels;
@@ -24,6 +25,8 @@ use Illuminate\Support\Facades\Storage;
  * - Trabajo realizado: fecha del último mantenimiento con remito realizado.
  * - Inspección registrada: fecha de la última inspección con remito
  *   realizado y de la última prueba de paracaídas registrada.
+ * - Información administrativa: componentes enviados a reparación (Etapa
+ *   8.4), solo tipo y estado, si la empresa publica ese bloque.
  * - Observación pendiente: una prueba registrada como no satisfactoria, la
  *   próxima prueba de paracaídas prevista cuando ya corresponde avisarla
  *   (dentro de los días de aviso o vencida, sin prueba registrada), y
@@ -73,6 +76,22 @@ class PublicBuildingInfo
             $dates->push(...$tests->pluck('last')->filter()->pluck('performed_on'));
         }
 
+        // Componentes fuera de la empresa (Etapa 8.4): solo tipo y estado,
+        // nunca proveedor, montos, falla ni notas.
+        $repairs = collect();
+        if ($page->show_repairs) {
+            $repairs = RepairComponent::withoutGlobalScopes()->where('company_id', $companyId)->where('building_id', $page->building_id)
+                ->whereIn('status', RepairComponent::AWAY)->orderBy('id')->get(['elevator_id', 'component_type', 'status', 'updated_at'])
+                ->map(fn (RepairComponent $r) => [
+                    'elevator_id' => $r->elevator_id,
+                    'component' => RepairComponent::TYPES[$r->component_type] ?? 'Componente',
+                    'status' => RepairComponent::STATUSES[$r->status] ?? $r->status,
+                    'at' => $r->updated_at,
+                ]);
+            $dates->push(...$repairs->pluck('at'));
+        }
+        $shownElevators = $page->show_elevators ? $elevators->pluck('id') : collect();
+
         $pending = [];
         if ($page->show_pending_work) {
             $pending = WorkOrder::withoutGlobalScopes()->where('company_id', $companyId)->where('building_id', $page->building_id)
@@ -82,7 +101,7 @@ class PublicBuildingInfo
                 ->all();
         }
 
-        $items = $page->show_elevators ? $elevators->map(function (Elevator $e) use ($page, $tests, $dates) {
+        $items = $page->show_elevators ? $elevators->map(function (Elevator $e) use ($page, $tests, $dates, $repairs) {
             $status = $page->show_status && $e->public_status ? Elevator::PUBLIC_STATUSES[$e->public_status] ?? null : null;
             if ($status) {
                 $dates->push($e->public_status_updated_at);
@@ -98,6 +117,7 @@ class PublicBuildingInfo
                 'status_at' => $status ? $e->public_status_updated_at : null,
                 'test' => $test ? ['date' => $test->performed_on, 'ok' => $test->isSatisfactory()] : null,
                 'next_test' => $due ? ['date' => $row['next_due'], 'overdue' => $row['status'] === ParachuteService::OVERDUE] : null,
+                'repairs' => $repairs->where('elevator_id', $e->id)->values()->all(),
             ];
         })->all() : [];
 
@@ -122,12 +142,15 @@ class PublicBuildingInfo
                 'inspection' => (bool) $page->show_last_inspection,
                 'tests' => (bool) $page->show_safety_tests && (bool) $page->show_elevators,
                 'pending' => (bool) $page->show_pending_work,
+                'repairs' => (bool) $page->show_repairs,
                 'contact' => (bool) $page->show_contact,
             ],
             'elevators' => $items,
             'last_maintenance' => $maintenance ? Carbon::parse($maintenance) : null,
             'last_inspection' => $inspection ? Carbon::parse($inspection) : null,
             'pending' => $pending,
+            // Los de un equipo que no se muestra (o sin equipo) van en un bloque del edificio.
+            'building_repairs' => $repairs->reject(fn ($r) => $r['elevator_id'] && $shownElevators->contains($r['elevator_id']))->values()->all(),
             'updated_at' => $dates->filter()->map(fn ($d) => $d instanceof CarbonInterface ? $d : Carbon::parse($d))->max(),
         ];
     }

@@ -25,6 +25,7 @@ class BuildingPublicPage extends Model
         'show_last_inspection' => 'Última inspección registrada',
         'show_safety_tests' => 'Pruebas de paracaídas registradas',
         'show_pending_work' => 'Trabajos pendientes',
+        'show_repairs' => 'Componentes en reparación',
         'show_contact' => 'Contacto de la empresa',
     ];
 

@@ -31,6 +31,7 @@ use App\Filament\Resources\MaintenanceServices\MaintenanceServiceResource;
 use App\Filament\Resources\ParachuteTests\ParachuteTestResource;
 use App\Filament\Resources\Quotes\QuoteResource;
 use App\Filament\Resources\Receivables\ReceivableResource;
+use App\Filament\Resources\RepairComponents\RepairComponentResource;
 use App\Filament\Resources\Reports\ReportResource;
 use App\Filament\Resources\StaffUsers\StaffUserResource;
 use App\Filament\Resources\StockItems\StockItemResource;
@@ -98,6 +99,7 @@ class StaffPermissionsTest extends TestCase
         TaskResource::class => PermissionArea::Tasks,
         ClientInteractionResource::class => PermissionArea::Contacts,
         ParachuteTestResource::class => PermissionArea::Inspections,
+        RepairComponentResource::class => PermissionArea::Repairs,
     ];
 
     private const PAGES = [
