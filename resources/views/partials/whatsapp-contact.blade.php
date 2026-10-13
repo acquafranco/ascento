@@ -43,8 +43,6 @@
     .wa-field input, .wa-field select, .wa-field textarea { box-sizing: border-box; width: 100%; padding: 11px 12px; border: 1px solid #E6E8EC; border-radius: 12px; background: #fff; color: #11161D; font: inherit; font-size: 16px; }
     .wa-field input:focus, .wa-field select:focus, .wa-field textarea:focus { border-color: #FF6600; outline: 2px solid rgba(255,102,0,.2); }
     .wa-field textarea { min-height: 84px; resize: vertical; }
-    .wa-field [aria-invalid="true"] { border-color: #DC2626; }
-    .wa-err { margin: 4px 0 0; color: #B91C1C; font-size: 13px; font-weight: 600; }
     .wa-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
     .wa-btn { display: inline-flex; flex: 1 1 auto; min-height: 48px; align-items: center; justify-content: center; gap: 8px; padding: 0 18px; border-radius: 12px; border: 0; font: 700 15px/1 system-ui, -apple-system, sans-serif; cursor: pointer; text-decoration: none; }
     .wa-btn-primary { background: #FF6600; color: #11161D; }
@@ -59,8 +57,6 @@
     .wa-topic:hover { border-color: #FF6600; background: #FFF7F0; }
     .wa-topic::after { content: '›'; color: #5B6472; font-size: 20px; line-height: 1; }
     .wa-topic-fixed { background: #F4F5F7; font-weight: 500; }
-    .wa-topic-alert { border-color: #FCA5A5; background: #FEF2F2; color: #991B1B; }
-    .wa-topic-urgent { min-height: 44px; margin-bottom: 12px; font-size: 14px; }
     .wa-sub { margin: 18px 0 8px; color: #5B6472; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
     .wa-answer h3 { margin: 0 0 10px; font-size: 17px; font-weight: 700; }
     .wa-answer p { margin: 0 0 10px; color: #2A313C; }
@@ -69,6 +65,14 @@
     .wa-alert { padding: 12px 14px; border-radius: 12px; background: #FEF2F2; }
     .wa-link { color: #C2410C; font-weight: 700; }
     .wa-back { margin-top: 12px; padding: 0; border: 0; background: none; color: #5B6472; font: 600 14px/1.4 system-ui, -apple-system, sans-serif; text-decoration: underline; cursor: pointer; }
+    .wa-dialog [tabindex="-1"]:focus { outline: none; }
+    .wa-more { margin: 0 0 10px; color: #2A313C; font-size: 14px; }
+    .wa-more summary { cursor: pointer; color: #C2410C; font-weight: 700; padding: 4px 0; }
+    .wa-more ul { margin-top: 6px; }
+    .wa-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .wa-chip { min-height: 40px; padding: 0 14px; border: 1px solid #E6E8EC; border-radius: 999px; background: #fff; color: #11161D; font: 600 14px/1 system-ui, -apple-system, sans-serif; cursor: pointer; }
+    .wa-chip:hover { border-color: #FF6600; background: #FFF7F0; }
+    .wa-note-top { margin: -6px 0 12px; }
     .wa-chosen { margin: 0 0 14px; padding: 10px 12px; border-radius: 12px; background: #F4F5F7; color: #2A313C; font-size: 14px; }
 </style>
 @endonce
@@ -91,8 +95,6 @@
     <div class="wa-body" aria-live="polite">
         {{-- 1. Temas --}}
         <div data-wa-view="topics">
-            {{-- Arriba de todo, para que nadie con una urgencia tenga que buscarla. --}}
-            <button type="button" class="wa-topic wa-topic-alert wa-topic-urgent" data-wa-pick="emergency">¿Hay una urgencia con un ascensor?</button>
             <ul class="wa-topics">
                 @foreach (collect($topics)->where('kind', \App\Support\Sales\SalesAssistant::SALES) as $topic)
                     <li><button type="button" class="wa-topic" data-wa-pick="{{ $topic['key'] }}">{{ $topic['label'] }}</button></li>
@@ -100,7 +102,8 @@
             </ul>
             <p class="wa-sub">Otras consultas</p>
             <ul class="wa-topics">
-                @foreach (collect($topics)->where('kind', \App\Support\Sales\SalesAssistant::FIXED)->where('key', '!=', 'emergency') as $topic)
+                {{-- Al final: vecinos y urgencias (respuesta fija, sin pasar a ventas). --}}
+                @foreach (collect($topics)->where('kind', \App\Support\Sales\SalesAssistant::FIXED) as $topic)
                     <li><button type="button" class="wa-topic wa-topic-fixed" data-wa-pick="{{ $topic['key'] }}">{{ $topic['label'] }}</button></li>
                 @endforeach
             </ul>
@@ -113,16 +116,26 @@
                 <h3>{{ $topic['label'] }}</h3>
                 <div @class(['wa-alert' => $topic['key'] === 'emergency'])>
                     @foreach ($topic['answer'] as $block)
-                        @if (is_array($block))
-                            <ul>@foreach ($block as $item)<li>{{ $item }}</li>@endforeach</ul>
-                        @else
+                        @if (is_string($block))
                             <p>{{ $block }}</p>
+                        @elseif (isset($block['details']))
+                            <details class="wa-more"><summary>{{ $block['details'] }}</summary><ul>@foreach ($block['items'] as $item)<li>{{ $item }}</li>@endforeach</ul></details>
+                        @else
+                            <ul>@foreach ($block as $item)<li>{{ $item }}</li>@endforeach</ul>
                         @endif
                     @endforeach
                 </div>
+                @if ($topic['subjects'] && $waNumber)
+                    <p class="wa-sub">Consultar por un plan</p>
+                    <div class="wa-chips">
+                        @foreach ($topic['subjects'] as $subject)
+                            <button type="button" class="wa-chip" data-wa-handoff data-wa-subject="{{ $subject }}">{{ $subject }}</button>
+                        @endforeach
+                    </div>
+                @endif
                 <div class="wa-actions">
                     @if ($topic['handoff'] && $waNumber)
-                        <button type="button" class="wa-btn wa-btn-primary" data-wa-handoff>Escribir por WhatsApp</button>
+                        <button type="button" class="wa-btn wa-btn-primary" data-wa-handoff>{{ $topic['cta'] }}</button>
                     @endif
                     @foreach ($topic['actions'] as $action)
                         <a class="wa-btn wa-btn-secondary" href="{{ $actions[$action][0] }}" data-wa-follow>{{ $actions[$action][1] }}</a>
@@ -135,16 +148,17 @@
             </section>
         @endforeach
 
-        {{-- 3. Datos para WhatsApp (todos opcionales salvo nombre y empresa) --}}
+        {{-- 3. Datos para WhatsApp (todos opcionales) --}}
         <form id="wa-form" data-wa-view="form" novalidate hidden>
-            <p class="wa-chosen">Tema: <strong data-wa-chosen></strong></p>
+            <p class="wa-chosen" data-wa-focus>Tema: <strong data-wa-chosen></strong></p>
+            <p class="wa-note wa-note-top">Todos los datos son opcionales: completá lo que quieras y seguimos por WhatsApp.</p>
             <div class="wa-field">
-                <label for="wa-name">Nombre</label>
-                <input id="wa-name" name="name" autocomplete="name" maxlength="80" required>
+                <label for="wa-name">Nombre <span>(opcional)</span></label>
+                <input id="wa-name" name="name" autocomplete="name" maxlength="80">
             </div>
             <div class="wa-field">
-                <label for="wa-company">Empresa</label>
-                <input id="wa-company" name="company" autocomplete="organization" maxlength="100" required>
+                <label for="wa-company">Empresa <span>(opcional)</span></label>
+                <input id="wa-company" name="company" autocomplete="organization" maxlength="100">
             </div>
             @if ($buildingRanges)
                 <div class="wa-field">
@@ -157,10 +171,6 @@
                     </select>
                 </div>
             @endif
-            <div class="wa-field">
-                <label for="wa-email">Correo <span>(opcional)</span></label>
-                <input id="wa-email" name="email" type="email" autocomplete="email" maxlength="120" inputmode="email">
-            </div>
             <div class="wa-field">
                 <label for="wa-message">Mensaje <span>(opcional)</span></label>
                 <textarea id="wa-message" name="message" maxlength="600" placeholder="Contanos en pocas palabras qué necesitás"></textarea>
@@ -194,17 +204,21 @@
         const launcher = document.querySelector('[data-wa-launcher]');
         if (!dialog || !form) return;
 
-        let topic = null; // sección del tema elegido
+        let topic = null;   // sección del tema elegido
+        let subject = null; // consulta puntual («Plan Profesional»), si la hay
 
         const show = (view) => {
             dialog.querySelectorAll('[data-wa-view]').forEach((el) => { el.hidden = el !== view; });
             dialog.querySelector('.wa-body').scrollTop = 0;
-            const focusable = view.querySelector('h3, input, button');
-            if (focusable) { if (focusable.tagName === 'H3') focusable.setAttribute('tabindex', '-1'); setTimeout(() => focusable.focus(), 30); }
+            // El foco va al título o al tema elegido, no a un campo: en el celular no abre el teclado sin que la persona lo pida.
+            const focusable = view.dataset.waView === 'topics' ? document.getElementById('wa-title') : view.querySelector('[data-wa-focus], h3, button');
+            if (focusable) { if (focusable.tagName !== 'BUTTON') focusable.setAttribute('tabindex', '-1'); setTimeout(() => focusable.focus({ preventScroll: true }), 30); }
         };
         const showTopics = () => show(dialog.querySelector('[data-wa-view="topics"]'));
-        const showForm = () => {
-            dialog.querySelector('[data-wa-chosen]').textContent = topic.dataset.waLabel;
+        const subjectText = () => topic.dataset.waLabel + (subject ? ' · ' + subject : '');
+        const showForm = (event) => {
+            subject = event?.currentTarget?.dataset.waSubject || null;
+            dialog.querySelector('[data-wa-chosen]').textContent = subjectText();
             show(form);
         };
         const pick = (key) => {
@@ -218,6 +232,7 @@
         const open = (event) => {
             event?.preventDefault();
             topic = null;
+            subject = null;
             if (typeof dialog.showModal === 'function') dialog.showModal(); else dialog.setAttribute('open', '');
             showTopics();
         };
@@ -240,48 +255,24 @@
             toggle();
         }
 
-        const setError = (input, message) => {
-            input.setAttribute('aria-invalid', message ? 'true' : 'false');
-            let error = input.parentElement.querySelector('.wa-err');
-            if (!message) { error?.remove(); return; }
-            if (!error) {
-                error = document.createElement('p');
-                error.className = 'wa-err';
-                error.id = input.id + '-err';
-                input.setAttribute('aria-describedby', error.id);
-                input.parentElement.appendChild(error);
-            }
-            error.textContent = message;
-        };
-
         // Una línea, sin caracteres de control, con tope de largo.
         const clean = (value, max) => value.replace(/[\u0000-\u001F\u007F]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
-
-        // El error de un campo se borra apenas se corrige.
-        form.querySelectorAll('input').forEach((input) => input.addEventListener('input', () => setError(input, '')));
 
         form.addEventListener('submit', (event) => {
             event.preventDefault();
             if (!number || !topic) return;
             const f = form.elements;
             const data = {
-                name: clean(f.name.value, 80), company: clean(f.company.value, 100), email: clean(f.email.value, 120),
+                name: clean(f.name.value, 80), company: clean(f.company.value, 100),
                 buildings: f.buildings ? f.buildings.value : '',
                 message: f.message.value.replace(/[\u0000-\u0009\u000B-\u001F\u007F]+/g, ' ').trim().slice(0, 600),
             };
-            const checks = [
-                [f.name, data.name.length >= 2 ? '' : 'Escribí tu nombre.'],
-                [f.company, data.company.length >= 2 ? '' : 'Escribí el nombre de tu empresa.'],
-                [f.email, !data.email || /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(data.email) ? '' : 'Revisá el correo (o dejalo vacío).'],
-            ];
-            checks.forEach(([input, message]) => setError(input, message));
-            const firstInvalid = checks.find(([, message]) => message);
-            if (firstInvalid) { firstInvalid[0].focus(); return; }
-
+            // Todo es opcional: no hay nada que validar más allá de limpiar y recortar.
             // Solo el tema y lo que la persona escribió (nada más).
-            const lines = ['Hola, equipo de Ascento.', '', 'Tema: ' + topic.dataset.waLabel, 'Nombre: ' + data.name, 'Empresa: ' + data.company];
+            const lines = ['Hola, equipo de Ascento.', '', 'Tema: ' + subjectText()];
+            if (data.name) lines.push('Nombre: ' + data.name);
+            if (data.company) lines.push('Empresa: ' + data.company);
             if (data.buildings && [...f.buildings.options].some((o) => o.value === data.buildings)) lines.push('Edificios: ' + data.buildings);
-            if (data.email) lines.push('Correo: ' + data.email);
             if (data.message) lines.push('', data.message);
 
             // Mismo formato que SalesAssistant::whatsappUrl(): wa.me/<número>?text=<mensaje codificado>.

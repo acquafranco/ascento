@@ -85,6 +85,7 @@ El SuperAdmin puede cambiar las funciones de cada plan desde **Planes** (`/admin
 - Modo sin conexión: la app instalable no guarda páginas. Si se corta la señal, el formulario avisa y no se pierde lo escrito, pero hay que enviarlo con conexión.
 - Seguimiento GPS de técnicos.
 - Avisos automáticos al cliente cuando termina una intervención. El cliente recibe un aviso (en el portal y por correo) solo cuando la empresa le comparte algo. No hay avisos por WhatsApp.
+- Respuestas automáticas por WhatsApp. El asistente de la web solo abre WhatsApp con la consulta armada y responde una persona (`docs/etapa-10-whatsapp.md`).
 - Restaurar la cuenta desde la exportación. La exportación es una copia de los datos de negocio, no un backup del servidor.
 
 **Frases seguras:**
