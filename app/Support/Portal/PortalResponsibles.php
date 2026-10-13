@@ -20,7 +20,10 @@ class PortalResponsibles
 
     /**
      * @param  array<int, int>|null  $onlyBuildingIds  para un edificio puntual (ya autorizado)
-     * @return Collection<int, array{user: User, roles: list<string>, buildings: list<string>}>
+     *                                                 Una fila por técnico (aunque atienda varios edificios). «roles» es la
+     *                                                 unión; «buildings», cada edificio con SUS roles (las asignaciones
+     *                                                 vigentes), para no atribuirle en un edificio un rol que tiene en otro.
+     * @return Collection<int, array{user: User, roles: list<string>, buildings: list<array{name: string, roles: list<string>}>, same_roles: bool}>
      */
     public static function for(User $viewer, ?array $onlyBuildingIds = null): Collection
     {
@@ -48,7 +51,7 @@ class PortalResponsibles
             ->where('buildings.company_id', $companyId)
             ->whereNull('buildings.deleted_at')
             ->orderBy('buildings.name')
-            ->get(['building_user.user_id', 'building_user.type', 'buildings.name as building_name']);
+            ->get(['building_user.user_id', 'building_user.type', 'building_user.building_id', 'buildings.name as building_name']);
 
         if ($rows->isEmpty()) {
             return collect();
@@ -58,13 +61,27 @@ class PortalResponsibles
 
         return $rows->groupBy('user_id')
             ->filter(fn ($own, $id) => $users->has($id))
-            ->map(fn (Collection $own, $id) => [
-                'user' => $users->get($id),
-                'roles' => $own->pluck('type')->unique()->sortBy(fn ($t) => array_search($t, array_keys(self::ROLES), true))->map(fn ($t) => self::ROLES[$t])->values()->all(),
-                'buildings' => $own->pluck('building_name')->unique()->values()->all(),
-            ])
+            ->map(function (Collection $own, $id) use ($users) {
+                $buildings = $own->groupBy('building_id')->map(fn (Collection $b) => [
+                    'name' => (string) $b->first()->building_name,
+                    'roles' => self::labels($b->pluck('type')),
+                ])->values();
+
+                return [
+                    'user' => $users->get($id),
+                    'roles' => self::labels($own->pluck('type')),
+                    'buildings' => $buildings->all(),
+                    'same_roles' => $buildings->pluck('roles')->unique(fn ($r) => implode('|', $r))->count() === 1,
+                ];
+            })
             ->sortBy(fn (array $r) => mb_strtolower($r['user']->name))
             ->values();
+    }
+
+    /** @return list<string> roles en orden fijo (mantenimiento, inspección) */
+    private static function labels(Collection $types): array
+    {
+        return collect(self::ROLES)->filter(fn ($label, $type) => $types->contains($type))->values()->all();
     }
 
     /** ¿Es responsable de alguno de los edificios que esta persona ve en el portal? */

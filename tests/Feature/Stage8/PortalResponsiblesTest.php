@@ -10,6 +10,7 @@ use App\Services\Technicians\TechnicianPhotoService;
 use App\Support\Portal\PortalResponsibles;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -213,6 +214,50 @@ class PortalResponsiblesTest extends TestCase
         $this->asPortal($bPortal);
         $this->get(route('portal.home'))->assertOk()->assertDontSee('Lucas Fernández');
         $this->get(PortalResponsibles::photoUrl($this->both->fresh()))->assertNotFound();
+    }
+
+    public function test_each_technician_appears_once_with_the_roles_of_each_building(): void
+    {
+        // Lucas: mantenimiento e inspección en Torre Autorizada; solo inspección en un segundo edificio autorizado.
+        $second = Building::factory()->create(['company_id' => $this->a['company']->id, 'client_id' => $this->client->id, 'name' => 'Anexo Norte']);
+        $second->users()->attach($this->both->id, ['type' => 'inspection']);
+        // Un rol de un edificio de otro cliente no se le atribuye acá.
+        $this->otherClient->users()->attach($this->both->id, ['type' => 'maintenance']);
+        $this->portal->portalBuildings()->attach($second->id);
+        $this->asPortal();
+
+        $rows = PortalResponsibles::for($this->portal->fresh());
+        $this->assertCount(1, $rows->filter(fn ($r) => $r['user']->is($this->both)));
+        $lucas = $rows->first(fn ($r) => $r['user']->is($this->both));
+        $this->assertSame(['Mantenimiento', 'Inspección'], $lucas['roles']);
+        $this->assertSame([['name' => 'Anexo Norte', 'roles' => ['Inspección']], ['name' => 'Torre Autorizada', 'roles' => ['Mantenimiento', 'Inspección']]], $lucas['buildings']);
+        $this->assertFalse($lucas['same_roles']);
+
+        $html = $this->get(route('portal.home'))->assertOk()->getContent();
+        $this->assertSame(1, substr_count($html, 'data-responsible="'.$this->both->id.'"'));
+        $this->assertStringContainsString('Anexo Norte (Inspección), Torre Autorizada (Mantenimiento e Inspección)', $html);
+        $this->assertStringNotContainsString('Torre De Otro Cliente', $html);
+        // En la ficha de cada edificio, solo el rol que tiene en ese edificio.
+        $this->assertMatchesRegularExpression('#Lucas Fernández</strong>\s*<span class="p-muted"> · Inspección</span>#u', $this->get(route('portal.building', $second))->getContent());
+
+        // Se retira la inspección de Torre Autorizada: queda el rol vigente.
+        DB::table('building_user')->where('building_id', $this->mine->id)->where('user_id', $this->both->id)->where('type', 'inspection')->delete();
+        $lucas = PortalResponsibles::for($this->portal->fresh())->first(fn ($r) => $r['user']->is($this->both));
+        $this->assertSame([['name' => 'Anexo Norte', 'roles' => ['Inspección']], ['name' => 'Torre Autorizada', 'roles' => ['Mantenimiento']]], $lucas['buildings']);
+
+        // Sin asignaciones en sus edificios: deja de aparecer y su foto no responde.
+        $url = PortalResponsibles::photoUrl($this->both->fresh());
+        $this->get($url)->assertOk();
+        DB::table('building_user')->where('user_id', $this->both->id)->whereIn('building_id', [$this->mine->id, $second->id])->delete();
+        $this->get(route('portal.home'))->assertDontSee('Lucas Fernández');
+        $this->get($url)->assertNotFound();
+
+        // Reasignado y luego desactivado: tampoco.
+        $second->users()->attach($this->both->id, ['type' => 'maintenance']);
+        $this->get($url)->assertOk();
+        $this->both->delete();
+        $this->get(route('portal.home'))->assertDontSee('Lucas Fernández');
+        $this->get($url)->assertNotFound();
     }
 
     public function test_the_portal_is_read_only_and_the_panel_stays_closed(): void
