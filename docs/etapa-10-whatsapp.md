@@ -13,7 +13,8 @@
 - **Confirmado por el dueño el 13/10/2026:**
   - el número oficial de WhatsApp Business es **5491173728421** (+54 9 11 7372-8421) y ya está configurado en su app WhatsApp Business;
   - la atención es **todos los días, las 24 horas, incluidos fines de semana y feriados**.
-  - Los dos son valores por defecto en `config/app.php` y se pueden reemplazar con `ASCENTO_WHATSAPP_NUMBER` y `ASCENTO_WHATSAPP_HOURS`.
+  - Los dos son valores por defecto en `config/app.php`, que se usan cuando la variable **no existe** en el entorno. `ASCENTO_WHATSAPP_NUMBER` y `ASCENTO_WHATSAPP_HOURS` los reemplazan.
+  - Una variable **definida vacía** desactiva lo suyo: sin número, el contacto pasa a correo; sin horario, no se muestra ninguno. El detalle está en `docs/operacion-produccion.md`.
 - La web solo abre WhatsApp con el mensaje armado. No hay API ni mensajes automáticos dentro de WhatsApp Business.
 - La pantalla del SuperAdmin es chica: respuestas rápidas para copiar y un aviso de cambios en los planes. No es un constructor de chatbots.
 

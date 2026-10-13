@@ -152,6 +152,61 @@ class SalesAssistantTest extends TestCase
         $this->assertSame([], array_values(array_diff(array_unique($m[1]), ['5491173728421'])));
     }
 
+    /** Lee config/app.php con esas variables de entorno (null = la variable no existe). */
+    private function appConfigWith(array $vars): array
+    {
+        $backup = [];
+        foreach ($vars as $name => $value) {
+            $backup[$name] = [$_ENV[$name] ?? null, $_SERVER[$name] ?? null, getenv($name)];
+            unset($_ENV[$name], $_SERVER[$name]);
+            putenv($name);
+            if ($value !== null) {
+                $_ENV[$name] = $_SERVER[$name] = $value;
+                putenv("{$name}={$value}");
+            }
+        }
+        try {
+            return require config_path('app.php');
+        } finally {
+            foreach ($backup as $name => [$env, $server, $put]) {
+                unset($_ENV[$name], $_SERVER[$name]);
+                putenv($name);
+                if ($env !== null) {
+                    $_ENV[$name] = $env;
+                }
+                if ($server !== null) {
+                    $_SERVER[$name] = $server;
+                }
+                if ($put !== false) {
+                    putenv("{$name}={$put}");
+                }
+            }
+        }
+    }
+
+    public function test_the_environment_variables_resolve_as_documented(): void
+    {
+        $hours = 'todos los días, las 24 horas, incluidos fines de semana y feriados';
+
+        // Sin las variables: el número y la atención confirmados.
+        $c = $this->appConfigWith(['ASCENTO_WHATSAPP_NUMBER' => null, 'ASCENTO_WHATSAPP_HOURS' => null]);
+        $this->assertSame('5491173728421', $c['whatsapp_contact']);
+        $this->assertSame($hours, $c['whatsapp_hours']);
+
+        // Con valor: se usa ese (el número, solo dígitos).
+        $c = $this->appConfigWith(['ASCENTO_WHATSAPP_NUMBER' => '+54 9 11 5555-1234', 'ASCENTO_WHATSAPP_HOURS' => 'lunes a viernes']);
+        $this->assertSame('5491155551234', $c['whatsapp_contact']);
+        $this->assertSame('lunes a viernes', $c['whatsapp_hours']);
+
+        // Definidas vacías: sin WhatsApp (contacto por correo) y sin horario.
+        $c = $this->appConfigWith(['ASCENTO_WHATSAPP_NUMBER' => '', 'ASCENTO_WHATSAPP_HOURS' => '']);
+        $this->assertSame('', $c['whatsapp_contact']);
+        $this->assertSame('', $c['whatsapp_hours']);
+        config(['app.whatsapp_contact' => $c['whatsapp_contact'], 'app.whatsapp_hours' => $c['whatsapp_hours']]);
+        $this->assertNull(SalesAssistant::whatsappNumber());
+        $this->assertNull(SalesAssistant::hours());
+    }
+
     public function test_round_the_clock_attention_is_shown_without_out_of_hours_messages(): void
     {
         $this->assertSame('todos los días, las 24 horas, incluidos fines de semana y feriados', SalesAssistant::hours());
