@@ -19,6 +19,9 @@ use App\Models\WorkOrderMaterial;
 use App\Services\Billing\ReceivableService;
 use App\Services\Billing\ServiceBillingService;
 use App\Services\Elevators\ElevatorDocumentService;
+use App\Services\Parachute\ParachuteService;
+use App\Services\PublicQr\PublicQrService;
+use App\Services\Repairs\RepairService;
 use App\Services\Reports\ReportPhotoService;
 use App\Services\Stock\StockService;
 use Illuminate\Database\Seeder;
@@ -188,11 +191,46 @@ class DemoValidationSeeder extends Seeder
         $docs->store($elevator, $this->pdf('habilitacion'), 'certificate', 'Habilitación municipal '.now()->year, now()->addMonths(8)->toDateString(), $admin)->shareWithClient(true);
         $docs->store($elevator, $this->pdf('plano'), 'plan', 'Plano de sala de máquinas (interno)', null, $admin);
 
+        // Etapas 7 y 8: pruebas de paracaídas, componentes en reparación y QR público.
+        $this->safetyRepairsAndQr($admin, $carla, $torre, $juncal);
+
         // Portal: la administración ve sus dos edificios; el encargado solo Juncal.
         $this->portalUser($company, $adm, 'Sofía Rivadavia', 'admin@adm-rivadavia.test', [$torre, $juncal]);
         $this->portalUser($company, $adm, 'Encargado Juncal', 'encargado@adm-rivadavia.test', [$juncal]);
         $this->portalUser($company, $plaza, 'Consejo Plaza Belgrano', 'consejo@plaza-belgrano.test', [$belgrano]);
 
+    }
+
+    /** Datos ficticios de las Etapas 7 y 8 (para el carrusel de la landing y las pruebas manuales). */
+    private function safetyRepairsAndQr(User $admin, User $inspector, Building $torre, Building $juncal): void
+    {
+        $elevators = Elevator::where('building_id', $torre->id)->orderBy('id')->get();
+        $parachutes = app(ParachuteService::class);
+        // Ascensor 1: la próxima prueba vence en 20 días (aparece como próxima); Ascensor 2: al día.
+        // La administración tiene una política anual para todos sus equipos.
+        $parachutes->setClientInterval($admin, $torre->client, 12);
+        foreach ([[$elevators[0], now()->subMonths(12)->addDays(20)], [$elevators[1], now()->subMonths(2)]] as [$elevator, $date]) {
+            $parachutes->configure($admin, $elevator, ['interval_months' => 12, 'notice_days' => 30, 'inspector_id' => $inspector->id]);
+            $parachutes->record($admin, ['elevator_id' => $elevator->id, 'performed_on' => $date->toDateString(), 'result' => 'satisfactory',
+                'performed_by_id' => $inspector->id, 'inspector_name' => 'Ing. Laura Méndez', 'observations' => 'Frenado dentro de los valores esperados.']);
+        }
+
+        $repairs = app(RepairService::class);
+        $drive = $repairs->create($admin, ['building_id' => $torre->id, 'elevator_id' => $elevators[0]->id, 'component_type' => 'drive', 'description' => 'Variador de tracción',
+            'brand' => 'Yaskawa', 'model' => 'L1000A', 'failure' => 'Corta por sobrecorriente al arrancar.', 'status' => 'sent', 'sent_at' => now()->subDays(6)->toDateString(),
+            'provider' => 'Electrónica Sur', 'expected_return_at' => now()->addDays(8)->toDateString(), 'follow_up_user_id' => $admin->id]);
+        $repairs->changeStatus($admin, $drive, 'in_diagnosis');
+        $repairs->changeStatus($admin, $drive->fresh(), 'in_repair');
+        $repairs->create($admin, ['building_id' => $juncal->id, 'component_type' => 'board', 'description' => 'Placa de cabina', 'failure' => 'Botonera sin respuesta en planta baja.']);
+
+        // Contacto ficticio de la empresa (el QR lo publica solo si se habilita).
+        Company::whereKey($torre->company_id)->update(['phone' => '11 5000-2000', 'email' => 'contacto@demo-norte.test']);
+
+        $qr = app(PublicQrService::class);
+        $page = $qr->generate($admin, $torre);
+        $qr->updateSections($admin, $page, ['show_status' => true, 'show_safety_tests' => true, 'show_repairs' => true, 'show_contact' => true]);
+        $qr->setElevatorStatus($admin, $elevators[0], 'under_maintenance');
+        $qr->setElevatorStatus($admin, $elevators[1], 'in_service');
     }
 
     private function south(): void

@@ -137,3 +137,28 @@ Todo usa `PlanGuard`, el mismo mecanismo de las funciones anteriores, sin un sis
   - Las tareas que ya tenían un presupuesto lo conservan tal cual, también cuando se editan otros datos.
 - **Ficha del cliente:** el bloque de presupuestos pendientes exige el permiso del usuario **y** el plan.
 - **Esenciales:** `SubscriptionPlan::allows()` devuelve siempre verdadero para las funciones esenciales, aunque una fila histórica del plan no tenga sus claves. Las configurables siguen dependiendo de `feature_keys`.
+
+## 10. Página de inicio (9.1)
+
+- **Solo funciones disponibles hoy en producción.** Se suman:
+  - QR público;
+  - pruebas de paracaídas;
+  - componentes en reparación;
+  - tareas;
+  - historial de contactos;
+  - remitos digitales;
+  - fotos de antes y después.
+- **Etiqueta de plan de cada tarjeta:** sale de la configuración real (`SubscriptionPlan::cheapestWith`), no de un texto fijo.
+  - Sin etiqueta: está en todos los planes.
+  - «Desde Profesional» o «Plan Empresa»: el primer plan que la incluye.
+  - Si el SuperAdmin la quita de todos los planes, la tarjeta deja de mostrarse.
+- **Comparativa:** suma tareas, QR, paracaídas, reparaciones e historial de contactos. Los remitos digitales salen de la función real, que es esencial.
+- **Sin afirmaciones que no se puedan respaldar:**
+  - se quitó «Usado por empresas de mantenimiento en toda la región»;
+  - la franja ahora dice solo hechos;
+  - no hay testimonios, clientes ni cifras.
+- **Preguntas frecuentes:**
+  - la prueba gratis decía «plan Profesional»; ahora sale de `TRIAL_PLAN`, que es Empresa;
+  - el plan del portal también sale de la configuración;
+  - nueva pregunta sobre qué muestra el QR, aclarando que no es una certificación.
+- **Capturas:** se regeneraron las 13 de la app real con datos ficticios de una base de demostración local, según `docs/landing-capturas.md`. Nuevas: QR público, reparaciones, paracaídas e indicadores.

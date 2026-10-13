@@ -214,7 +214,9 @@
         {{-- ============ LOGO / TRUST STRIP ============ --}}
         <section class="border-y border-ink/10 bg-white/60">
             <div class="mx-auto max-w-7xl px-5 sm:px-8 py-6 flex flex-wrap items-center justify-center sm:justify-between gap-x-10 gap-y-3 text-ink/35 text-sm font-medium tracking-wide">
-                <span>Usado por empresas de mantenimiento en toda la región</span>
+                <span>Para empresas de mantenimiento de ascensores</span>
+                <span>En la computadora y en el celular</span>
+                <span>Los datos de cada empresa, separados y privados</span>
                 <div class="hidden sm:flex items-center gap-8 font-display">
                     <!-- <span>Elevatek</span><span>SubeCorp</span><span>NivelPro</span><span>Ascensores del Sur</span><span>VertiMant</span> -->
                 </div>
@@ -231,20 +233,39 @@
 
                 <div class="mt-14 grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
                     @php
-                        $benefits = [
-['Clientes, edificios y ascensores', 'Cada consorcio con sus edificios, equipos y contactos, con el legajo técnico y el historial de cada ascensor.', 'M2 13V5.5L8 2L14 5.5V13H2ZM6 13V9H10V13', null],
-['Agenda de mantenimientos e inspecciones', 'Qué edificio toca este mes, quién lo tiene y si ya se hizo. Lo vencido y lo no realizado aparece primero.', 'M3 3H13V13H3V3ZM3 6H13M6 2V4M10 2V4', null],
-['Técnicos desde el celular', 'Cada técnico ve solo lo suyo, firma el remito en el momento y carga informes con fotos.', 'M5 1.5H11V14.5H5V1.5ZM7.5 12.5H8.5', null],
-['Órdenes de trabajo y remitos firmados', 'Asignás un reclamo y le llega al técnico al instante; cierra con el remito firmado y los materiales usados.', 'M4 2H10L13 5V14H4V2ZM10 2V5H13', null],
-['Avisos en tiempo real', 'Campanita y avisos que llegan sin recargar la página, y notificaciones push en el celular para técnicos, admins y clientes.', 'M8 2C5.8 2 4 3.8 4 6V9L2.5 11H13.5L12 9V6C12 3.8 10.2 2 8 2ZM6.5 13C6.8 13.9 7.3 14.3 8 14.3C8.7 14.3 9.2 13.9 9.5 13', null],
-['Mapa y centro de atención', 'Todos los edificios en el mapa y una lista de lo que necesita tu atención: vencimientos, fallas repetidas, stock bajo.', 'M8 8C9.7 8 11 6.7 11 5C11 3.3 9.7 2 8 2C6.3 2 5 3.3 5 5C5 6.7 6.3 8 8 8ZM3 14C3 11.2 5.2 9 8 9C10.8 9 13 11.2 13 14', null],
-['Stock, servicios y cobranzas', 'Repuestos con aviso de mínimo, abonos con su frecuencia de cobro y el seguimiento de lo que te deben.', 'M3 5L8 2L13 5V11L8 14L3 11V5ZM3 5L8 8L13 5M8 8V14', null],
-['Exportación y backups', 'Descargás los datos de tu empresa en Excel cuando quieras. Además, Ascento hace copias de seguridad de toda la plataforma.', 'M8 2V10M8 10L5 7M8 10L11 7M3 13H13', null],
-['Presupuestos profesionales', 'Documento con tu logo, número y total, PDF y envío por correo con un enlace seguro que vence.', 'M3 3H13V13H3V3ZM3 6.5H13M6.5 6.5V13', 'Profesional y Empresa'],
-['Portal para tus clientes', 'Cada consorcio entra con su usuario y ve solo lo que le compartís de sus edificios: remitos, informes, presupuestos y documentos.', 'M2 6L8 2L14 6V14H2V6ZM6 14V9H10V14', 'Profesional y Empresa'],
-['Video en los informes', 'Un video por informe para mostrar la falla tal como se ve en la sala de máquinas.', 'M2 4H11V12H2V4ZM11 7L14 5V11L11 9', 'Profesional y Empresa'],
-['Análisis e indicadores', 'Fallas que se repiten, evolución de tu empresa y comparativas para decidir con datos.', 'M3 13V9M7 13V5M11 13V7M2 13.5H14', 'Profesional y Empresa'],
-];
+                        // Solo funciones disponibles hoy. La etiqueta de plan sale de la configuración real
+                        // (SubscriptionPlan::cheapestWith): sin etiqueta = en todos los planes.
+                        $F = \App\Enums\PlanFeature::class;
+                        $offered = \App\Models\SubscriptionPlan::offered();
+                        // null = en todos los planes; false = ningún plan la incluye (no se anuncia).
+                        $badge = function (?\App\Enums\PlanFeature $feature) use ($offered): string|false|null {
+                            if ($feature === null || $offered->every(fn ($p) => $p->allows($feature))) {
+                                return null;
+                            }
+                            $from = \App\Models\SubscriptionPlan::cheapestWith($feature);
+
+                            return $from === null ? false : ($from->is($offered->last()) ? 'Plan '.$from->shortName() : 'Desde '.$from->shortName());
+                        };
+                        $benefits = collect([
+['Clientes, edificios y ascensores', 'Cada consorcio con sus edificios y equipos, con el legajo técnico y el historial de cada ascensor.', 'M2 13V5.5L8 2L14 5.5V13H2ZM6 13V9H10V13', null],
+['Agenda de mantenimientos e inspecciones', 'Qué edificio toca este mes, quién lo tiene y si ya se hizo. Lo vencido aparece primero.', 'M3 3H13V13H3V3ZM3 6H13M6 2V4M10 2V4', $F::Agenda],
+['Técnicos desde el celular', 'Cada técnico ve solo lo suyo, firma el remito en el momento y carga reportes con fotos.', 'M5 1.5H11V14.5H5V1.5ZM7.5 12.5H8.5', null],
+['Órdenes y remitos digitales', 'El trabajo cierra con el remito firmado, que compartís con el cliente en PDF o por enlace.', 'M4 2H10L13 5V14H4V2ZM10 2V5H13', null],
+['QR público del edificio', 'Residentes y visitantes ven, sin cuenta, solo lo que la empresa elige publicar.', 'M3 3H7V7H3V3ZM9 3H13V7H9V3ZM3 9H7V13H3V9ZM9.5 9.5H10.5M12 9V13M9 12H10', $F::PublicQr],
+['Pruebas de paracaídas', 'Registro de cada prueba y aviso de las próximas o vencidas según cada equipo.', 'M8 2L13 4V8C13 11 10.8 13.2 8 14C5.2 13.2 3 11 3 8V4L8 2ZM6 8L7.5 9.5L10.5 6.5', $F::ParachuteTests],
+['Componentes en reparación', 'Qué está en el taller, con qué proveedor y cuándo vuelve, con el historial de cada cambio.', 'M10 3L13 6L7 12H4V9L10 3ZM9 4L12 7', $F::Repairs],
+['Avisos en tiempo real y tareas', 'Campanita y push en el celular, y tareas con responsable, vencimiento y recordatorio.', 'M8 2C5.8 2 4 3.8 4 6V9L2.5 11H13.5L12 9V6C12 3.8 10.2 2 8 2ZM6.5 13C6.8 13.9 7.3 14.3 8 14.3C8.7 14.3 9.2 13.9 9.5 13', $F::Tasks],
+['Mapa y centro de atención', 'Todos los edificios en el mapa y lo que necesita tu atención hoy.', 'M8 8C9.7 8 11 6.7 11 5C11 3.3 9.7 2 8 2C6.3 2 5 3.3 5 5C5 6.7 6.3 8 8 8ZM3 14C3 11.2 5.2 9 8 9C10.8 9 13 11.2 13 14', $F::Map],
+['Stock, servicios y cobranzas', 'Repuestos con aviso de mínimo, abonos con su frecuencia de cobro y lo que te deben.', 'M3 5L8 2L13 5V11L8 14L3 11V5ZM3 5L8 8L13 5M8 8V14', null],
+['Presupuestos profesionales', 'Con tu logo, número y total, en PDF y con un enlace seguro para el cliente.', 'M3 3H13V13H3V3ZM3 6.5H13M6.5 6.5V13', $F::Quotes],
+['Portal para tus clientes', 'Cada consorcio ve lo que le compartís de sus edificios y quién los atiende.', 'M2 6L8 2L14 6V14H2V6ZM6 14V9H10V14', $F::ClientPortal],
+['Historial de contactos', 'Cada llamado, visita o correo con el cliente, y quiénes llevan tiempo sin contacto.', 'M3 3H13V10H6L3 13V3Z', $F::ClientContacts],
+['Video en los reportes', 'Un video por reporte para mostrar la falla tal como se ve.', 'M2 4H11V12H2V4ZM11 7L14 5V11L11 9', $F::ReportVideos],
+['Análisis e indicadores', 'Fallas que se repiten, evolución de tu empresa y comparativas para decidir con datos.', 'M3 13V9M7 13V5M11 13V7M2 13.5H14', $F::CompanyIndicators],
+['Fotos de antes y después', 'Fotos de cada trabajo y reportes de inspección con fotos.', 'M2 5H5L6 3H10L11 5H14V13H2V5ZM8 11C9.1 11 10 10.1 10 9C10 7.9 9.1 7 8 7C6.9 7 6 7.9 6 9C6 10.1 6.9 11 8 11Z', $F::WorkPhotos],
+                        ])->map(fn ($b) => [$b[0], $b[1], $b[2], $badge($b[3])])
+                            ->reject(fn ($b) => $b[3] === false) // ningún plan la incluye: no se anuncia
+                            ->values();
                     @endphp
 
                     @foreach ($benefits as $i => $b)
@@ -323,6 +344,7 @@
                                     ['tecnico-reporte', 'Nuevo reporte', 'Edificio, fotos y video'],
                                     ['portal-inicio', 'Portal del cliente', 'Lo que la empresa comparte'],
                                     ['portal-documentos', 'Documentos del cliente', 'Remitos, reportes y presupuestos'],
+                                    ['qr-publico', 'QR del edificio', 'Lo que ve quien escanea'],
                                 ];
                             @endphp
                             <div class="flex w-max animate-marquee gap-5 sm:gap-6">
@@ -350,6 +372,9 @@
                         ['admin-inicio', 'Panel de la empresa', 'Pendientes, en curso y completados, al día.'],
                         ['admin-mapa', 'Mapa de edificios', 'Toda la cartera, por zona, técnico y estado del mes.'],
                         ['admin-presupuesto', 'Presupuestos', 'Documento listo para enviar por correo con PDF.'],
+                        ['admin-reparaciones', 'Componentes en reparación', 'Qué está en el taller y cuándo vuelve.'],
+                        ['admin-paracaidas', 'Pruebas de paracaídas', 'Próximas, vencidas y al día, por ascensor.'],
+                        ['admin-indicadores', 'Indicadores', 'La operación de tu empresa, mes a mes.'],
                     ] as [$file, $title, $caption])
                         <figure class="snap-start shrink-0 w-[85%] sm:w-auto">
                             <div class="rounded-2xl overflow-hidden border border-ink/10 shadow-card bg-white aspect-[16/10]">
@@ -418,7 +443,7 @@
                                 @endforeach
                                 <li class="flex gap-2.5">
                                     <svg class="mt-0.5 shrink-0" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="{{ $featured ? '#F59E0B' : '#2E4FBE' }}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                                    <span class="{{ $featured ? 'text-white/85' : 'text-ink/75' }}">Mantenimientos, órdenes de trabajo, mapa e historial</span>
+                                    <span class="{{ $featured ? 'text-white/85' : 'text-ink/75' }}">Mantenimientos, inspecciones, órdenes, remitos digitales e historial</span>
                                 </li>
                             </ul>
 
@@ -507,13 +532,18 @@
 
                 <div class="mt-12 divide-y divide-ink/10 border-t border-b border-ink/10" x-data="{ openIndex: 0 }">
                     @php
+                        // De la configuración real: plan de la prueba gratis y desde qué plan está el portal.
+                        $trialPlan = \App\Models\SubscriptionPlan::findBySlug(\App\Models\SubscriptionPlan::TRIAL_PLAN)?->shortName() ?? 'Empresa';
+                        $portalCheapest = \App\Models\SubscriptionPlan::cheapestWith(\App\Enums\PlanFeature::ClientPortal);
+                        $portalFrom = $portalCheapest && ! $portalCheapest->is(\App\Models\SubscriptionPlan::offered()->first()) ? $portalCheapest->shortName() : null;
                         $faqs = [
 ['¿Necesito instalar algo?', 'No. Ascento funciona desde el navegador, en la computadora y en el celular. Los técnicos pueden agregarlo a la pantalla de inicio como una app.'],
 ['¿Mis técnicos pueden usarlo desde el celular?', 'Sí. Cada técnico tiene su usuario, ve solo lo que tiene asignado, firma remitos y carga informes con fotos desde el teléfono.'],
-['¿Mis clientes pueden ver la información?', 'En los planes Profesional y Empresa, cada consorcio o administración entra al portal con su usuario y ve solo lo que vos le compartís de sus edificios.'],
+['¿Mis clientes pueden ver la información?', ($portalFrom ? 'Desde el plan '.$portalFrom.', cada' : 'Cada').' consorcio o administración entra al portal con su usuario y ve solo lo que vos le compartís de sus edificios.'],
+['¿Qué muestra el QR del edificio?', 'Solo lo que la empresa elige publicar: estado informado de cada ascensor, último mantenimiento e inspección registrados, pruebas de paracaídas y componentes en reparación. Sin datos del cliente ni montos. Es información administrativa, no una certificación de seguridad.'],
 ['¿Cómo me entero de lo que pasa?', 'Con avisos dentro de Ascento que llegan en el momento, sin recargar, y notificaciones push en el celular si las activás.'],
 ['¿Qué pasa con mis datos?', 'Son tuyos: en todos los planes podés descargarlos en Excel (con fotos y documentos) cuando quieras. Además, Ascento hace copias de seguridad de toda la plataforma.'],
-['¿Hay prueba gratis?', 'Sí. 30 días con todas las funciones del plan Profesional, sin tarjeta. Al terminar elegís el plan que te sirva.'],
+['¿Hay prueba gratis?', 'Sí. 30 días con todas las funciones del plan '.$trialPlan.', sin tarjeta. Al terminar elegís el plan que te sirva.'],
 ['¿Puedo cambiar de plan o cancelar?', 'Sí. No hay permanencia mínima: cambiás de plan o cancelás desde tu cuenta.'],
 ['¿Cómo pido ayuda?', 'Escribinos a '.config('app.support_email').' y te ayudamos a poner en marcha tu empresa.'],
 ];
