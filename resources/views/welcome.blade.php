@@ -160,53 +160,16 @@
                         </div>
                     </div>
 
-                    {{-- Floor indicator + mockup --}}
-                    <div data-reveal style="transition-delay:.1s" class="relative">
-                        <div class="relative mx-auto max-w-sm rounded-2xl bg-graphite p-5 shadow-cardHover">
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center gap-2">
-                                    <span class="h-2 w-2 rounded-full bg-amber-500"></span>
-                                    <span class="font-mono text-[11px] tracking-wider text-white/50 uppercase">Indicador de posición</span>
-                                </div>
-                                <span class="font-mono text-[11px] text-white/30">EN SERVICIO</span>
-                            </div>
-
-                            <div class="mt-5 flex items-end justify-between rounded-xl bg-graphite2 border border-white/5 p-6">
-                                <div>
-                                    <div id="floorDigit" class="font-mono font-semibold text-7xl text-amber-500 font-tabular leading-none">PB</div>
-                                    <div class="mt-3 text-xs text-white/40 tracking-wide">Ascendiendo</div>
-                                </div>
-                                <div class="flex flex-col-reverse gap-1.5">
-                                    <div class="h-1.5 w-8 rounded-full bg-white/10"></div>
-                                    <div class="h-1.5 w-8 rounded-full bg-white/10"></div>
-                                    <div class="h-1.5 w-8 rounded-full bg-white/10"></div>
-                                    <div class="h-1.5 w-8 rounded-full bg-amber-500"></div>
-                                </div>
-                            </div>
-
-                            <div class="mt-4 grid grid-cols-2 gap-3">
-                                <div class="rounded-xl bg-graphite2 border border-white/5 p-4">
-                                    <div class="text-[11px] text-white/40">En proceso</div>
-                                    <div class="mt-1 font-display text-2xl font-semibold text-white">18</div>
-                                </div>
-                                <div class="rounded-xl bg-graphite2 border border-white/5 p-4">
-                                    <div class="text-[11px] text-white/40">Completadas</div>
-                                    <div class="mt-1 font-display text-2xl font-semibold text-white">6</div>
-                                </div>
+                    {{-- Captura REAL de la app del técnico con datos ficticios de la demo (no son números de clientes). --}}
+                    <figure data-reveal style="transition-delay:.1s" class="relative mx-auto w-full max-w-[290px]" data-hero-shot>
+                        <div class="rounded-[28px] bg-graphite p-2 shadow-cardHover">
+                            <div class="rounded-[22px] overflow-hidden bg-white aspect-[640/1247]">
+                                <img src="{{ asset('images/landing/tecnico-inicio.jpg') }}" alt="App del técnico: el inicio con sus trabajos y visitas del mes"
+                                     width="640" height="1247" fetchpriority="high" decoding="async" class="block w-full h-full object-cover object-top">
                             </div>
                         </div>
-
-                        <div class="hidden sm:block absolute -right-6 -bottom-8 w-44 rounded-xl bg-white border border-ink/10 shadow-card p-4 rotate-3">
-                            <div class="flex items-center gap-2">
-                                <span class="h-6 w-6 rounded-md bg-rail-100 flex items-center justify-center text-rail-500">
-                                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 13V5.5L8 2L14 5.5V13H2Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
-                                </span>
-                                <span class="text-xs font-semibold">Edificio Alsina 1420</span>
-                            </div>
-                            <div class="mt-2 text-[11px] text-ink/50">Mantenimiento completado</div>
-                            <div class="mt-1 h-1.5 w-full rounded-full bg-ink/5"><div class="h-1.5 w-full rounded-full bg-amber-500"></div></div>
-                        </div>
-                    </div>
+                        <figcaption class="mt-3 text-center text-xs text-ink/45">Captura real de la app del técnico, con datos de demostración.</figcaption>
+                    </figure>
                 </div>
             </div>
         </section>
@@ -238,11 +201,13 @@
                         $F = \App\Enums\PlanFeature::class;
                         $offered = \App\Models\SubscriptionPlan::offered();
                         // null = en todos los planes; false = ningún plan la incluye (no se anuncia).
-                        $badge = function (?\App\Enums\PlanFeature $feature) use ($offered): string|false|null {
-                            if ($feature === null || $offered->every(fn ($p) => $p->allows($feature))) {
+                        // Una tarjeta que anuncia varias funciones cuenta solo los planes que tienen todas.
+                        $badge = function (\App\Enums\PlanFeature|array|null $features) use ($offered): string|false|null {
+                            $features = is_array($features) ? $features : array_filter([$features]);
+                            if ($features === [] || $offered->every(fn ($p) => $p->allowsAll($features))) {
                                 return null;
                             }
-                            $from = \App\Models\SubscriptionPlan::cheapestWith($feature);
+                            $from = \App\Models\SubscriptionPlan::cheapestWith(...$features);
 
                             return $from === null ? false : ($from->is($offered->last()) ? 'Plan '.$from->shortName() : 'Desde '.$from->shortName());
                         };
@@ -255,13 +220,13 @@
 ['Pruebas de paracaídas', 'Registro de cada prueba y aviso de las próximas o vencidas según cada equipo.', 'M8 2L13 4V8C13 11 10.8 13.2 8 14C5.2 13.2 3 11 3 8V4L8 2ZM6 8L7.5 9.5L10.5 6.5', $F::ParachuteTests],
 ['Componentes en reparación', 'Qué está en el taller, con qué proveedor y cuándo vuelve, con el historial de cada cambio.', 'M10 3L13 6L7 12H4V9L10 3ZM9 4L12 7', $F::Repairs],
 ['Avisos en tiempo real y tareas', 'Campanita y push en el celular, y tareas con responsable, vencimiento y recordatorio.', 'M8 2C5.8 2 4 3.8 4 6V9L2.5 11H13.5L12 9V6C12 3.8 10.2 2 8 2ZM6.5 13C6.8 13.9 7.3 14.3 8 14.3C8.7 14.3 9.2 13.9 9.5 13', $F::Tasks],
-['Mapa y centro de atención', 'Todos los edificios en el mapa y lo que necesita tu atención hoy.', 'M8 8C9.7 8 11 6.7 11 5C11 3.3 9.7 2 8 2C6.3 2 5 3.3 5 5C5 6.7 6.3 8 8 8ZM3 14C3 11.2 5.2 9 8 9C10.8 9 13 11.2 13 14', $F::Map],
+['Mapa y centro de atención', 'Todos los edificios en el mapa y lo que necesita tu atención hoy.', 'M8 8C9.7 8 11 6.7 11 5C11 3.3 9.7 2 8 2C6.3 2 5 3.3 5 5C5 6.7 6.3 8 8 8ZM3 14C3 11.2 5.2 9 8 9C10.8 9 13 11.2 13 14', [$F::Map, $F::AttentionCenter]],
 ['Stock, servicios y cobranzas', 'Repuestos con aviso de mínimo, abonos con su frecuencia de cobro y lo que te deben.', 'M3 5L8 2L13 5V11L8 14L3 11V5ZM3 5L8 8L13 5M8 8V14', null],
 ['Presupuestos profesionales', 'Con tu logo, número y total, en PDF y con un enlace seguro para el cliente.', 'M3 3H13V13H3V3ZM3 6.5H13M6.5 6.5V13', $F::Quotes],
 ['Portal para tus clientes', 'Cada consorcio ve lo que le compartís de sus edificios y quién los atiende.', 'M2 6L8 2L14 6V14H2V6ZM6 14V9H10V14', $F::ClientPortal],
 ['Historial de contactos', 'Cada llamado, visita o correo con el cliente, y quiénes llevan tiempo sin contacto.', 'M3 3H13V10H6L3 13V3Z', $F::ClientContacts],
 ['Video en los reportes', 'Un video por reporte para mostrar la falla tal como se ve.', 'M2 4H11V12H2V4ZM11 7L14 5V11L11 9', $F::ReportVideos],
-['Análisis e indicadores', 'Fallas que se repiten, evolución de tu empresa y comparativas para decidir con datos.', 'M3 13V9M7 13V5M11 13V7M2 13.5H14', $F::CompanyIndicators],
+['Análisis e indicadores', 'Qué ascensores fallan seguido y cómo evoluciona tu empresa: técnicos, edificios y presupuestos.', 'M3 13V9M7 13V5M11 13V7M2 13.5H14', [$F::FailureAnalysis, $F::CompanyIndicators]],
 ['Fotos de antes y después', 'Fotos de cada trabajo y reportes de inspección con fotos.', 'M2 5H5L6 3H10L11 5H14V13H2V5ZM8 11C9.1 11 10 10.1 10 9C10 7.9 9.1 7 8 7C6.9 7 6 7.9 6 9C6 10.1 6.9 11 8 11Z', $F::WorkPhotos],
                         ])->map(fn ($b) => [$b[0], $b[1], $b[2], $badge($b[3])])
                             ->reject(fn ($b) => $b[3] === false) // ningún plan la incluye: no se anuncia
@@ -662,17 +627,6 @@
             });
         }, { threshold: 0.15 });
         revealEls.forEach(el => revealObserver.observe(el));
-
-        // Hero floor-indicator count-up animation
-        const floorDigit = document.getElementById('floorDigit');
-        if (floorDigit) {
-            const sequence = ['PB', '1', '2', '3', '4', '5', '6', '7', '8'];
-            let idx = 0;
-            setInterval(() => {
-                idx = (idx + 1) % sequence.length;
-                floorDigit.textContent = sequence[idx];
-            }, 1400);
-        }
 
         // Vertical shaft rail: scroll-spy across sections with data-floor
         const floorSections = Array.from(document.querySelectorAll('[data-floor]'));

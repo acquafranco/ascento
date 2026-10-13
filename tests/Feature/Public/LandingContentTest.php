@@ -73,4 +73,62 @@ class LandingContentTest extends TestCase
         $this->assertStringNotContainsString('Componentes en reparación</h3>', $html);
         $this->assertStringContainsString('QR público del edificio</h3>', $html);
     }
+
+    /** Quita funciones de un plan como lo haría el SuperAdmin desde «Planes». */
+    private function withoutFeatures(string $slug, array $remove): void
+    {
+        $super = User::factory()->superAdmin()->create();
+        $this->actingAs($super);
+        $plan = SubscriptionPlan::offered()->firstWhere('slug', $slug);
+        $enabled = collect(PlanFeature::toggleable())->filter(fn ($f) => $plan->allows($f) && ! in_array($f, $remove, true))->map->value->values()->all();
+        app(PlanFeatureManager::class)->update($super, $plan, $enabled);
+        auth()->logout();
+    }
+
+    public function test_the_analysis_card_does_not_promise_empresa_comparisons_to_profesional(): void
+    {
+        $html = $this->home();
+        $card = '#Análisis e indicadores</h3>\s*<span[^>]*>Desde Profesional</span>\s*<p[^>]*>([^<]*)</p>#u';
+        $this->assertMatchesRegularExpression($card, $html);
+        preg_match($card, $html, $m);
+        $this->assertStringNotContainsString('comparativa', mb_strtolower($m[1]));
+        $this->assertStringContainsString('fallan seguido', $m[1]);
+
+        // La etiqueta cuenta las dos funciones que anuncia: si Profesional pierde una, pasa a «Plan Empresa».
+        $this->withoutFeatures('profesional', [PlanFeature::FailureAnalysis]);
+        $this->assertMatchesRegularExpression('#Análisis e indicadores</h3>\s*<span[^>]*>Plan Empresa</span>#u', $this->home());
+    }
+
+    public function test_a_comparison_row_with_two_features_needs_both(): void
+    {
+        $row = fn (string $label) => collect(SubscriptionPlan::comparisonRows(SubscriptionPlan::offered()))->firstWhere(0, $label)[1];
+
+        $this->assertSame(['inicial' => false, 'profesional' => false, 'empresa' => true], $row('Indicadores avanzados y alertas de tendencias'));
+        $this->assertSame(['inicial' => false, 'profesional' => true, 'empresa' => true], $row('Análisis de fallas e historial avanzado'));
+        $this->assertSame(['inicial' => false, 'profesional' => true, 'empresa' => true], $row('Centro de atención avanzado e indicadores de empresa'));
+
+        // Con una sola de las dos, la fila ya no figura como incluida.
+        $this->withoutFeatures('empresa', [PlanFeature::AdvancedAlerts]);
+        $this->withoutFeatures('profesional', [PlanFeature::ElevatorHistoryAdvanced, PlanFeature::AttentionAdvanced]);
+        $this->assertFalse($row('Indicadores avanzados y alertas de tendencias')['empresa']);
+        $this->assertFalse($row('Análisis de fallas e historial avanzado')['profesional']);
+        $this->assertFalse($row('Centro de atención avanzado e indicadores de empresa')['profesional']);
+        $this->assertTrue($row('Análisis de fallas e historial avanzado')['empresa']);
+
+        // Y la página lo muestra así.
+        $html = $this->home();
+        $this->assertStringContainsString('Indicadores avanzados y alertas de tendencias', $html);
+    }
+
+    public function test_the_hero_shows_a_real_demo_screenshot_instead_of_made_up_numbers(): void
+    {
+        $html = $this->home();
+
+        $this->assertMatchesRegularExpression('#data-hero-shot>.*?images/landing/tecnico-inicio\.jpg#su', $html);
+        $this->assertStringContainsString('Captura real de la app del técnico, con datos de demostración.', $html);
+        $this->assertFileExists(public_path('images/landing/tecnico-inicio.jpg'));
+        foreach (['Edificio Alsina 1420', 'floorDigit', 'Indicador de posición'] as $fake) {
+            $this->assertStringNotContainsString($fake, $html, $fake);
+        }
+    }
 }

@@ -132,9 +132,15 @@ class SubscriptionPlan extends Model
     }
 
     /** El primer plan ofrecido que incluye la funcionalidad. */
-    public static function cheapestWith(PlanFeature $feature): ?self
+    public static function cheapestWith(PlanFeature ...$features): ?self
     {
-        return static::offered()->first(fn (self $plan) => $plan->allows($feature));
+        return static::offered()->first(fn (self $plan) => $plan->allowsAll($features));
+    }
+
+    /** ¿Incluye todas estas funciones? (una fila o tarjeta que anuncia varias) */
+    public function allowsAll(array $features): bool
+    {
+        return collect($features)->every(fn (PlanFeature $feature) => $this->allows($feature));
     }
 
     /** El primer plan ofrecido con lugar para $needed unidades del recurso. */
@@ -165,7 +171,8 @@ class SubscriptionPlan extends Model
     {
         $plans = collect($plans);
         $limit = fn (PlanLimit $l) => $plans->mapWithKeys(fn (self $p) => [$p->slug => $p->limit($l) === null ? 'Sin límite' : 'Hasta '.$p->limit($l)])->all();
-        $feature = fn (PlanFeature $f) => $plans->mapWithKeys(fn (self $p) => [$p->slug => $p->allows($f)])->all();
+        // Una fila que nombra varias funciones figura incluida solo si el plan tiene todas.
+        $feature = fn (PlanFeature ...$f) => $plans->mapWithKeys(fn (self $p) => [$p->slug => $p->allowsAll($f)])->all();
         $all = $plans->mapWithKeys(fn (self $p) => [$p->slug => true])->all();
 
         return [
@@ -174,11 +181,11 @@ class SubscriptionPlan extends Model
             ['Usuarios técnicos u operativos', $limit(PlanLimit::Technicians)],
             ['Usuarios administrativos (además del dueño)', $limit(PlanLimit::AdminUsers)],
             ['Informes por mes', $limit(PlanLimit::ReportsPerMonth)],
-            ['Mantenimientos, inspecciones y agenda mensual', $feature(PlanFeature::Agenda)],
-            ['Órdenes de trabajo y remitos firmados en el celular', $feature(PlanFeature::WorkOrders)],
+            ['Mantenimientos, inspecciones y agenda mensual', $feature(PlanFeature::Maintenances, PlanFeature::Inspections, PlanFeature::Agenda)],
+            ['Órdenes de trabajo y remitos firmados en el celular', $feature(PlanFeature::WorkOrders, PlanFeature::DigitalDeliveryNotes)],
             ['Informes con fotos', $feature(PlanFeature::Reports)],
             ['Mapa de edificios', $feature(PlanFeature::Map)],
-            ['Legajo e historial de cada ascensor', $feature(PlanFeature::ElevatorFile)],
+            ['Legajo e historial de cada ascensor', $feature(PlanFeature::ElevatorFile, PlanFeature::History)],
             ['Centro de atención', $feature(PlanFeature::AttentionCenter)],
             ['Indicadores básicos', $feature(PlanFeature::Indicators)],
             ['Stock, servicios y cobranzas', $all],
@@ -195,9 +202,9 @@ class SubscriptionPlan extends Model
             ['Historial de contactos con clientes', $feature(PlanFeature::ClientContacts)],
             ['Video en los informes', $feature(PlanFeature::ReportVideos)],
             ['Fotos de antes y después y reportes de inspección', $feature(PlanFeature::WorkPhotos)],
-            ['Análisis de fallas e historial avanzado', $feature(PlanFeature::FailureAnalysis)],
-            ['Centro de atención avanzado e indicadores de empresa', $feature(PlanFeature::CompanyIndicators)],
-            ['Indicadores avanzados y alertas de tendencias', $feature(PlanFeature::AdvancedIndicators)],
+            ['Análisis de fallas e historial avanzado', $feature(PlanFeature::FailureAnalysis, PlanFeature::ElevatorHistoryAdvanced)],
+            ['Centro de atención avanzado e indicadores de empresa', $feature(PlanFeature::AttentionAdvanced, PlanFeature::CompanyIndicators)],
+            ['Indicadores avanzados y alertas de tendencias', $feature(PlanFeature::AdvancedIndicators, PlanFeature::AdvancedAlerts)],
         ];
     }
 
