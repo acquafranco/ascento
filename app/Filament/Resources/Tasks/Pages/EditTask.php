@@ -11,6 +11,13 @@ class EditTask extends EditRecord
 {
     protected static string $resource = TaskResource::class;
 
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        $data['reminder_recipients'] = $this->record->reminderRecipients()->pluck('users.id')->map(fn ($id) => (int) $id)->all();
+
+        return $data;
+    }
+
     protected function handleRecordUpdate(Model $record, array $data): Model
     {
         return app(TaskService::class)->update(auth()->user(), $record, $data);

@@ -430,3 +430,30 @@ Están en Indicadores, protegidos por `PlanFeature::CompanyIndicators`. Cada tar
   - Cada widget pide solo su bloque, y el gráfico de trabajo calcula una vez por pedido.
   - Las tarjetas tienen un tope probado de 20 consultas.
   - No hay caché entre usuarios.
+
+## 17. Destinatarios del recordatorio de una tarea (mejora previa al cierre de la Etapa 7)
+
+- **Qué cambia:** quien crea o edita una tarea elige en «Avisar a» quiénes reciben su recordatorio (hasta 20 personas). Se guardan en `task_reminder_recipients`, una tabla nueva cuya migración solo agrega y es reversible.
+- **Quiénes se pueden elegir:** las mismas personas que pueden ser responsables de una tarea.
+  - El dueño o un administrativo vigente de la empresa con acceso a «Tareas y recordatorios».
+  - Nunca técnicos, usuarios del portal, desactivados, administrativos suspendidos por el plan ni gente de otra empresa.
+  - El servidor lo valida (`TaskService`); un id que no corresponde se rechaza.
+- **Sin elegir a nadie:** como hasta ahora, se avisa al responsable o, si no hay, a quien creó la tarea.
+- **Cuándo:** a la fecha y hora de «Recordatorio» (`remind_at`), que es independiente del vencimiento (`due_at`). Lo envía el mismo `tasks:remind` de siempre, cada 5 minutos.
+- **Se verifica al avisar, no solo al guardar:** si un elegido perdió el acceso a tareas, fue desactivado o ya no es de la empresa, no lo recibe.
+  - Si ninguno de los elegidos puede recibirlo, no se avisa a otro en su lugar.
+  - El `Notifier` repite sus controles: empresa con acceso vigente, cuenta activa.
+- **Canales:** la campanita y, desde esta mejora, también push a los dispositivos que el destinatario activó. El aviso de asignación sigue solo en la campanita. Sin correo ni WhatsApp.
+- **Sin duplicados:** un aviso por tarea, destinatario y recordatorio, con la clave del evento (tarea + motivo + fecha del recordatorio). La tarea se marca como avisada bajo bloqueo antes de enviar.
+- **Cambios:**
+  - **Otra fecha de recordatorio:** se vuelve a avisar en la nueva, a los elegidos de ese momento.
+  - **Solo el vencimiento cambia:** no se reprograma nada.
+  - **Cambian los destinatarios antes del aviso:** valen los nuevos.
+  - **Cambian después del aviso:** no se reenvía ese recordatorio.
+  - **Tarea cancelada o completada:** no avisa.
+  - **Registro:** cada cambio de destinatarios queda en la actividad.
+- **Desde el aviso:**
+  - quien gestiona tareas abre la tarea;
+  - quien solo la ve va a «Mis tareas», que ahora también incluye las tareas con un recordatorio para esa persona;
+  - si perdió el permiso, el panel responde como siempre (403).
+- **Integración:** la exportación completa suma la columna «Avisar a» a la hoja «Tareas», y el borrado definitivo de empresas incluye la tabla nueva.

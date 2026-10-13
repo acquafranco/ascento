@@ -3,6 +3,7 @@
 namespace App\Services\Tasks;
 
 use App\Enums\PermissionArea;
+use App\Filament\Resources\Tasks\TaskResource;
 use App\Models\Building;
 use App\Models\Client;
 use App\Models\Elevator;
@@ -11,6 +12,7 @@ use App\Models\Task;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Notifications\App\TaskNotification;
+use App\Services\Activity\ActivityLogger;
 use App\Services\Notifications\Notifier;
 use App\Support\Access\Access;
 use App\Support\CompanyContext;
@@ -29,9 +31,15 @@ use Illuminate\Validation\ValidationException;
  *   estado; además, el responsable puede completar o reabrir la suya.
  * - Avisos: al responsable cuando se la asignan (si no se la asignó él
  *   mismo) y el recordatorio programado (una sola vez, ver sendReminders).
+ * - Destinatarios del recordatorio: los que elija quien la crea o edita
+ *   (mismas reglas que el responsable); sin elegir, el responsable o quien
+ *   la creó. Se vuelven a verificar al momento de avisar.
  */
 class TaskService
 {
+    /** Destinatarios del recordatorio por tarea, como máximo. */
+    public const MAX_RECIPIENTS = 20;
+
     public function __construct(private Notifier $notifier) {}
 
     public function create(User $actor, array $data): Task
@@ -40,9 +48,19 @@ class TaskService
         $companyId = $this->companyOf($actor);
         $clean = $this->validated($companyId, $data);
 
-        $task = new Task($clean);
-        $task->forceFill(['created_by' => $actor->id, 'status' => $clean['status'] ?? 'pending']);
-        $task->save();
+        $recipients = $this->validatedRecipients($companyId, $data);
+
+        $task = DB::transaction(function () use ($clean, $actor, $recipients) {
+            $task = new Task($clean);
+            $task->forceFill(['created_by' => $actor->id, 'status' => $clean['status'] ?? 'pending']);
+            $task->save();
+
+            if ($recipients !== null) {
+                $this->syncRecipients($task, $recipients);
+            }
+
+            return $task;
+        });
         $this->stampCompletion($task, $actor);
 
         $this->notifyAssignment($task, $actor);
@@ -57,13 +75,22 @@ class TaskService
         $previousAssignee = $task->assigned_to;
 
         $task->fill($this->validated((int) $task->company_id, $data));
+        $recipients = $this->validatedRecipients((int) $task->company_id, $data);
 
-        // Recordatorio nuevo: se vuelve a avisar en esa fecha.
+        // Recordatorio nuevo: se vuelve a avisar en esa fecha (a quienes estén elegidos entonces).
         if ($task->isDirty('remind_at')) {
             $task->reminded_at = null;
         }
 
-        $task->save();
+        DB::transaction(function () use ($task, $recipients) {
+            $task->save();
+
+            // Cambiar destinatarios no reenvía un recordatorio ya enviado:
+            // vale para el próximo (o para este, si todavía no salió).
+            if ($recipients !== null) {
+                $this->syncRecipients($task, $recipients);
+            }
+        });
         $this->stampCompletion($task, $actor);
 
         if ((int) $task->assigned_to !== (int) $previousAssignee) {
@@ -110,14 +137,87 @@ class TaskService
                     return $task;
                 });
 
-                $to = $task ? User::find($task->assigned_to ?? $task->created_by) : null;
+                if (! $task) {
+                    return;
+                }
 
-                if ($to && $this->eligible($to, (int) $task->company_id)) {
-                    $sent += (int) (bool) $this->notifier->sendTo($to, new TaskNotification($task, TaskNotification::REMINDER), (int) $task->company_id, mail: false);
+                foreach ($this->reminderTargets($task) as $to) {
+                    $sent += (int) (bool) $this->notifier->sendTo($to, new TaskNotification($task, TaskNotification::REMINDER, $this->pathFor($to, $task)), (int) $task->company_id, mail: false);
                 }
             });
 
         return $sent;
+    }
+
+    /**
+     * A quién avisar AHORA: los elegidos que todavía pueden recibirlo (de la
+     * empresa, activos, dueño o administrativo vigente con acceso a tareas).
+     * Si no se eligió a nadie, como siempre: el responsable o quien la creó.
+     * Si se eligió y ninguno puede, no se avisa a otro en su lugar.
+     *
+     * @return list<User>
+     */
+    public function reminderTargets(Task $task): array
+    {
+        $companyId = (int) $task->company_id;
+        $chosen = DB::table('task_reminder_recipients')->where('task_id', $task->id)->where('company_id', $companyId)->pluck('user_id');
+        $ids = $chosen->isNotEmpty() ? $chosen->all() : array_filter([$task->assigned_to ?? $task->created_by]);
+
+        return User::whereIn('id', $ids)->orderBy('id')->get()
+            ->filter(fn (User $user) => $this->eligible($user, $companyId))
+            ->values()->all();
+    }
+
+    /** Desde el aviso: la tarea, si la puede editar; si no, «Mis tareas» (donde también figura). */
+    private function pathFor(User $user, Task $task): string
+    {
+        $url = Access::can($user, PermissionArea::Tasks, PermissionArea::MANAGE)
+            ? TaskResource::getUrl('edit', ['record' => $task], panel: 'ascensores_app')
+            : TaskResource::getUrl('index', ['tab' => 'mine'], panel: 'ascensores_app');
+
+        return parse_url($url, PHP_URL_PATH).(($query = parse_url($url, PHP_URL_QUERY)) ? '?'.$query : '');
+    }
+
+    /** Ids de usuarios elegidos (null si el formulario no los trae: no se tocan). */
+    private function validatedRecipients(int $companyId, array $data): ?array
+    {
+        if (! array_key_exists('reminder_recipients', $data)) {
+            return null;
+        }
+
+        $ids = collect((array) ($data['reminder_recipients'] ?? []))->filter(fn ($id) => filled($id))->map(fn ($id) => (int) $id)->unique()->values();
+
+        if ($ids->count() > self::MAX_RECIPIENTS) {
+            throw ValidationException::withMessages(['reminder_recipients' => 'Podés elegir hasta '.self::MAX_RECIPIENTS.' personas.']);
+        }
+
+        $users = User::withoutGlobalScopes()->whereIn('id', $ids)->get()->keyBy('id');
+        foreach ($ids as $id) {
+            $user = $users->get($id);
+            if (! $user || ! $this->eligible($user, $companyId)) {
+                throw ValidationException::withMessages(['reminder_recipients' => 'Solo el dueño o administrativos de la empresa con acceso a tareas.']);
+            }
+        }
+
+        return $ids->all();
+    }
+
+    private function syncRecipients(Task $task, array $ids): void
+    {
+        $before = $task->reminderRecipients()->pluck('users.id')->map(fn ($id) => (int) $id)->sort()->values()->all();
+        $after = collect($ids)->sort()->values()->all();
+
+        if ($before === $after) {
+            return;
+        }
+
+        $task->reminderRecipients()->sync(collect($ids)->mapWithKeys(fn ($id) => [$id => ['company_id' => $task->company_id]])->all());
+
+        // Quién recibe el recordatorio también queda en la actividad.
+        ActivityLogger::record('task.reminder_recipients_updated', $task, ['reminder_recipients' => [
+            'from' => User::whereIn('id', $before)->orderBy('name')->pluck('name')->implode(', ') ?: null,
+            'to' => User::whereIn('id', $after)->orderBy('name')->pluck('name')->implode(', ') ?: null,
+        ]]);
     }
 
     /** ¿Puede ser responsable de tareas en esa empresa? */

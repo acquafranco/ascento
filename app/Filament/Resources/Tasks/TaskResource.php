@@ -100,8 +100,14 @@ class TaskResource extends Resource
                     ->placeholder('Sin responsable')->helperText('El dueño o un administrativo con acceso a tareas.'),
                 Select::make('priority')->label('Prioridad')->options(Task::PRIORITIES)->default('medium')->required(),
                 DateTimePicker::make('due_at')->label('Vence')->seconds(false),
-                DateTimePicker::make('remind_at')->label('Recordarme')->seconds(false)
-                    ->helperText('Se avisa una sola vez al responsable (o a quien la creó).'),
+                DateTimePicker::make('remind_at')->label('Recordatorio')->seconds(false)
+                    ->helperText('Cuándo avisar (aparte del vencimiento). Se avisa una sola vez.'),
+                Select::make('reminder_recipients')->label('Avisar a')->multiple()->searchable()
+                    ->options(fn () => app(TaskService::class)->assignableUsers((int) $company()))
+                    ->maxItems(TaskService::MAX_RECIPIENTS)
+                    ->placeholder('El responsable (o quien la creó)')
+                    ->helperText('El dueño o administrativos con acceso a tareas. Si no elegís a nadie, se avisa al responsable o a quien la creó.')
+                    ->columnSpanFull(),
                 Select::make('status')->label('Estado')->options(Task::STATUSES)->default('pending')->required()->visibleOn('edit'),
             ]),
             Section::make('Relacionada con (opcional)')->columnSpanFull()->columns(['default' => 1, 'md' => 2])->collapsible()->schema([

@@ -34,6 +34,7 @@ use App\Support\WorkOrderLabels;
 use Carbon\Carbon;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use OpenSpout\Common\Entity\Cell;
@@ -339,9 +340,11 @@ class CompanyDataExporter
             $this->scoped(WorkOrderMaterial::class), fn ($m) => [$m->work_order_id, $this->name('stock', $m->stock_item_id), (float) $m->quantity, $this->money($m->unit_cost), $this->name('users', $m->declared_by) ?? 'Oficina', $m->stock_movement_id !== null]);
 
         // Tareas y recordatorios, e historial de contactos (Etapa 6).
-        $this->sheet('Tareas', ['ID', 'Título', 'Detalle', 'Prioridad', 'Estado', 'Vence', 'Recordatorio', 'Responsable', 'Creada por', 'Completada', 'Completada por', 'Cliente ID', 'Edificio ID', 'Ascensor ID', 'Presupuesto ID', 'Orden ID'],
+        $recipients = DB::table('task_reminder_recipients')->where('company_id', $this->companyId)->get(['task_id', 'user_id'])->groupBy('task_id');
+        $this->sheet('Tareas', ['ID', 'Título', 'Detalle', 'Prioridad', 'Estado', 'Vence', 'Recordatorio', 'Avisar a', 'Responsable', 'Creada por', 'Completada', 'Completada por', 'Cliente ID', 'Edificio ID', 'Ascensor ID', 'Presupuesto ID', 'Orden ID'],
             $this->scoped(Task::class),
             fn ($t) => [$t->id, $t->title, $t->description, Task::PRIORITIES[$t->priority] ?? $t->priority, Task::STATUSES[$t->status] ?? $t->status, $t->due_at, $t->remind_at,
+                $recipients->get($t->id, collect())->map(fn ($r) => $this->name('users', $r->user_id))->filter()->implode(', ') ?: null,
                 $this->name('users', $t->assigned_to), $this->name('users', $t->created_by), $t->completed_at, $this->name('users', $t->completed_by), $t->client_id, $t->building_id, $t->elevator_id, $t->quote_id, $t->work_order_id]);
 
         $this->sheet('Historial de contactos', ['ID', 'Fecha', 'Cliente ID', 'Tipo', 'Resultado', 'Observaciones', 'Registró', 'Edificio ID', 'Presupuesto ID', 'Orden ID'],
