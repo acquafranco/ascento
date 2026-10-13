@@ -2,6 +2,7 @@
 
 namespace App\Support\Access;
 
+use App\Filament\Widgets\Concerns\DashboardBlock;
 use Filament\Pages\Page;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Resources\Pages\EditRecord;
@@ -35,8 +36,10 @@ class PanelAccessHook extends ComponentHook
                 && $component->pageClass::getResource()::canAccess()
                 && (! method_exists($component, 'permissionArea') || Access::can($user, $component::permissionArea())),
             $component instanceof Page => $component::canAccess(),
-            // Bloques del inicio: cada actualización vuelve a pedir sus áreas.
-            $component instanceof Widget => $component::canView(),
+            // Bloques del inicio: verifican sus áreas en cada pedido y, sin
+            // permiso, se dibujan vacíos y sin datos (DashboardBlock), en vez
+            // de un error. Cualquier otro widget: su canView() o 403.
+            $component instanceof Widget => in_array(DashboardBlock::class, class_uses_recursive($component), true) || $component::canView(),
             default => true, // componentes que no son del panel (campanita, etc.): sus propias reglas
         };
 

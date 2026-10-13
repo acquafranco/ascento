@@ -41,6 +41,21 @@ class QuotesStatusChart extends ChartWidget
         return 'Creados en los últimos 90 días. No incluye borradores sin enviar ni anulados.';
     }
 
+    public function rendering(): void
+    {
+        // Revocado: el bloque se retira sin calcular ni enviar datos.
+        if (static::canView()) {
+            parent::rendering();
+        }
+    }
+
+    public function updateChartData(): void
+    {
+        if (static::canView()) {
+            parent::updateChartData();
+        }
+    }
+
     protected function getType(): string
     {
         return 'doughnut';
