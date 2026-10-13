@@ -183,7 +183,7 @@ class DashboardSummary
         $plan = PlanGuard::for($company);
 
         $tasks = null;
-        if ($gate->allows(Area::Tasks)) {
+        if ($plan->allows(PlanFeature::Tasks) && $gate->allows(Area::Tasks)) {
             $tasks = [
                 'overdue' => Task::overdue()->count(),
                 'open' => Task::open()->count(),
@@ -192,7 +192,7 @@ class DashboardSummary
             ];
         }
 
-        $contacts = $gate->allows(Area::Contacts) ? [
+        $contacts = $plan->allows(PlanFeature::ClientContacts) && $gate->allows(Area::Contacts) ? [
             'count' => ClientInteraction::needsFollowUp()->count(),
             'days' => ClientInteraction::FOLLOW_UP_DAYS,
             'url' => $this->url(ClientInteractionResource::class),
@@ -227,7 +227,8 @@ class DashboardSummary
 
         return $gate->allows(Area::WorkOrders) || $gate->allows(Area::Documents) || $gate->allows(Area::Quotes)
             || $gate->allows(Area::Receivables) || $gate->allows(Area::Buildings)
-            || $gate->allows(Area::Tasks) || $gate->allows(Area::Contacts)
+            || ($gate->allows(Area::Tasks) && $plan->allows(PlanFeature::Tasks))
+            || ($gate->allows(Area::Contacts) && $plan->allows(PlanFeature::ClientContacts))
             // Solo la línea de mantenimientos del gráfico (plan con indicadores de empresa).
             || ($gate->allows(Area::Visits) && $plan->allows(PlanFeature::CompanyIndicators))
             || ($gate->allows(Area::Attention) && $plan->allows(PlanFeature::AttentionCenter));

@@ -3,6 +3,7 @@
 namespace App\Services\Crm;
 
 use App\Enums\PermissionArea;
+use App\Enums\PlanFeature;
 use App\Models\Building;
 use App\Models\Client;
 use App\Models\ClientInteraction;
@@ -11,6 +12,7 @@ use App\Models\User;
 use App\Models\WorkOrder;
 use App\Support\Access\Access;
 use App\Support\CompanyContext;
+use App\Support\Plans\PlanGuard;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -85,6 +87,7 @@ class ClientInteractionService
     private function ensureCanManage(User $actor): int
     {
         abort_unless(Access::can($actor, PermissionArea::Contacts, PermissionArea::MANAGE), 403);
+        PlanGuard::ensureCurrent(PlanFeature::ClientContacts);
         $id = $actor->isSuperAdmin() ? CompanyContext::currentId() : $actor->company_id;
         abort_unless($id, 403);
 

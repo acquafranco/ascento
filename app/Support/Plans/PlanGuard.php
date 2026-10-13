@@ -8,6 +8,7 @@ use App\Exceptions\PlanFeatureUnavailableException;
 use App\Exceptions\PlanLimitReachedException;
 use App\Models\Company;
 use App\Models\SubscriptionPlan;
+use App\Support\CompanyContext;
 
 /**
  * Único lugar que responde "¿esta empresa puede…?" según su plan, y que
@@ -62,6 +63,36 @@ class PlanGuard
     public function allows(PlanFeature $feature): bool
     {
         return $this->plan()->allows($feature);
+    }
+
+    /**
+     * ¿La empresa con la que se opera (CompanyContext) tiene la función? Sin
+     * empresa (por ejemplo, el SuperAdmin sin elegir una) no hay nada que
+     * limitar: las pantallas ya se filtran por empresa.
+     */
+    public static function currentAllows(PlanFeature $feature): bool
+    {
+        $id = CompanyContext::currentId();
+
+        return $id === null || self::companyAllows($id, $feature);
+    }
+
+    /** @throws PlanFeatureUnavailableException */
+    public static function ensureCurrent(PlanFeature $feature): void
+    {
+        $id = CompanyContext::currentId();
+
+        if ($id !== null && ($company = Company::find($id))) {
+            self::for($company)->ensureFeature($feature);
+        }
+    }
+
+    /** Para procesos sin sesión (scheduler, QR público). */
+    public static function companyAllows(int $companyId, PlanFeature $feature): bool
+    {
+        $company = Company::find($companyId);
+
+        return $company !== null && self::for($company)->allows($feature);
     }
 
     /** @throws PlanLimitReachedException */

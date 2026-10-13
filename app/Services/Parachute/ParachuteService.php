@@ -3,6 +3,7 @@
 namespace App\Services\Parachute;
 
 use App\Enums\PermissionArea;
+use App\Enums\PlanFeature;
 use App\Filament\Pages\ParachuteTestsPage;
 use App\Models\Building;
 use App\Models\Client;
@@ -16,6 +17,7 @@ use App\Notifications\App\ParachuteReminderNotification;
 use App\Services\Notifications\Notifier;
 use App\Support\Access\Access;
 use App\Support\CompanyContext;
+use App\Support\Plans\PlanGuard;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Http\UploadedFile;
@@ -83,6 +85,7 @@ class ParachuteService
     private function authorizeManage(?User $actor): void
     {
         abort_unless(Access::can($actor, PermissionArea::Inspections, PermissionArea::MANAGE), 403);
+        PlanGuard::ensureCurrent(PlanFeature::ParachuteTests);
     }
 
     /** Con sesión, solo registros de la empresa actual (otra empresa: 404). */
@@ -380,7 +383,7 @@ class ParachuteService
         $sent = 0;
 
         Company::where('is_active', true)->each(function (Company $company) use (&$sent) {
-            if (! $company->hasActiveAccess()) {
+            if (! $company->hasActiveAccess() || ! PlanGuard::for($company)->allows(PlanFeature::ParachuteTests)) {
                 return;
             }
 

@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\ClientInteractions\Pages;
 
+use App\Enums\PlanFeature;
+use App\Filament\Concerns\RequiresPlanFeature;
 use App\Filament\Resources\ClientInteractions\ClientInteractionResource;
 use App\Services\Crm\ClientInteractionService;
 use Filament\Resources\Pages\CreateRecord;
@@ -9,6 +11,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class CreateClientInteraction extends CreateRecord
 {
+    use RequiresPlanFeature;
+
+    protected static PlanFeature $planFeature = PlanFeature::ClientContacts;
+
     protected static string $resource = ClientInteractionResource::class;
 
     protected function handleRecordCreation(array $data): Model

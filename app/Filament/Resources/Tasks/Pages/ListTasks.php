@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\Tasks\Pages;
 
+use App\Enums\PlanFeature;
+use App\Filament\Concerns\RequiresPlanFeature;
 use App\Filament\Resources\Tasks\TaskResource;
 use App\Models\Task;
 use Filament\Actions\CreateAction;
@@ -11,6 +13,10 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ListTasks extends ListRecords
 {
+    use RequiresPlanFeature;
+
+    protected static PlanFeature $planFeature = PlanFeature::Tasks;
+
     protected static string $resource = TaskResource::class;
 
     protected function getHeaderActions(): array

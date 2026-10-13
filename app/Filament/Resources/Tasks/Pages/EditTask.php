@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\Tasks\Pages;
 
+use App\Enums\PlanFeature;
+use App\Filament\Concerns\RequiresPlanFeature;
 use App\Filament\Resources\Tasks\TaskResource;
 use App\Services\Tasks\TaskService;
 use Filament\Resources\Pages\EditRecord;
@@ -9,6 +11,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class EditTask extends EditRecord
 {
+    use RequiresPlanFeature;
+
+    protected static PlanFeature $planFeature = PlanFeature::Tasks;
+
     protected static string $resource = TaskResource::class;
 
     protected function mutateFormDataBeforeFill(array $data): array
