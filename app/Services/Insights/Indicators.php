@@ -15,7 +15,7 @@ use App\Models\Quote;
 use App\Models\Report;
 use App\Models\User;
 use App\Models\WorkOrder;
-use App\Support\Access\Access;
+use App\Support\Access\AreaGate;
 use App\Support\Plans\PlanGuard;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -36,9 +36,8 @@ class Indicators
     /** Primer mes elegible en el selector de período. */
     public const FIRST_PERIOD = '2024-01';
 
-    private ?User $viewer = null;
-
-    private bool $filtered = false;
+    /** Quién mira (ver AreaGate). Por defecto, el usuario autenticado. */
+    private ?AreaGate $gate = null;
 
     public function __construct(
         private MaintenanceAgenda $agenda,
@@ -52,8 +51,7 @@ class Indicators
     public function sections(Company $company, ?User $user = null, ?string $period = null): array
     {
         $guard = PlanGuard::for($company);
-        $this->viewer = $user ?? auth()->user();
-        $this->filtered = Access::isStaff($this->viewer);
+        $this->for($user ?? auth()->user());
 
         return [
             'basic' => $this->basic(),
@@ -63,20 +61,18 @@ class Indicators
         ];
     }
 
+    /** Calcula para este usuario (sus áreas). */
+    public function for(?User $user): static
+    {
+        $this->gate = AreaGate::for($user);
+
+        return $this;
+    }
+
     /** ¿Puede ver un número que sale de estas áreas? */
     public function allows(Area ...$areas): bool
     {
-        if (! $this->filtered) {
-            return true;
-        }
-
-        foreach ($areas as $area) {
-            if (! Access::can($this->viewer, $area)) {
-                return false;
-            }
-        }
-
-        return true;
+        return ($this->gate ??= AreaGate::for(auth()->user()))->allows(...$areas);
     }
 
     /**
@@ -280,29 +276,10 @@ class Indicators
 
     public function company(Company $company, bool $withQuotes): array
     {
-        // Columnas permitidas (cada una con sus áreas); sin ninguna, no hay tabla.
-        $columns = [
-            'maintenance' => $this->allows(Area::Visits),
-            'claims' => $this->allows(Area::Inspections, Area::WorkOrders),
-            'completed' => $this->allows(Area::WorkOrders),
-            'close_days' => $this->allows(Area::WorkOrders),
-        ];
-
-        // Evolución de los últimos 6 meses.
-        $months = ! in_array(true, $columns, true) ? null : collect(range(5, 0))->map(function (int $back) use ($columns) {
-            $start = now()->subMonthsNoOverflow($back)->startOfMonth();
-            $end = $start->copy()->endOfMonth();
-            // Visitas realizadas sobre previstas (misma cuenta que la Agenda).
-            $visits = $columns['maintenance'] ? MaintenanceAgenda::progress($this->agenda->rows($start->month, $start->year, 'maintenance'))['maintenance'] : null;
-
-            return array_intersect_key([
-                'month' => ucfirst($start->locale('es')->translatedFormat('M Y')),
-                'maintenance' => $visits ? ($visits['percent'] !== null ? $visits['percent'].'%' : '—') : null,
-                'claims' => $columns['claims'] ? $this->claims($start, $end) : null,
-                'completed' => $columns['completed'] ? WorkOrder::where('status', 'completed')->whereBetween('finished_at', [$start, $end])->count() : null,
-                'close_days' => $columns['close_days'] ? $this->avgCloseDays($start, $end) : null,
-            ], ['month' => true] + array_filter($columns));
-        });
+        // Evolución de los últimos 6 meses (mantenimientos como texto: «58%» o «—»).
+        $months = $this->evolution()?->map(fn (array $m) => array_key_exists('maintenance', $m)
+            ? [...$m, 'maintenance' => $m['maintenance'] !== null ? $m['maintenance'].'%' : '—']
+            : $m);
 
         // Técnicos: últimos 90 días (nombres: «Técnicos»; visitas: «Visitas»; órdenes: «Órdenes»).
         $from = now()->subDays(90);
@@ -330,6 +307,47 @@ class Indicators
             'top_failures' => $this->allows(Area::Inspections, Area::WorkOrders) ? $this->failures->recurrent(90, 1)->take(5) : null,
             'quotes' => $quotes,
         ];
+    }
+
+    /**
+     * Evolución mensual de los últimos meses: cada columna solo con sus
+     * áreas (sin ninguna, null). La usan los indicadores y el gráfico del
+     * inicio. Mantenimientos: porcentaje cumplido (null si no había previstos).
+     *
+     * @return Collection<int, array{month: string, maintenance?: ?int, claims?: int, completed?: int, close_days?: ?float}>|null
+     */
+    public function evolution(int $count = 6): ?Collection
+    {
+        $columns = array_filter([
+            'maintenance' => $this->allows(Area::Visits),
+            'claims' => $this->allows(Area::Inspections, Area::WorkOrders),
+            'completed' => $this->allows(Area::WorkOrders),
+            'close_days' => $this->allows(Area::WorkOrders),
+        ]);
+
+        if ($columns === []) {
+            return null;
+        }
+
+        return collect(range($count - 1, 0))->map(function (int $back) use ($columns) {
+            $start = now()->subMonthsNoOverflow($back)->startOfMonth();
+            $end = $start->copy()->endOfMonth();
+            $row = ['month' => ucfirst($start->locale('es')->translatedFormat('M Y'))];
+
+            if (isset($columns['maintenance'])) {
+                // Visitas realizadas sobre previstas (misma cuenta que la Agenda).
+                $row['maintenance'] = MaintenanceAgenda::progress($this->agenda->rows($start->month, $start->year, 'maintenance'))['maintenance']['percent'];
+            }
+            if (isset($columns['claims'])) {
+                $row['claims'] = $this->claims($start, $end);
+            }
+            if (isset($columns['completed'])) {
+                $row['completed'] = WorkOrder::where('status', 'completed')->whereBetween('finished_at', [$start, $end])->count();
+                $row['close_days'] = $this->avgCloseDays($start, $end);
+            }
+
+            return $row;
+        });
     }
 
     /* ---------------------------------------------------- EMPRESA (avanzado) */

@@ -383,3 +383,46 @@ Están en Indicadores, protegidos por `PlanFeature::CompanyIndicators`. Cada tar
 - Si un administrativo no tiene ningún indicador visible, ve un aviso para pedir permisos al dueño.
 - A los administrativos no se les muestran los avisos de «mejorar el plan»: los planes son del dueño.
 - **Planes:** sin cambios. Inicial conserva los básicos; Profesional y Empresa suman «Trabajo del mes». No hay límites nuevos ni cambios de precio.
+
+## 16. Inicio del panel para el dueño y los administrativos (ajuste previo a la Etapa 7)
+
+- **Estructura** (de arriba hacia abajo; en el celular, una columna):
+  - Bienvenida compacta: solo el nombre y la fecha, sin datos de la empresa. Ahora también la ven los administrativos.
+  - Tarjetas «Hoy».
+  - Gráfico «Trabajo de los últimos 6 meses».
+  - Gráfico «Presupuestos (últimos 90 días)».
+  - Panel «Seguimiento comercial».
+  - Para un administrativo sin bloques: un aviso con los módulos que tiene habilitados (los mismos del menú).
+- **Tarjetas** (`DashboardSummary::cards`): pasan de 9 a 7 sin perder datos. Cada una enlaza a su módulo si el usuario puede abrirlo.
+
+| Tarjeta | Qué muestra | Áreas |
+|---|---|---|
+| Órdenes pendientes | Pendientes; en el detalle, en proceso y cargadas hoy | Órdenes |
+| Terminadas hoy | Completadas hoy, por fecha de finalización | Órdenes |
+| Remitos de hoy | Remitos del día | Documentos |
+| Presupuestos esperando respuesta | Enviados y vigentes (`Quote::awaitingResponse`), con su monto. Los borradores vigentes van aparte, sin sumarse | Presupuestos |
+| Cobros vencidos (nueva) | Saldo de `Receivable::overdue()` y cantidad | Cobranzas |
+| Edificios | Edificios; en el detalle, máquinas instaladas | Edificios |
+| Técnicos ocupados | «X de Y»; en el detalle, disponibles | Técnicos + Órdenes |
+
+- **Corrección acordada:** la tarjeta de presupuestos antes sumaba los borradores. Ahora usa la misma regla que Indicadores y la ficha del cliente. La cifra principal más los borradores da el número anterior.
+- **Gráficos** (Chart.js, que ya viene con Filament: sin dependencias nuevas):
+  - **Trabajo de los últimos 6 meses:** es `Indicators::evolution()`, el mismo cálculo de Indicadores.
+    - Barras de órdenes terminadas (Órdenes) y de reportes y reclamos (Inspecciones + Órdenes).
+    - Línea de mantenimientos cumplidos (Visitas).
+    - Solo con «Indicadores de empresa» en el plan. No se actualiza periódicamente.
+  - **Presupuestos:** creados en los últimos 90 días, en cuatro grupos: esperando respuesta, aprobados, rechazados y vencidos. Pide el área Presupuestos y el plan con Presupuestos.
+- **Seguimiento comercial:**
+  - Tareas vencidas, abiertas y asignadas a vos (Tareas).
+  - Contactos que requieren seguimiento o esperan respuesta en los últimos 60 días (`ClientInteraction::needsFollowUp`, la misma regla de la ficha; Historial de contactos).
+  - Presupuestos que vencen en 5 días (`Quote::expiringWithin`, la misma regla del Centro de atención).
+  - Las 3 alertas principales del Centro de atención, ya filtradas por área y sin enlaces que den 403.
+- **Permisos (`App\Support\Access\AreaGate`, compartido con Indicadores):**
+  - Cada tarjeta, serie y línea se consulta solo si el usuario tiene «ver» en todas sus áreas.
+  - Lo que no puede ver no llega a la página: ni en los datos de los gráficos (de donde salen los tooltips) ni en los totales.
+  - Cada widget declara `canView()` y `PanelAccessHook` lo vuelve a verificar en cada pedido de Livewire de un administrativo. Si le quitan un permiso a mitad de sesión, la actualización siguiente responde 403.
+  - El dueño ve todo. El SuperAdmin sigue igual: sin empresa elegida, el estado de la plataforma; con una empresa, su inicio.
+- **Consultas:**
+  - Cada widget pide solo su bloque, y el gráfico de trabajo calcula una vez por pedido.
+  - Las tarjetas tienen un tope probado de 20 consultas.
+  - No hay caché entre usuarios.

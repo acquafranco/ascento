@@ -226,6 +226,13 @@ class Quote extends Model
             ->where(fn ($q) => $q->whereNull('valid_until')->orWhereDate('valid_until', '>=', today()));
     }
 
+    /** Enviados que vencen dentro de los próximos días (Centro de atención e inicio). */
+    public function scopeExpiringWithin($query, int $days)
+    {
+        return $query->where('status', self::SENT)->whereNotNull('valid_until')
+            ->whereBetween('valid_until', [today(), today()->addDays($days)]);
+    }
+
     public function scopeOpen($query)
     {
         return $query->whereIn('status', [self::DRAFT, self::SENT])

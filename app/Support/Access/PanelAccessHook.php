@@ -8,6 +8,7 @@ use Filament\Resources\Pages\EditRecord;
 use Filament\Resources\Pages\Page as ResourcePage;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Widgets\Widget;
 use Livewire\ComponentHook;
 
 /**
@@ -34,6 +35,8 @@ class PanelAccessHook extends ComponentHook
                 && $component->pageClass::getResource()::canAccess()
                 && (! method_exists($component, 'permissionArea') || Access::can($user, $component::permissionArea())),
             $component instanceof Page => $component::canAccess(),
+            // Bloques del inicio: cada actualización vuelve a pedir sus áreas.
+            $component instanceof Widget => $component::canView(),
             default => true, // componentes que no son del panel (campanita, etc.): sus propias reglas
         };
 

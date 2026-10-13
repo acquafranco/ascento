@@ -149,8 +149,10 @@ class RealtimeCountersTest extends TestCase
         $this->assertSame(['echo-private:App.Models.User.'.$this->a['admin']->id.',.dashboard.counters' => '$refresh'], $listeners);
         $this->assertSame('120s', (fn () => $this->getPollingInterval())->call($widget->instance())); // respaldo, no cada 5 s
 
-        $stats = collect((fn () => $this->getStats())->call($widget->instance()))->mapWithKeys(fn ($s) => [$s->getLabel() => $s->getValue()]);
-        $this->assertSame([1, 1, 0], [$stats['Pendientes'], $stats['En proceso'], $stats['Completados']]);
+        $stats = collect((fn () => $this->getStats())->call($widget->instance()))->keyBy(fn ($s) => $s->getLabel());
+        // Pendientes; las en proceso van en el detalle de la misma tarjeta.
+        $this->assertSame(['1', '0'], [$stats['Órdenes pendientes']->getValue(), $stats['Terminadas hoy']->getValue()]);
+        $this->assertStringStartsWith('1 en proceso', $stats['Órdenes pendientes']->getDescription());
     }
 
     public function test_counters_are_not_announced_without_realtime(): void

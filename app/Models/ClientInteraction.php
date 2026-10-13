@@ -56,4 +56,14 @@ class ClientInteraction extends Model
     {
         return $this->belongsTo(User::class)->withTrashed();
     }
+
+    /** Días en los que un contacto «requiere seguimiento» o «esperando respuesta» sigue pendiente. */
+    public const FOLLOW_UP_DAYS = 60;
+
+    /** Contactos recientes que esperan una acción (ficha del cliente e inicio). */
+    public function scopeNeedsFollowUp($query)
+    {
+        return $query->whereIn('result', ['follow_up', 'awaiting_reply'])
+            ->where('occurred_at', '>=', now()->subDays(self::FOLLOW_UP_DAYS));
+    }
 }

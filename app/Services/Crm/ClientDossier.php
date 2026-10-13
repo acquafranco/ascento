@@ -197,7 +197,7 @@ class ClientDossier
         return [
             'count' => (clone $base)->count(),
             'last' => $last ? ['date' => $last->occurred_at, 'type' => ClientInteraction::TYPES[$last->type] ?? $last->type, 'result' => ClientInteraction::RESULTS[$last->result] ?? $last->result] : null,
-            'follow_up' => (clone $base)->whereIn('result', ['follow_up', 'awaiting_reply'])->where('occurred_at', '>=', now()->subDays(60))->count(),
+            'follow_up' => (clone $base)->needsFollowUp()->count(),
             'items' => (clone $base)->latest('occurred_at')->limit(self::RECENT)->get()->map(fn (ClientInteraction $i) => [
                 'date' => $i->occurred_at, 'label' => (ClientInteraction::TYPES[$i->type] ?? $i->type).' · '.(ClientInteraction::RESULTS[$i->result] ?? $i->result),
                 'notes' => $i->notes, 'by' => $i->user_name,

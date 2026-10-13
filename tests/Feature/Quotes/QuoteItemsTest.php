@@ -210,9 +210,12 @@ class QuoteItemsTest extends TestCase
         $this->create($this->items(), ['status' => Quote::APPROVED]);
 
         $stats = collect((fn () => $this->getStats())->call(new AdminStats))
-            ->mapWithKeys(fn ($stat) => [(string) $stat->getLabel() => (string) $stat->getValue()]);
+            ->keyBy(fn ($stat) => (string) $stat->getLabel());
 
-        $this->assertSame('2', $stats['Presupuestos pendientes']);
+        // Misma regla que Indicadores y la ficha del cliente: solo enviados y
+        // vigentes; los borradores, aparte (sin sumarse).
+        $this->assertSame('1', (string) $stats['Presupuestos esperando respuesta']->getValue());
+        $this->assertStringContainsString('1 borrador sin enviar', (string) $stats['Presupuestos esperando respuesta']->getDescription());
     }
 
     public function test_ids_of_another_company_are_rejected(): void

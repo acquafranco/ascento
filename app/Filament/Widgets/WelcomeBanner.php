@@ -2,16 +2,17 @@
 
 namespace App\Filament\Widgets;
 
-use App\Support\Access\Access;
 use Filament\Widgets\Widget;
 
 class WelcomeBanner extends Widget
 {
-    /** Números de toda la empresa: dueño y SuperAdmin (un administrativo, no por ahora). */
+    /** Solo saluda (sin datos de la empresa): también a los administrativos. */
     public static function canView(): bool
     {
-        return ! Access::isStaff(auth()->user());
+        return auth()->check();
     }
+
+    protected static bool $isLazy = false;
 
     protected string $view = 'filament.widgets.welcome-banner';
 
