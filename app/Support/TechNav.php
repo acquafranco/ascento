@@ -38,6 +38,7 @@ class TechNav
                 $item('Remitos', 'delivery-notes.index', ['delivery-notes.index', 'delivery-notes.show'], 'document'),
                 $item('Planilla del mes', 'templates.index', ['templates.*'], 'table'),
                 $item('Todos los edificios', 'buildings.all', ['buildings.all'], 'building'),
+                $item('Ayuda', 'help.technician', ['help.technician'], 'help'),
             ],
             'unread' => $user?->role === 'technician' ? $user->unreadNotifications()->count() : 0,
         ];
@@ -65,6 +66,7 @@ class TechNav
             'plus' => '<path d="M12 5v14M5 12h14"/>',
             'pin' => '<path d="M12 21s-7-6.5-7-11.5a7 7 0 0 1 14 0C19 14.5 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.5"/>',
             'chevron' => '<path d="m9 6 6 6-6 6"/>',
+            'help' => '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 0 1 4.9.7c0 1.7-2.4 2.1-2.4 3.6M12 17h.01"/>',
             'check' => '<path d="m5 12 4.5 4.5L19 7"/>',
             'clock' => '<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>',
             'camera' => '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',

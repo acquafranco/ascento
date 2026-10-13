@@ -99,7 +99,7 @@ class AscensoresAppPanelProvider extends PanelProvider
             ->renderHook(
                 PanelsRenderHook::PAGE_START,
                 function (): string {
-                    $key = auth()->user()?->canUseOnboarding()
+                    $key = auth()->user()?->canSeeHelpTips()
                         ? HelpTopics::forRoute(HelpTopics::currentRouteName())
                         : null;
 

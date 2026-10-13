@@ -339,6 +339,7 @@
 
         <p class="asc-onb-title">{{ $sectionHelp['title'] }}</p>
         <p class="asc-onb-body">{{ $sectionHelp['body'] }}</p>
+        <p class="asc-onb-body"><a href="{{ $helpCenterUrl }}" style="color:#d97706; font-weight:600" data-help-center-link>Ver todas las guías de ayuda</a></p>
 
         <div class="asc-onb-actions" style="flex-wrap: wrap">
             <button type="button" class="asc-onb-btn asc-onb-btn-primary" x-on:click="start(0)" data-ascento-restart>Ver la guía desde el principio</button>
