@@ -111,7 +111,7 @@ class RepairService
 
         return DB::transaction(function () use ($component, $data) {
             $locked = RepairComponent::query()->whereKey($component->id)->lockForUpdate()->firstOrFail();
-            $values = $this->validated((int) $locked->company_id, $data + $locked->only(self::EDITABLE), $locked->status);
+            $values = $this->validated((int) $locked->company_id, $data + $locked->only(self::EDITABLE), $locked->status, $locked);
             $component->forceFill($values)->save();
 
             return $component;
@@ -138,18 +138,28 @@ class RepairService
             }
 
             $allowed = array_intersect_key($data, array_flip(['sent_at', 'expected_return_at', 'returned_at', 'quote_amount', 'final_cost', 'provider']));
-            $values = $this->validated((int) $locked->company_id, $allowed + $locked->only(self::EDITABLE), $to);
+            $values = $this->validated((int) $locked->company_id, $allowed + $locked->only(self::EDITABLE), $to, $locked);
             $component->forceFill(['status' => $to] + $values)->save();
 
             return $component;
         });
     }
 
-    private function validated(int $companyId, array $data, string $status): array
+    /**
+     * Con $current (corregir o cambiar de estado): un vínculo que NO cambia
+     * (edificio, orden, responsable) se conserva aunque ya no esté vigente
+     * (edificio desactivado, orden borrada, responsable sin acceso), para
+     * que el componente pueda seguir su curso. Elegir uno nuevo exige que
+     * esté vigente. Siempre de la misma empresa.
+     */
+    private function validated(int $companyId, array $data, string $status, ?RepairComponent $current = null): array
     {
         $errors = [];
+        $kept = fn (string $field) => $current !== null && filled($data[$field] ?? null) && (int) $data[$field] === (int) $current->getOriginal($field);
 
-        $building = Building::withoutGlobalScopes()->where('company_id', $companyId)->whereNull('deleted_at')->find((int) ($data['building_id'] ?? 0));
+        $building = Building::withoutGlobalScopes()->where('company_id', $companyId)
+            ->when(! $kept('building_id'), fn ($q) => $q->whereNull('deleted_at'))
+            ->find((int) ($data['building_id'] ?? 0));
         if (! $building) {
             $errors['building_id'] = 'Elegí un edificio de la empresa.';
         }
@@ -164,7 +174,9 @@ class RepairService
 
         $workOrder = null;
         if (filled($data['work_order_id'] ?? null)) {
-            $workOrder = WorkOrder::withoutGlobalScopes()->where('company_id', $companyId)->whereNull('deleted_at')->find((int) $data['work_order_id']);
+            $workOrder = WorkOrder::withoutGlobalScopes()->withTrashed()->where('company_id', $companyId)
+                ->when(! $kept('work_order_id'), fn ($q) => $q->whereNull('deleted_at'))
+                ->find((int) $data['work_order_id']);
             if (! $workOrder || ! $building || (int) $workOrder->building_id !== (int) $building->id) {
                 $errors['work_order_id'] = 'Elegí una orden de trabajo de ese edificio.';
             }
@@ -182,7 +194,8 @@ class RepairService
         $follow = null;
         if (filled($data['follow_up_user_id'] ?? null)) {
             $follow = User::withTrashed()->find((int) $data['follow_up_user_id']);
-            if (! $follow || ! $this->eligible($follow, $companyId)) {
+            $sameCompany = $follow && (int) $follow->company_id === $companyId;
+            if (! $follow || ! ($kept('follow_up_user_id') ? $sameCompany : $this->eligible($follow, $companyId))) {
                 $errors['follow_up_user_id'] = 'Elegí una persona de la empresa con acceso a reparaciones.';
             }
         }

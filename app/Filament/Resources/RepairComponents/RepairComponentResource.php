@@ -80,10 +80,16 @@ class RepairComponentResource extends Resource
         return false;
     }
 
-    /** @return array<int, string> */
-    public static function buildingOptions(): array
+    /** @return array<int, string> edificios activos y, al corregir, el que ya tenía aunque se haya desactivado */
+    public static function buildingOptions(?RepairComponent $record = null): array
     {
-        return Building::query()->orderBy('name')->pluck('name', 'id')->all();
+        $options = Building::query()->orderBy('name')->pluck('name', 'id')->all();
+        $current = $record?->building;
+        if ($current && ! isset($options[$current->id]) && (int) $current->company_id === (int) $record->company_id) {
+            $options[$current->id] = $current->name.' (desactivado)';
+        }
+
+        return $options;
     }
 
     /** @return array<int, string> ascensores del edificio */
@@ -92,11 +98,30 @@ class RepairComponentResource extends Resource
         return $buildingId ? Elevator::where('building_id', $buildingId)->orderBy('label')->pluck('label', 'id')->all() : [];
     }
 
-    /** @return array<int, string> órdenes del edificio (las más recientes) */
-    public static function workOrderOptions(?int $buildingId): array
+    /** @return array<int, string> quienes pueden seguirlo y, al corregir, quien ya lo seguía aunque haya perdido el acceso */
+    public static function followUpOptions(?RepairComponent $record = null): array
     {
-        return $buildingId ? WorkOrder::where('building_id', $buildingId)->latest('id')->limit(50)->get(['id', 'type', 'unit', 'created_at'])
-            ->mapWithKeys(fn (WorkOrder $o) => [$o->id => '#'.$o->id.' · '.WorkOrderLabels::type((string) $o->type).($o->unit ? ' · '.$o->unit : '').' · '.$o->created_at?->format('d/m/Y')])->all() : [];
+        $options = app(RepairService::class)->people((int) CompanyContext::currentId());
+        $current = $record?->followUp;
+        if ($current && ! isset($options[$current->id]) && (int) $current->company_id === (int) $record->company_id) {
+            $options[$current->id] = $current->name.' (sin acceso)';
+        }
+
+        return $options;
+    }
+
+    /** @return array<int, string> órdenes del edificio (las más recientes) y, al corregir, la que ya tenía */
+    public static function workOrderOptions(?int $buildingId, ?RepairComponent $record = null): array
+    {
+        $label = fn (WorkOrder $o) => '#'.$o->id.' · '.WorkOrderLabels::type((string) $o->type).($o->unit ? ' · '.$o->unit : '').' · '.$o->created_at?->format('d/m/Y');
+        $options = $buildingId ? WorkOrder::where('building_id', $buildingId)->latest('id')->limit(50)->get(['id', 'type', 'unit', 'created_at'])
+            ->mapWithKeys(fn (WorkOrder $o) => [$o->id => $label($o)])->all() : [];
+        $current = $record?->work_order_id ? WorkOrder::withTrashed()->find($record->work_order_id) : null;
+        if ($current && ! isset($options[$current->id]) && (int) $current->building_id === (int) $buildingId) {
+            $options[$current->id] = $label($current).($current->trashed() ? ' (borrada)' : '');
+        }
+
+        return $options;
     }
 
     public static function form(Schema $schema): Schema
@@ -105,7 +130,7 @@ class RepairComponentResource extends Resource
 
         return $schema->components([
             Section::make('Componente')->columnSpanFull()->columns(['default' => 1, 'md' => 2])->schema([
-                Select::make('building_id')->label('Edificio')->options(fn () => self::buildingOptions())->searchable()->required()->live()
+                Select::make('building_id')->label('Edificio')->options(fn ($record) => self::buildingOptions($record))->searchable()->required()->live()
                     ->afterStateUpdated(function (Set $set) {
                         $set('elevator_id', null);
                         $set('work_order_id', null);
@@ -116,7 +141,7 @@ class RepairComponentResource extends Resource
                 TextInput::make('brand')->label('Marca')->maxLength(120),
                 TextInput::make('model')->label('Modelo')->maxLength(120),
                 TextInput::make('serial_number')->label('Número de serie')->maxLength(120),
-                Select::make('work_order_id')->label('Orden de trabajo (opcional)')->options(fn (Get $get) => self::workOrderOptions((int) $get('building_id') ?: null))->searchable(),
+                Select::make('work_order_id')->label('Orden de trabajo (opcional)')->options(fn (Get $get, $record) => self::workOrderOptions((int) $get('building_id') ?: null, $record))->searchable(),
                 Textarea::make('failure')->label('Falla')->required()->rows(3)->maxLength(5000)->columnSpanFull(),
             ]),
             Section::make('Envío y seguimiento')->columnSpanFull()->columns(['default' => 1, 'md' => 2])->schema([
@@ -126,7 +151,7 @@ class RepairComponentResource extends Resource
                     ->visible(fn ($record, Get $get) => ! in_array($status($record, $get), [RepairComponent::PENDING, null], true))
                     ->required(fn ($record, Get $get) => ! in_array($status($record, $get), [RepairComponent::PENDING, RepairComponent::CANCELLED, null], true)),
                 TextInput::make('provider')->label('Proveedor o taller')->maxLength(160),
-                Select::make('follow_up_user_id')->label('Responsable del seguimiento')->options(fn () => app(RepairService::class)->people((int) CompanyContext::currentId()))->searchable(),
+                Select::make('follow_up_user_id')->label('Responsable del seguimiento')->options(fn ($record) => self::followUpOptions($record))->searchable(),
                 DatePicker::make('expected_return_at')->label('Devolución estimada')->native(false)->displayFormat('d/m/Y'),
                 TextInput::make('quote_amount')->label('Presupuesto de reparación')->numeric()->minValue(0)->prefix('$'),
                 TextInput::make('final_cost')->label('Costo final')->numeric()->minValue(0)->prefix('$'),
