@@ -8,6 +8,7 @@ use App\Services\Media\PhotoProcessor;
 use App\Support\Access\Access;
 use App\Support\CompanyContext;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -83,8 +84,21 @@ class TechnicianPhotoService
             throw ValidationException::withMessages(['photo' => 'No se pudo procesar la foto. Probá con otra imagen.']);
         }
 
-        $previous = $technician->avatar;
-        $technician->forceFill(['avatar' => $path])->saveQuietly();
+        // Cambio bajo bloqueo: dos reemplazos a la vez no dejan archivos
+        // huérfanos (cada uno borra la foto que efectivamente reemplazó).
+        try {
+            $previous = DB::transaction(function () use ($technician, $path) {
+                $locked = User::query()->whereKey($technician->id)->lockForUpdate()->first(['id', 'avatar']);
+                $previous = $locked?->avatar;
+                $technician->forceFill(['avatar' => $path])->saveQuietly();
+
+                return $previous;
+            });
+        } catch (\Throwable $e) {
+            $disk->delete($path);
+
+            throw $e;
+        }
         $this->deleteFile($previous);
 
         ActivityLogger::record('user.photo_updated', $technician, []);
@@ -96,9 +110,15 @@ class TechnicianPhotoService
     {
         abort_unless($this->canChange($actor, $technician), 403);
 
-        if ($technician->avatar) {
-            $this->deleteFile($technician->avatar);
+        $previous = DB::transaction(function () use ($technician) {
+            $previous = User::query()->whereKey($technician->id)->lockForUpdate()->value('avatar');
             $technician->forceFill(['avatar' => null])->saveQuietly();
+
+            return $previous;
+        });
+
+        if ($previous) {
+            $this->deleteFile($previous);
             ActivityLogger::record('user.photo_removed', $technician, []);
         }
 
