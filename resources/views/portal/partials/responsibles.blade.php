@@ -16,7 +16,8 @@
                         <strong>{{ $r['user']->name }}</strong>
                         <span class="p-muted"> · {{ implode(' e ', $r['roles']) }}</span>
                         @unless($single ?? false)
-                            <br><span class="p-muted">{{ implode(', ', $r['buildings']) }}</span>
+                            {{-- Un rol en común: solo los edificios; si difiere, el rol de cada uno. --}}
+                            <br><span class="p-muted" data-responsible-buildings>{{ collect($r['buildings'])->map(fn ($b) => $r['same_roles'] ? $b['name'] : $b['name'].' ('.implode(' e ', $b['roles']).')')->implode(', ') }}</span>
                         @endunless
                     </span>
                 </li>
