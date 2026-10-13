@@ -116,6 +116,11 @@ class CompanyErasureTest extends TestCase
         $this->row('quote_events', ['company_id' => $c, 'quote_id' => $quote, ...$now]);
         $this->row('tasks', ['company_id' => $c, 'title' => 'Tarea', 'assigned_to' => $t['admin']->id, 'created_by' => $t['admin']->id, 'client_id' => $client, 'building_id' => $bld, 'quote_id' => $quote, 'work_order_id' => $order, ...$now]);
         $this->row('client_interactions', ['company_id' => $c, 'client_id' => $client, 'building_id' => $bld, 'quote_id' => $quote, 'type' => 'call', 'result' => 'resolved', 'occurred_at' => now(), 'user_id' => $t['admin']->id, ...$now]);
+        // Etapa 7: QR público y pruebas de paracaídas (con un archivo).
+        $ptest = $this->row('parachute_tests', ['company_id' => $c, 'elevator_id' => $elevator, 'building_id' => $bld, 'performed_on' => '2026-10-01', 'result' => 'satisfactory', 'performed_by_id' => $u, 'recorded_by' => $t['admin']->id, ...$now]);
+        $this->row('parachute_test_files', ['company_id' => $c, 'parachute_test_id' => $ptest, 'path' => "elevators/{$c}/parachute/p.pdf", 'mime' => 'application/pdf', 'uploaded_by' => $u, ...$now]);
+        $this->row('parachute_schedules', ['company_id' => $c, 'elevator_id' => $elevator, 'inspector_id' => $u, 'responsible_id' => $t['admin']->id, ...$now]);
+        $this->row('building_public_pages', ['company_id' => $c, 'building_id' => $bld, 'token' => Str::random(48), 'generated_by' => $t['admin']->id, ...$now]);
         $receivable = $this->row('receivables', ['company_id' => $c, 'client_id' => $client, 'building_id' => $bld, 'quote_id' => $quote, 'maintenance_service_id' => $service, ...$now]);
         $this->row('receivable_payments', ['company_id' => $c, 'receivable_id' => $receivable, ...$now]);
         $item = $this->row('stock_items', ['company_id' => $c, ...$now]);
@@ -137,7 +142,7 @@ class CompanyErasureTest extends TestCase
 
         DB::table('companies')->where('id', $c)->update(['logo' => "companies/logos/logo-{$c}.png"]);
 
-        foreach (["elevators/{$c}/doc.pdf", "visits/{$c}/a.jpg", "visits/{$c}/a-thumb.jpg", "reports/{$c}/photos/r.jpg", "reports/{$c}/videos/v.mp4", "exports/{$c}/datos.zip", "visits/{$c}/suelto.jpg"] as $path) {
+        foreach (["elevators/{$c}/doc.pdf", "elevators/{$c}/parachute/p.pdf", "visits/{$c}/a.jpg", "visits/{$c}/a-thumb.jpg", "reports/{$c}/photos/r.jpg", "reports/{$c}/videos/v.mp4", "exports/{$c}/datos.zip", "visits/{$c}/suelto.jpg"] as $path) {
             Storage::disk('local')->put($path, 'x');
         }
         Storage::disk('public')->put("reports/legacy-{$c}.jpg", 'x');
