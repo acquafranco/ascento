@@ -3,6 +3,8 @@
 namespace App\Filament\Pages;
 
 use App\Enums\PermissionArea;
+use App\Enums\PlanFeature;
+use App\Filament\Concerns\RequiresPlanFeature;
 use App\Filament\Resources\Buildings\BuildingResource;
 use App\Jobs\GeocodePendingBuildings;
 use App\Models\Building;
@@ -28,6 +30,10 @@ use Livewire\Attributes\Computed;
  */
 class BuildingsMap extends Page
 {
+    use RequiresPlanFeature;
+
+    protected static PlanFeature $planFeature = PlanFeature::Map;
+
     /** Área de permisos de administrativos (Etapa 6). */
     public static function permissionArea(): ?PermissionArea
     {

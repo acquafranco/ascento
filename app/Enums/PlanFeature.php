@@ -127,7 +127,19 @@ enum PlanFeature: string
      */
     public static function structural(): array
     {
-        return [self::Buildings, self::Clients, self::Technicians, self::Maintenances, self::Inspections, self::WorkOrders, self::Reports, self::History, self::DigitalDeliveryNotes];
+        return [
+            self::Buildings, self::Clients, self::Technicians, self::Maintenances, self::Inspections, self::WorkOrders,
+            self::Reports, self::History, self::DigitalDeliveryNotes,
+            // Esenciales también: indicadores básicos y el legajo básico del ascensor
+            // (lo avanzado del legajo son ElevatorHistoryAdvanced y FailureAnalysis).
+            self::Indicators, self::ElevatorFile,
+        ];
+    }
+
+    /** ¿Es esencial (no se puede quitar de un plan)? */
+    public function isEssential(): bool
+    {
+        return in_array($this, self::structural(), true);
     }
 
     /** @return list<self> las que el SuperAdmin puede activar o desactivar por plan */

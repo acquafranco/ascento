@@ -85,3 +85,46 @@ Todo usa `PlanGuard`, el mismo mecanismo de las funciones anteriores, sin un sis
   - Guardar pide confirmación y muestra el resumen de cambios.
   - Lo verifica `PlanFeatureManager` en el servidor. Cada cambio queda en el log de la aplicación, con quién lo hizo, el plan, lo que se sumó y lo que se quitó.
 - **Desactivar una función** aplica a todas las empresas de ese plan desde ese momento, sin borrar datos.
+
+## 6. Catálogo completo de funcionalidades
+
+- **Una sola definición:** `App\Support\Plans\FeatureCatalog` reúne **todas** las funcionalidades de Ascento, desde la base original hasta la Etapa 9.
+  - Están agrupadas por módulo y ordenadas por fecha.
+  - Cada una tiene nombre, descripción, origen y categoría. El origen sale del commit o de la etapa documentada.
+  - Cada caso de `PlanFeature` aparece una sola vez; una prueba lo verifica, así el catálogo y el servidor no se separan.
+- **Categorías:**
+  - **Esencial:** en todos los planes y no se puede quitar, ni desde la pantalla ni con un pedido manipulado (`PlanFeature::structural()`). Entran:
+    - remitos digitales y el remito firmado;
+    - edificios, clientes, técnicos, mantenimientos, inspecciones, órdenes de trabajo, reportes e historial;
+    - indicadores básicos y el legajo básico del ascensor;
+    - las funciones que nunca dependieron del plan: stock, servicios y cobranzas, avisos, foto del técnico, registro de actividad y app del técnico.
+  - **Configurable por plan:** mapa, agenda, centro de atención y su versión avanzada, historial avanzado y análisis de fallas, QR, presupuestos, video, fotos de los trabajos, tareas, contactos, paracaídas, reparaciones, portal y los indicadores y alertas avanzados.
+  - **Según rol o permisos**, no según el plan: Mi empresa, suscripción, exportación, usuarios administrativos (su cantidad sí depende del plan), conexión con WhatsApp y las herramientas del SuperAdmin.
+- **Legajo del ascensor:** lo básico (ficha, documentación e historial básico) es esencial. Las partes avanzadas ya estaban separadas y siguen configurables («Historial avanzado del ascensor» y «Análisis de fallas»).
+- **Partes de otra función:** se habilitan con ella, sin casilla propia. Es el caso de los responsables en el portal (van con el portal) y de la marca y modelo del control (van con el legajo).
+
+## 7. Correcciones de control de acceso
+
+| Función | Antes | Ahora |
+|---|---|---|
+| Mapa | Se podía quitar desde «Planes», pero no se controlaba en ningún lado | La pantalla lleva a «Ver planes», los pedidos de Livewire sobre la página abierta responden 403 y el enlace al mapa de la ficha del edificio se oculta |
+| Indicadores básicos | Se controlaba la pantalla, no los widgets del inicio | Esenciales: en todos los planes, sin quitar |
+| Legajo del ascensor | Se controlaban sus pantallas, no los documentos ni la lista de ascensores del edificio | Lo básico es esencial |
+| Presupuestos | El PDF del panel (`files/quotes/{id}/pdf`) no controlaba el plan | Sin la función, el PDF del panel lleva a «Ver planes» |
+| Video en los reportes | Solo se controlaba la subida | Sin la función no se ve, no se consulta su estado, no se borra y no se procesa (queda pendiente), en el panel, la app del técnico y el portal |
+
+- **Control centralizado en las páginas:** `RequiresPlanFeature` también verifica cada pedido siguiente de Livewire. Un pedido manipulado sobre una página que ya estaba abierta responde 403, en todas las páginas que usan este mecanismo.
+- **Presupuestos ya enviados o compartidos:** el enlace firmado que recibió el cliente y lo que ya se compartió en el portal siguen abriendo aunque la empresa pierda la función. La empresa, en cambio, no puede crear, editar, enviar ni descargar presupuestos desde el panel.
+- **Datos:** nunca se borran. Al volver a habilitar la función, todo vuelve como estaba, incluidos los videos pendientes, que se procesan en la siguiente corrida.
+
+## 8. Historial de cambios
+
+- **Tabla `plan_feature_changes`:** la crea la migración `2026_12_31_100000_create_plan_feature_changes`, que se puede revertir. Guarda una fila por función que cambia en un plan:
+  - quién y su nombre;
+  - cuándo;
+  - plan;
+  - función;
+  - estado anterior y nuevo;
+  - el motivo que escribe el SuperAdmin al confirmar.
+- **Solo se agregan filas:** el modelo rechaza editarlas o borrarlas.
+- **Quién lo consulta:** el SuperAdmin, en «Planes». Los dueños y administrativos de las empresas no entran.

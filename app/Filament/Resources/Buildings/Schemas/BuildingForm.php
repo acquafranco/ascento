@@ -150,7 +150,7 @@ class BuildingForm
                     Building::GEO_NEEDS_REVIEW => 'warning',
                     default => 'gray',
                 })
-                ->url(fn () => BuildingsMap::getUrl())
+                ->url(fn () => \App\Support\Plans\PlanGuard::currentAllows(\App\Enums\PlanFeature::Map) ? BuildingsMap::getUrl() : null)
                 ->columnSpanFull(),
 
 
