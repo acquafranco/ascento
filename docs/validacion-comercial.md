@@ -39,26 +39,37 @@ Este documento no contiene testimonios, métricas de uso ni resultados de client
 
 ## 3. Planes tal como están implementados
 
-Fuente: `database/seeders/SubscriptionPlanSeeder.php` y `app/Enums/PlanFeature.php`. Los precios son los cargados hoy en el sistema; antes de citarlos, confirmarlos en "Mi suscripción". Este documento no los cambia.
+Fuentes:
+- **Precios y límites:** `database/seeders/SubscriptionPlanSeeder.php`. El límite de administrativos sale de la migración `2026_11_25_100000_add_staff_permissions_and_activity_logs`.
+- **Funciones de cada plan:** `feature_keys` de cada plan, con los valores iniciales del seeder.
+- **Funciones esenciales:** `PlanFeature::structural()`, que no se pueden quitar de ningún plan.
+- **Prueba gratis:** `SubscriptionPlan::TRIAL_PLAN` y `RegisteredUserController` (`trial_ends_at`).
+
+El SuperAdmin puede cambiar las funciones de cada plan desde **Planes** (`/admin/planes`). Antes de citar un precio o una función, confirmalo ahí o en «Mi suscripción». La página de inicio y su comparativa ya leen esa configuración. Este documento no cambia nada.
 
 | | Inicial | Profesional | Empresa |
 |---|---|---|---|
 | Precio mensual cargado (ARS) | 69.000 | 119.000 | 169.000 |
 | Edificios / clientes / técnicos | 20 / 50 / 3 | 70 / 150 / 10 | 300 / 420 / 25 |
+| Usuarios administrativos (además del dueño) | Sin administrativos | Hasta 1 | Hasta 5 |
 | Reportes por mes | 15 | Sin límite | Sin límite |
 | Clientes, edificios, técnicos, mantenimientos, inspecciones, órdenes, remitos firmados, reportes, mapa | ✓ | ✓ | ✓ |
+| **Remitos digitales** (PDF y enlace para el cliente, por WhatsApp o correo). Son esenciales: no se pueden quitar de ningún plan. | ✓ | ✓ | ✓ |
 | Stock, servicios y cobranzas | ✓ | ✓ | ✓ |
 | Agenda, centro de atención básico, legajo del ascensor, indicadores básicos | ✓ | ✓ | ✓ |
+| Tareas y recordatorios, QR público de los edificios, pruebas de paracaídas, componentes en reparación | ✓ | ✓ | ✓ |
 | Exportación de datos | ✓ | ✓ | ✓ |
-| Presupuestos numerados con envío por correo (PDF adjunto) y enlace seguro con vencimiento; remitos digitales (PDF y link para WhatsApp o email) | — | ✓ | ✓ |
-| Portal para clientes (con invitación por correo y avisos al cliente) | — | ✓ | ✓ |
-| Video en reportes (uno por reporte, validado en el servidor) | — | ✓ | ✓ |
 | Avisos en tiempo real dentro de Ascento y push en el celular | ✓ | ✓ | ✓ |
+| Presupuestos numerados con envío por correo (PDF adjunto) y enlace seguro con vencimiento | — | ✓ | ✓ |
+| Portal para clientes (con invitación por correo y avisos al cliente) | — | ✓ | ✓ |
+| Historial de contactos con clientes | — | ✓ | ✓ |
+| Video en reportes (uno por reporte, validado en el servidor) | — | ✓ | ✓ |
 | Centro de atención avanzado, historial avanzado, análisis de fallas, indicadores de empresa | — | ✓ | ✓ |
 | Indicadores avanzados (año contra año, cartera), alertas avanzadas | — | — | ✓ |
+| Fotos de antes y después y reportes de inspección con fotos | — | — | ✓ |
 
-- **Prueba gratis:** 30 días con las funciones del plan **Profesional**.
-- El portal para clientes es de Profesional y Empresa. En una demo con una empresa que evalúa el plan Inicial, aclararlo antes de mostrarlo.
+- **Prueba gratis:** 30 días con todas las funciones del plan **Empresa**, sin tarjeta. La empresa que se registra usa ese plan mientras dura la prueba, hasta que contrate uno (`Company::plan()`). Al terminar, elige el plan que le sirva.
+- El portal para clientes y los presupuestos son de Profesional y Empresa. En una demo con una empresa que evalúa el plan Inicial, aclararlo antes de mostrarlos. Durante la prueba gratis los ve igual, porque la prueba es con Empresa.
 
 ---
 
