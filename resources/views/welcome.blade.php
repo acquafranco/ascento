@@ -148,7 +148,7 @@
                             </a>
                         </div>
 
-                        <div class="mt-9 flex items-center gap-6 text-sm text-ink/50">
+                        <div class="mt-9 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-ink/50">
                             @php
                                 $fromPrice = \App\Models\SubscriptionPlan::offered()->min('price');
                             @endphp
@@ -156,7 +156,7 @@
                                 <a href="#planes" class="font-semibold text-ink hover:text-amber-600 transition-colors" data-price-anchor>Desde ${{ number_format((float) $fromPrice, 0, ',', '.') }}/mes</a>
                             @endif
                             <span class="flex items-center gap-2"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="#2E4FBE" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Sin tarjeta de crédito</span>
-                            <span class="flex items-center gap-2"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="#2E4FBE" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Configuración en minutos</span>
+                            <span class="flex items-center gap-2"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="#2E4FBE" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Empezá a organizar tu empresa desde el primer día</span>
                         </div>
                     </div>
 
@@ -261,7 +261,7 @@
                     <div class="grid lg:grid-cols-3 gap-10 lg:gap-6">
                         @php
                             $steps = [
-                                ['PB', 'Registrá tu empresa', 'Creá tu cuenta y configurá los datos de tu empresa de mantenimiento en minutos.'],
+                                ['PB', 'Registrá tu empresa', 'Creá tu cuenta y completá los datos de tu empresa de mantenimiento.'],
                                 ['1', 'Cargá edificios y técnicos', 'Sumá tus edificios, ascensores, clientes y el equipo técnico que va a operar el sistema.'],
                                 ['2', 'Empezá a administrar', 'Generá órdenes, programá mantenimientos y seguí cada trabajo en tiempo real.'],
                             ];

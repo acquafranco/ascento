@@ -57,6 +57,9 @@ class LandingContentTest extends TestCase
         $this->assertStringNotContainsString('funciones del plan Profesional, sin tarjeta', $html);
         $this->assertStringContainsString('Desde el plan Profesional, cada consorcio', $html);
         $this->assertStringContainsString('no una certificación de seguridad', $html);
+        // Sin promesas de tiempo de configuración.
+        $this->assertStringContainsString('Empezá a organizar tu empresa desde el primer día', $html);
+        $this->assertStringNotContainsString('en minutos', $html);
     }
 
     public function test_a_feature_no_plan_includes_is_not_advertised(): void
