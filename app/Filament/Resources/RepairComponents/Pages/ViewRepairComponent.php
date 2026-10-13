@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\RepairComponents\Pages;
 
+use App\Enums\PlanFeature;
+use App\Filament\Concerns\RequiresPlanFeature;
 use App\Filament\Resources\RepairComponents\RepairComponentResource;
 use App\Models\RepairComponent;
 use App\Services\Repairs\RepairService;
@@ -16,6 +18,10 @@ use Filament\Schemas\Components\Utilities\Get;
 
 class ViewRepairComponent extends ViewRecord
 {
+    use RequiresPlanFeature;
+
+    protected static PlanFeature $planFeature = PlanFeature::Repairs;
+
     protected static string $resource = RepairComponentResource::class;
 
     public function getTitle(): string

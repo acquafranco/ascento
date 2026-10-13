@@ -2,6 +2,7 @@
 
 namespace App\Services\PublicQr;
 
+use App\Enums\PlanFeature;
 use App\Models\Building;
 use App\Models\BuildingPublicPage;
 use App\Models\Company;
@@ -10,6 +11,7 @@ use App\Models\Elevator;
 use App\Models\RepairComponent;
 use App\Models\WorkOrder;
 use App\Services\Parachute\ParachuteService;
+use App\Support\Plans\PlanGuard;
 use App\Support\WorkOrderLabels;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
@@ -71,7 +73,12 @@ class PublicBuildingInfo
         // Última prueba y, si ya corresponde avisar (próxima o vencida, igual
         // que el recordatorio), la fecha prevista: la misma cuenta del panel.
         $tests = collect();
-        if ($page->show_safety_tests && $elevators->isNotEmpty()) {
+        // Bloques de funciones del plan: si la empresa no las tiene, no se publican.
+        $plan = $company ? PlanGuard::for($company) : null;
+        $showTests = $page->show_safety_tests && (bool) $plan?->allows(PlanFeature::ParachuteTests);
+        $showRepairs = $page->show_repairs && (bool) $plan?->allows(PlanFeature::Repairs);
+
+        if ($showTests && $elevators->isNotEmpty()) {
             $tests = $this->parachutes->overview($companyId, (int) $page->building_id)->keyBy(fn (array $row) => $row['elevator']->id);
             $dates->push(...$tests->pluck('last')->filter()->pluck('performed_on'));
         }
@@ -82,7 +89,7 @@ class PublicBuildingInfo
         // marca, modelo, serie, detalle, notas ni historial. Lo mismo para la
         // página pública y la vista previa del panel (las dos usan esto).
         $repairs = collect();
-        if ($page->show_repairs) {
+        if ($showRepairs) {
             $repairs = RepairComponent::withoutGlobalScopes()->where('company_id', $companyId)->where('building_id', $page->building_id)
                 ->whereIn('status', array_keys(RepairComponent::PUBLIC_STATUSES))->orderBy('id')->get(['elevator_id', 'component_type', 'status', 'sent_at'])
                 ->map(fn (RepairComponent $r) => [
@@ -145,9 +152,9 @@ class PublicBuildingInfo
                 'elevators' => (bool) $page->show_elevators,
                 'maintenance' => (bool) $page->show_last_maintenance,
                 'inspection' => (bool) $page->show_last_inspection,
-                'tests' => (bool) $page->show_safety_tests && (bool) $page->show_elevators,
+                'tests' => $showTests && (bool) $page->show_elevators,
                 'pending' => (bool) $page->show_pending_work,
-                'repairs' => (bool) $page->show_repairs,
+                'repairs' => $showRepairs,
                 'contact' => (bool) $page->show_contact,
             ],
             'elevators' => $items,

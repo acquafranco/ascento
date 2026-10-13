@@ -3,12 +3,14 @@
 namespace App\Services\PublicQr;
 
 use App\Enums\PermissionArea;
+use App\Enums\PlanFeature;
 use App\Models\Building;
 use App\Models\BuildingPublicPage;
 use App\Models\Elevator;
 use App\Models\User;
 use App\Support\Access\Access;
 use App\Support\CompanyContext;
+use App\Support\Plans\PlanGuard;
 use chillerlan\QRCode\Common\EccLevel;
 use chillerlan\QRCode\Output\QROutputInterface;
 use chillerlan\QRCode\QRCode;
@@ -30,6 +32,7 @@ class PublicQrService
     private function authorizeManage(?User $actor): void
     {
         abort_unless(Access::can($actor, PermissionArea::PublicPages, PermissionArea::MANAGE), 403);
+        PlanGuard::ensureCurrent(PlanFeature::PublicQr);
     }
 
     private function ensureCompany(int $companyId): void

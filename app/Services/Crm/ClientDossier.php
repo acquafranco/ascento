@@ -57,8 +57,8 @@ class ClientDossier
             'work_orders' => $can(PermissionArea::WorkOrders) ? $this->workOrders($companyId, $buildingIds) : null,
             'delivery_notes' => $can(PermissionArea::Documents) ? $this->deliveryNotes($companyId, $buildingIds) : null,
             'receivables' => $can(PermissionArea::Receivables) ? $this->receivables($companyId, $client) : null,
-            'tasks' => $can(PermissionArea::Tasks) ? $this->tasks($companyId, $client, $buildingIds) : null,
-            'contacts' => $can(PermissionArea::Contacts) ? $this->contacts($companyId, $client) : null,
+            'tasks' => $can(PermissionArea::Tasks) && $this->company->plan()->allows(PlanFeature::Tasks) ? $this->tasks($companyId, $client, $buildingIds) : null,
+            'contacts' => $can(PermissionArea::Contacts) && $this->company->plan()->allows(PlanFeature::ClientContacts) ? $this->contacts($companyId, $client) : null,
         ];
 
         return [

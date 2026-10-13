@@ -45,6 +45,13 @@ enum PlanFeature: string
     // Fotos de antes y después (mantenimientos y órdenes), reporte de
     // inspección con fotos y su consulta desde el panel.
     case WorkPhotos = 'work_photos';
+    // Etapas 6 a 8. En todos los planes: tareas, QR público, pruebas de
+    // paracaídas y reparaciones. Desde Profesional: historial de contactos.
+    case Tasks = 'tasks';
+    case ClientContacts = 'client_contacts';
+    case PublicQr = 'public_qr';
+    case ParachuteTests = 'parachute_tests';
+    case Repairs = 'repairs';
 
     public function label(): string
     {
@@ -73,6 +80,11 @@ enum PlanFeature: string
             self::AdvancedIndicators => 'Indicadores avanzados y cartera',
             self::AdvancedAlerts => 'Alertas avanzadas',
             self::WorkPhotos => 'Fotos de los trabajos y reportes de inspección',
+            self::Tasks => 'Tareas y recordatorios',
+            self::ClientContacts => 'Historial de contactos con clientes',
+            self::PublicQr => 'QR público de los edificios',
+            self::ParachuteTests => 'Pruebas de paracaídas',
+            self::Repairs => 'Componentes enviados a reparación',
         };
     }
 
@@ -91,6 +103,7 @@ enum PlanFeature: string
             self::ClientPortal => 'portal para que cada consorcio o administración vea lo que le compartís de sus edificios',
             self::ReportVideos => 'un video por reporte para mostrar la falla',
             self::WorkPhotos => 'fotos de antes y después de mantenimientos y órdenes, y reportes de inspección con fotos',
+            self::ClientContacts => 'historial de contactos con cada cliente y seguimiento de los que llevan tiempo sin contacto',
             default => mb_strtolower($this->label()),
         };
     }
@@ -102,6 +115,22 @@ enum PlanFeature: string
             self::Buildings, self::Clients, self::Technicians, self::Maintenances, self::Inspections,
             self::WorkOrders, self::Reports, self::History, self::Map,
             self::Agenda, self::AttentionCenter, self::ElevatorFile, self::Indicators,
+            self::Tasks, self::PublicQr, self::ParachuteTests, self::Repairs,
         ];
+    }
+
+    /**
+     * La base del producto: no se puede sacar de un plan (los otros módulos
+     * dependen de ella). El resto lo puede activar o desactivar el SuperAdmin.
+     */
+    public static function structural(): array
+    {
+        return [self::Buildings, self::Clients, self::Technicians, self::Maintenances, self::Inspections, self::WorkOrders, self::Reports, self::History];
+    }
+
+    /** @return list<self> las que el SuperAdmin puede activar o desactivar por plan */
+    public static function toggleable(): array
+    {
+        return array_values(array_filter(self::cases(), fn (self $f) => ! in_array($f, self::structural(), true)));
     }
 }

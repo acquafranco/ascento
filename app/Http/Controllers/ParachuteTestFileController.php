@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Enums\PermissionArea;
+use App\Enums\PlanFeature;
 use App\Models\ParachuteTestFile;
 use App\Support\Access\Access;
+use App\Support\Plans\PlanGuard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -18,7 +20,7 @@ class ParachuteTestFileController extends Controller
 {
     public function __invoke(Request $request, ParachuteTestFile $parachuteTestFile): StreamedResponse
     {
-        abort_unless(Access::can($request->user(), PermissionArea::Inspections), 404);
+        abort_unless(Access::can($request->user(), PermissionArea::Inspections) && PlanGuard::currentAllows(PlanFeature::ParachuteTests), 404);
         abort_unless($parachuteTestFile->hasSafePath() && Storage::disk('local')->exists($parachuteTestFile->path), 404);
 
         return Storage::disk('local')->response($parachuteTestFile->path, $parachuteTestFile->original_name ?: basename($parachuteTestFile->path), [

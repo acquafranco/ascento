@@ -3,6 +3,7 @@
 namespace App\Services\Repairs;
 
 use App\Enums\PermissionArea;
+use App\Enums\PlanFeature;
 use App\Models\Building;
 use App\Models\Elevator;
 use App\Models\RepairComponent;
@@ -12,6 +13,7 @@ use App\Models\WorkOrder;
 use App\Services\Activity\ActivityLogger;
 use App\Support\Access\Access;
 use App\Support\CompanyContext;
+use App\Support\Plans\PlanGuard;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -46,6 +48,7 @@ class RepairService
     private function authorizeManage(?User $actor): void
     {
         abort_unless(Access::can($actor, PermissionArea::Repairs, PermissionArea::MANAGE), 403);
+        PlanGuard::ensureCurrent(PlanFeature::Repairs);
     }
 
     private function ensureCompany(int $companyId): void

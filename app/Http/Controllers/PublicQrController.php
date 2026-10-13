@@ -3,12 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Enums\PermissionArea;
+use App\Enums\PlanFeature;
 use App\Models\Building;
 use App\Models\BuildingPublicPage;
 use App\Models\Company;
 use App\Services\PublicQr\PublicBuildingInfo;
 use App\Services\PublicQr\PublicQrService;
 use App\Support\Access\Access;
+use App\Support\Plans\PlanGuard;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Str;
@@ -36,7 +38,8 @@ class PublicQrController extends Controller
         // Sin scopes (no hay sesión), pero un edificio desactivado no se publica.
         $building = $page ? Building::withoutGlobalScopes()->where('company_id', $page->company_id)->whereNull('deleted_at')->find($page->building_id) : null;
 
-        if (! $page || ! $company || ! $company->hasActiveAccess() || ! $building) {
+        // Sin la función en el plan (si el SuperAdmin la quita), tampoco: el token se conserva y vuelve con el plan.
+        if (! $page || ! $company || ! $company->hasActiveAccess() || ! $building || ! PlanGuard::for($company)->allows(PlanFeature::PublicQr)) {
             return $this->headers(response()->view('public-qr.unavailable', [], 404));
         }
 
@@ -45,7 +48,7 @@ class PublicQrController extends Controller
 
     public function download(Request $request, Building $building, string $format, PublicQrService $service): Response
     {
-        abort_unless(Access::can($request->user(), PermissionArea::PublicPages), 404);
+        abort_unless(Access::can($request->user(), PermissionArea::PublicPages) && PlanGuard::currentAllows(PlanFeature::PublicQr), 404);
 
         $page = $service->pageOf($building);
         abort_unless($page && $page->is_active, 404);

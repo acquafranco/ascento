@@ -3,6 +3,8 @@
 namespace App\Filament\Pages;
 
 use App\Enums\PermissionArea;
+use App\Enums\PlanFeature;
+use App\Filament\Concerns\RequiresPlanFeature;
 use App\Models\Building;
 use App\Models\BuildingPublicPage;
 use App\Models\Elevator;
@@ -26,6 +28,10 @@ use Livewire\Attributes\Url;
  */
 class PublicQrPage extends Page
 {
+    use RequiresPlanFeature;
+
+    protected static PlanFeature $planFeature = PlanFeature::PublicQr;
+
     /** Área de permisos de administrativos. */
     public static function permissionArea(): ?PermissionArea
     {

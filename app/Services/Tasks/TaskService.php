@@ -3,9 +3,11 @@
 namespace App\Services\Tasks;
 
 use App\Enums\PermissionArea;
+use App\Enums\PlanFeature;
 use App\Filament\Resources\Tasks\TaskResource;
 use App\Models\Building;
 use App\Models\Client;
+use App\Models\Company;
 use App\Models\Elevator;
 use App\Models\Quote;
 use App\Models\Task;
@@ -16,6 +18,7 @@ use App\Services\Activity\ActivityLogger;
 use App\Services\Notifications\Notifier;
 use App\Support\Access\Access;
 use App\Support\CompanyContext;
+use App\Support\Plans\PlanGuard;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -104,6 +107,7 @@ class TaskService
     public function setStatus(User $actor, Task $task, string $status): Task
     {
         $this->ensureSameCompany($actor, $task);
+        PlanGuard::ensureCurrent(PlanFeature::Tasks);
         abort_unless(array_key_exists($status, Task::STATUSES), 422);
 
         $own = (int) $task->assigned_to === (int) $actor->id && Access::can($actor, PermissionArea::Tasks);
@@ -126,7 +130,10 @@ class TaskService
     {
         $sent = 0;
 
-        Task::withoutGlobalScopes()->open()
+        // Solo empresas cuyo plan incluye las tareas: las demás quedan pendientes y avisan si vuelven a tenerlas.
+        $companies = Company::query()->get()->filter(fn (Company $c) => PlanGuard::for($c)->allows(PlanFeature::Tasks))->pluck('id');
+
+        Task::withoutGlobalScopes()->open()->whereIn('company_id', $companies)
             ->whereNotNull('remind_at')->whereNull('reminded_at')->where('remind_at', '<=', now())
             ->orderBy('id')->limit(200)->get(['id'])
             ->each(function (Task $candidate) use (&$sent) {
@@ -301,6 +308,7 @@ class TaskService
     private function ensureCanManage(User $actor): void
     {
         abort_unless(Access::can($actor, PermissionArea::Tasks, PermissionArea::MANAGE), 403);
+        PlanGuard::ensureCurrent(PlanFeature::Tasks);
     }
 
     private function ensureSameCompany(User $actor, Task $task): void

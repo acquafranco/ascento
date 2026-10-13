@@ -3,10 +3,12 @@
 namespace App\Filament\RelationManagers;
 
 use App\Enums\PermissionArea;
+use App\Enums\PlanFeature;
 use App\Filament\Concerns\GuardedRelation;
 use App\Filament\Concerns\OwnerRecordOfCurrentCompany;
 use App\Filament\Resources\ClientInteractions\ClientInteractionResource;
 use App\Services\Crm\ClientInteractionService;
+use App\Support\Plans\PlanGuard;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -18,7 +20,9 @@ use Illuminate\Database\Eloquent\Model;
 class InteractionsRelationManager extends RelationManager
 {
     use GuardedRelation;
-    use OwnerRecordOfCurrentCompany;
+    use OwnerRecordOfCurrentCompany {
+        canViewForRecord as ownerCanViewForRecord;
+    }
 
     protected static string $relationship = 'interactions';
 
@@ -27,6 +31,13 @@ class InteractionsRelationManager extends RelationManager
     public static function permissionArea(): ?PermissionArea
     {
         return PermissionArea::Contacts;
+    }
+
+    /** Desde Profesional (Etapa 9.2): con Inicial, la pestaña no se muestra (los datos se conservan). */
+    public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
+    {
+        return PlanGuard::currentAllows(PlanFeature::ClientContacts)
+            && static::ownerCanViewForRecord($ownerRecord, $pageClass);
     }
 
     /**

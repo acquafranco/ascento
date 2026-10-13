@@ -192,7 +192,7 @@ class SubscriptionPlan extends Model
     {
         $lines = array_map(fn (PlanLimit $limit) => $limit->planLabel($this->limit($limit)), PlanLimit::cases());
 
-        foreach ([PlanFeature::Quotes, PlanFeature::DigitalDeliveryNotes, PlanFeature::ClientPortal, PlanFeature::ReportVideos, PlanFeature::CompanyIndicators, PlanFeature::FailureAnalysis, PlanFeature::AdvancedIndicators, PlanFeature::AdvancedAlerts, PlanFeature::WorkPhotos] as $feature) {
+        foreach ([PlanFeature::Quotes, PlanFeature::DigitalDeliveryNotes, PlanFeature::ClientPortal, PlanFeature::ClientContacts, PlanFeature::ReportVideos, PlanFeature::CompanyIndicators, PlanFeature::FailureAnalysis, PlanFeature::AdvancedIndicators, PlanFeature::AdvancedAlerts, PlanFeature::WorkPhotos] as $feature) {
             if ($this->allows($feature)) {
                 $lines[] = $feature->label();
             }

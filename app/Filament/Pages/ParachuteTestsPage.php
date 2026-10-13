@@ -3,6 +3,8 @@
 namespace App\Filament\Pages;
 
 use App\Enums\PermissionArea;
+use App\Enums\PlanFeature;
+use App\Filament\Concerns\RequiresPlanFeature;
 use App\Filament\Resources\ParachuteTests\ParachuteTestResource;
 use App\Models\Client;
 use App\Models\Elevator;
@@ -26,6 +28,10 @@ use Livewire\Attributes\Url;
  */
 class ParachuteTestsPage extends Page
 {
+    use RequiresPlanFeature;
+
+    protected static PlanFeature $planFeature = PlanFeature::ParachuteTests;
+
     public static function permissionArea(): ?PermissionArea
     {
         return PermissionArea::Inspections;
