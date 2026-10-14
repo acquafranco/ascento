@@ -79,7 +79,8 @@ final class JobDetail
             ])
             ->headerActions([
                 Action::make('viewReport')->label('Ver reporte')->icon('heroicon-o-document-text')->color('gray')
-                    ->visible(fn (DeliveryNote $record) => self::reportFor($record) !== null)
+                    // Solo si quien mira puede abrir el reporte (un administrativo puede ver remitos sin ver reportes).
+                    ->visible(fn (DeliveryNote $record) => ($report = self::reportFor($record)) !== null && ReportResource::canView($report))
                     ->url(fn (DeliveryNote $record) => ReportResource::getUrl('view', ['record' => self::reportFor($record)])),
             ]);
     }

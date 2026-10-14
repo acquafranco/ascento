@@ -81,7 +81,7 @@ class StockItemResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Grid::make(3)->schema([
+            Grid::make(3)->columnSpanFull()->schema([
                 TextInput::make('name')->label('Nombre')->required()->maxLength(255)->columnSpan(2)
                     ->placeholder('Ej: Contactor Schneider LC1D18'),
                 TextInput::make('code')->label('Código')->maxLength(60)
@@ -90,7 +90,7 @@ class StockItemResource extends Resource
                         ->ignore($record?->id)),
             ]),
             Textarea::make('description')->label('Descripción')->rows(2)->columnSpanFull(),
-            Grid::make(3)->schema([
+            Grid::make(3)->columnSpanFull()->schema([
                 Select::make('unit')->label('Unidad de medida')->options(StockItem::UNITS)->default('unidad')->required()->native(false),
                 TextInput::make('cost')->label('Costo unitario')->numeric()->minValue(0)->prefix('$')->default(0),
                 TextInput::make('min_stock')->label('Stock mínimo')->numeric()->minValue(0)->default(0)

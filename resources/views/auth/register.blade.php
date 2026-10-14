@@ -126,7 +126,7 @@
         </div>
 
         <div class="flex items-center justify-between gap-4 pt-2 border-t border-ink/10">
-            <a class="mt-4 text-sm font-medium text-ink/50 hover:text-ink transition-colors" href="{{ route('login') }}">
+            <a class="mt-3 py-1 text-sm font-medium text-ink/50 hover:text-ink transition-colors" href="{{ route('login') }}">
                 Ya tengo cuenta
             </a>
 

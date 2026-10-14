@@ -64,7 +64,7 @@ class ElevatorHistory
                     'title' => 'Reporte: '.Str::limit($r->description, 90),
                     'detail' => trim(($r->user?->name ?? '').' · '.ElevatorComponents::label($r->component).' · prioridad '.$r->priority, ' ·'),
                     'badge' => ['pendiente' => 'Pendiente', 'en_revision' => 'En revisión', 'resuelto' => 'Resuelto'][$r->status] ?? $r->status,
-                    'url' => ReportResource::getUrl('view', ['record' => $r]),
+                    'url' => ReportResource::canView($r) ? ReportResource::getUrl('view', ['record' => $r]) : null,
                 ]));
         }
 
@@ -83,7 +83,7 @@ class ElevatorHistory
                         'title' => 'Orden #'.$o->id.': '.WorkOrderLabels::type($o->type),
                         'detail' => trim($o->users->pluck('name')->implode(', ').' · '.ElevatorComponents::label($o->component).($o->deliveryNote ? ' · Remito '.$o->deliveryNote->number : ''), ' ·').$materials,
                         'badge' => WorkOrderLabels::status($o->status),
-                        'url' => WorkOrderResource::getUrl('edit', ['record' => $o]),
+                        'url' => WorkOrderResource::canEdit($o) ? WorkOrderResource::getUrl('edit', ['record' => $o]) : null,
                     ]);
                 });
         }
@@ -100,7 +100,7 @@ class ElevatorHistory
                     'title' => ($v->assignment_type === 'inspection' ? 'Inspección' : 'Mantenimiento').' mensual del edificio',
                     'detail' => trim(($v->user?->name ?? '').($v->deliveryNote ? ' · Remito '.$v->deliveryNote->number : ''), ' ·'),
                     'badge' => str_pad((string) $v->month, 2, '0', STR_PAD_LEFT).'/'.$v->year,
-                    'url' => $v->deliveryNote ? DeliveryNoteResource::getUrl('view', ['record' => $v->deliveryNote]) : null,
+                    'url' => $v->deliveryNote && DeliveryNoteResource::canView($v->deliveryNote) ? DeliveryNoteResource::getUrl('view', ['record' => $v->deliveryNote]) : null,
                     'building_level' => true,
                 ]));
         }
@@ -115,7 +115,7 @@ class ElevatorHistory
                     'title' => 'Presupuesto: '.$q->title,
                     'detail' => '$'.number_format((float) $q->amount, 0, ',', '.'),
                     'badge' => $q->displayStatusLabel(),
-                    'url' => QuoteResource::getUrl('view', ['record' => $q]),
+                    'url' => QuoteResource::canView($q) ? QuoteResource::getUrl('view', ['record' => $q]) : null,
                 ]));
         }
 

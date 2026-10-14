@@ -43,6 +43,7 @@ class PhotosRelationManager extends RelationManager
                 ImageColumn::make('preview')
                     ->label('Foto')
                     ->state(fn (ReportPhoto $record) => $record->thumbUrl())
+                    ->alt(fn (ReportPhoto $record) => 'Foto '.($record->position + 1))
                     ->url(fn (ReportPhoto $record) => $record->url(), shouldOpenInNewTab: true) // la original, al tocarla
                     ->imageHeight(120),
                 TextColumn::make('size')

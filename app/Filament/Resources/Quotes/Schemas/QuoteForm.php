@@ -27,6 +27,9 @@ class QuoteForm
     public static function configure(Schema $schema): Schema
     {
         $money = fn (float $value) => '$'.number_format($value, 2, ',', '.');
+        // El subtotal de la fila se recalcula al cambiar cantidad o precio (antes quedaba en
+        // el valor de la carga, aunque el total de abajo sí cambiaba).
+        $refreshSubtotal = fn (Get $get, Set $set) => $set('subtotal_preview', $money(round((float) $get('quantity') * (float) $get('unit_price'), 2)));
 
         return $schema
             ->components([
@@ -120,20 +123,24 @@ class QuoteForm
                     ->schema([
                         Repeater::make('items')
                             ->hiddenLabel()
+                            // Ancho mínimo en modo tabla (ver asc-quote-items en el panel): con la barra
+                            // lateral, a 1024 px los importes no entraban; ahora la tabla se desplaza.
+                            ->extraAttributes(['class' => 'asc-quote-items'])
                             ->relationship()
                             ->orderColumn('position')
                             ->table([
-                                TableColumn::make('Concepto')->markAsRequired(),
-                                TableColumn::make('Detalle'),
-                                TableColumn::make('Cantidad')->markAsRequired(),
-                                TableColumn::make('Precio unitario')->markAsRequired(),
-                                TableColumn::make('Subtotal'),
+                                // Anchos según lo que se escribe: el concepto y el detalle necesitan más lugar que la cantidad.
+                                TableColumn::make('Concepto')->markAsRequired()->width('28%'),
+                                TableColumn::make('Detalle')->width('18%'),
+                                TableColumn::make('Cantidad')->markAsRequired()->width('10%'),
+                                TableColumn::make('Precio unitario')->markAsRequired()->width('18%'),
+                                TableColumn::make('Subtotal')->width('18%'),
                             ])
                             ->schema([
                                 TextInput::make('concept')->label('Concepto')->required()->maxLength(255)->placeholder('Cambio de contactor'),
                                 TextInput::make('description')->label('Detalle')->maxLength(1000)->placeholder('Opcional'),
-                                TextInput::make('quantity')->label('Cantidad')->numeric()->required()->minValue(0.01)->maxValue(99999)->default(1)->live(onBlur: true),
-                                TextInput::make('unit_price')->label('Precio unitario')->numeric()->required()->minValue(0)->maxValue(999999999)->prefix('$')->live(onBlur: true),
+                                TextInput::make('quantity')->label('Cantidad')->numeric()->required()->minValue(0.01)->maxValue(99999)->default(1)->live(onBlur: true)->afterStateUpdated($refreshSubtotal),
+                                TextInput::make('unit_price')->label('Precio unitario')->numeric()->required()->minValue(0)->maxValue(999999999)->prefix('$')->live(onBlur: true)->afterStateUpdated($refreshSubtotal),
                                 // Solo para ver: no se envía (lo calcula el servidor).
                                 TextInput::make('subtotal_preview')
                                     ->label('Subtotal')

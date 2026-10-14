@@ -49,7 +49,7 @@
         <section>
             <h2 class="t-section">
                 Próximos trabajos
-                <a href="{{ route('work-orders.index', ['company' => $slug]) }}" class="text-xs font-bold normal-case tracking-normal text-brand-700">Ver todos</a>
+                <a href="{{ route('work-orders.index', ['company' => $slug]) }}" class="-my-1 py-1 text-xs font-bold normal-case tracking-normal text-brand-700">Ver todos</a>
             </h2>
             @if($nextOrders->isEmpty())
                 <div class="t-empty">
@@ -82,7 +82,7 @@
         <section>
             <h2 class="t-section">
                 Visitas de {{ now()->translatedFormat('F') }}
-                <a href="{{ route('buildings.index', ['company' => $slug]) }}" class="text-xs font-bold normal-case tracking-normal text-brand-700">Ver visitas</a>
+                <a href="{{ route('buildings.index', ['company' => $slug]) }}" class="-my-1 py-1 text-xs font-bold normal-case tracking-normal text-brand-700">Ver visitas</a>
             </h2>
             @if($monthAssigned === 0 && $monthTotal === 0)
                 <div class="t-empty">
