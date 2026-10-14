@@ -182,8 +182,19 @@ class AscensoresAppPanelProvider extends PanelProvider
                 \App\Http\Middleware\SecurityHeaders::class,
             ])
 
+            // Segundo factor del SuperAdmin (Etapa 11): ver y gestionar desde el menú de usuario.
+            ->userMenuItems([
+                \Filament\Actions\Action::make('twoFactor')
+                    ->label('Segundo factor')
+                    ->icon('heroicon-o-shield-check')
+                    ->url(fn () => route('two-factor.manage'))
+                    ->visible(fn () => (bool) auth()->user()?->requiresTwoFactor()),
+            ])
+
             ->authMiddleware([
                 AuthenticatePanel::class,
+                // El panel no pasa por el grupo «web»: segundo factor del SuperAdmin acá también (Etapa 11).
+                \App\Http\Middleware\EnsureSuperAdminTwoFactor::class,
             ]);
     }
 }

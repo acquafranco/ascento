@@ -423,6 +423,21 @@ Route::get('/correo/confirmar/{user}/{token}', \App\Http\Controllers\Auth\Confir
     ->middleware('throttle:20,1,email-change.confirm')
     ->name('email-change.confirm');
 
+// Segundo factor del SuperAdmin (Etapa 11). EnsureSuperAdminTwoFactor deja
+// pasar solo estas rutas (y salir) mientras falte configurarlo o verificarlo.
+Route::middleware('auth')->prefix('seguridad/segundo-factor')->name('two-factor.')
+    ->controller(\App\Http\Controllers\Auth\TwoFactorController::class)->group(function () {
+        Route::get('/configurar', 'setup')->name('setup');
+        Route::post('/configurar', 'start')->middleware('throttle:10,1,two-factor.start')->name('start');
+        Route::post('/confirmar', 'confirm')->middleware('throttle:10,1,two-factor.confirm')->name('confirm');
+        Route::get('/verificar', 'challenge')->name('challenge');
+        Route::post('/verificar', 'verify')->middleware('throttle:10,1,two-factor.verify')->name('verify');
+        Route::get('/', 'manage')->name('manage');
+        Route::post('/codigos', 'regenerate')->middleware('throttle:5,1,two-factor.regenerate')->name('regenerate');
+        Route::post('/reconfigurar', 'reconfigure')->middleware('throttle:5,1,two-factor.reconfigure')->name('reconfigure');
+        Route::post('/restablecer', 'resetOther')->middleware('throttle:5,1,two-factor.reset-other')->name('reset-other');
+    });
+
 Route::get('/acceso-administrativo', function (Request $request) {
     $user = $request->user();
 

@@ -1,6 +1,6 @@
 # Etapa 11: diseño técnico del segundo factor (2FA) para el SuperAdmin
 
-**Estado:** diseño para aprobar. **No se implementó** y no cambia el ingreso de producción. Complementa la propuesta de `docs/etapa-11-ingreso-2fa.md`.
+**Estado:** implementado en la rama `etapa-11/2fa-superadmin` (ver `docs/etapa-11-2fa.md`, que describe lo que quedó). Diferencias con este diseño: el control es un middleware en cada pedido (también en la lista propia del panel de Filament); los avisos van por correo al SuperAdmin; la auditoría usa el log de la aplicación (el registro de actividad exige una empresa); y existe un interruptor de emergencia `ASCENTO_SUPERADMIN_2FA`. Complementa la propuesta de `docs/etapa-11-ingreso-2fa.md`.
 
 **Alcance:** solo cuentas `is_super_admin`, que es quien puede entrar a cualquier empresa y descargar backups de toda la plataforma. Opcional al principio, y obligatorio para el SuperAdmin cuando el dueño lo decida. Dueños, técnicos, administrativos y portal no cambian.
 

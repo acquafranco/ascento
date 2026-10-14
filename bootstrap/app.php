@@ -5,6 +5,7 @@ use App\Exceptions\PlanLimitReachedException;
 use App\Http\Middleware\AdminMiddleware;
 use App\Http\Middleware\EnsureActiveSubscription;
 use App\Http\Middleware\EnsurePortalUser;
+use App\Http\Middleware\EnsureSuperAdminTwoFactor;
 use App\Http\Middleware\KeepStaffInPanel;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetCompany;
@@ -42,7 +43,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // AuthenticateSession: si la contraseña cambia (otro dispositivo, «Olvidé
         // mi contraseña»), las demás sesiones se cierran también en la app del
         // técnico y el portal, no solo en el panel (Etapa 11, H3).
-        $middleware->web(append: [SecurityHeaders::class, AuthenticateSession::class]);
+        // EnsureSuperAdminTwoFactor: segundo factor del SuperAdmin en cada pedido web,
+        // Livewire y tiempo real (el panel lo agrega en su propia lista) (Etapa 11).
+        $middleware->web(append: [SecurityHeaders::class, AuthenticateSession::class, EnsureSuperAdminTwoFactor::class]);
 
         $middleware->redirectUsersTo(function () {
             if (! auth()->check()) {
