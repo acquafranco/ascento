@@ -3,6 +3,7 @@
 namespace Tests\Feature\Stage11;
 
 use App\Models\WebhookEvent;
+use App\Notifications\ResetPasswordNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -41,10 +42,15 @@ class MinorRisksTest extends TestCase
             ->assertSessionHasErrors('current_password');
         $this->assertSame('tecnico@empresa.test', $tech->fresh()->email);
 
-        // El enlace de recuperación sigue yendo al correo verdadero.
+        // El enlace de recuperación no se puede pedir para el correo del atacante
+        // (la app usa su propia notificación, ResetPasswordNotification).
         auth()->logout();
+        $this->flushSession();
         $this->post('/forgot-password', ['email' => 'atacante@ejemplo.test']);
-        Notification::assertSentTimes(ResetPassword::class, 0);
+        Notification::assertSentTimes(ResetPasswordNotification::class, 0);
+        // Control: con el correo verdadero sí sale (la verificación no es vacía).
+        $this->post('/forgot-password', ['email' => 'tecnico@empresa.test']);
+        Notification::assertSentTo($tech->fresh(), ResetPasswordNotification::class);
     }
 
     public function test_the_technician_still_updates_the_name_freely_and_the_email_with_the_password(): void
