@@ -48,6 +48,22 @@
             * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
         }
 
+        /* Puertas de ascensor sobre la ilustración de la portada: se abren una sola vez. */
+        .elevator-doors { position: absolute; inset: 0; z-index: 5; display: flex; overflow: hidden; border-radius: inherit; pointer-events: none; }
+        .elevator-doors span { flex: 1; background: linear-gradient(90deg, #1A212B 0%, #232B36 45%, #1A212B 100%); animation: door-open-left .95s cubic-bezier(.65, 0, .35, 1) .45s forwards; }
+        .elevator-doors span:first-child { box-shadow: inset -1px 0 0 rgba(255, 102, 0, .55); }
+        .elevator-doors span:last-child { box-shadow: inset 1px 0 0 rgba(255, 102, 0, .55); animation-name: door-open-right; }
+        @keyframes door-open-left { to { transform: translateX(-101%); } }
+        @keyframes door-open-right { to { transform: translateX(101%); } }
+
+        /* Carruseles: sin barra de desplazamiento visible (se mueven con el dedo, la rueda o los botones). */
+        .no-scrollbar { scrollbar-width: none; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .elevator-doors { display: none; }
+        }
+
         ::selection { background: #FFE8D6; color: #14171C; }
         :focus-visible { outline: 2px solid #2E4FBE; outline-offset: 2px; border-radius: 4px; }
     </style>
@@ -163,6 +179,8 @@
                     {{-- Floor indicator + mockup --}}
                     <div data-reveal style="transition-delay:.1s" class="relative">
                         <div class="relative mx-auto max-w-sm rounded-2xl bg-graphite p-5 shadow-cardHover">
+                            {{-- Puertas de cabina que se abren una vez al cargar (solo la ilustración; el texto no espera). --}}
+                            <div class="elevator-doors" aria-hidden="true"><span></span><span></span></div>
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center gap-2">
                                     <span class="h-2 w-2 rounded-full bg-amber-500"></span>
@@ -231,8 +249,7 @@
                     <h2 class="mt-3 font-display font-semibold text-3xl sm:text-4xl tracking-tight">Todo lo que hoy administrás en cuadernos y planillas, en un solo panel.</h2>
                 </div>
 
-                <div class="mt-14 grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                    @php
+                @php
                         // Solo funciones disponibles hoy. La etiqueta de plan sale de la configuración real
                         // (SubscriptionPlan::cheapestWith): sin etiqueta = en todos los planes.
                         $F = \App\Enums\PlanFeature::class;
@@ -270,15 +287,64 @@
                             ->values();
                     @endphp
 
-                    @foreach ($benefits as $i => $b)
-                        <div data-reveal style="transition-delay: {{ $i * 60 }}ms"
-                             class="group rounded-2xl bg-white border border-ink/10 p-6 shadow-card hover:shadow-cardHover hover:-translate-y-1 transition-all duration-300">
-                            <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100 text-amber-600 group-hover:bg-graphite group-hover:text-amber-500 transition-colors duration-300">
-                                <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="{{ $b[2] }}" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                @php
+                    // Tres grupos para recorrerlos sin una lista interminable (sobre todo en el celular).
+                    // Cada función figura en un solo grupo; las que ningún plan incluye ya se quitaron arriba.
+                    $byTitle = $benefits->keyBy(0);
+                    $benefitGroups = [
+                        ['Mantenimiento y trabajo en la calle', 'Del edificio a la oficina: agenda, técnicos, remitos y el registro de cada trabajo.',
+                            ['Agenda de mantenimientos e inspecciones', 'Técnicos desde el celular', 'Órdenes y remitos digitales', 'Fotos de antes y después', 'Video en los reportes', 'Pruebas de paracaídas', 'Componentes en reparación']],
+                        ['Clientes y edificios', 'Tu cartera ordenada y lo que cada cliente puede ver.',
+                            ['Clientes, edificios y ascensores', 'Portal para tus clientes', 'QR público del edificio', 'Presupuestos profesionales', 'Historial de contactos']],
+                        ['Control de la empresa', 'Avisos, números y lo que necesita tu atención hoy.',
+                            ['Avisos en tiempo real y tareas', 'Mapa y centro de atención', 'Stock, servicios y cobranzas', 'Análisis e indicadores']],
+                    ];
+                @endphp
+
+                <div class="mt-10 space-y-10">
+                    @foreach ($benefitGroups as $g => [$groupTitle, $groupText, $titles])
+                        @php
+                            $items = collect($titles)->map(fn ($t) => $byTitle->get($t))->filter()->values();
+                        @endphp
+                        @continue($items->isEmpty())
+                        <div data-reveal data-carousel role="region" aria-roledescription="carrusel" aria-labelledby="funciones-{{ $g }}">
+                            <div class="flex items-end justify-between gap-4">
+                                <div class="flex items-start gap-3.5">
+                                    {{-- Botón de piso: el número del grupo --}}
+                                    <span class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-amber-500/70 bg-white font-mono text-sm font-semibold text-amber-600 shadow-sm font-tabular" aria-hidden="true">{{ $g + 1 }}</span>
+                                    <div>
+                                        <p id="funciones-{{ $g }}" class="font-display font-semibold text-lg tracking-tight">{{ $groupTitle }}</p>
+                                        <p class="mt-0.5 text-sm text-ink/55">{{ $groupText }}</p>
+                                    </div>
+                                </div>
+                                <div class="hidden shrink-0 gap-2 sm:flex" data-carousel-controls>
+                                    <button type="button" data-carousel-prev aria-label="Anteriores de {{ $groupTitle }}"
+                                            class="flex h-10 w-10 items-center justify-center rounded-full border border-ink/15 bg-white text-ink transition hover:border-ink/35 disabled:cursor-default disabled:opacity-30">
+                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M10 3L5 8L10 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    </button>
+                                    <button type="button" data-carousel-next aria-label="Siguientes de {{ $groupTitle }}"
+                                            class="flex h-10 w-10 items-center justify-center rounded-full border border-ink/15 bg-white text-ink transition hover:border-ink/35 disabled:cursor-default disabled:opacity-30">
+                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    </button>
+                                </div>
                             </div>
-                            <h3 class="mt-4 font-display font-semibold text-[15px]">{{ $b[0] }}</h3>
+
+                            <ul data-carousel-track tabindex="0" aria-label="{{ $groupTitle }}"
+                                class="no-scrollbar mt-5 -mx-5 flex snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto px-5 pb-4 pt-1 sm:mx-0 sm:scroll-px-0 sm:px-0">
+                                @foreach ($items as $b)
+                                    <li class="flex w-[80%] shrink-0 snap-start sm:w-[calc((100%-1rem)/2)] lg:w-[calc((100%-3rem)/4)]">
+                                        <div class="group w-full rounded-2xl bg-white border border-ink/10 p-5 shadow-card hover:shadow-cardHover hover:-translate-y-0.5 transition-all duration-300">
+                                            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-600 group-hover:bg-graphite group-hover:text-amber-500 transition-colors duration-300">
+                                                <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="{{ $b[2] }}" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                            </div>
+                                            <h3 class="mt-4 font-display font-semibold text-[15px]">{{ $b[0] }}</h3>
                 @if($b[3])<span class="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">{{ $b[3] }}</span>@endif
-                            <p class="mt-1.5 text-sm text-ink/55 leading-relaxed">{{ $b[1] }}</p>
+                                            <p class="mt-1.5 text-sm text-ink/55 leading-relaxed">{{ $b[1] }}</p>
+                                        </div>
+                                    </li>
+                                @endforeach
+                            </ul>
+                            <div data-carousel-dots class="mt-1 flex h-2 items-center justify-center gap-1.5" aria-hidden="true"></div>
                         </div>
                     @endforeach
                 </div>
@@ -336,7 +402,7 @@
                         <div class="pointer-events-none absolute inset-y-0 left-0 w-16 sm:w-24 z-10 bg-gradient-to-r from-paper to-transparent"></div>
                         <div class="pointer-events-none absolute inset-y-0 right-0 w-16 sm:w-24 z-10 bg-gradient-to-l from-paper to-transparent"></div>
 
-                        <div class="overflow-hidden">
+                        <div class="overflow-hidden" data-marquee>
                             {{-- Capturas REALES de la app con datos ficticios de demo (tools/landing-screenshots, docs/landing-capturas.md). --}}
                             @php
                                 $phoneShots = [
@@ -349,13 +415,15 @@
                                     ['qr-publico', 'QR del edificio', 'Lo que ve quien escanea'],
                                 ];
                             @endphp
-                            <div class="flex w-max animate-marquee gap-5 sm:gap-6">
-                                {{-- La lista va dos veces para que el loop sea continuo. --}}
+                            {{-- Se mueve solo (también con el cursor encima) y se puede arrastrar con el mouse o el dedo.
+                                 La lista va dos veces para que el loop sea continuo; la copia queda fuera de la
+                                 lectura y del teclado (aria-hidden + inert). Ver el script al final de la página. --}}
+                            <div class="flex w-max gap-5 sm:gap-6 cursor-grab select-none touch-pan-y will-change-transform" data-marquee-track>
                                 @foreach (array_merge($phoneShots, $phoneShots) as $i => [$file, $title, $caption])
-                                    <figure class="shrink-0 w-[180px] sm:w-[210px] lg:w-[230px]" @if($i >= count($phoneShots)) aria-hidden="true" @endif>
+                                    <figure class="shrink-0 w-[180px] sm:w-[210px] lg:w-[230px]" @if($i >= count($phoneShots)) aria-hidden="true" inert data-marquee-copy @endif>
                                         <div class="rounded-[22px] overflow-hidden border border-ink/10 shadow-card bg-white aspect-[640/1247]">
                                             <img src="{{ asset('images/landing/'.$file.'.jpg') }}" alt="{{ $title }}: {{ mb_strtolower($caption) }}"
-                                                 width="640" height="1247" loading="lazy" decoding="async" class="block w-full h-full object-cover object-top">
+                                                 width="640" height="1247" loading="lazy" decoding="async" draggable="false" class="block w-full h-full object-cover object-top pointer-events-none">
                                         </div>
                                         <figcaption class="mt-3 px-1">
                                             <span class="block text-sm font-semibold text-ink">{{ $title }}</span>
@@ -365,30 +433,80 @@
                                 @endforeach
                             </div>
                         </div>
+                        <div class="relative z-20 mt-5 flex justify-center gap-2">
+                            <button type="button" data-marquee-prev aria-label="Captura anterior"
+                                    class="flex h-9 w-9 items-center justify-center rounded-full border border-ink/15 bg-white text-ink transition hover:border-ink/35">
+                                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M10 3L5 8L10 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            </button>
+                            <button type="button" data-marquee-next aria-label="Captura siguiente"
+                                    class="flex h-9 w-9 items-center justify-center rounded-full border border-ink/15 bg-white text-ink transition hover:border-ink/35">
+                                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                {{-- Panel de la empresa (escritorio) --}}
-                <div class="mt-12 -mx-5 px-5 sm:mx-0 sm:px-0 flex sm:grid sm:grid-cols-3 gap-5 overflow-x-auto snap-x snap-mandatory scroll-px-5 sm:scroll-px-0 pb-2" data-reveal>
-                    @foreach ([
+                {{-- Panel de la empresa (escritorio): una captura grande por vez y las seis pantallas
+                     siempre a la vista como pestañas, en vez de seis tarjetas una debajo de otra. --}}
+                @php
+                    $panelShots = [
                         ['admin-inicio', 'Panel de la empresa', 'Pendientes, en curso y completados, al día.'],
                         ['admin-mapa', 'Mapa de edificios', 'Toda la cartera, por zona, técnico y estado del mes.'],
                         ['admin-presupuesto', 'Presupuestos', 'Documento listo para enviar por correo con PDF.'],
                         ['admin-reparaciones', 'Componentes en reparación', 'Qué está en el taller y cuándo vuelve.'],
                         ['admin-paracaidas', 'Pruebas de paracaídas', 'Próximas, vencidas y al día, por ascensor.'],
                         ['admin-indicadores', 'Indicadores', 'La operación de tu empresa, mes a mes.'],
-                    ] as [$file, $title, $caption])
-                        <figure class="snap-start shrink-0 w-[85%] sm:w-auto">
-                            <div class="rounded-2xl overflow-hidden border border-ink/10 shadow-card bg-white aspect-[16/10]">
-                                <img src="{{ asset('images/landing/'.$file.'.jpg') }}" alt="{{ $title }}: {{ mb_strtolower($caption) }}"
-                                     width="1280" height="800" loading="lazy" decoding="async" class="block w-full h-full object-cover object-top">
+                    ];
+                @endphp
+                <div class="mt-10 sm:mt-16 lg:mx-auto lg:max-w-[64rem]" data-reveal data-panel-tour x-data="{ tab: 0, count: {{ count($panelShots) }} }">
+                    <div class="max-w-2xl">
+                        <h3 class="font-display font-semibold text-xl sm:text-2xl lg:text-3xl tracking-tight">El panel de Ascento, en la computadora.</h3>
+                        <p class="mt-2 hidden text-ink/60 sm:block">Lo que usa la oficina todos los días. Elegí una pantalla para verla.</p>
+                    </div>
+
+                    <div class="mt-5 grid gap-4 lg:mt-8 lg:grid-cols-[16rem_minmax(0,46rem)] lg:gap-8 lg:items-start">
+                        <div role="tablist" aria-label="Pantallas del panel" aria-orientation="vertical"
+                             class="no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5 lg:mx-0 lg:flex-col lg:gap-1.5 lg:overflow-visible lg:px-0"
+                             @keydown.arrow-down.prevent="tab = (tab + 1) % count; $nextTick(() => $el.querySelectorAll('[role=tab]')[tab].focus())"
+                             @keydown.arrow-right.prevent="tab = (tab + 1) % count; $nextTick(() => $el.querySelectorAll('[role=tab]')[tab].focus())"
+                             @keydown.arrow-up.prevent="tab = (tab + count - 1) % count; $nextTick(() => $el.querySelectorAll('[role=tab]')[tab].focus())"
+                             @keydown.arrow-left.prevent="tab = (tab + count - 1) % count; $nextTick(() => $el.querySelectorAll('[role=tab]')[tab].focus())">
+                            @foreach ($panelShots as $i => [$file, $title, $caption])
+                                <button type="button" role="tab" id="panel-tab-{{ $i }}" aria-controls="panel-shot-{{ $i }}"
+                                        aria-selected="{{ $i === 0 ? 'true' : 'false' }}" tabindex="{{ $i === 0 ? '0' : '-1' }}"
+                                        :aria-selected="tab === {{ $i }} ? 'true' : 'false'" :tabindex="tab === {{ $i }} ? 0 : -1"
+                                        @click="tab = {{ $i }}; $el.scrollIntoView({ block: 'nearest', inline: 'nearest' })"
+                                        class="group shrink-0 rounded-xl border px-4 py-2.5 text-left transition-colors {{ $i === 0 ? 'border-amber-500 bg-white shadow-card' : 'border-ink/10 bg-white/60' }}"
+                                        :class="tab === {{ $i }} ? 'border-amber-500 bg-white shadow-card' : 'border-ink/10 bg-white/60 hover:border-ink/25'">
+                                    <span class="flex items-center gap-2.5">
+                                        <span class="h-1.5 w-1.5 shrink-0 rounded-full {{ $i === 0 ? 'bg-amber-500' : 'bg-ink/20' }}" :class="tab === {{ $i }} ? 'bg-amber-500' : 'bg-ink/20'"></span>
+                                        <span class="block whitespace-nowrap text-sm font-semibold text-ink lg:whitespace-normal">{{ $title }}</span>
+                                    </span>
+                                    <span class="mt-0.5 hidden pl-4 text-xs text-ink/50 lg:block">{{ $caption }}</span>
+                                </button>
+                            @endforeach
+                        </div>
+
+                        <div class="rounded-2xl border border-ink/10 bg-white shadow-cardHover overflow-hidden">
+                            <div class="hidden items-center gap-1.5 border-b border-ink/10 bg-ink/[0.02] px-4 py-2.5 lg:flex" aria-hidden="true">
+                                <span class="h-2 w-2 rounded-full bg-ink/15"></span>
+                                <span class="h-2 w-2 rounded-full bg-ink/15"></span>
+                                <span class="h-2 w-2 rounded-full bg-ink/15"></span>
+                                <span class="ml-2 font-mono text-[10px] text-ink/35">ascento.online/admin</span>
                             </div>
-                            <figcaption class="mt-3">
-                                <span class="block text-sm font-semibold text-ink">{{ $title }}</span>
-                                <span class="block text-xs text-ink/50">{{ $caption }}</span>
-                            </figcaption>
-                        </figure>
-                    @endforeach
+                            @foreach ($panelShots as $i => [$file, $title, $caption])
+                                <figure id="panel-shot-{{ $i }}" role="tabpanel" aria-labelledby="panel-tab-{{ $i }}"
+                                        x-show="tab === {{ $i }}" @if ($i > 0) style="display: none" @endif>
+                                    <div class="aspect-[16/10] bg-paper">
+                                        <img src="{{ asset('images/landing/'.$file.'.jpg') }}" alt="{{ $title }}: {{ mb_strtolower($caption) }}"
+                                             width="1280" height="800" loading="lazy" decoding="async" class="block w-full h-full object-cover object-top">
+                                    </div>
+                                    {{-- En el celular el nombre ya está en la pestaña elegida: abajo, solo qué muestra. --}}
+                                    <figcaption class="border-t border-ink/10 px-4 py-2.5 text-xs text-ink/55 lg:hidden">{{ $caption }}</figcaption>
+                                </figure>
+                            @endforeach
+                        </div>
+                    </div>
                 </div>
                 <p class="mt-6 text-center text-xs text-ink/40">Capturas de la aplicación real con datos de ejemplo.</p>
 
@@ -411,7 +529,9 @@
                     @endif
                 </div>
 
-                <div class="mt-14 grid gap-6 lg:grid-cols-3 lg:items-center">
+                {{-- Las tres tarjetas con la misma altura; el recomendado se destaca con color, borde y
+                     etiqueta, no con un tamaño mayor. --}}
+                <div class="mt-14 grid gap-6 lg:grid-cols-3 lg:items-stretch">
                     @foreach ($plans as $plan)
                         @php
                             $featured = $plan->is_recommended;
@@ -419,8 +539,8 @@
                         <div data-reveal
                              data-plan-card="{{ $plan->slug }}"
                              class="relative flex flex-col rounded-3xl p-8 {{ $featured
-                                ? 'bg-graphite text-white border-2 border-amber-500 shadow-cardHover lg:py-12 lg:-my-4'
-                                : 'bg-white border border-ink/10 shadow-card' }}">
+                                ? 'bg-graphite text-white border-2 border-amber-500 shadow-cardHover'
+                                : 'bg-white border-2 border-ink/10 shadow-card' }}">
 
                             @if ($featured)
                                 <span class="absolute -top-3.5 left-1/2 -translate-x-1/2 inline-flex items-center gap-2 rounded-full bg-amber-500 text-graphite text-xs font-bold px-4 py-1.5 uppercase tracking-wider">
@@ -429,7 +549,7 @@
                             @endif
 
                             <h3 class="font-display font-semibold text-2xl tracking-tight">{{ $plan->shortName() }}</h3>
-                            <p class="mt-2 text-sm {{ $featured ? 'text-white/60' : 'text-ink/55' }}">{{ $plan->description }}</p>
+                            <p class="mt-2 text-sm lg:min-h-[2.5rem] {{ $featured ? 'text-white/60' : 'text-ink/55' }}">{{ $plan->description }}</p>
 
                             <div class="mt-6 font-display text-4xl font-semibold tracking-tight">
                                 {{ $plan->formattedPrice() }}
@@ -449,18 +569,33 @@
                                 </li>
                             </ul>
 
-                            <a href="#prueba-gratis"
+                            {{-- La prueba no se elige por plan (siempre es con TRIAL_PLAN): el botón lleva a la
+                                 comparativa, y la prueba se explica una sola vez debajo de las tarjetas. --}}
+                            <a href="#comparativa"
                                class="mt-8 inline-flex items-center justify-center rounded-full font-semibold px-6 py-3.5 transition-all duration-200 hover:-translate-y-0.5 {{ $featured
                                     ? 'bg-amber-500 text-graphite hover:bg-amber-400'
                                     : 'border border-ink/15 text-ink hover:border-ink/30' }}">
-                                Probar gratis 30 días
+                                Ver qué incluye
                             </a>
                         </div>
                     @endforeach
                 </div>
 
                 @if ($plans->isNotEmpty())
-                    <div data-reveal class="mt-16">
+                    @php
+                        $trialPlanName = \App\Models\SubscriptionPlan::findBySlug(\App\Models\SubscriptionPlan::TRIAL_PLAN)?->shortName() ?? 'Empresa';
+                    @endphp
+                    <div data-reveal class="mx-auto mt-8 flex max-w-3xl flex-col items-center gap-4 rounded-2xl border border-amber-500/30 bg-amber-50 px-6 py-5 text-center sm:flex-row sm:text-left">
+                        <p class="flex-1 text-sm text-ink/70">
+                            <strong class="text-ink">La prueba gratis es la misma para todos:</strong>
+                            {{ \App\Models\SubscriptionPlan::TRIAL_DAYS }} días con todas las funciones del plan {{ $trialPlanName }}, sin tarjeta. Al terminar elegís el plan desde tu cuenta.
+                        </p>
+                        <a href="#prueba-gratis" class="inline-flex shrink-0 items-center gap-2 rounded-full bg-graphite px-5 py-2.5 text-sm font-semibold text-white transition-transform duration-200 hover:-translate-y-0.5">
+                            Probar gratis {{ \App\Models\SubscriptionPlan::TRIAL_DAYS }} días
+                        </a>
+                    </div>
+
+                    <div data-reveal class="mt-12 scroll-mt-24" id="comparativa">
                         <h3 class="text-center font-display font-semibold text-2xl tracking-tight">Comparativa completa</h3>
                         <p class="mt-2 text-center text-sm text-ink/50">Sale de la configuración real de cada plan: lo que ves acá es lo que el sistema habilita.</p>
                         <div class="mt-6 overflow-x-auto rounded-2xl border border-ink/10">
@@ -539,15 +674,16 @@
                         $portalCheapest = \App\Models\SubscriptionPlan::cheapestWith(\App\Enums\PlanFeature::ClientPortal);
                         $portalFrom = $portalCheapest && ! $portalCheapest->is(\App\Models\SubscriptionPlan::offered()->first()) ? $portalCheapest->shortName() : null;
                         $faqs = [
+['¿Para quién es Ascento?', 'Para empresas de mantenimiento de ascensores. La oficina trabaja en el panel desde la computadora, los técnicos desde el celular y '.($portalFrom ? 'desde el plan '.$portalFrom.' ' : '').'tus clientes pueden entrar a su propio portal.'],
 ['¿Necesito instalar algo?', 'No. Ascento funciona desde el navegador, en la computadora y en el celular. Los técnicos pueden agregarlo a la pantalla de inicio como una app.'],
 ['¿Mis técnicos pueden usarlo desde el celular?', 'Sí. Cada técnico tiene su usuario, ve solo lo que tiene asignado, firma remitos y carga informes con fotos desde el teléfono.'],
 ['¿Mis clientes pueden ver la información?', ($portalFrom ? 'Desde el plan '.$portalFrom.', cada' : 'Cada').' consorcio o administración entra al portal con su usuario y ve solo lo que vos le compartís de sus edificios.'],
 ['¿Qué muestra el QR del edificio?', 'Solo lo que la empresa elige publicar: estado informado de cada ascensor, último mantenimiento e inspección registrados, pruebas de paracaídas y componentes en reparación. Sin datos del cliente ni montos. Es información administrativa, no una certificación de seguridad.'],
 ['¿Cómo me entero de lo que pasa?', 'Con avisos dentro de Ascento que llegan en el momento, sin recargar, y notificaciones push en el celular si las activás.'],
 ['¿Qué pasa con mis datos?', 'Son tuyos: en todos los planes podés descargarlos en Excel (con fotos y documentos) cuando quieras. Además, Ascento hace copias de seguridad de toda la plataforma.'],
-['¿Hay prueba gratis?', 'Sí. 30 días con todas las funciones del plan '.$trialPlan.', sin tarjeta. Al terminar elegís el plan que te sirva.'],
+['¿Cómo funciona la prueba gratis?', 'Te registrás y usás Ascento 30 días con todas las funciones del plan '.$trialPlan.', sin tarjeta y sin elegir un plan antes. Al terminar, para seguir usándolo elegís el plan que te sirva desde tu cuenta y lo pagás con Mercado Pago.'],
 ['¿Puedo cambiar de plan o cancelar?', 'Sí. No hay permanencia mínima: cambiás de plan o cancelás desde tu cuenta.'],
-['¿Cómo pido ayuda?', 'Escribinos a '.config('app.support_email').' y te ayudamos a poner en marcha tu empresa.'],
+['¿Cómo pido una demostración o ayuda?', 'Escribinos '.(\App\Support\Sales\SalesAssistant::displayNumber() ? 'por WhatsApp desde «Hablemos» o ' : '').'a '.config('app.support_email').': coordinamos una demostración y te ayudamos a poner en marcha tu empresa.'],
 ];
                     @endphp
                     @foreach ($faqs as $i => $f)
@@ -637,23 +773,6 @@
     </footer>
 
 
-                <style>
-                    @keyframes marquee {
-                        from { transform: translateX(0); }
-                        to   { transform: translateX(-50%); }
-                    }
-                    .animate-marquee {
-                        animation: marquee 35s linear infinite;
-                    }
-                    .animate-marquee:hover {
-                        animation-play-state: paused;
-                    }
-                    @media (prefers-reduced-motion: reduce) {
-                        .animate-marquee { animation: none; }
-                    }
-                </style>
-
-
     <script>
         // Scroll-reveal
         const revealEls = document.querySelectorAll('[data-reveal]');
@@ -703,6 +822,121 @@
         }
         window.addEventListener('scroll', updateRail, { passive: true });
         updateRail();
+
+        // Carruseles de funciones: desplazamiento nativo (dedo, rueda, teclado) con botones e indicadores.
+        document.querySelectorAll('[data-carousel]').forEach((root) => {
+            const track = root.querySelector('[data-carousel-track]');
+            const prev = root.querySelector('[data-carousel-prev]');
+            const next = root.querySelector('[data-carousel-next]');
+            const controls = root.querySelector('[data-carousel-controls]');
+            const dotsBox = root.querySelector('[data-carousel-dots]');
+            const items = Array.from(track.children);
+            let dots = [];
+
+            const step = () => items.length > 1 ? items[1].offsetLeft - items[0].offsetLeft : track.clientWidth;
+            const positions = () => Math.max(1, items.length - Math.round(track.clientWidth / step()) + 1);
+            const current = () => Math.min(positions() - 1, Math.round(track.scrollLeft / step()));
+            const go = (i) => track.scrollTo({ left: i * step(), behavior: 'smooth' });
+
+            function build() {
+                const n = positions();
+                dotsBox.innerHTML = '';
+                dots = n > 1 ? Array.from({ length: n }, (_, i) => {
+                    const dot = document.createElement('button');
+                    dot.type = 'button';
+                    dot.tabIndex = -1;
+                    dot.className = 'h-1.5 rounded-full transition-all duration-300';
+                    dot.addEventListener('click', () => go(i));
+                    dotsBox.appendChild(dot);
+                    return dot;
+                }) : [];
+                if (controls) controls.classList.toggle('sm:flex', n > 1);
+                update();
+            }
+
+            function update() {
+                const i = current();
+                const last = positions() - 1;
+                dots.forEach((dot, k) => { dot.className = 'h-1.5 rounded-full transition-all duration-300 ' + (k === i ? 'w-5 bg-amber-500' : 'w-1.5 bg-ink/25'); });
+                if (prev) prev.disabled = track.scrollLeft <= 2;
+                if (next) next.disabled = i >= last && track.scrollLeft + track.clientWidth >= track.scrollWidth - 2;
+            }
+
+            prev?.addEventListener('click', () => go(Math.max(0, current() - 1)));
+            next?.addEventListener('click', () => go(Math.min(positions() - 1, current() + 1)));
+            track.addEventListener('scroll', () => requestAnimationFrame(update), { passive: true });
+            window.addEventListener('resize', build);
+            build();
+        });
+
+        // Capturas de la app: se mueven solas sin frenarse con el cursor encima; se arrastran con el
+        // mouse o el dedo. Durante el gesto el movimiento automático se detiene y retoma desde donde
+        // quedó (sin volver al principio). La lista está dos veces: el loop envuelve sin saltos.
+        (function () {
+            const root = document.querySelector('[data-marquee]');
+            if (!root) return;
+            const track = root.querySelector('[data-marquee-track]');
+            const figures = Array.from(track.children);
+            const half = figures.length / 2;
+            const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+            const SPEED = 45;        // px por segundo
+            const RESUME_MS = 1200;  // pausa después de arrastrar o usar los botones
+
+            let offset = 0, last = null, resumeAt = 0;
+            let drag = null;         // { id, x, offset }
+            let glide = null;        // { from, to, start }
+
+            const period = () => figures[half].offsetLeft - figures[0].offsetLeft;
+            const itemStep = () => figures[1].offsetLeft - figures[0].offsetLeft;
+            const wrap = (value) => { const p = period(); return p > 0 ? ((value % p) + p) % p : 0; };
+            const render = () => { track.style.transform = 'translate3d(' + (-offset) + 'px, 0, 0)'; };
+
+            function tick(now) {
+                const dt = last === null ? 0 : Math.min(now - last, 50);
+                last = now;
+                if (glide) {
+                    const t = Math.min(1, (now - glide.start) / 450);
+                    const eased = 1 - Math.pow(1 - t, 3);
+                    offset = wrap(glide.from + (glide.to - glide.from) * eased);
+                    if (t === 1) { glide = null; resumeAt = now + RESUME_MS; }
+                    render();
+                } else if (!drag && !reduce.matches && now >= resumeAt) {
+                    offset = wrap(offset + SPEED * dt / 1000);
+                    render();
+                }
+                requestAnimationFrame(tick);
+            }
+
+            track.addEventListener('pointerdown', (e) => {
+                if (e.pointerType === 'mouse' && e.button !== 0) return;
+                glide = null;
+                drag = { id: e.pointerId, x: e.clientX, offset };
+                track.setPointerCapture(e.pointerId);
+                track.classList.replace('cursor-grab', 'cursor-grabbing');
+            });
+            track.addEventListener('pointermove', (e) => {
+                if (!drag || e.pointerId !== drag.id) return;
+                offset = wrap(drag.offset - (e.clientX - drag.x));
+                render();
+            });
+            const release = (e) => {
+                if (!drag || e.pointerId !== drag.id) return;
+                drag = null;
+                resumeAt = performance.now() + RESUME_MS;
+                track.classList.replace('cursor-grabbing', 'cursor-grab');
+            };
+            ['pointerup', 'pointercancel', 'lostpointercapture'].forEach((type) => track.addEventListener(type, release));
+
+            const nudge = (direction) => {
+                const s = itemStep();
+                const base = Math.round(offset / s) * s; // alinear a una captura
+                glide = { from: offset, to: base + direction * s, start: performance.now() };
+            };
+            document.querySelector('[data-marquee-prev]')?.addEventListener('click', () => nudge(-1));
+            document.querySelector('[data-marquee-next]')?.addEventListener('click', () => nudge(1));
+
+            requestAnimationFrame(tick);
+        })();
     </script>
     @include('partials.whatsapp-contact')
     @include('partials.cookie-notice')
