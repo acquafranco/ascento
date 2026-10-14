@@ -148,6 +148,17 @@
                             <span class="block text-ink/40">desde un solo lugar<span class="text-amber-500">.</span></span>
                         </h1>
 
+                        {{-- Mensaje comercial: control de la empresa sin estar en la oficina (solo funciones reales). --}}
+                        <div class="mt-6 flex max-w-xl items-start gap-3.5 rounded-2xl border border-amber-500/25 bg-white/70 px-4 py-3.5 shadow-sm" data-home-message>
+                            <span class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600" aria-hidden="true">
+                                <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M2.5 7.5L8 3L13.5 7.5M4 6.5V13H12V6.5M6.75 13V9.5H9.25V13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            </span>
+                            <p class="text-[15px] leading-relaxed text-ink/60">
+                                <strong class="block font-display text-lg font-semibold tracking-tight text-ink sm:text-xl">Tu empresa de ascensores, bajo control. <span class="whitespace-nowrap text-amber-600">Incluso desde casa.</span></strong>
+                                Organizá mantenimientos, supervisá el trabajo de tus técnicos y consultá los remitos digitales desde un solo lugar, sin depender de estar en la oficina.
+                            </p>
+                        </div>
+
                         <p class="mt-6 text-lg text-ink/60 max-w-xl leading-relaxed">
                             Clientes, edificios, técnicos y órdenes de trabajo en tiempo real. Ascento centraliza cada mantenimiento, inspección y reclamo, piso por piso, para que nada se pierda entre planillas.
                         </p>
@@ -194,11 +205,16 @@
                                     <div id="floorDigit" class="font-mono font-semibold text-7xl text-amber-500 font-tabular leading-none">PB</div>
                                     <div class="mt-3 text-xs text-white/40 tracking-wide">Ascendiendo</div>
                                 </div>
-                                <div class="flex flex-col-reverse gap-1.5">
-                                    <div class="h-1.5 w-8 rounded-full bg-white/10"></div>
-                                    <div class="h-1.5 w-8 rounded-full bg-white/10"></div>
-                                    <div class="h-1.5 w-8 rounded-full bg-white/10"></div>
-                                    <div class="h-1.5 w-8 rounded-full bg-amber-500"></div>
+                                <div class="flex flex-col items-end gap-4">
+                                    {{-- Placa de marca del indicador: el logo real de Ascento (decorativo; la marca ya se lee en la barra superior). --}}
+                                    <img src="{{ asset('images/brand/logo-128.png') }}" alt="" width="40" height="40" data-indicator-logo
+                                         class="h-10 w-10 rounded-[10px] ring-1 ring-white/10 shadow-[0_0_18px_rgba(255,106,26,0.18)]">
+                                    <div class="flex flex-col-reverse gap-1.5">
+                                        <div class="h-1.5 w-8 rounded-full bg-white/10"></div>
+                                        <div class="h-1.5 w-8 rounded-full bg-white/10"></div>
+                                        <div class="h-1.5 w-8 rounded-full bg-white/10"></div>
+                                        <div class="h-1.5 w-8 rounded-full bg-amber-500"></div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -461,7 +477,7 @@
                 <div class="mt-10 sm:mt-16 lg:mx-auto lg:max-w-[64rem]" data-reveal data-panel-tour x-data="{ tab: 0, count: {{ count($panelShots) }} }">
                     <div class="max-w-2xl">
                         <h3 class="font-display font-semibold text-xl sm:text-2xl lg:text-3xl tracking-tight">El panel de Ascento, en la computadora.</h3>
-                        <p class="mt-2 hidden text-ink/60 sm:block">Lo que usa la oficina todos los días. Elegí una pantalla para verla.</p>
+                        <p class="mt-2 hidden text-ink/60 sm:block">Lo que usa la oficina todos los días, y lo que podés revisar vos desde casa. Elegí una pantalla para verla.</p>
                     </div>
 
                     <div class="mt-5 grid gap-4 lg:mt-8 lg:grid-cols-[16rem_minmax(0,46rem)] lg:gap-8 lg:items-start">

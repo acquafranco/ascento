@@ -115,4 +115,26 @@ class LandingLayoutTest extends TestCase
         $this->assertStringContainsString('class="elevator-doors" aria-hidden="true"', $html);
         $this->assertMatchesRegularExpression('#@media \(prefers-reduced-motion: reduce\) \{\s*\.elevator-doors \{ display: none; \}#', $html);
     }
+
+    public function test_the_hero_says_you_can_run_the_company_from_home_with_real_features(): void
+    {
+        $html = $this->home();
+
+        $this->assertStringContainsString('Gestioná tu empresa de ascensores', $html); // el título no cambia
+        $this->assertMatchesRegularExpression('#Tu empresa de ascensores, bajo control\. <span[^>]*>Incluso desde casa\.</span>#', $html);
+        $this->assertStringContainsString('Organizá mantenimientos, supervisá el trabajo de tus técnicos y consultá los remitos digitales desde un solo lugar, sin depender de estar en la oficina.', $html);
+        // Una sola vez el mensaje principal: no se repite por toda la página.
+        $this->assertSame(1, substr_count($html, 'Incluso desde casa.'));
+    }
+
+    public function test_the_position_indicator_shows_the_real_ascento_logo(): void
+    {
+        $html = $this->home();
+
+        $this->assertMatchesRegularExpression('#<img src="[^"]*/images/brand/logo-128\.png" alt="" width="40" height="40" data-indicator-logo#', $html);
+        $this->assertFileExists(public_path('images/brand/logo-128.png'));
+        // Las puertas y el indicador animado siguen.
+        $this->assertStringContainsString('class="elevator-doors" aria-hidden="true"', $html);
+        $this->assertStringContainsString('id="floorDigit"', $html);
+    }
 }
