@@ -132,50 +132,39 @@
 
     <main>
         {{-- ============ HERO ============ --}}
-        <section class="relative overflow-hidden pt-32 pb-20 sm:pt-40 sm:pb-28" data-floor="PB" id="inicio">
+        <section class="relative overflow-hidden pt-24 pb-16 sm:pt-32 sm:pb-24 xl:pt-40 xl:pb-28" data-floor="PB" id="inicio">
             <div class="pointer-events-none absolute inset-0 -z-10 [background:radial-gradient(60%_60%_at_80%_0%,rgba(255,106,26,0.07),transparent_60%),radial-gradient(50%_50%_at_0%_20%,rgba(46,79,190,0.06),transparent_60%)]"></div>
 
             <div class="mx-auto max-w-7xl px-5 sm:px-8">
                 <div class="grid lg:grid-cols-[1.05fr_0.95fr] gap-14 lg:gap-10 items-center">
                     <div data-reveal>
                         <span class="inline-flex items-center gap-2 rounded-full bg-white border border-ink/10 shadow-sm px-3.5 py-1.5 text-xs font-semibold tracking-wide text-ink/70">
-                            <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
+                            <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500"></span>
                             Software para empresas de mantenimiento de ascensores
                         </span>
 
-                        <h1 class="mt-6 font-display font-semibold text-[2.5rem] leading-[1.08] sm:text-6xl sm:leading-[1.05] tracking-tight text-ink">
+                        <h1 class="mt-5 sm:mt-6 font-display font-semibold text-[2.25rem] leading-[1.08] sm:text-6xl sm:leading-[1.05] lg:text-[3.25rem] xl:text-6xl tracking-tight text-ink">
                             Gestioná tu empresa de ascensores
                             <span class="block text-ink/40">desde un solo lugar<span class="text-amber-500">.</span></span>
                         </h1>
 
-                        {{-- Mensaje comercial: control de la empresa sin estar en la oficina (solo funciones reales). --}}
-                        <div class="mt-6 flex max-w-xl items-start gap-3.5 rounded-2xl border border-amber-500/25 bg-white/70 px-4 py-3.5 shadow-sm" data-home-message>
-                            <span class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600" aria-hidden="true">
-                                <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M2.5 7.5L8 3L13.5 7.5M4 6.5V13H12V6.5M6.75 13V9.5H9.25V13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                            </span>
-                            <p class="text-[15px] leading-relaxed text-ink/60">
-                                <strong class="block font-display text-lg font-semibold tracking-tight text-ink sm:text-xl">Tu empresa de ascensores, bajo control. <span class="whitespace-nowrap text-amber-600">Incluso desde casa.</span></strong>
-                                Organizá mantenimientos, supervisá el trabajo de tus técnicos y consultá los remitos digitales desde un solo lugar, sin depender de estar en la oficina.
-                            </p>
-                        </div>
-
-                        <p class="mt-6 text-lg text-ink/60 max-w-xl leading-relaxed">
+                        <p class="mt-4 sm:mt-6 text-base sm:text-lg text-ink/60 max-w-xl leading-relaxed">
                             Clientes, edificios, técnicos y órdenes de trabajo en tiempo real. Ascento centraliza cada mantenimiento, inspección y reclamo, piso por piso, para que nada se pierda entre planillas.
                         </p>
 
-                        <div class="mt-9 flex flex-col sm:flex-row gap-3">
+                        <div class="mt-6 sm:mt-9 flex flex-col min-[360px]:flex-row gap-3">
                             <a href="{{ Route::has('login') ? route('login') : '/login' }}"
-                               class="inline-flex items-center justify-center gap-2 rounded-full bg-graphite text-white font-semibold px-6 py-3.5 shadow-card hover:shadow-cardHover hover:-translate-y-0.5 transition-all duration-200">
+                               class="inline-flex items-center justify-center gap-2 rounded-full bg-graphite text-white font-semibold px-5 sm:px-6 py-3.5 shadow-card hover:shadow-cardHover hover:-translate-y-0.5 transition-all duration-200">
                                 Entrar
                                 <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
                             </a>
                             <a href="#prueba-gratis"
-                               class="inline-flex items-center justify-center gap-2 rounded-full border border-ink/15 bg-white font-semibold px-6 py-3.5 text-ink hover:border-ink/30 hover:-translate-y-0.5 transition-all duration-200">
+                               class="inline-flex items-center justify-center gap-2 rounded-full border border-ink/15 bg-white font-semibold px-5 sm:px-6 py-3.5 text-ink hover:border-ink/30 hover:-translate-y-0.5 transition-all duration-200">
                                 Probar gratis 30 días
                             </a>
                         </div>
 
-                        <div class="mt-9 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-ink/50">
+                        <div class="mt-6 sm:mt-9 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-ink/50">
                             @php
                                 $fromPrice = \App\Models\SubscriptionPlan::offered()->min('price');
                             @endphp
@@ -253,6 +242,75 @@
                 <span>Los datos de cada empresa, separados y privados</span>
                 <div class="hidden sm:flex items-center gap-8 font-display">
                     <!-- <span>Elevatek</span><span>SubeCorp</span><span>NivelPro</span><span>Ascensores del Sur</span><span>VertiMant</span> -->
+                </div>
+            </div>
+        </section>
+
+        {{-- ============ DESDE CUALQUIER LUGAR ============ --}}
+        {{-- Argumento comercial (beneficio, no funciones): cada idea se apoya en algo que el sistema hace hoy
+             (centro de atención, remitos firmados, documentos por edificio, panel desde el navegador). --}}
+        <section id="desde-cualquier-lugar" class="relative overflow-hidden bg-graphite py-20 text-white sm:py-28">
+            <div class="pointer-events-none absolute inset-0 [background:radial-gradient(55%_60%_at_100%_0%,rgba(255,106,26,0.16),transparent_60%)]" aria-hidden="true"></div>
+            <div class="relative mx-auto max-w-7xl px-5 sm:px-8">
+                <div class="grid items-center gap-12 lg:grid-cols-[1fr_1.05fr] lg:gap-16">
+                    <div data-reveal>
+                        <span class="font-mono text-xs uppercase tracking-widest text-amber-500">Desde cualquier lugar</span>
+                        <h2 class="mt-3 font-display text-3xl font-semibold tracking-tight sm:text-[2.75rem] sm:leading-[1.1]">
+                            Tu empresa en orden, <span class="text-amber-500">aunque no estés en la oficina.</span>
+                        </h2>
+                        <p class="mt-5 max-w-xl text-base leading-relaxed text-white/65 sm:text-lg">
+                            Lo que hoy está repartido entre papeles, planillas y mensajes queda en un solo lugar. Abrís Ascento desde tu casa, la oficina o donde estés, y ves cómo está tu empresa.
+                        </p>
+
+                        <ul class="mt-8 grid gap-x-8 gap-y-6 sm:grid-cols-2">
+                            @foreach ([
+                                ['Más tranquilidad', 'Lo pendiente, lo vencido y lo que necesita tu atención, a la vista apenas entrás.', 'M8 14C11.3 14 14 11.3 14 8C14 4.7 11.3 2 8 2C4.7 2 2 4.7 2 8C2 11.3 4.7 14 8 14ZM5.5 8.2L7.2 9.9L10.6 6.3'],
+                                ['Menos llamados', 'Ves qué trabajo se hizo y quién lo hizo, con el remito firmado, sin perseguir a nadie por teléfono.', 'M3.5 2.5H6L7 5.5L5.5 6.5C6.2 8 8 9.8 9.5 10.5L10.5 9L13.5 10V12.5C13.5 13.1 13.1 13.5 12.5 13.5C7.5 13.5 2.5 8.5 2.5 3.5C2.5 2.9 2.9 2.5 3.5 2.5Z'],
+                                ['Todo en su lugar', 'Remitos, reportes y presupuestos guardados con su edificio, no en cuadernos ni en chats.', 'M2.5 4.5H6.5L8 6H13.5V12.5H2.5V4.5Z'],
+                                ['Tiempo para crecer', 'Menos horas buscando información y más tiempo para atender clientes y sumar edificios.', 'M2.5 12.5L6 9L8.5 11.5L13.5 6.5M10 6.5H13.5V10'],
+                            ] as [$title, $text, $icon])
+                                <li class="flex gap-3.5">
+                                    <span class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-500" aria-hidden="true">
+                                        <svg width="17" height="17" viewBox="0 0 16 16" fill="none"><path d="{{ $icon }}" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    </span>
+                                    <div>
+                                        <h3 class="font-display text-[15px] font-semibold">{{ $title }}</h3>
+                                        <p class="mt-1 text-sm leading-relaxed text-white/55">{{ $text }}</p>
+                                    </div>
+                                </li>
+                            @endforeach
+                        </ul>
+
+                        <div class="mt-10 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                            <a href="{{ Route::has('register') ? route('register') : '/register' }}" data-anywhere-cta
+                               class="inline-flex items-center justify-center gap-2 rounded-full bg-amber-500 px-6 py-3.5 font-semibold text-graphite transition-all duration-200 hover:-translate-y-0.5 hover:bg-amber-400">
+                                Probalo gratis 30 días
+                                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            </a>
+                            <a href="#demo" class="inline-flex items-center justify-center px-2 py-3 text-sm font-semibold text-white/70 transition-colors hover:text-white">Ver cómo se ve el panel</a>
+                        </div>
+                        <p class="mt-3 text-center text-xs text-white/40 sm:text-left">Sin tarjeta de crédito.</p>
+                    </div>
+
+                    {{-- Captura real del panel (datos de ejemplo), en una ventana de navegador. --}}
+                    <div data-reveal style="transition-delay:.1s" class="relative">
+                        <div class="overflow-hidden rounded-2xl border border-white/10 bg-white shadow-[0_30px_80px_-30px_rgba(0,0,0,0.7)]">
+                            <div class="flex items-center gap-1.5 border-b border-ink/10 bg-paper px-4 py-2.5" aria-hidden="true">
+                                <span class="h-2 w-2 rounded-full bg-ink/15"></span>
+                                <span class="h-2 w-2 rounded-full bg-ink/15"></span>
+                                <span class="h-2 w-2 rounded-full bg-ink/15"></span>
+                                <span class="ml-2 font-mono text-[10px] text-ink/40">ascento.online/admin</span>
+                            </div>
+                            <img src="{{ asset('images/landing/admin-inicio.jpg') }}" alt="Panel de Ascento: pendientes, en curso y completados del día"
+                                 width="1280" height="800" loading="lazy" decoding="async" class="block aspect-[16/10] w-full object-cover object-top">
+                        </div>
+                        <div class="absolute -bottom-5 left-4 hidden items-center gap-2.5 rounded-xl border border-ink/10 bg-white px-3.5 py-2.5 text-ink shadow-card sm:flex" aria-hidden="true">
+                            <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2.5 7.5L8 3L13.5 7.5M4 6.5V13H12V6.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            </span>
+                            <span class="text-xs font-semibold">Desde tu casa, la oficina o el celular</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>

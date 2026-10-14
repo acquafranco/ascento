@@ -2,7 +2,7 @@
     <h1 class="p-h1">Hola, {{ $user->name }}</h1>
     <p class="p-sub">{{ $portalClient?->name }} · Información que {{ $portalCompany?->name }} comparte sobre tus edificios.</p>
 
-    @include('portal.partials.push-card', ['company' => $portalCompany])
+    @include('portal.partials.push-card', ['company' => $portalCompany, 'promptOnly' => true])
 
     <section class="p-sec">
         <div class="p-sec-head"><h2>Tus edificios</h2></div>
