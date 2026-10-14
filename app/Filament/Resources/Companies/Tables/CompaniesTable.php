@@ -30,8 +30,12 @@ class CompaniesTable
     public static function configure(Table $table): Table
     {
         return $table
-            // Eager loading de lo que usan las columnas (evita N+1).
-            ->modifyQueryUsing(fn (Builder $query) => $query->with(['latestSubscription', 'owner'])->withCount(['users', 'buildings']))
+            // Eager loading de lo que usan las columnas (evita N+1). Los edificios se
+            // cuentan sin el filtro por empresa elegida (BelongsToCompany): cada fila
+            // ya cuenta solo los de su empresa, y con ese filtro todas salvo la
+            // elegida con «Entrar» quedaban en 0.
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['latestSubscription', 'owner'])
+                ->withCount(['users', 'buildings' => fn (Builder $buildings) => $buildings->withoutGlobalScope('company')]))
             ->recordUrl(fn (Company $record) => CompanyResource::getUrl('view', ['record' => $record]))
             ->defaultSort('created_at', 'desc')
             ->columns([
