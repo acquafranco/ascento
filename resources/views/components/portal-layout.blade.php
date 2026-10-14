@@ -64,7 +64,7 @@
         .p-main { max-width: 1040px; margin: 0 auto; padding: 22px 16px 56px; }
         .p-h1 { font-size: 23px; margin: 0 0 4px; letter-spacing: -.01em; }
         .p-sub { color: var(--muted); margin: 0 0 18px; font-size: 14px; }
-        .p-back { display: inline-block; margin-bottom: 12px; font-size: 14px; color: var(--muted); text-decoration: none; }
+        .p-back { display: inline-block; margin-bottom: 8px; padding: 4px 0; font-size: 14px; color: var(--muted); text-decoration: none; }
         .p-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
         .p-card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 16px; text-decoration: none; display: block; }
         a.p-card:hover { border-color: var(--orange); box-shadow: 0 6px 18px -10px rgba(18,21,28,.35); }
@@ -73,7 +73,7 @@
         .p-sec { margin-top: 26px; }
         .p-sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
         .p-sec h2 { font-size: 16px; margin: 0; }
-        .p-link { color: var(--orange-ink); font-size: 14px; font-weight: 600; text-decoration: none; }
+        .p-link { color: var(--orange-ink); font-size: 14px; font-weight: 600; text-decoration: none; padding: 4px 0; }
         .p-list { list-style: none; margin: 0; padding: 0; background: #fff; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
         .p-list li { border-top: 1px solid #F0EEE7; }
         .p-list li:first-child { border-top: 0; }

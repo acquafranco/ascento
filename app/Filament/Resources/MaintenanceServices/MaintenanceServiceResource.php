@@ -69,7 +69,7 @@ class MaintenanceServiceResource extends Resource
         $companyId = fn () => CompanyContext::currentId();
 
         return $schema->components([
-            Grid::make(2)->schema([
+            Grid::make(2)->columnSpanFull()->schema([
                 Select::make('client_id')
                     ->label('Cliente')
                     ->relationship('client', 'name', fn ($query) => $query->withoutTrashed()->where('company_id', $companyId()))
@@ -93,14 +93,14 @@ class MaintenanceServiceResource extends Resource
                 ->helperText('Vacío = todos los equipos del edificio.')
                 ->columnSpanFull(),
             TextInput::make('description')->label('Servicio')->required()->maxLength(255)->default('Mantenimiento mensual de ascensores')->columnSpanFull(),
-            Grid::make(3)->schema([
+            Grid::make(3)->columnSpanFull()->schema([
                 TextInput::make('amount')->label('Importe por período')->numeric()->minValue(1)->prefix('$')->required(),
                 Select::make('frequency')->label('Frecuencia de cobro')->options(collect(MaintenanceService::FREQUENCIES)->map(fn ($f) => $f[0]))->default('monthly')->required()->native(false)
                     ->helperText('Cada cuánto se le cobra al cliente. Cada cuánto se visita el edificio se configura aparte, en Edificios → «Frecuencia de visitas» (mensual si no se cambia).'),
                 TextInput::make('payment_due_day')->label('Día de vencimiento')->numeric()->minValue(1)->maxValue(28)->default(10)->required()
                     ->helperText('Del 1 al 28 de cada período.'),
             ]),
-            Grid::make(3)->schema([
+            Grid::make(3)->columnSpanFull()->schema([
                 DatePicker::make('start_date')->label('Inicio')->required()->default(today())->native(false)->displayFormat('d/m/Y'),
                 DatePicker::make('end_date')->label('Finalización (opcional)')->native(false)->displayFormat('d/m/Y')->afterOrEqual('start_date'),
                 Select::make('status')->label('Estado')->options(MaintenanceService::STATUSES)->default(MaintenanceService::ACTIVE)->required()->native(false),

@@ -39,7 +39,7 @@
             </label>
 
             @if (Route::has('password.request'))
-                <a class="text-sm font-medium text-rail-500 hover:text-rail-600 transition-colors" href="{{ route('password.request') }}">
+                <a class="-my-1 py-1 text-sm font-medium text-rail-500 hover:text-rail-600 transition-colors" href="{{ route('password.request') }}">
                     ¿Olvidaste tu contraseña?
                 </a>
             @endif
@@ -48,7 +48,7 @@
         <div class="flex items-center justify-between gap-4 pt-2">
             {{-- El registro crea una empresa de mantenimiento; los clientes entran solo por invitación. --}}
             @if (Route::has('register') && empty($portal))
-                <a href="{{ route('register') }}" class="text-sm font-medium text-ink/50 hover:text-ink transition-colors">
+                <a href="{{ route('register') }}" class="-my-1 py-1 text-sm font-medium text-ink/50 hover:text-ink transition-colors">
                     Crear cuenta
                 </a>
             @else

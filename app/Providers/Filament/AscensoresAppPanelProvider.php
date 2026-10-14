@@ -83,7 +83,9 @@ class AscensoresAppPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::STYLES_AFTER,
-                fn (): string => '<style>.fi-topbar-end{column-gap:1rem}@media (max-width:640px){.fi-topbar-end{column-gap:.85rem}}</style>',
+                fn (): string => '<style>.fi-topbar-end{column-gap:1rem}@media (max-width:640px){.fi-topbar-end{column-gap:.85rem}}'
+                    // Ítems del presupuesto: en modo tabla, ancho mínimo y desplazamiento horizontal en vez de cortar importes.
+                    .'.asc-quote-items{overflow-x:auto;position:relative}@container (min-width:36rem){.asc-quote-items>table{min-width:52rem}}</style>',
             )
             ->renderHook(
                 PanelsRenderHook::BODY_END,

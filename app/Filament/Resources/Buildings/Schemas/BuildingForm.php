@@ -88,6 +88,7 @@ class BuildingForm
                 ->columnSpanFull(),
 
             Grid::make(4)
+            ->columnSpanFull()
             ->schema([
 
                 TextInput::make('name')
@@ -113,6 +114,7 @@ class BuildingForm
 
 
             Grid::make(3)
+            ->columnSpanFull()
             ->schema([
 
 
@@ -162,6 +164,7 @@ class BuildingForm
             */
 
             Grid::make(2)
+            ->columnSpanFull()
             ->schema([
 
 

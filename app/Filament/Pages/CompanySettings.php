@@ -152,23 +152,25 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
                             ->maxLength(255)
                             ->placeholder('Av. Corrientes 1234')
                             ->prefixIcon('heroicon-o-map-pin')
-                            ->columnSpan(6),
+                            // Con la barra lateral, a 1024 px dos columnas de 12 no alcanzan
+                            // para un selector: la fila se parte en dos hasta xl.
+                            ->columnSpan(['lg' => 12, 'xl' => 6]),
 
                         Forms\Components\Select::make('province')
                             ->label('Provincia')
                             ->options(Provinces::options())
                             ->searchable()
-                            ->columnSpan(2),
+                            ->columnSpan(['lg' => 4, 'xl' => 2]),
 
                         TextInput::make('city')
                             ->label('Localidad')
                             ->maxLength(255)
-                            ->columnSpan(2),
+                            ->columnSpan(['lg' => 4, 'xl' => 2]),
 
                         TextInput::make('postal_code')
                             ->label('Código postal')
                             ->maxLength(10)
-                            ->columnSpan(2),
+                            ->columnSpan(['lg' => 4, 'xl' => 2]),
                     ]),
 
                 // Opcional: para presupuestos/remitos y una futura integración

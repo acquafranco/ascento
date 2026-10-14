@@ -46,6 +46,7 @@ class ReportsTable
                     ->label('Foto')
                     // Miniatura: la tabla mostraba la foto original (hasta 2000 px) en 60 px.
                     ->state(fn ($record) => $record->photos->first()?->thumbUrl())
+                    ->alt(fn ($record) => 'Foto del reporte #'.$record->getKey())
                     ->size(60)
                     ->square(),
 

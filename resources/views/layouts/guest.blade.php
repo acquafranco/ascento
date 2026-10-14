@@ -74,7 +74,7 @@
             {{ $slot }}
         </div>
 
-        <a href="/" class="mt-8 text-xs font-medium text-ink/40 hover:text-ink/70 transition-colors flex items-center gap-1.5">
+        <a href="/" class="mt-[1.625rem] py-1.5 text-xs font-medium text-ink/40 hover:text-ink/70 transition-colors flex items-center gap-1.5">
             <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
                 <path
                     d="M13 8H3M3 8L7 4M3 8L7 12"
@@ -89,7 +89,7 @@
 
         {{-- Contacto con Ascento: no en las pantallas del portal (el cliente habla con su empresa de ascensores). --}}
         @unless(request()->routeIs('portal.*'))
-            <button type="button" data-whatsapp-open class="mt-3 text-xs font-medium text-ink/40 hover:text-ink/70 transition-colors">¿Necesitás ayuda? Escribinos por WhatsApp</button>
+            <button type="button" data-whatsapp-open class="py-1.5 text-xs font-medium text-ink/40 hover:text-ink/70 transition-colors">¿Necesitás ayuda? Escribinos por WhatsApp</button>
         @endunless
 
     </div>
