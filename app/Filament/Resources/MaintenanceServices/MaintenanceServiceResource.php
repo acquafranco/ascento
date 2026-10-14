@@ -9,24 +9,19 @@ use App\Filament\Resources\MaintenanceServices\Pages\CreateMaintenanceService;
 use App\Filament\Resources\MaintenanceServices\Pages\EditMaintenanceService;
 use App\Filament\Resources\MaintenanceServices\Pages\ListMaintenanceServices;
 use App\Filament\Resources\MaintenanceServices\Pages\ViewMaintenanceService;
-use App\Models\Building;
+use App\Filament\Resources\MaintenanceServices\Schemas\ServiceAssignmentForm;
 use App\Models\MaintenanceService;
+use App\Models\ServiceCatalogItem;
+use App\Services\Catalog\ServicePricing;
 use App\Support\CompanyContext;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
-use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Utilities\Get;
-use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -66,47 +61,8 @@ class MaintenanceServiceResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        $companyId = fn () => CompanyContext::currentId();
-
-        return $schema->components([
-            Grid::make(2)->columnSpanFull()->schema([
-                Select::make('client_id')
-                    ->label('Cliente')
-                    ->relationship('client', 'name', fn ($query) => $query->withoutTrashed()->where('company_id', $companyId()))
-                    ->searchable()->preload()->required()->live()
-                    ->afterStateUpdated(fn (Set $set) => $set('building_id', null)),
-                Select::make('building_id')
-                    ->label('Edificio')
-                    ->relationship('building', 'name', fn ($query, Get $get) => $query->withoutTrashed()
-                        ->where('company_id', $companyId())
-                        ->where('client_id', $get('client_id')))
-                    ->getOptionLabelFromRecordUsing(fn (Building $record) => trim("{$record->name} {$record->address}"))
-                    ->searchable()->preload()->live()
-                    ->afterStateUpdated(fn (Set $set) => $set('units', []))
-                    ->helperText('Opcional: si el servicio cubre un edificio puntual del cliente.'),
-            ]),
-            Select::make('units')
-                ->label('Equipos del contrato (opcional)')
-                ->multiple()
-                ->options(fn (Get $get) => collect(Building::find($get('building_id'))?->unitLabels() ?? [])->mapWithKeys(fn ($u) => [$u => $u]))
-                ->visible(fn (Get $get) => filled($get('building_id')))
-                ->helperText('Vacío = todos los equipos del edificio.')
-                ->columnSpanFull(),
-            TextInput::make('description')->label('Servicio')->required()->maxLength(255)->default('Mantenimiento mensual de ascensores')->columnSpanFull(),
-            Grid::make(3)->columnSpanFull()->schema([
-                TextInput::make('amount')->label('Importe por período')->numeric()->minValue(1)->prefix('$')->required(),
-                Select::make('frequency')->label('Frecuencia de cobro')->options(collect(MaintenanceService::FREQUENCIES)->map(fn ($f) => $f[0]))->default('monthly')->required()->native(false)
-                    ->helperText('Cada cuánto se le cobra al cliente. Cada cuánto se visita el edificio se configura aparte, en Edificios → «Frecuencia de visitas» (mensual si no se cambia).'),
-                TextInput::make('payment_due_day')->label('Día de vencimiento')->numeric()->minValue(1)->maxValue(28)->default(10)->required()
-                    ->helperText('Del 1 al 28 de cada período.'),
-            ]),
-            Grid::make(3)->columnSpanFull()->schema([
-                DatePicker::make('start_date')->label('Inicio')->required()->default(today())->native(false)->displayFormat('d/m/Y'),
-                DatePicker::make('end_date')->label('Finalización (opcional)')->native(false)->displayFormat('d/m/Y')->afterOrEqual('start_date'),
-                Select::make('status')->label('Estado')->options(MaintenanceService::STATUSES)->default(MaintenanceService::ACTIVE)->required()->native(false),
-            ]),
-            Textarea::make('notes')->label('Observaciones')->rows(2)->columnSpanFull(),
-        ]);
+        // Mismo formulario que «Servicios contratados» de la ficha del cliente y del edificio.
+        return $schema->components(ServiceAssignmentForm::components(creating: $schema->getOperation() === 'create'));
     }
 
     public static function infolist(Schema $schema): Schema
@@ -130,7 +86,11 @@ class MaintenanceServiceResource extends Resource
                 TextEntry::make('building.name')->label('Edificio')->placeholder('Todos los edificios del cliente'),
                 TextEntry::make('units')->label('Equipos')->badge()->placeholder('Todos'),
                 TextEntry::make('description')->label('Servicio'),
+                TextEntry::make('category')->label('Tipo')->formatStateUsing(fn ($state) => ServiceCatalogItem::categoryLabel($state))->placeholder('Mantenimiento'),
+                TextEntry::make('catalogItem.name')->label('Del catálogo')->placeholder('Sin catálogo'),
                 TextEntry::make('amount')->label('Importe')->formatStateUsing(fn ($state, MaintenanceService $record) => $record->amountLabel()),
+                TextEntry::make('pricing_explanation')->label('Cómo se calculó')->state(fn (MaintenanceService $record) => $record->pricingExplanation())
+                    ->helperText(fn (MaintenanceService $record) => self::equipmentChangedNote($record)),
                 TextEntry::make('frequency')->label('Frecuencia de cobro')->formatStateUsing(fn ($state, MaintenanceService $record) => $record->frequencyLabel()),
                 TextEntry::make('status')->label('Estado')->badge()->formatStateUsing(fn ($state) => MaintenanceService::STATUSES[$state] ?? $state)
                     ->color(fn ($state) => match ($state) {
@@ -157,8 +117,10 @@ class MaintenanceServiceResource extends Resource
                 TextColumn::make('client.name')->label('Cliente')->searchable()->sortable(),
                 TextColumn::make('building.name')->label('Edificio')
                     ->formatStateUsing(fn ($state, MaintenanceService $r) => trim($r->building?->name.' '.$r->building?->address))->placeholder('—'),
-                TextColumn::make('description')->label('Servicio')->wrap(),
-                TextColumn::make('amount')->label('Importe')->formatStateUsing(fn ($state, MaintenanceService $r) => $r->amountLabel()),
+                TextColumn::make('description')->label('Servicio')->wrap()
+                    ->description(fn (MaintenanceService $r) => ServiceCatalogItem::categoryLabel($r->category).' · '.$r->scopeLabel()),
+                TextColumn::make('amount')->label('Importe')->formatStateUsing(fn ($state, MaintenanceService $r) => $r->amountLabel())
+                    ->description(fn (MaintenanceService $r) => $r->pricing_mode ? $r->pricingExplanation() : null),
                 TextColumn::make('start_date')->label('Desde')->date('d/m/Y')->toggleable(),
                 TextColumn::make('end_date')->label('Hasta')->date('d/m/Y')->placeholder('—')->toggleable(),
                 TextColumn::make('status')->label('Estado')->badge()
@@ -169,6 +131,8 @@ class MaintenanceServiceResource extends Resource
             ])
             ->filters([
                 SelectFilter::make('status')->label('Estado')->options(MaintenanceService::STATUSES),
+                SelectFilter::make('category')->label('Tipo')->options(collect(ServiceCatalogItem::CATEGORIES)->map(fn ($c) => $c[0])),
+                SelectFilter::make('catalog_item_id')->label('Servicio del catálogo')->relationship('catalogItem', 'name', fn ($query) => $query->where('company_id', CompanyContext::currentId())),
                 SelectFilter::make('client_id')->label('Cliente')->relationship('client', 'name', fn ($query) => $query->where('company_id', CompanyContext::currentId()))->searchable()->preload(),
             ])
             ->recordActions([
@@ -179,6 +143,20 @@ class MaintenanceServiceResource extends Resource
                 ViewAction::make(),
                 EditAction::make(),
             ]);
+    }
+
+    /** Si los equipos del alcance cambiaron desde el cálculo, se avisa (el importe acordado no cambia solo). */
+    public static function equipmentChangedNote(MaintenanceService $record): ?string
+    {
+        if (! in_array($record->pricing_mode, [ServiceCatalogItem::PER_EQUIPMENT, ServiceCatalogItem::PER_STOP], true) || $record->quantity === null) {
+            return null;
+        }
+
+        $now = app(ServicePricing::class)->calculate((int) $record->company_id, $record->pricing_mode, (float) $record->unit_price, (int) $record->client_id, $record->building_id, $record->units, $record->pricing_detail['equipment_kind'] ?? 'all');
+
+        return $now['error'] === null && $now['quantity'] !== (int) $record->quantity
+            ? "Hoy el alcance tiene {$now['quantity']} (se calculó con {$record->quantity}). El importe acordado no cambia solo: editá la contratación para recalcularlo."
+            : null;
     }
 
     public static function statusAction(string $status, string $label, string $icon, string $color): Action

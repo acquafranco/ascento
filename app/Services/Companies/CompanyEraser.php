@@ -272,7 +272,7 @@ class CompanyEraser
         }
         $n += $of('work_orders')->delete();
 
-        foreach (['quote_events', 'quote_items', 'quotes', 'maintenance_services', 'elevator_documents', 'elevators'] as $table) {
+        foreach (['quote_events', 'quote_items', 'quotes', 'maintenance_services', 'service_catalog_items', 'elevator_documents', 'elevators'] as $table) {
             $n += $of($table)->delete();
         }
 

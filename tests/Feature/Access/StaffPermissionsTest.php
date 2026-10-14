@@ -33,6 +33,7 @@ use App\Filament\Resources\Quotes\QuoteResource;
 use App\Filament\Resources\Receivables\ReceivableResource;
 use App\Filament\Resources\RepairComponents\RepairComponentResource;
 use App\Filament\Resources\Reports\ReportResource;
+use App\Filament\Resources\ServiceCatalogItems\ServiceCatalogItemResource;
 use App\Filament\Resources\StaffUsers\StaffUserResource;
 use App\Filament\Resources\StockItems\StockItemResource;
 use App\Filament\Resources\StockMovements\StockMovementResource;
@@ -90,6 +91,7 @@ class StaffPermissionsTest extends TestCase
         ReportResource::class => PermissionArea::Inspections,
         MaintenanceResource::class => PermissionArea::Visits,
         MaintenanceServiceResource::class => PermissionArea::Receivables,
+        ServiceCatalogItemResource::class => PermissionArea::Receivables,
         ReceivableResource::class => PermissionArea::Receivables,
         QuoteResource::class => PermissionArea::Quotes,
         StockItemResource::class => PermissionArea::Stock,

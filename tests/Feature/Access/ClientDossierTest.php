@@ -123,7 +123,7 @@ class ClientDossierTest extends TestCase
             $this->assertTrue($relation::canViewForRecord($this->client, ViewClient::class), $relation);
         }
         Livewire::test(ServicesRelationManager::class, ['ownerRecord' => $this->client, 'pageClass' => ViewClient::class])
-            ->assertSee('Gestionar servicios')->assertSee('Crear servicio');
+            ->assertSee('Servicios contratados')->assertSee('Agregar servicio');
         // El listado lleva a la ficha.
         Livewire::test(ListClients::class)->assertTableActionVisible('view', $this->client)->assertTableActionVisible('edit', $this->client);
     }
@@ -199,9 +199,9 @@ class ClientDossierTest extends TestCase
         $this->assertSame($data['receivable']->concept, $d['receivables']['items'][0]['label']);
         $this->assertNotNull($d['receivables']['items'][0]['url']);
         $this->get($d['receivables']['items'][0]['url'])->assertOk();
-        // En la pestaña Servicios: sin «Crear servicio» (pide gestionar); el listado sí abre.
+        // En la pestaña Servicios: sin «Agregar servicio» (pide gestionar); el listado sí abre.
         Livewire::test(ServicesRelationManager::class, ['ownerRecord' => $this->client, 'pageClass' => ViewClient::class])
-            ->assertSee('Gestionar servicios')->assertDontSee('Crear servicio')
+            ->assertSee('Servicios contratados')->assertDontSee('Agregar servicio')
             ->assertDontSee(MaintenanceServiceResource::getUrl('create'), false);
         Livewire::test(PortalUsersRelationManager::class, ['ownerRecord' => $this->client, 'pageClass' => ViewClient::class])->assertOk();
 

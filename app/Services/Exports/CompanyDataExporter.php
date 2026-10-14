@@ -25,6 +25,7 @@ use App\Models\RepairComponentFile;
 use App\Models\Report;
 use App\Models\ReportPhoto;
 use App\Models\ReportVideo;
+use App\Models\ServiceCatalogItem;
 use App\Models\StockItem;
 use App\Models\StockMovement;
 use App\Models\Task;
@@ -299,9 +300,16 @@ class CompanyDataExporter
                 return [$d->id, $d->elevator_id, $this->name('buildings', $buildingId), $label, ElevatorDocument::TYPES[$d->type] ?? $d->type, $d->title, $ok ? $inZip : '(no incluido)', $d->expires_at, (bool) $d->shared_with_client, $d->created_at];
             });
 
-        $this->sheet('Contratos', ['ID', 'Cliente ID', 'Cliente', 'Edificio ID', 'Edificio', 'Servicio', 'Importe por período', 'Frecuencia de cobro', 'Inicio*', 'Fin*', 'Estado', 'Día de vencimiento', 'Notas', 'Eliminado'],
+        // Columnas nuevas al final: no cambia la posición de las anteriores.
+        $this->sheet('Contratos', ['ID', 'Cliente ID', 'Cliente', 'Edificio ID', 'Edificio', 'Servicio', 'Importe por período', 'Frecuencia de cobro', 'Inicio*', 'Fin*', 'Estado', 'Día de vencimiento', 'Notas', 'Eliminado', 'Equipos', 'Tipo de servicio', 'Servicio del catálogo ID', 'Modalidad', 'Precio unitario', 'Cantidad', 'Cálculo'],
             $this->scoped(MaintenanceService::class, true), fn ($s) => [$s->id, $s->client_id, $this->name('clients', $s->client_id), $s->building_id, $this->name('buildings', $s->building_id), $s->description, $this->money($s->amount),
-                MaintenanceService::FREQUENCIES[$s->frequency][0] ?? $s->frequency, $s->start_date, $s->end_date, MaintenanceService::STATUSES[$s->status] ?? $s->status, $s->payment_due_day, $s->notes, $s->deleted_at !== null]);
+                MaintenanceService::FREQUENCIES[$s->frequency][0] ?? $s->frequency, $s->start_date, $s->end_date, MaintenanceService::STATUSES[$s->status] ?? $s->status, $s->payment_due_day, $s->notes, $s->deleted_at !== null,
+                $s->units ? implode(', ', $s->units) : '', ServiceCatalogItem::categoryLabel($s->category), $s->catalog_item_id, ServiceCatalogItem::pricingModeLabel($s->pricing_mode), $s->unit_price !== null ? $this->money($s->unit_price) : '', $s->quantity, $s->pricingExplanation()]);
+
+        $this->sheet('Catálogo de servicios', ['ID', 'Nombre', 'Tipo', 'Modalidad', 'Precio de referencia', 'Equipos que cuenta', 'Frecuencia de cobro', 'Qué incluye', 'Descripción', 'Disponible', 'Eliminado'],
+            $this->scoped(ServiceCatalogItem::class, true), fn ($c) => [$c->id, $c->name, ServiceCatalogItem::categoryLabel($c->category), ServiceCatalogItem::pricingModeLabel($c->pricing_mode),
+                $c->base_price !== null ? $this->money($c->base_price) : '', ServiceCatalogItem::EQUIPMENT_KINDS[$c->equipment_kind] ?? '', MaintenanceService::FREQUENCIES[$c->billing_frequency][0] ?? $c->billing_frequency,
+                implode(', ', (array) $c->includes), $c->description, (bool) $c->is_active, $c->deleted_at !== null]);
 
         // Usuarios: personal de la empresa, solo datos operativos (nunca contraseña, tokens ni chats).
         $this->sheet('Usuarios', ['ID', 'Nombre', 'Email', 'Rol', 'Cliente (portal)', 'Teléfono', 'Estado', 'Alta'],
