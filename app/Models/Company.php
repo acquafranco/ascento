@@ -46,11 +46,6 @@ class Company extends Model
         'logo',
         'primary_color',
         'is_active',
-        'whatsapp_access_token',
-        'whatsapp_phone_number_id',
-        'whatsapp_waba_id',
-        'whatsapp_business_id',
-        'whatsapp_connected',
         'trial_ends_at',
         // Documentación fotográfica por tipo de trabajo (apagada por defecto).
         'photos_maintenance',
@@ -65,7 +60,10 @@ class Company extends Model
         'work_order' => 'photos_work_order',
     ];
 
-    /** Credenciales de integraciones: nunca en arrays ni JSON (Etapa 11). */
+    /**
+     * Columnas whatsapp_* de la integración por empresa retirada en la Etapa
+     * 11: quedan en la base (sin uso) y el token nunca sale en arrays ni JSON.
+     */
     protected $hidden = [
         'whatsapp_access_token',
     ];

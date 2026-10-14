@@ -43,7 +43,7 @@ class DeployReadinessTest extends TestCase
     {
         $example = file_get_contents(base_path('.env.example'));
 
-        foreach (['WHATSAPP_APP_SECRET', 'WHATSAPP_VERIFY_TOKEN', 'FACEBOOK_CLIENT_SECRET', 'MERCADOPAGO_ACCESS_TOKEN', 'SUPER_ADMIN_EMAIL'] as $var) {
+        foreach (['MERCADOPAGO_ACCESS_TOKEN', 'SUPER_ADMIN_EMAIL'] as $var) {
             $this->assertStringContainsString($var.'=', $example);
         }
     }

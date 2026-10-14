@@ -10,7 +10,6 @@ use App\Models\User;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
@@ -237,31 +236,14 @@ class SecurityFindingsTest extends TestCase
     | activas): el token quedaba visible al serializar la empresa y el log
     | guardaba la lista de negocios, cuentas y teléfonos de Meta del cliente.
     */
-    public function test_whatsapp_credentials_and_meta_data_never_reach_arrays_or_logs(): void
+    public function test_the_old_whatsapp_token_never_reaches_arrays_or_json(): void
     {
         $company = $this->a['company'];
         $company->forceFill(['whatsapp_access_token' => 'TOKEN-SECRETO-DE-META'])->save();
         $this->assertArrayNotHasKey('whatsapp_access_token', $company->fresh()->toArray());
         $this->assertStringNotContainsString('TOKEN-SECRETO-DE-META', $company->fresh()->toJson());
 
-        Http::fake([
-            'graph.facebook.com/*/oauth/access_token' => Http::response(['access_token' => 'TOKEN-NUEVO']),
-            'graph.facebook.com/*/me/businesses' => Http::response(['data' => [['id' => '111', 'name' => 'Ascensores Privados SA']]]),
-            'graph.facebook.com/*/owned_whatsapp_business_accounts' => Http::response(['data' => [['id' => '222', 'name' => 'Cuenta privada']]]),
-            'graph.facebook.com/*/phone_numbers' => Http::response(['data' => [['id' => '333', 'display_phone_number' => '+54 9 11 5555-0000']]]),
-        ]);
-        $logged = [];
-        Log::listen(function ($message) use (&$logged) {
-            $logged[] = json_encode([$message->message, $message->context]);
-        });
-
-        $state = encrypt(['company_id' => $company->id, 'user_id' => $this->a['admin']->id]);
-        $this->actingAs($this->a['admin'])->get('/whatsapp/callback?code=1&state='.urlencode($state))->assertRedirect();
-
-        $all = implode("\n", $logged);
-        $this->assertNotSame('', $all);
-        foreach (['Ascensores Privados SA', 'Cuenta privada', '5555-0000', 'TOKEN-NUEVO'] as $private) {
-            $this->assertStringNotContainsString($private, $all, $private);
-        }
+        // La conexión con Meta (y sus logs) se retiró en la Etapa 11 (R3/R4):
+        // ver RetiredWhatsAppIntegrationTest.
     }
 }

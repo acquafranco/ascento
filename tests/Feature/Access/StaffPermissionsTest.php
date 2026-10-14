@@ -292,8 +292,8 @@ class StaffPermissionsTest extends TestCase
         $this->assertNotContains($this->a['admin']->id, $ids);
         $this->assertNotContains($other->id, $ids);
 
-        // Exportación completa y conexión de WhatsApp: nunca.
-        $this->get("/{$this->a['company']->slug}/whatsapp/connect")->assertRedirect('/admin');
+        // La conexión de WhatsApp por empresa se retiró (Etapa 11): no existe para nadie.
+        $this->get("/{$this->a['company']->slug}/whatsapp/connect")->assertNotFound();
     }
 
     private function expectsForbidden(\Closure $call): void

@@ -5,9 +5,7 @@ namespace Tests\Feature\Subscriptions;
 use App\Filament\Pages\Subscription as SubscriptionPage;
 use App\Models\DeliveryNote;
 use App\Models\Subscription;
-use App\Models\SubscriptionPlan;
 use App\Models\User;
-use App\Models\WorkOrder;
 use App\Support\ManualSubscriptionActivator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -161,31 +159,6 @@ class SubscriptionAccessPolicyTest extends TestCase
         ManualSubscriptionActivator::resume($a['company']);
 
         $this->actingAs($a['technician']->fresh())->get("/{$a['company']->slug}/dashboard")->assertOk();
-    }
-
-    public function test_whatsapp_buttons_do_nothing_for_companies_without_access(): void
-    {
-        config(['services.whatsapp.app_secret' => 'secret']);
-        Http::fake();
-
-        $a = $this->tenantInState(-1, ['status' => 'paused']);
-        $a['technician']->update(['phone' => '5491111111111']);
-
-        $workOrder = WorkOrder::factory()->create(['building_id' => $a['building']->id]);
-        $workOrder->users()->attach($a['technician']->id);
-
-        $body = json_encode(['entry' => [['changes' => [['value' => ['messages' => [[
-            'from' => '5491111111111',
-            'type' => 'interactive',
-            'interactive' => ['button_reply' => ['id' => 'take_work_order_'.$workOrder->id]],
-        ]]]]]]]]);
-
-        $this->call('POST', '/api/whatsapp/webhook', [], [], [], [
-            'CONTENT_TYPE' => 'application/json',
-            'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.hash_hmac('sha256', $body, 'secret'),
-        ], $body)->assertOk()->assertJson(['status' => 'missing_data']);
-
-        $this->assertSame('pending', $workOrder->fresh()->status);
     }
 
     public function test_public_documents_already_sent_to_customers_keep_working(): void
