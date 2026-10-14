@@ -90,6 +90,9 @@ return [
     // equipo de Ascento). Vacío: solo la campanita/push de los SuperAdmin.
     'admin_notification_email' => env('ASCENTO_ADMIN_NOTIFICATION_EMAIL'),
 
+    // CSP en modo solo reporte (ver docs/csp.md). Apagada por defecto.
+    'csp_report_only' => (bool) env('ASCENTO_CSP_REPORT_ONLY', false),
+
     // WhatsApp Business oficial de Ascento, confirmado por el dueño el
     // 13/10/2026 (formato internacional, solo dígitos: +54 9 11 7372-8421).
     // Lo usan el asistente de consultas y el pie de las páginas públicas: no

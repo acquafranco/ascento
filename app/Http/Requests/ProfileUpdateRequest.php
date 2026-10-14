@@ -14,6 +14,20 @@ class ProfileUpdateRequest extends FormRequest
      *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
+    private function emailChanges(): bool
+    {
+        return mb_strtolower(trim((string) $this->input('email'))) !== mb_strtolower((string) $this->user()->email);
+    }
+
+    /** @return array<string, string> */
+    public function messages(): array
+    {
+        return [
+            'current_password.required' => 'Para cambiar el correo, escribí tu contraseña actual.',
+            'current_password.current_password' => 'La contraseña no es correcta.',
+        ];
+    }
+
     public function rules(): array
     {
         return [
@@ -25,6 +39,15 @@ class ProfileUpdateRequest extends FormRequest
                 'email',
                 'max:255',
                 Rule::unique(User::class)->ignore($this->user()->id),
+            ],
+            // Cambiar el correo cambia a dónde llega «Olvidé mi contraseña»:
+            // con una sesión robada alcanzaba para tomar la cuenta. Se pide la
+            // contraseña actual solo si el correo cambia (Etapa 11, R8).
+            'current_password' => [
+                Rule::requiredIf(fn () => $this->emailChanges()),
+                'nullable',
+                'string',
+                'current_password',
             ],
         ];
     }

@@ -8,6 +8,7 @@ use App\Services\MercadoPagoService;
 use App\Services\MercadoPagoSubscriptionSync;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -33,20 +34,24 @@ class MercadoPagoWebhookController extends Controller
         $topic = (string) ($request->query('type') ?? $request->input('type') ?? $request->query('topic') ?? $request->input('topic') ?? '');
         $dataId = $this->dataId($request);
 
+        // Sin firma válida no se guarda nada: cualquiera puede llamar a esta URL
+        // y cada fila se conserva 90 días (Etapa 11, R7). Queda un aviso en el
+        // log como mucho una vez por minuto.
+        if (! $this->signatureIsValid($request, $dataId)) {
+            if (Cache::add('mercadopago:invalid-signature-logged', true, 60)) {
+                Log::warning('Webhook de Mercado Pago con firma inválida (se avisa una vez por minuto).');
+            }
+
+            return response()->json(['status' => 'invalid_signature'], 401);
+        }
+
         $event = WebhookEvent::create([
             'provider' => 'mercadopago',
             'topic' => mb_substr($topic, 0, 60) ?: null,
             'resource_id' => $dataId !== null ? mb_substr($dataId, 0, 255) : null,
             'request_id' => mb_substr((string) $request->header('x-request-id'), 0, 255) ?: null,
+            'signature_valid' => true,
         ]);
-
-        if (! $this->signatureIsValid($request, $dataId)) {
-            $event->update(['result' => 'invalid_signature']);
-
-            return response()->json(['status' => 'invalid_signature'], 401);
-        }
-
-        $event->update(['signature_valid' => true]);
 
         if ($dataId === null || ! preg_match('/^[A-Za-z0-9_-]{1,64}$/', $dataId)) {
             return $this->finish($event, 'ignored');

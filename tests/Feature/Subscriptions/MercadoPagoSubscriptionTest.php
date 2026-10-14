@@ -5,9 +5,11 @@ namespace Tests\Feature\Subscriptions;
 use App\Filament\Pages\Subscription as SubscriptionPage;
 use App\Models\Subscription;
 use App\Models\SubscriptionPayment;
+use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Models\WebhookEvent;
 use App\Services\MercadoPagoApiException;
+use App\Services\MercadoPagoSubscriptionSync;
 use Filament\Notifications\Notification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
@@ -171,8 +173,8 @@ class MercadoPagoSubscriptionTest extends TestCase
     {
         $this->expectException(\RuntimeException::class);
 
-        app(\App\Services\MercadoPagoSubscriptionSync::class)->startCheckout(
-            $this->a['company'], $this->a['admin'], \App\Models\SubscriptionPlan::findBySlug('profesional'), 'https://x.test'
+        app(MercadoPagoSubscriptionSync::class)->startCheckout(
+            $this->a['company'], $this->a['admin'], SubscriptionPlan::findBySlug('profesional'), 'https://x.test'
         );
     }
 
@@ -218,7 +220,8 @@ class MercadoPagoSubscriptionTest extends TestCase
 
         $this->assertSame(0, Http::recorded()->count());
         $this->assertSame(Subscription::PENDING, Subscription::sole()->status);
-        $this->assertSame(3, WebhookEvent::where('result', 'invalid_signature')->count());
+        // Sin firma válida no se guarda nada (Etapa 11, R7).
+        $this->assertSame(0, WebhookEvent::count());
     }
 
     public function test_in_production_a_missing_secret_rejects_every_webhook(): void

@@ -47,6 +47,13 @@
             @endif
         </div>
 
+        {{-- Solo si cambia el correo (Etapa 11, R8). --}}
+        <div>
+            <x-input-label for="profile_current_password" value="Contraseña actual (solo si cambiás el correo)" />
+            <x-text-input id="profile_current_password" name="current_password" type="password" class="mt-1 block w-full" autocomplete="current-password" />
+            <x-input-error class="mt-2" :messages="$errors->get('current_password')" />
+        </div>
+
         <div class="flex items-center gap-4">
             <x-primary-button>{{ __('Save') }}</x-primary-button>
 

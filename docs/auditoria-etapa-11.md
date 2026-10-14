@@ -136,3 +136,16 @@ Cada uno tiene una prueba en `tests/Feature/Stage11/SecurityFindingsTest.php` qu
 2. Contraseña larga y única para el SuperAdmin; no compartir la cuenta.
 3. Revisar de vez en cuando el registro de actividad del panel y los fallos de ingreso en el log.
 4. Mantener `composer audit` y `npm audit --omit=dev` en cada actualización de dependencias.
+
+---
+
+## 7. Seguimiento de los riesgos abiertos (rama `etapa-11/riesgos-menores`)
+
+| # | Estado | Detalle |
+|---|---|---|
+| R1 | **Aceptado, documentado** | `braces` (sin ninguna versión 3.x corregida) y `postcss-selector-parser` (corregido recién en la 7.1.6; Tailwind 3 usa la 6) vienen de `tailwindcss` 3.4.19, la última 3.x. `npm audit fix` no propone nada sin un cambio mayor, y forzar versiones con `overrides` puede romper la compilación. Solo afectan a la compilación, con el CSS y la configuración propios como entrada: no las puede disparar un atacante. Se resuelven con la migración a Tailwind 4, cuando se planifique. `@tailwindcss/vite` 4 está instalado pero no se usa (la compilación va por PostCSS con Tailwind 3) |
+| R2 | **Plan + modo reporte** | Política candidata en `SecurityHeaders::policy()`, apagada por defecto (`ASCENTO_CSP_REPORT_ONLY`). 29 páginas de los cuatro perfiles con 0 violaciones en la demo local. Plan en `docs/csp.md` |
+| R5 | **Propuesta** | 2FA para el SuperAdmin con lo que ya está instalado (Google2FA y QR, vía Filament 5): `docs/etapa-11-ingreso-2fa.md` |
+| R6 | **Propuesta** | Protección gradual por cuenta, sin bloqueos (desafío humano, aviso al dueño de la cuenta, aviso al SuperAdmin): `docs/etapa-11-ingreso-2fa.md` |
+| R7 | **Corregido** | Los pedidos con firma inválida ya no guardan filas (antes quedaban 90 días); como mucho un aviso por minuto en el log. No había exposición de datos: la tabla no se muestra en ningún lado |
+| R8 | **Corregido** | Cambiar el correo desde el perfil del técnico pide la contraseña actual. Antes, con una sesión robada se cambiaba el correo y «Olvidé mi contraseña» mandaba el enlace al correo nuevo, aunque no estuviera confirmado |
