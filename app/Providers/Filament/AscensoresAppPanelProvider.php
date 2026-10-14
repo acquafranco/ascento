@@ -159,6 +159,8 @@ class AscensoresAppPanelProvider extends PanelProvider
 
             // Campanita propia: abrir marca leído en el servidor, "Marcar como
             // leída" en cada aviso y "visto" al cerrar (ver App\Livewire\DatabaseNotifications).
+            // Avatar con iniciales generado acá: sin mandar nombres a ui-avatars.com (Etapa 11).
+            ->defaultAvatarProvider(\App\Support\LocalAvatarProvider::class)
             ->databaseNotifications(livewireComponent: \App\Livewire\DatabaseNotifications::class)
             // Con tiempo real (Reverb) la campanita se actualiza al instante; la
             // consulta periódica queda solo como respaldo si se corta la conexión.
@@ -175,6 +177,9 @@ class AscensoresAppPanelProvider extends PanelProvider
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
                 EnsureActiveSubscription::class,
+                // El panel no pasa por el grupo «web»: las cabeceras de seguridad
+                // (anti-clickjacking, nosniff, CSP en modo reporte) van acá también (Etapa 11).
+                \App\Http\Middleware\SecurityHeaders::class,
             ])
 
             ->authMiddleware([

@@ -33,7 +33,15 @@ base-uri 'self'; form-action 'self'; frame-ancestors 'self'
 
 Limita a dónde podría mandar datos un script inyectado.
 
-## Prueba hecha (13/10/2026, demo local)
+## Corrección (14/10/2026)
+
+La prueba del 13/10 **no evaluó el panel**: las páginas de `/admin` no pasan por el grupo `web` y no recibían ni esta cabecera ni las demás de seguridad. Desde la rama `etapa-11/cabeceras-panel`:
+- `SecurityHeaders` también está en el panel;
+- el avatar por defecto deja de pedirse a ui-avatars.com, que era la única violación del panel y además mandaba el nombre del usuario a un tercero.
+
+Con eso, las 29 páginas de abajo, incluidas las 13 del panel, se volvieron a probar **con la cabecera presente en cada una**: 0 violaciones.
+
+## Prueba hecha (13/10/2026 y 14/10/2026, demo local)
 
 Con `ASCENTO_CSP_REPORT_ONLY=true` se recorrieron **29 páginas**:
 - **visitante:** inicio con el asistente abierto, ingreso, registro, ingreso del portal y legales;
