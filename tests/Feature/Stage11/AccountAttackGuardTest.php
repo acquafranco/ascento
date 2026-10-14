@@ -86,6 +86,23 @@ class AccountAttackGuardTest extends TestCase
         $this->assertGuest();
     }
 
+    public function test_one_solved_challenge_does_not_open_a_window_for_more_guesses(): void
+    {
+        $this->attackFromManyIps('victima@empresa.test', AccountAttackGuard::ACCOUNT_THRESHOLD);
+
+        // Resuelve el desafío una vez, con una contraseña incorrecta...
+        $proof = $this->solveChallenge();
+        $this->withServerVariables(['REMOTE_ADDR' => '198.51.100.20'])->post('/login', ['email' => 'victima@empresa.test', 'password' => 'otra-1'] + $proof)
+            ->assertSessionHasErrors('email');
+
+        // ...y con la misma sesión (que se puede usar desde muchas IP) sigue probando sin resolverlo.
+        foreach (['198.51.100.21', '198.51.100.22', '198.51.100.23'] as $ip) {
+            $this->withServerVariables(['REMOTE_ADDR' => $ip])->post('/login', ['email' => 'victima@empresa.test', 'password' => 'clave-correcta-123'])
+                ->assertSessionHasErrors('challenge');
+        }
+        $this->assertGuest();
+    }
+
     public function test_a_legitimate_user_who_mistypes_a_few_times_sees_nothing_new(): void
     {
         for ($i = 0; $i < 3; $i++) {

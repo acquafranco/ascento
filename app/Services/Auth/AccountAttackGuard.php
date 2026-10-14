@@ -67,7 +67,14 @@ class AccountAttackGuard
 
         $this->requireChallenge($request);
 
-        return RegistrationChallenge::check($request);
+        // Un desafío por intento: en el registro lo resuelto vale 15 minutos, acá
+        // eso dejaría probar contraseñas sin límite con la misma sesión (que se
+        // puede usar desde muchas IP).
+        RegistrationChallenge::forgetPassed($request);
+        $error = RegistrationChallenge::check($request);
+        RegistrationChallenge::forgetPassed($request);
+
+        return $error;
     }
 
     public function recordFailure(Request $request, string $email): void

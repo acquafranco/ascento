@@ -7,6 +7,7 @@
   - **No bloquea la cuenta:** la persona real lo resuelve y entra.
   - Un programa que prueba contraseñas desde muchas IP ya no puede seguir a ciegas.
   - El desafío sigue visible aunque se recargue la página, hasta que vence la ventana o hay un ingreso correcto.
+  - **Un desafío por intento.** En el registro, lo resuelto vale 15 minutos; en el ingreso no, porque esa sesión se podría usar desde muchas IP para seguir probando contraseñas sin resolver nada más.
 - **Aviso al dueño de la cuenta**, si existe: un correo como mucho cada 6 horas. Dice que hubo intentos fallidos y cómo cambiar la contraseña, sin IP ni cantidades. Las cuentas que no existen nunca generan correos.
 - **Pico general** (200 o más fallos en una hora en toda la plataforma): aviso por correo a los SuperAdmin, como mucho uno por hora.
 - **Ingreso correcto:** pone el contador de la cuenta en cero.
@@ -19,5 +20,6 @@
 
 **Qué no evita:**
 - una persona que resuelve el desafío a mano en cada intento, aunque eso es lento y sigue limitado por correo + IP;
+- un programa hecho a medida que lea el desafío: la alternativa accesible es una pregunta en texto. Le sube el costo a cada intento, pero no lo impide;
 - un atacante que ya tiene la contraseña correcta (para eso está el 2FA, hoy solo para el SuperAdmin);
 - que alguien moleste a la víctima obligándola a resolver el desafío durante 15 minutos.

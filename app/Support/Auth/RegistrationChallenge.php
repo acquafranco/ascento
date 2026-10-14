@@ -109,6 +109,12 @@ final class RegistrationChallenge
         $request->session()->forget([self::KEY, self::STARTED, self::PASSED]);
     }
 
+    /** Lo resuelto deja de valer (el ingreso lo pide en cada intento: ver AccountAttackGuard). */
+    public static function forgetPassed(Request $request): void
+    {
+        $request->session()->forget(self::PASSED);
+    }
+
     public static function passed(Request $request): bool
     {
         return (int) $request->session()->get(self::PASSED, 0) >= now()->timestamp;
