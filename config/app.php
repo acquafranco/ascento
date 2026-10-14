@@ -90,6 +90,10 @@ return [
     // equipo de Ascento). Vacío: solo la campanita/push de los SuperAdmin.
     'admin_notification_email' => env('ASCENTO_ADMIN_NOTIFICATION_EMAIL'),
 
+    // Segundo factor obligatorio para el SuperAdmin (Etapa 11). Solo para una
+    // emergencia: ASCENTO_SUPERADMIN_2FA=false lo apaga sin desplegar código.
+    'superadmin_two_factor' => (bool) env('ASCENTO_SUPERADMIN_2FA', true),
+
     // CSP en modo solo reporte (ver docs/csp.md). Apagada por defecto.
     'csp_report_only' => (bool) env('ASCENTO_CSP_REPORT_ONLY', false),
 

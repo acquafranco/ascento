@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\PlanLimit;
 use App\Models\Concerns\ConsumesPlanLimit;
 use App\Notifications\ResetPasswordNotification;
+use App\Services\Auth\TwoFactorAuthentication;
 use App\Support\Access\Access;
 use App\Support\PhoneNumber;
 use App\Support\Portal\PortalAccess;
@@ -45,10 +46,16 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
         'password',
         'remember_token',
         'pending_email_token',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
     ];
 
     protected $casts = [
         'email_verified_at' => 'datetime',
+        // Segundo factor del SuperAdmin (Etapa 11): cifrados con APP_KEY.
+        'two_factor_secret' => 'encrypted',
+        'two_factor_recovery_codes' => 'encrypted:array',
+        'two_factor_confirmed_at' => 'datetime',
         'pending_email_expires_at' => 'datetime',
         'password' => 'hashed',
         'is_super_admin' => 'boolean',
@@ -323,6 +330,18 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
         } catch (\Throwable $e) {
             Log::warning('No se pudo mandar el correo de confirmación', ['user_id' => $this->id, 'exception' => $e::class]);
         }
+    }
+
+    /** El SuperAdmin necesita segundo factor (Etapa 11). */
+    public function requiresTwoFactor(): bool
+    {
+        return $this->isSuperAdmin() && TwoFactorAuthentication::enforced();
+    }
+
+    /** Mira el valor guardado sin descifrarlo: con otra APP_KEY no explota (se rescata por consola). */
+    public function hasConfirmedTwoFactor(): bool
+    {
+        return $this->two_factor_confirmed_at !== null && filled($this->getAttributes()['two_factor_secret'] ?? null);
     }
 
     public function isAdmin(): bool
