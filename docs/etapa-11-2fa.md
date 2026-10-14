@@ -85,6 +85,10 @@ Nunca llevan secretos ni códigos. Se mandan cuando:
 | Se restablece el 2FA de otra cuenta mientras la está usando | Esa sesión deja de valer en el siguiente pedido y vuelve a configurarlo; si el servidor guarda sesiones en la base, se borran en el acto | No |
 | Emergencia: el 2FA impide operar | `ASCENTO_SUPERADMIN_2FA=false` en el `.env` y `php artisan config:cache`. Apaga el control sin desplegar código. Volver a `true` apenas se resuelva | Sí (Forge) |
 
+**Primera configuración:** hasta que el SuperAdmin configura su 2FA (y después de cada restablecimiento), quien conozca su contraseña podría configurarlo con su propio teléfono. Por eso:
+- configurarlo **apenas termine el deploy**;
+- si llega el aviso «se activó el segundo factor» sin haberlo hecho, cambiar la contraseña y restablecer el 2FA con el comando.
+
 **Requisitos de operación:**
 1. Guardar los códigos de recuperación fuera del teléfono.
 2. Mantener el acceso SSH a Forge.
@@ -97,7 +101,9 @@ Nunca llevan secretos ni códigos. Se mandan cuando:
 - **La migración solo agrega columnas opcionales.** Forge la aplica en el deploy (`migrate --force`). Ningún usuario pierde acceso por aplicarla.
 - **Al desplegar, el SuperAdmin** con una sesión abierta va a tener que configurar el 2FA en su próximo pedido, y desde ese momento lo va a necesitar en cada sesión. **Hay que tener a mano el teléfono con la app autenticadora.**
 - **Volver atrás el código** con la migración aplicada no rompe nada: el código anterior ignora las columnas, y el SuperAdmin entra solo con la contraseña. No hace falta `migrate:rollback`.
-- **El deploy de Forge no es atómico:** hace `git pull` y recién después `migrate` (`docs/operacion-produccion.md`, sección 7). Durante esos segundos el código nuevo corre con el esquema viejo.
-  - **Usuarios normales:** no les afecta.
-  - **SuperAdmin:** si justo en ese momento intenta configurar el 2FA, la pantalla falla (error 500) hasta que termine la migración. Se reintenta un minuto después.
+- **El deploy de Forge no es atómico** (`docs/operacion-produccion.md`, sección 7): `git pull`, `composer install`, `npm ci && npm run build`, `migrate` y recién al final `optimize`. Probado en una copia local con ese mismo orden y sesiones en la base:
+  - **Tramo A, de `git pull` hasta que termina `composer install` (segundos):** siguen las rutas cacheadas del código anterior, que no tienen las del 2FA. **El SuperAdmin recibe error 500 en cada pedido.** Los demás usuarios no se ven afectados.
+  - **Tramo B, de ahí hasta `optimize` (incluye el build de npm, puede ser más de un minuto):** `composer install` corre `filament:upgrade`, que borra las cachés. Al SuperAdmin se le pide configurar el 2FA, pero activarlo falla (error 500) porque la columna todavía no existe.
+  - **Después de `migrate` y `optimize`:** la misma sesión lo vuelve a intentar y lo activa sin problemas. No queda nada a medio guardar.
+  - **Recomendación:** que el SuperAdmin espere a que el deploy termine en Forge antes de configurarlo.
 - **Si la migración fallara:** el SuperAdmin no podría configurar el 2FA y quedaría sin acceso al panel. Los demás usuarios no se ven afectados. Solución inmediata: `ASCENTO_SUPERADMIN_2FA=false` y `php artisan config:cache`, y después revisar la migración. **Por eso conviene desplegar este PR en un momento en que el SuperAdmin pueda reaccionar.**

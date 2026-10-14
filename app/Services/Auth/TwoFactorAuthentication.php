@@ -262,7 +262,7 @@ class TwoFactorAuthentication
     }
 
     /**
-     * Quita el 2FA de la cuenta y cierra todas sus sesiones. Con el 2FA
+     * Quita el 2FA de la cuenta y cierra sus sesiones (salvo la actual si lo hace la propia cuenta). Con el 2FA
      * obligatorio, al volver a entrar se le pide configurarlo otra vez.
      * $actor: quien lo hace (la propia cuenta, otro SuperAdmin) o null (consola).
      */
@@ -275,7 +275,9 @@ class TwoFactorAuthentication
             'two_factor_last_timestep' => null,
         ])->saveQuietly();
 
-        $this->revokeAllSessions($target);
+        // La propia cuenta (teléfono nuevo) sigue en esta sesión para configurarlo
+        // enseguida; sin 2FA confirmado, la sesión solo puede configurar o salir.
+        $this->revokeAllSessions($target, $actor?->is($target) ? session()->getId() : null);
         $this->audit('2fa.reset', $target, ['via' => $via, 'actor_id' => $actor?->id]);
         $this->notify($target, TwoFactorSecurityNotification::RESET, ['via' => $via]);
     }

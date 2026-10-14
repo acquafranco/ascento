@@ -315,6 +315,25 @@ class TwoFactorTest extends TestCase
         $this->get('/admin/dashboard')->assertRedirect(route('two-factor.setup'));
     }
 
+    public function test_resetting_your_own_2fa_keeps_this_session_with_database_sessions(): void
+    {
+        // Sesiones en la base, como en producción: la actual y otra de otro dispositivo.
+        config(['session.driver' => 'database']);
+        $this->activated();
+        session()->setId(str_repeat('a', 40));
+        $row = fn (string $id) => ['id' => $id, 'user_id' => $this->sa->id, 'ip_address' => null, 'user_agent' => null, 'payload' => base64_encode(serialize([])), 'last_activity' => now()->getTimestamp()];
+        DB::table('sessions')->insert([$row(session()->getId()), $row('otro-dispositivo')]);
+
+        // «Configurar con otro teléfono»: sigue en esta sesión para configurarlo enseguida.
+        $this->service()->reset($this->sa->fresh(), $this->sa->fresh(), 'self');
+        $this->assertSame(1, DB::table('sessions')->where('id', session()->getId())->count());
+        $this->assertSame(0, DB::table('sessions')->where('id', 'otro-dispositivo')->count());
+
+        // Lo restablece otro SuperAdmin o la consola: se cierran todas.
+        $this->service()->reset($this->sa->fresh(), User::factory()->superAdmin()->create(), 'superadmin');
+        $this->assertSame(0, DB::table('sessions')->where('user_id', $this->sa->id)->count());
+    }
+
     public function test_another_super_admin_can_reset_a_lost_second_factor(): void
     {
         $this->activated();
@@ -406,6 +425,6 @@ class TwoFactorTest extends TestCase
     {
         config(['app.superadmin_two_factor' => false]);
         $this->login($this->sa);
-        $this->get('/admin/dashboard')->assertOk();
+        $this->get('/admin/dashboard')->assertOk()->assertDontSee(route('two-factor.manage'), false);
     }
 }
