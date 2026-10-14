@@ -24,7 +24,7 @@ class LandingLayoutTest extends TestCase
 
     private function section(string $html, string $id): string
     {
-        $this->assertSame(1, preg_match('#<section id="'.$id.'".*?</section>#s', $html, $m), $id);
+        $this->assertSame(1, preg_match('#<section[^>]*\bid="'.$id.'".*?</section>#s', $html, $m), $id);
 
         return $m[0];
     }
@@ -116,15 +116,26 @@ class LandingLayoutTest extends TestCase
         $this->assertMatchesRegularExpression('#@media \(prefers-reduced-motion: reduce\) \{\s*\.elevator-doors \{ display: none; \}#', $html);
     }
 
-    public function test_the_hero_says_you_can_run_the_company_from_home_with_real_features(): void
+    public function test_the_hero_stays_clean_and_the_anywhere_argument_has_its_own_section(): void
     {
         $html = $this->home();
+        $hero = $this->section($html, 'inicio');
 
-        $this->assertStringContainsString('Gestioná tu empresa de ascensores', $html); // el título no cambia
-        $this->assertMatchesRegularExpression('#Tu empresa de ascensores, bajo control\. <span[^>]*>Incluso desde casa\.</span>#', $html);
-        $this->assertStringContainsString('Organizá mantenimientos, supervisá el trabajo de tus técnicos y consultá los remitos digitales desde un solo lugar, sin depender de estar en la oficina.', $html);
-        // Una sola vez el mensaje principal: no se repite por toda la página.
-        $this->assertSame(1, substr_count($html, 'Incluso desde casa.'));
+        // Portada: título, propuesta y botones; sin el recuadro «desde casa» (pedido del dueño, 14/10/2026).
+        $this->assertStringContainsString('Gestioná tu empresa de ascensores', $hero);
+        $this->assertStringNotContainsString('data-home-message', $hero);
+        $this->assertStringNotContainsString('Incluso desde casa', $html);
+
+        // La idea sigue, desarrollada en su propia sección, justo después de la portada y antes de Beneficios.
+        $anywhere = $this->section($html, 'desde-cualquier-lugar');
+        $this->assertStringContainsString('aunque no estés en la oficina.', $anywhere);
+        $this->assertStringContainsString('images/landing/admin-inicio.jpg', $anywhere);
+        $this->assertMatchesRegularExpression('#<a href="'.preg_quote(route('register'), '#').'" data-anywhere-cta#', $anywhere);
+        $this->assertLessThan(strpos($html, 'id="beneficios"'), strpos($html, 'id="desde-cualquier-lugar"'));
+        $this->assertGreaterThan(strpos($html, 'id="inicio"'), strpos($html, 'id="desde-cualquier-lugar"'));
+        // Sin promesas de tiempo ni de resultados.
+        $this->assertStringNotContainsString('en minutos', $anywhere);
+        $this->assertStringNotContainsString('garantiz', mb_strtolower($anywhere));
     }
 
     public function test_the_position_indicator_shows_the_real_ascento_logo(): void
