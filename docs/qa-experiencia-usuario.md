@@ -1,6 +1,6 @@
 # QA de experiencia de usuario, responsive y funcionamiento
 
-**Rama:** `qa/experiencia-responsive`, desde `main` 9cb60cd (14/10/2026).
+**Rama:** `qa/experiencia-responsive`, desde `main` 9cb60cd (14/10/2026). La primera parte se integró como PR #85; la corrección de la sesión vencida (sección 3) va en commits posteriores de la misma rama.
 
 **Alcance:** toda la aplicación, en una copia local con los datos de la demo (`DemoValidationSeeder`) más casos límite. **No** se usó producción ni datos reales.
 
@@ -14,7 +14,7 @@
 | Flujos de interacción en el navegador | Crear, validar, buscar, ordenar, paginar, modales, menú en el celular, selectores con búsqueda, firma del remito, reporte con foto, filtros del portal, PDF, acceso y recuperación de contraseña. Se verifica el efecto (dato guardado, cambio de página), no solo que no haya error |
 | Matriz de anchos | 34 pantallas clave × 15 anchos (320 a 1920 px), más celular horizontal (844×390) y una **aproximación** del zoom al 200 % (720 px CSS con densidad 2): 544 combinaciones |
 | Teclado | Tab y Shift+Tab en ingreso, inicio público, formulario del panel, reporte del técnico y portal. Foco visible y retorno del foco al cerrar un modal |
-| Pruebas automatizadas | Suite completa y pruebas nuevas en `tests/Feature/Ux/QaFixesTest.php` |
+| Pruebas automatizadas | Suite completa y pruebas nuevas en `tests/Feature/Ux/QaFixesTest.php` y `tests/Feature/Ux/ExpiredSessionTest.php` |
 
 **Perfiles:**
 - visitante;
@@ -55,13 +55,57 @@
 
 ---
 
-## 3. Pendiente de aprobación
+## 3. Sesión vencida en el panel (P1, corregido con autorización)
 
-| Prioridad | Qué pasa | Por qué no se corrigió acá | Propuesta |
-|---|---|---|---|
-| **P1** | Panel con la sesión vencida: una acción de Livewire (por ejemplo, ordenar una tabla) llega al componente sin usuario y da **error 500** (`WorkOrderResource::getEloquentQuery`: `isSuperAdmin()` sobre null). En producción se vería un modal de error en lugar de volver al ingreso. Del lado del técnico y del portal, en cambio, se vuelve al ingreso sin problemas | Toca el mecanismo de autenticación del panel: esta etapa no cambia la seguridad | `->authMiddleware([...], isPersistent: true)` en el panel, para que Filament vuelva a autenticar cada pedido de Livewire. Con una prueba que reproduzca el 500 antes |
+**Síntoma:** con la sesión vencida, una acción de Livewire del panel (por ejemplo, ordenar una tabla) terminaba en **error 500** (`isSuperAdmin()` sobre null en `WorkOrderResource::getEloquentQuery`). En producción se veía un modal de error en lugar de volver al ingreso.
 
----
+**Causa raíz:**
+- **Cómo funciona Livewire:** en cada acción (`/livewire/update`) solo vuelve a aplicar los middlewares de la página que están marcados como **persistentes**. Para decidirlo compara el **nombre exacto de la clase** (`PersistentMiddleware::filterMiddlewareByPersistentMiddleware`).
+- **Qué marca Filament:** registra como persistente su `Filament\Http\Middleware\Authenticate`.
+- **Qué usa este panel:** `App\Http\Middleware\AuthenticatePanel`, una subclase con otro nombre. Por eso nunca se volvía a ejecutar en las acciones de Livewire.
+- **Consecuencias:**
+  - el componente se ejecutaba sin usuario;
+  - tampoco se volvía a comprobar `canAccessPanel`: un usuario autenticado sin acceso al panel (un técnico) que tuviera un snapshot firmado podía ejecutar una acción del panel. La prueba lo reproduce con 200.
+
+**Solución:** `->authMiddleware([...], isPersistent: true)` en `AscensoresAppPanelProvider`. Es la opción de Filament 5.10 para este caso: agrega `AuthenticatePanel` y `EnsureSuperAdminTwoFactor` a los middlewares persistentes de Livewire.
+- **No debilita nada:** solo vuelve a aplicar, en cada acción, los mismos controles de la página. El 2FA ya se aplicaba también por el grupo `web`; repetirlo da el mismo resultado.
+- **Sesión vencida:** `AuthenticatePanel` lanza `AuthenticationException`. Livewire no pide JSON (no manda `Accept: application/json`), así que Laravel responde con una **redirección al ingreso**. Livewire la sigue (`response.redirected`) y lleva la página a `/login`.
+- **Después de ingresar:** el usuario entra a su inicio (`HomeRedirect`), como en cualquier ingreso. El 2FA del SuperAdmin se vuelve a pedir.
+
+**Pruebas:** `tests/Feature/Ux/ExpiredSessionTest.php`. Usan un pedido real a `/livewire/update` con el snapshot firmado de la página, igual que el navegador.
+
+| Prueba | Sin la corrección | Con la corrección |
+|---|---|---|
+| Sesión válida: la acción funciona | Pasa | Pasa |
+| Sesión vencida: redirige al ingreso, no queda sesión y se puede volver a entrar y usar el panel | **Falla (500)** | Pasa |
+| Usuario autenticado sin acceso al panel: 403 | **Falla (200)** | Pasa |
+| SuperAdmin sin el segundo factor verificado: 403 | Pasa | Pasa |
+| App del técnico y portal: la sesión vencida va al ingreso | Pasa | Pasa |
+
+**En el navegador real** (Chrome, servidor local con el 2FA activo):
+- **Dueño:**
+  - con sesión válida, ordenar funciona;
+  - con la sesión vencida, la acción recibe un 302 y la página va a `/login`, sin modal de error ni diálogo;
+  - al volver a ingresar, el listado carga.
+- **SuperAdmin con 2FA real:**
+  - con el código verificado, ordenar funciona;
+  - con la sesión vencida, va a `/login`;
+  - al volver a ingresar, se le pide el código otra vez.
+
+**Regresión:**
+- **Suite completa:** 1200 pruebas pasan.
+- **Recorrido de los 7 perfiles (552 combinaciones):** mismos hallazgos que antes del cambio, ninguno nuevo. La única diferencia es esperada: con el 2FA activo, la gestión del segundo factor da 403 en lugar de 404.
+- **Flujos interactivos:**
+  - panel: crear, validar, ordenar, paginar, buscar, modales y menú en el celular;
+  - técnico: tomar trabajo, remito con firma y reporte con foto;
+  - portal y acceso público.
+  - Mismos resultados que antes.
+
+**Riesgos y límites:**
+- **No vuelve a la pantalla de antes:** después de ingresar, el usuario no vuelve a la pantalla donde estaba sino a su inicio. Es como ya funciona el ingreso; cambiarlo excede esta tarea.
+- **Abonos no repetidos (observación, sin cambios):**
+  - `EnsureActiveSubscription`, en la lista general del panel, tampoco es persistente. Si el abono de una empresa vence con la página abierta, las acciones de Livewire siguen hasta que la página se recarga.
+  - Es una regla comercial y no se tocó: queda para decidir.
 
 ## 4. Revisado y sin cambios (con motivo)
 

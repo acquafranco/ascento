@@ -193,10 +193,14 @@ class AscensoresAppPanelProvider extends PanelProvider
                     ->visible(fn () => (bool) auth()->user()?->requiresTwoFactor()),
             ])
 
+            // Persistentes: Livewire los vuelve a aplicar en cada acción (/livewire/update).
+            // Solo repite los que están marcados y compara el nombre exacto de la clase:
+            // Filament marca su Authenticate, no AuthenticatePanel. Sin esto, con la sesión
+            // vencida la acción corría sin usuario (error 500) y no se revisaba canAccessPanel.
             ->authMiddleware([
                 AuthenticatePanel::class,
                 // El panel no pasa por el grupo «web»: segundo factor del SuperAdmin acá también (Etapa 11).
                 \App\Http\Middleware\EnsureSuperAdminTwoFactor::class,
-            ]);
+            ], isPersistent: true);
     }
 }
