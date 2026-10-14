@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Services\Auth\AccountAttackGuard;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -42,9 +43,18 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
+        // R6: muchos fallos contra este correo (desde cualquier IP): además se pide
+        // el desafío humano. Nunca bloquea: la persona real lo resuelve y entra.
+        $guard = app(AccountAttackGuard::class);
+        $email = (string) $this->string('email');
+        if (($challengeError = $guard->challengeError($this, $email)) !== null) {
+            throw ValidationException::withMessages(['challenge' => $challengeError]);
+        }
+
         if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
             RateLimiter::hit($this->throttleKey());
             RateLimiter::hit($this->ipThrottleKey(), self::IP_DECAY_SECONDS);
+            $guard->recordFailure($this, $email);
 
             throw ValidationException::withMessages([
                 'email' => trans('auth.failed'),
@@ -52,6 +62,7 @@ class LoginRequest extends FormRequest
         }
 
         RateLimiter::clear($this->throttleKey());
+        $guard->recordSuccess($this, $email);
     }
 
     /**

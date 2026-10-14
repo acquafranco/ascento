@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Services\Auth\AccountAttackGuard;
 use App\Support\HomeRedirect;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,7 +18,8 @@ class AuthenticatedSessionController extends Controller
      */
     public function create(): View
     {
-        return view('auth.login');
+        // R6: si el último intento pidió el desafío humano, se muestra.
+        return view('auth.login', ['challenge' => AccountAttackGuard::challengeForView(request())]);
     }
 
     /**
