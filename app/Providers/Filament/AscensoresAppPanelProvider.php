@@ -183,7 +183,7 @@ class AscensoresAppPanelProvider extends PanelProvider
                     ->label('Segundo factor')
                     ->icon('heroicon-o-shield-check')
                     ->url(fn () => route('two-factor.manage'))
-                    ->visible(fn () => (bool) auth()->user()?->isSuperAdmin()),
+                    ->visible(fn () => (bool) auth()->user()?->requiresTwoFactor()),
             ])
 
             ->authMiddleware([
