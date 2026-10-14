@@ -220,10 +220,12 @@
                                 <span class="bm-list-reason {{ $item['needsReview'] ? 'is-warning' : '' }}">{{ $item['reason'] }}</span>
                             </div>
                             <div class="bm-list-actions">
-                                <button type="button" class="bm-btn bm-btn--primary"
-                                    data-map-place="{{ $item['id'] }}" data-map-place-title="{{ $item['title'] }}">
-                                    Marcar en el mapa
-                                </button>
+                                @if ($this->canPlaceBuildings())
+                                    <button type="button" class="bm-btn bm-btn--primary"
+                                        data-map-place="{{ $item['id'] }}" data-map-place-title="{{ $item['title'] }}">
+                                        Marcar en el mapa
+                                    </button>
+                                @endif
                                 <a class="bm-btn" href="{{ $item['editUrl'] }}">Editar dirección</a>
                             </div>
                         </li>

@@ -65,6 +65,11 @@ class Company extends Model
         'work_order' => 'photos_work_order',
     ];
 
+    /** Credenciales de integraciones: nunca en arrays ni JSON (Etapa 11). */
+    protected $hidden = [
+        'whatsapp_access_token',
+    ];
+
     protected $casts = [
         'is_active' => 'boolean',
         'photos_maintenance' => 'boolean',

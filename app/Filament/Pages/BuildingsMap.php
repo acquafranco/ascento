@@ -374,8 +374,18 @@ class BuildingsMap extends Page
     |--------------------------------------------------------------------------
     */
 
+    /** Marcar un edificio en el mapa cambia el edificio: pide «gestionar» Edificios (el dueño siempre). */
+    public function canPlaceBuildings(): bool
+    {
+        return Access::can(auth()->user(), PermissionArea::Buildings, PermissionArea::MANAGE);
+    }
+
     public function placeBuilding(int $buildingId, mixed $latitude, mixed $longitude): ?array
     {
+        // Es un método de Livewire (no una acción de Filament): ActionGuard no lo cubre,
+        // así que el permiso se verifica acá (Etapa 11, H1).
+        abort_unless($this->canPlaceBuildings(), 403);
+
         if (! is_numeric($latitude) || ! is_numeric($longitude)
             || abs((float) $latitude) > 90 || abs((float) $longitude) > 180
         ) {
