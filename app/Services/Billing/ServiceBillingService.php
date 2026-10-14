@@ -32,6 +32,11 @@ class ServiceBillingService
         $end = $service->end_date ? Carbon::parse($service->end_date)->startOfMonth() : null;
         $step = $service->monthsPerPeriod();
 
+        // Pago único: un solo cobro, el del primer mes que corresponde cobrar (nunca antes de cargarlo).
+        if ($service->frequency === 'once') {
+            return $from->lte($upTo) && (! $end || $from->lte($end)) ? [$from->copy()] : [];
+        }
+
         $periods = [];
 
         // Se respeta el "ritmo" de la frecuencia desde el inicio del servicio.

@@ -81,9 +81,11 @@ class ServicesAndReceivablesTest extends TestCase
         Livewire::test(CreateMaintenanceService::class)
             ->fillForm([
                 'client_id' => $this->a['building']->client_id,
-                'building_id' => $this->a['building']->id,
+                'scope' => 'buildings',
+                'building_ids' => [$this->a['building']->id],
                 'description' => 'Mantenimiento mensual de ascensores',
-                'amount' => 120000,
+                'pricing_mode' => 'custom',
+                'unit_price' => 120000,
                 'frequency' => 'monthly',
                 'payment_due_day' => 10,
                 'start_date' => '2026-10-01',

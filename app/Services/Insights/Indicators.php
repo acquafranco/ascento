@@ -376,7 +376,8 @@ class Indicators
         $byClient = collect();
         $total = 0.0;
         if ($this->allows(Area::Receivables)) {
-            $services = MaintenanceService::active()->with('client:id,name')->get();
+            // Solo lo recurrente: un servicio de pago único no es ingreso mensual de la cartera.
+            $services = MaintenanceService::active()->where('frequency', '!=', 'once')->with('client:id,name')->get();
             $monthly = $services->map(fn ($s) => ['client' => $s->client?->name, 'monthly' => (float) $s->amount / max(1, $s->monthsPerPeriod())]);
             $total = $monthly->sum('monthly');
             $byClient = $monthly->groupBy('client')->map(fn ($g) => $g->sum('monthly'))->sortDesc();

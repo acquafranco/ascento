@@ -15,6 +15,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * Servicio / contrato de mantenimiento de un cliente (y edificio). Las
  * inspecciones y mantenimientos periódicos son parte del servicio: se cobra
  * el servicio por período, no cada visita.
+ *
+ * Contratación de un servicio del catálogo (opcional): guarda una copia de
+ * cómo se calculó el importe (modalidad, precio unitario, cantidad y detalle),
+ * así un cambio en el catálogo nunca altera lo ya acordado. Sin catálogo
+ * (contratos anteriores) = precio acordado, como siempre.
  */
 class MaintenanceService extends Model
 {
@@ -39,6 +44,8 @@ class MaintenanceService extends Model
         'quarterly' => ['Trimestral', 3],
         'semiannual' => ['Semestral', 6],
         'annual' => ['Anual', 12],
+        // Servicio puntual (extraordinario, una prueba): un solo cobro, en el mes de inicio.
+        'once' => ['Pago único', 1],
     ];
 
     protected $fillable = [
@@ -54,6 +61,12 @@ class MaintenanceService extends Model
         'status',
         'payment_due_day',
         'notes',
+        'catalog_item_id',
+        'category',
+        'pricing_mode',
+        'unit_price',
+        'quantity',
+        'pricing_detail',
     ];
 
     protected $casts = [
@@ -63,6 +76,9 @@ class MaintenanceService extends Model
         'billing_from' => 'date',
         'payment_due_day' => 'integer',
         'units' => 'array',
+        'unit_price' => 'decimal:2',
+        'quantity' => 'integer',
+        'pricing_detail' => 'array',
     ];
 
     protected static function booted(): void
@@ -99,6 +115,11 @@ class MaintenanceService extends Model
     public function building(): BelongsTo
     {
         return $this->belongsTo(Building::class)->withTrashed();
+    }
+
+    public function catalogItem(): BelongsTo
+    {
+        return $this->belongsTo(ServiceCatalogItem::class, 'catalog_item_id')->withTrashed();
     }
 
     public function receivables(): HasMany
@@ -139,6 +160,8 @@ class MaintenanceService extends Model
             ->whereNull('deleted_at')
             ->where('company_id', $companyId)
             ->where('status', self::ACTIVE)
+            // Solo servicios de mantenimiento o inspección (una guardia o una limpieza no cubren visitas).
+            ->where(fn ($q) => $q->whereNull('category')->orWhereIn('category', self::visitCategories()))
             ->where(fn ($q) => $q->where('building_id', $buildingId)
                 ->orWhere(fn ($q) => $q->whereNull('building_id')->where('client_id', $building->client_id)))
             ->whereDate('start_date', '<=', $date)
@@ -204,6 +227,36 @@ class MaintenanceService extends Model
         return $query->where('status', self::ACTIVE);
     }
 
+    /** Contrataciones que implican visitas periódicas (las anteriores al catálogo, sin categoría, también). */
+    public function scopeProvidesVisits(Builder $query): Builder
+    {
+        return $query->where(fn ($q) => $q->whereNull('category')->orWhereIn('category', self::visitCategories()));
+    }
+
+    /** @return list<string> */
+    public static function visitCategories(): array
+    {
+        return array_keys(array_filter(ServiceCatalogItem::CATEGORIES, fn ($c) => $c[1]));
+    }
+
+    /** «Todo el cliente», «Torre Libertador» o «Torre Libertador: Ascensor 1, Ascensor 2». */
+    public function scopeLabel(): string
+    {
+        if (! $this->building_id) {
+            return 'Todo el cliente';
+        }
+
+        $name = (string) $this->building?->name;
+
+        return $this->units ? $name.': '.implode(', ', $this->units) : $name;
+    }
+
+    /** Cómo se obtuvo el importe («3 equipos × $50.000 = $150.000»), o «Precio acordado». */
+    public function pricingExplanation(): string
+    {
+        return (string) ($this->pricing_detail['explanation'] ?? ServiceCatalogItem::pricingModeLabel($this->pricing_mode));
+    }
+
     public function monthsPerPeriod(): int
     {
         return self::FREQUENCIES[$this->frequency][1] ?? 1;
@@ -225,6 +278,10 @@ class MaintenanceService extends Model
             'annual' => 'año',
             default => $this->frequency,
         };
+
+        if ($this->frequency === 'once') {
+            return '$'.number_format((float) $this->amount, 0, ',', '.').' (pago único)';
+        }
 
         return '$'.number_format((float) $this->amount, 0, ',', '.').' / '.$per;
     }

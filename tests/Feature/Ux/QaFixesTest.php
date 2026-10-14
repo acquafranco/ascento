@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Services\Insights\ElevatorHistory;
 use App\Services\Staff\StaffManager;
 use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\Concerns\InteractsWithTenants;
@@ -51,11 +52,12 @@ class QaFixesTest extends TestCase
 
         foreach ([CreateMaintenanceService::class, CreateStockItem::class, CreateBuilding::class] as $page) {
             $grids = collect(Livewire::test($page)->instance()->getSchema('form')->getComponents())
-                ->filter(fn ($component) => $component instanceof Grid);
+                // Grillas o secciones en la raíz (el formulario de servicios se ordena en secciones).
+                ->filter(fn ($component) => $component instanceof Grid || $component instanceof Section);
 
             $this->assertNotEmpty($grids, $page);
             foreach ($grids as $grid) {
-                $this->assertSame('full', $grid->getColumnSpan()['default'] ?? null, $page.': una grilla no ocupa todo el ancho');
+                $this->assertSame('full', $grid->getColumnSpan()['default'] ?? null, $page.': una grilla o sección no ocupa todo el ancho');
             }
         }
     }

@@ -226,8 +226,10 @@ class MaintenanceAgenda
     private function contracts(Carbon $period): array
     {
         return $this->remember('contracts.'.$period->format('Y-m'), function () use ($period) {
+            // Solo contratos de mantenimiento (o anteriores al catálogo): una guardia no pide visitas.
             $underContract = MaintenanceService::query()
                 ->where('status', MaintenanceService::ACTIVE)
+                ->where(fn ($q) => $q->whereNull('category')->orWhere('category', 'maintenance'))
                 ->whereDate('start_date', '<=', $period->copy()->endOfMonth())
                 ->where(fn ($q) => $q->whereNull('end_date')->orWhereDate('end_date', '>=', $period))
                 ->get(['building_id', 'client_id']);

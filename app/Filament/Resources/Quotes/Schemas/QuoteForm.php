@@ -4,6 +4,8 @@ namespace App\Filament\Resources\Quotes\Schemas;
 
 use App\Models\Building;
 use App\Models\Quote;
+use App\Models\ServiceCatalogItem;
+use App\Services\Catalog\ServicePricing;
 use App\Support\CompanyContext;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
@@ -16,6 +18,7 @@ use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Str;
 
 /**
  * Formulario de presupuesto: encabezado corto, ítems en tabla y detalles
@@ -121,6 +124,42 @@ class QuoteForm
                 Section::make('Ítems')
                     ->columnSpanFull()
                     ->schema([
+                        // Atajo: suma un servicio del catálogo como ítem (una copia: el presupuesto no cambia si cambia el catálogo).
+                        Select::make('catalog_pick')
+                            ->label('Agregar un servicio del catálogo')
+                            ->placeholder('Elegí un servicio…')
+                            ->options(fn () => ServiceCatalogItem::query()->active()->orderBy('name')->pluck('name', 'id'))
+                            ->visible(fn () => ServiceCatalogItem::query()->active()->exists())
+                            ->searchable()->live()->dehydrated(false)
+                            ->helperText('Se agrega como ítem con su precio de referencia; lo podés ajustar.')
+                            ->afterStateUpdated(function (?string $state, Get $get, Set $set) use ($money) {
+                                $item = $state ? ServiceCatalogItem::find($state) : null;
+                                $set('catalog_pick', null);
+                                if (! $item) {
+                                    return;
+                                }
+
+                                $quantity = 1;
+                                if ($item->countsEquipment() && ($buildingId = (int) $get('building_id'))) {
+                                    $building = Building::find($buildingId);
+                                    $pricing = $building ? app(ServicePricing::class)->calculate((int) CompanyContext::currentId(), $item->pricing_mode, (float) $item->base_price, (int) $building->client_id, $building->id, array_filter([(string) $get('unit')]), $item->equipment_kind) : null;
+                                    $quantity = $pricing && ! $pricing['error'] ? max(1, $pricing['quantity']) : 1;
+                                }
+                                $price = (float) ($item->base_price ?? 0);
+
+                                $items = (array) ($get('items') ?? []);
+                                // Si la primera fila está vacía, se completa esa en lugar de sumar otra.
+                                $emptyKey = collect($items)->search(fn ($row) => blank($row['concept'] ?? null) && blank($row['unit_price'] ?? null));
+                                $key = $emptyKey !== false ? $emptyKey : (string) Str::uuid();
+                                $items[$key] = [
+                                    'concept' => $item->name,
+                                    'description' => $item->description ? Str::limit($item->description, 1000, '') : null,
+                                    'quantity' => $quantity,
+                                    'unit_price' => $price ?: null,
+                                    'subtotal_preview' => $money(round($quantity * $price, 2)),
+                                ];
+                                $set('items', $items);
+                            }),
                         Repeater::make('items')
                             ->hiddenLabel()
                             // Ancho mínimo en modo tabla (ver asc-quote-items en el panel): con la barra
