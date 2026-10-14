@@ -42,6 +42,7 @@ class TechnicianWorkFlowTest extends TestCase
         $this->withoutVite();
         $this->travelTo(Carbon::parse('2026-10-14 09:00'));
         $this->a = $this->makeTenant();
+        $this->usingAscentoSince($this->a, '2025-01-01'); // ya usaba Ascento en los meses que se consultan
         $this->a['building']->users()->detach();
         $this->t1 = $this->a['technician'];
         $this->t2 = User::factory()->technician()->create(['company_id' => $this->a['company']->id, 'name' => 'Técnica Dos']);

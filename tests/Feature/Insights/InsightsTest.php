@@ -48,6 +48,8 @@ class InsightsTest extends TestCase
         $this->travelTo(Carbon::parse('2026-10-25 10:00'));
         $this->a = $this->makeTenant(); // b1 con mantenimiento del técnico
         $this->b = $this->makeTenant();
+        $this->usingAscentoSince($this->a, '2025-01-01'); // ya usaban Ascento en los meses que se consultan
+        $this->usingAscentoSince($this->b, '2025-01-01');
     }
 
     private function plan(string $slug, ?array $tenant = null): void

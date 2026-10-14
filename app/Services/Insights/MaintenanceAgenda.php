@@ -55,6 +55,9 @@ class MaintenanceAgenda
         // Sin ascensores ni montacargas activos: no se programa ninguna visita
         // hasta que se registren sus equipos.
         'no_equipment' => 'Sin equipos',
+        // Período anterior al alta de la empresa en Ascento y sin registros:
+        // no es un vencimiento (ver VisitSchedule).
+        'before_start' => 'Antes de usar Ascento',
     ];
 
     /**
@@ -121,7 +124,7 @@ class MaintenanceAgenda
         }
 
         // Primero lo que requiere acción.
-        $order = ['overdue' => 0, 'not_done' => 1, 'unassigned' => 2, 'no_equipment' => 3, 'pending' => 4, 'upcoming' => 5, 'done' => 6, 'covered' => 7];
+        $order = ['overdue' => 0, 'not_done' => 1, 'unassigned' => 2, 'no_equipment' => 3, 'pending' => 4, 'upcoming' => 5, 'done' => 6, 'covered' => 7, 'before_start' => 8];
 
         return $rows->sortBy(fn ($row) => $order[$row['status']].'|'.$row['building']->name)->values();
     }
@@ -137,6 +140,7 @@ class MaintenanceAgenda
 
         return match (true) {
             ! $hasEquipment => 'no_equipment',
+            ($eval['before_start'] ?? false) && $eval['expected'] === 0 => 'before_start',
             $eval['covered'] => 'covered',
             $eval['pending'] === 0 => $eval['done'] >= $eval['expected'] ? 'done' : 'not_done',
             ! $hasTechnicians => 'unassigned',
@@ -159,7 +163,7 @@ class MaintenanceAgenda
      * Filas: las de rows() o cualquier lista con building_id, type, assigned,
      * expected, done, not_done, pending y elevators.
      *
-     * @return array<string, array{assigned: int, expected: int, done: int, not_done: int, pending: int, percent: ?int, machines: int}>
+     * @return array<string, array{assigned: int, expected: int, done: int, not_done: int, pending: int, percent: ?int, machines: int, before_start: int}>
      */
     public static function progress(Collection $rows): array
     {
@@ -176,6 +180,8 @@ class MaintenanceAgenda
                 'pending' => max(0, $expected - $done),
                 'percent' => $expected > 0 ? (int) floor($done / $expected * 100) : null,
                 'machines' => (int) $assigned->unique('building_id')->sum('elevators'),
+                // Filas de un período anterior a que la empresa usara Ascento (sin registros).
+                'before_start' => $rows->where('status', 'before_start')->count(),
             ];
         };
 

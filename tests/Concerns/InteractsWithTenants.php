@@ -20,6 +20,17 @@ trait InteractsWithTenants
      *
      * @return array{company: Company, admin: User, technician: User, building: Building}
      */
+    /**
+     * La empresa usa Ascento desde esa fecha (su alta): los períodos anteriores no
+     * esperan visitas (ver VisitSchedule). Para escenarios de una empresa que ya
+     * operaba en los meses que se consultan.
+     */
+    protected function usingAscentoSince(array|Company $tenant, string $date): void
+    {
+        $company = $tenant instanceof Company ? $tenant : $tenant['company'];
+        $company->forceFill(['created_at' => $date])->saveQuietly();
+    }
+
     protected function makeTenant(): array
     {
         $company = Company::factory()->create();
