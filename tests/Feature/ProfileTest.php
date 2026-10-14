@@ -31,6 +31,8 @@ class ProfileTest extends TestCase
             ->patch($this->profileUrl($a), [
                 'name' => 'Test User',
                 'email' => 'test@example.com',
+                // Cambiar el correo pide la contraseña actual (Etapa 11, R8).
+                'current_password' => 'password',
             ])
             ->assertSessionHasNoErrors()
             ->assertRedirect($this->profileUrl($a));

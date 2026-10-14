@@ -169,6 +169,7 @@ termina. **No cambies a `QUEUE_CONNECTION=sync` ni borres la tabla.**
 | `ASCENTO_ADMIN_NOTIFICATION_EMAIL` | correo del equipo de Ascento | Aviso por correo de cada empresa nueva. Vacío: solo campanita, push y Telegram de los SuperAdmin. |
 | `BACKUP_OFFSITE_DISK` / `BACKUP_OFFSITE_PATH` | vacío / `ascento-backups` | Copia externa automática de cada backup cifrado (p. ej. `s3` con las variables `AWS_*`). Ver docs/backups.md. |
 | `ASCENTO_VERIFIED_SENDER_SINCE` | `2026-10-12` (por defecto) | Las cuentas creadas desde esa fecha confirman su correo antes de enviar presupuestos o invitaciones al portal. Las anteriores no se bloquean. Vacío: desactivado. |
+| `ASCENTO_CSP_REPORT_ONLY` | `false` (por defecto) | `true` agrega la CSP en modo solo reporte: no bloquea nada, avisa en la consola del navegador. Ver `docs/csp.md`. |
 | `ASCENTO_WHATSAPP_NUMBER` | `5491173728421` (por defecto, confirmado el 13/10/2026) | WhatsApp Business oficial: lo usan el asistente de consultas y el pie de la web. **Sin la variable** se usa el valor por defecto. **Definida vacía** (`=` o `=""`) o con un número inválido, no hay WhatsApp y el contacto es por correo. |
 | `ASCENTO_WHATSAPP_HOURS` | «todos los días, las 24 horas, incluidos fines de semana y feriados» (por defecto) | Completa «Horario de atención: …» en el asistente. **Sin la variable** se usa el valor por defecto. **Definida vacía**, no se muestra ningún horario. |
 
