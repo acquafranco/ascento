@@ -74,11 +74,23 @@ class PendingEmailChange
 
         $url = route('email-change.confirm', ['user' => $user->id, 'token' => $token]);
 
+        // Sin el enlace no hay forma de confirmar: si no sale, el pedido se
+        // deshace y la persona lo ve (antes quedaba un pendiente imposible de
+        // confirmar con un mensaje de «te mandamos un enlace»).
         try {
             Notification::route('mail', $email)->notify(new ConfirmEmailChangeNotification($url, $user->name));
+        } catch (Throwable $e) {
+            $this->cancel($user);
+            Log::warning('No se pudo mandar el enlace de confirmación del correo nuevo', ['user_id' => $user->id, 'exception' => $e::class]);
+
+            throw ValidationException::withMessages(['email' => 'No pudimos mandar el correo de confirmación a esa dirección. Tu correo no cambió: probá de nuevo en unos minutos.']);
+        }
+
+        // El aviso al correo actual es informativo: si falla, el pedido sigue.
+        try {
             $user->notify(new EmailChangeRequestedNotification($email));
         } catch (Throwable $e) {
-            Log::warning('No se pudo mandar el correo del cambio de correo', ['user_id' => $user->id, 'exception' => $e::class]);
+            Log::warning('No se pudo avisar al correo actual del pedido de cambio', ['user_id' => $user->id, 'exception' => $e::class]);
         }
     }
 

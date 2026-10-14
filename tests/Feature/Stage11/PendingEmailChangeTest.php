@@ -10,7 +10,9 @@ use App\Notifications\ResetPasswordNotification;
 use App\Services\Auth\PendingEmailChange;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Notifications\ChannelManager;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Testing\TestResponse;
 use Livewire\Livewire;
@@ -258,5 +260,33 @@ class PendingEmailChangeTest extends TestCase
 
         // Los usuarios existentes no tienen nada pendiente y siguen entrando igual.
         $this->assertSame(0, User::whereNotNull('pending_email')->count());
+    }
+
+    /*
+    | Si el correo de confirmación no sale (SMTP caído o mal configurado), el
+    | pedido no queda a medias: no hay pendiente, el usuario ve un error claro
+    | y puede volver a intentar. El token nunca aparece en el log.
+    */
+    public function test_a_failed_confirmation_email_leaves_nothing_pending_and_can_be_retried(): void
+    {
+        Notification::swap(new ChannelManager(app())); // envío real, sin fake
+        config(['mail.default' => 'smtp', 'mail.mailers.smtp.host' => '127.0.0.1', 'mail.mailers.smtp.port' => 1, 'mail.mailers.smtp.timeout' => 2]);
+        $logged = [];
+        Log::listen(function ($m) use (&$logged) {
+            $logged[] = $m->message.' '.json_encode($m->context);
+        });
+
+        $this->requestChange()->assertSessionHasErrors('email');
+        $this->assertStringContainsString('No pudimos mandar el correo de confirmación', session('errors')->first('email'));
+        $user = $this->tech->fresh();
+        $this->assertSame('viejo@empresa.test', $user->email);
+        $this->assertNull($user->pending_email, 'Sin correo enviado no queda nada pendiente.');
+        $this->assertNull($user->pending_email_token);
+        $this->assertStringNotContainsString('correo/confirmar', implode("\n", $logged), 'El enlace (con su token) no va al log.');
+
+        // Con el correo funcionando, el mismo pedido sale bien.
+        Notification::fake();
+        $this->requestChange()->assertSessionHasNoErrors();
+        $this->assertSame('nuevo@empresa.test', $this->tech->fresh()->pending_email);
     }
 }
