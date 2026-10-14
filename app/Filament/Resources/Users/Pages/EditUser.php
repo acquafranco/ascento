@@ -3,16 +3,49 @@
 namespace App\Filament\Resources\Users\Pages;
 
 use App\Filament\Resources\Users\UserResource;
+use App\Services\Auth\PendingEmailChange;
 use App\Services\Technicians\TechnicianPhotoService;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\FileUpload;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Validation\ValidationException;
 
 class EditUser extends EditRecord
 {
     protected static string $resource = UserResource::class;
+
+    /** Correo propio pedido en este guardado (queda pendiente de confirmación). */
+    private ?string $requestedEmail = null;
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        // El propio correo no cambia acá: queda pendiente hasta confirmarlo desde la
+        // dirección nueva (Etapa 11). El de otra cuenta de la empresa (un técnico)
+        // lo sigue corrigiendo el dueño como antes.
+        if ($this->record->is(auth()->user()) && isset($data['email'])
+            && mb_strtolower(trim((string) $data['email'])) !== mb_strtolower((string) $this->record->email)) {
+            try {
+                app(PendingEmailChange::class)->request($this->record, (string) $data['email']);
+            } catch (ValidationException $e) {
+                throw ValidationException::withMessages(['data.email' => $e->errors()['email'] ?? ['No se pudo pedir el cambio de correo.']]);
+            }
+            $this->requestedEmail = (string) $data['email'];
+            $data['email'] = $this->record->email;
+        }
+
+        return $data;
+    }
+
+    protected function afterSave(): void
+    {
+        if ($this->requestedEmail !== null) {
+            Notification::make()->title('Confirmá tu correo nuevo')
+                ->body('Te mandamos un enlace a '.$this->requestedEmail.'. Hasta que lo confirmes, seguís entrando con '.$this->record->email.'.')
+                ->success()->persistent()->send();
+        }
+    }
 
     protected function getHeaderActions(): array
     {

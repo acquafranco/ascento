@@ -13,6 +13,22 @@
         @csrf
     </form>
 
+    {{-- Cambio de correo pendiente de confirmación (Etapa 11). --}}
+    @if ($user->pending_email)
+        <div class="mt-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-gray-800" data-pending-email>
+            <p>Pediste cambiar tu correo a <strong>{{ $user->pending_email }}</strong>. Confirmalo con el enlace que te mandamos a esa dirección. Hasta entonces seguís entrando con <strong>{{ $user->email }}</strong>.</p>
+            <form method="post" action="{{ route('profile.email.cancel') }}" class="mt-2">
+                @csrf
+                <button type="submit" class="underline text-sm text-gray-700">Cancelar el cambio</button>
+            </form>
+        </div>
+    @endif
+    @if (session('status') === 'email-pending')
+        <p class="mt-2 font-medium text-sm text-green-700">Te mandamos un enlace al correo nuevo para confirmarlo.</p>
+    @elseif (session('status') === 'email-change-canceled')
+        <p class="mt-2 font-medium text-sm text-gray-700">Cancelaste el cambio de correo.</p>
+    @endif
+
     <form method="post" action="{{ route('profile.update') }}" class="mt-6 space-y-6">
         @csrf
         @method('patch')

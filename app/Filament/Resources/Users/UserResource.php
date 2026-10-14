@@ -104,6 +104,21 @@ class UserResource extends Resource
                     ->autocomplete('new-password')
                     ->required(fn (string $operation, Get $get) => $operation === 'create' || filled($get('password')))
                     ->dehydrated(false),
+
+                // Quien edita SU propio usuario confirma con su contraseña actual para
+                // cambiar el correo o la contraseña (con una sesión robada alcanzaba
+                // para tomar la cuenta). El correo nuevo queda pendiente (Etapa 11).
+                TextInput::make('current_password')
+                    ->label('Contraseña actual')
+                    ->password()
+                    ->revealable()
+                    ->autocomplete('current-password')
+                    ->helperText('Para cambiar tu correo o tu contraseña. El correo nuevo se confirma con un enlace que te llega a esa dirección.')
+                    ->visible(fn (string $operation, ?User $record) => $operation === 'edit' && $record?->is(auth()->user()))
+                    ->required(fn (Get $get, ?User $record) => $record !== null
+                        && (mb_strtolower(trim((string) $get('email'))) !== mb_strtolower((string) $record->email) || filled($get('password'))))
+                    ->rule('current_password')
+                    ->dehydrated(false),
             ]);
     }
 

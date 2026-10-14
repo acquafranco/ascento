@@ -40,8 +40,9 @@ class ProfileTest extends TestCase
         $user->refresh();
 
         $this->assertSame('Test User', $user->name);
-        $this->assertSame('test@example.com', $user->email);
-        $this->assertNull($user->email_verified_at);
+        // El correo nuevo queda pendiente hasta confirmarlo (Etapa 11).
+        $this->assertSame('test@example.com', $user->pending_email);
+        $this->assertNotSame('test@example.com', $user->email);
     }
 
     public function test_profile_update_ignores_privilege_fields(): void

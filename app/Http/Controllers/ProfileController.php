@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Services\Auth\PendingEmailChange;
 use App\Services\Technicians\TechnicianPhotoService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -41,18 +42,26 @@ class ProfileController extends Controller
     /**
      * Update the user's profile information.
      */
-    public function update(ProfileUpdateRequest $request): RedirectResponse
+    public function update(ProfileUpdateRequest $request, PendingEmailChange $emailChanges): RedirectResponse
     {
-        $request->user()->fill($request->safe()->only(['name', 'email']));
+        $user = $request->user();
+        $user->fill($request->safe()->only(['name']))->save();
 
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
-        }
-
-        $request->user()->save();
+        // El correo no cambia acá: queda pendiente hasta que se confirme desde
+        // la dirección nueva (Etapa 11). Mismo correo = cancela lo pendiente.
+        $email = (string) $request->validated('email');
+        $changing = mb_strtolower($email) !== mb_strtolower((string) $user->email);
+        $emailChanges->request($user, $email);
 
         return Redirect::route('profile.edit', [
-            'company' => auth()->user()->company->slug,
-        ])->with('status', 'profile-updated');
+            'company' => $user->company->slug,
+        ])->with('status', $changing ? 'email-pending' : 'profile-updated');
+    }
+
+    public function cancelEmailChange(Request $request, PendingEmailChange $emailChanges): RedirectResponse
+    {
+        $emailChanges->cancel($request->user());
+
+        return Redirect::route('profile.edit', ['company' => $request->user()->company->slug])->with('status', 'email-change-canceled');
     }
 }
