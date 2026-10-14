@@ -120,6 +120,16 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
                 $user->email_verified_at = null;
             }
 
+            // El correo cambió por otro camino (el dueño corrige el de un técnico,
+            // el SuperAdmin): un pedido pendiente anterior ya no aplica y su enlace
+            // no puede pisar esta corrección. La confirmación del propio pedido
+            // limpia estos campos en el mismo guardado, así que no entra acá (Etapa 11).
+            if ($user->isDirty('email') && $user->pending_email !== null && ! $user->isDirty('pending_email')) {
+                $user->pending_email = null;
+                $user->pending_email_token = null;
+                $user->pending_email_expires_at = null;
+            }
+
             $actor = auth()->user();
 
             if (! $actor || $actor->isSuperAdmin()) {
