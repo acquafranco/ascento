@@ -32,11 +32,13 @@ class CompanyOverview extends Page
 
     public function getStats(): array
     {
+        // Sin el filtro por empresa elegida (BelongsToCompany): la relación ya
+        // limita a esta empresa, y con el filtro daba 0 si se había elegido otra.
         return [
-            'Edificios' => $this->company->buildings()->count(),
+            'Edificios' => $this->company->buildings()->withoutGlobalScope('company')->count(),
             'Usuarios' => $this->company->users()->count(),
-            'Remitos' => $this->company->deliveryNotes()->count(),
-            'Órdenes' => $this->company->workOrders()->count(),
+            'Remitos' => $this->company->deliveryNotes()->withoutGlobalScope('company')->count(),
+            'Órdenes' => $this->company->workOrders()->withoutGlobalScope('company')->count(),
         ];
     }
 }
