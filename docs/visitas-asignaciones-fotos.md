@@ -53,6 +53,28 @@
 - **Las migraciones se pueden volver a correr:** si una se corta a mitad (en MySQL los cambios de estructura no son transaccionales), `php artisan migrate` completa lo que faltó. El relleno de identidades va en una transacción y por tandas de edificios.
 - **Revertir** (`migrate:rollback`) no borra visitas ni remitos, pero **pierde las frecuencias de visitas, el número de visita y las fotos de visitas** (tablas y columnas nuevas). Es para desarrollo, no para producción con datos cargados.
 
+### Meses anteriores a que la empresa usara Ascento
+
+**Regla:** se usa como inicio la **alta de la empresa en Ascento** (`companies.created_at`, del registro o de la creación por el SuperAdmin).
+- **Desde el mes del alta:** todo sigue igual. Lo que corresponde y no se hizo queda pendiente o vencido.
+- **Un período que empieza antes de ese mes:** no espera visitas. No tener registros de esa época no significa que el trabajo quedó pendiente.
+- **Si hay visitas reales cargadas de esos meses:** se cuentan y se ven con su estado real.
+
+**Qué no se usa como inicio:**
+- el alta del edificio o del ascensor;
+- el «inicio de actividades» fiscal de la empresa (`activity_started_at`).
+
+**Cómo se ve:**
+- Agenda: «Antes de usar Ascento», también como filtro de estado.
+- App del técnico: «Antes de que la empresa usara Ascento: sin registros de este mes».
+- Mapa: color gris.
+- No suma previstas, pendientes ni vencidos en indicadores, centro de atención ni recordatorios.
+- Se sigue pudiendo cargar una visita histórica real de esos meses.
+
+**Dónde está:** `VisitSchedule::evaluate()` (`before_start`), la fuente única que usan la Agenda, la app del técnico, el mapa, los indicadores, los recordatorios y el alta del remito. El portal del cliente solo muestra visitas registradas, así que no tenía vencimientos ficticios.
+
+**Frecuencias de varios meses:** una frecuencia solo puede empezar a regir desde el mes en que se configura, y la empresa no existe antes de su alta. Por eso, usando la app, un período trimestral no puede empezar antes del alta. Si existiera (por ejemplo, con datos importados), también contaría como anterior.
+
 ## Asignación masiva
 
 - **Dónde:** Edificios → botón «Asignar técnicos» arriba de la lista (se eligen los edificios en el primer paso). También tildando edificios y eligiendo «Asignar técnicos» en el menú de seleccionados. Mismo asistente, mismo resumen y mismas validaciones del servidor (hasta 2 de mantenimiento y 1 inspector por edificio; edificios de otra empresa no son opciones válidas y el servicio los ignora).

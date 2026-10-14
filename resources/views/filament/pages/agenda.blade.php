@@ -12,7 +12,7 @@
             @endforeach
         </select>
         <select wire:model.live="type" class="asc-select" aria-label="Tipo">
-            <option value="">Mantenimientos e inspecciones</option>
+            <option value="">Todos los tipos</option>
             @foreach($types as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
         </select>
         <select wire:model.live="technician" class="asc-select" aria-label="Técnico">

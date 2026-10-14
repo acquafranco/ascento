@@ -6,6 +6,7 @@ use App\Models\BuildingVisit;
 use App\Models\BuildingVisitPlan;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * ÚNICA fuente de verdad para las visitas periódicas (mantenimiento e
@@ -26,6 +27,10 @@ use Illuminate\Support\Collection;
  *   históricos sin clave nunca se cuentan dos veces.
  * - Frecuencias de varios meses: si la visita del período ya se hizo en otro
  *   mes, este mes no tiene nada previsto ("hecho en el período").
+ * - Antes de usar Ascento: un período que empieza antes del mes de alta de la
+ *   empresa (companies.created_at) no espera visitas, porque no tener registros
+ *   de esa época no significa que el trabajo quedó pendiente. Las visitas
+ *   reales que se hayan cargado de esos meses se siguen contando y viendo.
  *
  * No usa el scope de empresa: recibe ids de edificios ya filtrados por
  * empresa (y opcionalmente la empresa), así sirve también en consola.
@@ -40,10 +45,12 @@ final class VisitSchedule
     /**
      * @param  Collection<string, Collection<int, BuildingVisitPlan>>  $plans  por "edificio|tipo", por inicio
      * @param  Collection<string, Collection<int, BuildingVisit>>  $visits  por "edificio|tipo"
+     * @param  Collection<int, int>  $starts  por edificio: mes (año * 12 + mes) en que su empresa empezó a usar Ascento
      */
     private function __construct(
         private Collection $plans,
         private Collection $visits,
+        private Collection $starts,
     ) {}
 
     /** @param  iterable<int>  $buildingIds */
@@ -74,7 +81,22 @@ final class VisitSchedule
             ->get()
             ->groupBy(fn (BuildingVisit $v) => $v->building_id.'|'.$v->assignment_type);
 
-        return new self($plans->groupBy(fn (BuildingVisitPlan $p) => $p->building_id.'|'.$p->type), $visits);
+        // Desde cuándo usa Ascento la empresa de cada edificio: su alta en la plataforma
+        // (no el alta del edificio, ni el «inicio de actividades» fiscal de la empresa).
+        $starts = DB::table('buildings')
+            ->join('companies', 'companies.id', '=', 'buildings.company_id')
+            ->whereIn('buildings.id', $ids)
+            ->pluck('companies.created_at', 'buildings.id')
+            ->filter()
+            ->map(fn ($createdAt) => VisitPeriod::index(CarbonImmutable::parse($createdAt)->startOfMonth()));
+
+        return new self($plans->groupBy(fn (BuildingVisitPlan $p) => $p->building_id.'|'.$p->type), $visits, $starts);
+    }
+
+    /** Mes (año * 12 + mes) desde el que la empresa del edificio usa Ascento, si se conoce. */
+    public function startIndex(int $buildingId): ?int
+    {
+        return $this->starts->get($buildingId);
     }
 
     /** Meses entre dos índices (año * 12 + mes) sobre las columnas year/month, usando sus índices. */
@@ -123,7 +145,7 @@ final class VisitSchedule
     /**
      * Situación de un edificio y tipo en un mes.
      *
-     * @return array{period: VisitPeriod, visits: Collection<int, BuildingVisit>, expected: int, done: int, not_done: int, pending: int, covered: bool, free_slot: ?int}
+     * @return array{period: VisitPeriod, visits: Collection<int, BuildingVisit>, expected: int, done: int, not_done: int, pending: int, covered: bool, before_start: bool, free_slot: ?int}
      */
     public function evaluate(int $buildingId, string $type, int $month, int $year): array
     {
@@ -136,14 +158,24 @@ final class VisitSchedule
         // Una visita "en curso" (abierta para cargar fotos, sin remito) ocupa
         // su lugar pero todavía no está realizada: cuenta como pendiente.
         $closed = $visits->reject(fn (BuildingVisit $v) => $v->in_progress);
+
+        // Período que empezó antes de que la empresa usara Ascento: solo cuenta lo que
+        // realmente se registró (nunca queda nada pendiente ni vencido por falta de datos).
+        $start = $this->startIndex($buildingId);
+        $beforeStart = $start !== null && VisitPeriod::index($period->start) < $start;
+        if ($beforeStart) {
+            $expected = min($expected, $visits->count());
+        }
         $done = min($expected, $closed->filter(fn (BuildingVisit $v) => $v->deliveryNote?->performed !== false)->count());
         $notDone = min($expected - $done, $closed->filter(fn (BuildingVisit $v) => $v->deliveryNote?->performed === false)->count());
         $pending = $expected - $done - $notDone;
 
         $usedSlots = $visits->pluck('slot')->map(fn ($s) => (int) $s)->all();
         $freeSlot = null;
-        if ($visits->count() < $expected) {
-            foreach (range(1, $expected) as $slot) {
+        // Lugar libre según la frecuencia del período (también antes de usar Ascento:
+        // se puede cargar una visita histórica real de esos meses).
+        if ($visits->count() < $period->expected) {
+            foreach (range(1, $period->expected) as $slot) {
                 if (! in_array($slot, $usedSlots, true)) {
                     $freeSlot = $slot;
                     break;
@@ -152,7 +184,7 @@ final class VisitSchedule
         }
 
         // Varios meses: la visita del período ya se hizo en otro mes → este mes no tiene nada previsto.
-        $covered = $period->isMultiMonth() && $pending === 0
+        $covered = ! $beforeStart && $period->isMultiMonth() && $pending === 0
             && $visits->doesntContain(fn (BuildingVisit $v) => (int) $v->month === $month && (int) $v->year === $year);
 
         return [
@@ -163,6 +195,7 @@ final class VisitSchedule
             'not_done' => $covered ? 0 : $notDone,
             'pending' => $covered ? 0 : $pending,
             'covered' => $covered,
+            'before_start' => $beforeStart,
             'free_slot' => $freeSlot,
         ];
     }

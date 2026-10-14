@@ -74,6 +74,8 @@
     .dark .asc-pill.is-covered { background: rgba(16,185,129,.12); color: #6ee7b7; }
     .asc-pill.is-no_equipment { background: #f5f5f4; color: #57534e; }
     .dark .asc-pill.is-no_equipment { background: rgba(168,162,158,.15); color: #d6d3d1; }
+    .asc-pill.is-before_start { background: #f1f5f9; color: #475569; }
+    .dark .asc-pill.is-before_start { background: rgba(148,163,184,.14); color: #cbd5e1; }
     .asc-progress-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: .75rem; margin-bottom: 1rem; }
     .asc-progress-card { border: 1px solid #e5e7eb; border-radius: .75rem; padding: .75rem 1rem; background: #fff; }
     .dark .asc-progress-card { border-color: rgba(255,255,255,.1); background: rgba(255,255,255,.03); }
@@ -85,8 +87,16 @@
 
     /* Filtros */
     .asc-filters { display: grid; gap: .6rem; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
-    .asc-select { width: 100%; padding: .5rem .7rem; border-radius: .5rem; border: 1px solid #d1d5db; background: #fff; font-size: .875rem; color: inherit; }
-    .dark .asc-select { background: rgba(255,255,255,.05); border-color: rgba(255,255,255,.15); }
+    /* Flecha propia: con la apariencia nativa cada navegador la dibuja donde quiere (en Chrome,
+       pegada al borde e ignorando el relleno). Así queda siempre adentro, a .75rem del borde,
+       y el texto nunca la toca (relleno derecho de 2.25rem). */
+    .asc-select { width: 100%; min-width: 0; padding: .5rem 2.25rem .5rem .7rem; border-radius: .5rem; border: 1px solid #d1d5db; font-size: .875rem; color: inherit;
+        -webkit-appearance: none; appearance: none; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;
+        background-color: #fff; background-repeat: no-repeat; background-position: right .75rem center; background-size: 1rem 1rem;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M6 8l4 4 4-4' stroke='%236b7280' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+    .dark .asc-select { background-color: rgba(255,255,255,.05); border-color: rgba(255,255,255,.15);
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M6 8l4 4 4-4' stroke='%23d1d5db' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+    .dark .asc-select option { background-color: #18181b; color: #f4f4f5; }
 
     /* Historial del ascensor */
     .asc-stats { display: grid; gap: .6rem; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }

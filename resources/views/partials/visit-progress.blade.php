@@ -46,7 +46,9 @@
                     </div>
                 @endforeach
             </dl>
-            @if($p['expected'] === 0)
+            @if($p['expected'] === 0 && ($p['before_start'] ?? 0) > 0)
+                <p class="mt-1.5 text-xs text-ink-500" data-progress-before-start>Mes anterior a que la empresa usara Ascento: no hay visitas previstas.</p>
+            @elseif($p['expected'] === 0)
                 <p class="mt-1.5 text-xs text-ink-500">Nada previsto este mes: según la frecuencia, ya se visitó en el período.</p>
             @endif
             @if($p['not_done'])

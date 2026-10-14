@@ -184,7 +184,9 @@
                                 @endif
                             @endforeach
 
-                            @if($status === 'covered')
+                            @if($status === 'before_start')
+                                <p class="mt-1.5 text-xs font-semibold text-ink-700" data-before-start>Antes de que la empresa usara Ascento: sin registros de este mes.</p>
+                            @elseif($status === 'covered')
                                 <p class="mt-1.5 text-xs font-semibold text-ink-700">No corresponde visitar este mes: ya se hizo la visita del período. Próxima: {{ $period->end->addMonthNoOverflow()->locale('es')->translatedFormat('F Y') }}.</p>
                             @elseif(($row['pending'] ?? 1) > 0 && ! $openVisit)
                                 @php [$chipClass, $chipLabel] = $statusChip[$status] ?? $statusChip['pending']; @endphp
