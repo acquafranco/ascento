@@ -26,6 +26,12 @@
             <x-input-error :messages="$errors->get('password')" class="mt-1.5" />
         </div>
 
+        {{-- R6: tras muchos intentos fallidos contra este correo, una comprobación humana (sin bloquear la cuenta). --}}
+        @if (! empty($challenge))
+            <p class="text-sm text-ink/60">Hubo muchos intentos fallidos con este correo. Para seguir, completá esta comprobación.</p>
+            @include('auth.partials.register-challenge')
+        @endif
+
         <div class="flex items-center justify-between">
             <label for="remember_me" class="inline-flex items-center gap-2 cursor-pointer select-none">
                 <input id="remember_me" type="checkbox" class="rounded border-ink/20" name="remember">

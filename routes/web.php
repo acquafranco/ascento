@@ -538,7 +538,7 @@ Route::middleware(['auth', 'subscription'])->prefix('notificaciones')->name('not
 // Ingreso y activación del portal (sin sesión). La activación usa el token
 // de la invitación: de un solo uso, vence a las 72 h.
 Route::middleware('guest')->prefix('portal')->name('portal.')->group(function () {
-    Route::get('/ingresar', fn () => view('auth.login', ['portal' => true]))->name('login');
+    Route::get('/ingresar', fn (\Illuminate\Http\Request $request) => view('auth.login', ['portal' => true, 'challenge' => \App\Services\Auth\AccountAttackGuard::challengeForView($request)]))->name('login');
     Route::get('/activar/{token}', [PortalInvitationController::class, 'show'])->middleware('throttle:20,1,portal.invitation')->name('invitation');
     Route::post('/activar', [PortalInvitationController::class, 'store'])->middleware('throttle:6,1,portal.invitation.store')->name('invitation.store');
 });
