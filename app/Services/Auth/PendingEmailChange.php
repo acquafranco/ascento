@@ -38,6 +38,9 @@ class PendingEmailChange
 
     public const WINDOW_MINUTES = 10;
 
+    /** Un pedido idéntico dentro de este lapso no manda otro enlace. */
+    public const RESEND_AFTER_SECONDS = 60;
+
     public const CONFIRMED = 'confirmed';
 
     public const INVALID = 'invalid';
@@ -52,6 +55,13 @@ class PendingEmailChange
         if ($email === mb_strtolower((string) $user->email)) {
             $this->cancel($user);
 
+            return;
+        }
+
+        // Mismo pedido repetido enseguida (doble envío del formulario, reintento
+        // del navegador): el enlace ya salió y sigue valiendo; no se manda otro.
+        if ($user->pending_email === $email && $user->pending_email_expires_at
+            && $user->pending_email_expires_at->isAfter(now()->addMinutes(self::EXPIRES_MINUTES)->subSeconds(self::RESEND_AFTER_SECONDS))) {
             return;
         }
 

@@ -53,6 +53,8 @@ Para sumar contraseñas a la lista, agregalas en minúsculas, una por línea.
   - un pedido nuevo invalida el enlace anterior; se puede cancelar desde el perfil; máximo 3 pedidos cada 10 minutos (cancelar no reinicia el tope);
   - al confirmar se vuelve a comprobar que ninguna otra cuenta use ese correo; un pendiente no reserva la dirección ni le impide nada a su verdadero dueño;
   - el enlace se puede abrir sin sesión, pero no desde la sesión de otra cuenta.
+  - si el correo de la cuenta cambia por otro camino (el dueño corrige el de un técnico, el SuperAdmin), el pedido pendiente se anula: su enlace ya no puede pisar esa corrección;
+  - el mismo pedido repetido dentro de un minuto (doble envío del formulario) no manda un segundo enlace;
   - si el enlace no se puede mandar (correo caído o mal configurado), el pedido se deshace: no queda nada pendiente, la persona ve «No pudimos mandar el correo de confirmación… Tu correo no cambió» y puede volver a intentar. El aviso al correo actual es informativo: si falla, el pedido sigue. Nada de esto escribe el enlace ni el token en el log;
   Ver `App\Services\Auth\PendingEmailChange`.
 - **Correo de otra cuenta** (el dueño corrige el de un técnico, o el SuperAdmin): cambia en el acto, queda sin confirmar y se manda el enlace de confirmación a esa dirección, como antes.
@@ -92,3 +94,23 @@ pregunta, lo puede resolver. Por eso es una capa más, junto con el límite de
 intentos y la confirmación del correo. Si aparecieran registros falsos
 igual, el paso siguiente gratuito sería un servicio como Cloudflare
 Turnstile, que hoy no se usa porque es una dependencia externa.
+
+## Tokens en las URL y logs del servidor
+
+La aplicación no escribe en sus logs las URL ni los tokens: confirmación del correo nuevo, restablecimiento de contraseña, activación del portal.
+
+El **servidor web (nginx) sí guarda la URL completa** de cada pedido en su log de acceso, como en casi cualquier sitio. Los enlaces que llevan token son de un solo uso y vencen en 60 minutos (72 horas la activación del portal), así que el riesgo es bajo y se limita a quien tenga acceso al servidor.
+
+**Mitigación propuesta (no aplicada: es configuración del servidor):** en el sitio de nginx de Forge, un formato de log que no guarde esas rutas.
+
+```nginx
+map $request_uri $ascento_log_uri {
+    ~^/(correo/confirmar|reset-password|portal/activar)/  "[enlace con token omitido]";
+    default                                               $request_uri;
+}
+log_format ascento '$remote_addr - [$time_local] "$request_method $ascento_log_uri" $status $body_bytes_sent "$http_user_agent"';
+access_log /var/log/nginx/ascento.online-access.log ascento;
+```
+
+`map` y `log_format` van fuera del bloque `server`; `access_log`, dentro. Probar antes con `sudo nginx -t`.
+
