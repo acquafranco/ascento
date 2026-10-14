@@ -1,6 +1,6 @@
 # Etapa 11: segundo factor y protección del ingreso (propuesta, R5 y R6)
 
-**Estado:** propuesta para aprobar. No se implementó nada, no cambia el ingreso y no se le exige 2FA a nadie.
+**Estado:** propuesta histórica, **reemplazada por lo implementado**: `docs/etapa-11-2fa.md` (2FA del SuperAdmin) y `docs/etapa-11-r6.md` (R6). Se conserva como registro del análisis.
 
 ---
 

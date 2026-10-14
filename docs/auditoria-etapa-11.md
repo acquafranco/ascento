@@ -145,7 +145,28 @@ Cada uno tiene una prueba en `tests/Feature/Stage11/SecurityFindingsTest.php` qu
 |---|---|---|
 | R1 | **Aceptado, documentado** | `braces` (sin ninguna versión 3.x corregida) y `postcss-selector-parser` (corregido recién en la 7.1.6; Tailwind 3 usa la 6) vienen de `tailwindcss` 3.4.19, la última 3.x. `npm audit fix` no propone nada sin un cambio mayor, y forzar versiones con `overrides` puede romper la compilación. Solo afectan a la compilación, con el CSS y la configuración propios como entrada: no las puede disparar un atacante. Se resuelven con la migración a Tailwind 4, cuando se planifique. `@tailwindcss/vite` 4 está instalado pero no se usa (la compilación va por PostCSS con Tailwind 3) |
 | R2 | **Plan + modo reporte** | Política candidata en `SecurityHeaders::policy()`, apagada por defecto (`ASCENTO_CSP_REPORT_ONLY`). 29 páginas de los cuatro perfiles con 0 violaciones en la demo local. Plan en `docs/csp.md` |
-| R5 | **Propuesta** | 2FA para el SuperAdmin con lo que ya está instalado (Google2FA y QR, vía Filament 5): `docs/etapa-11-ingreso-2fa.md` |
-| R6 | **Propuesta** | Protección gradual por cuenta, sin bloqueos (desafío humano, aviso al dueño de la cuenta, aviso al SuperAdmin): `docs/etapa-11-ingreso-2fa.md` |
+| R5 | **Implementado (ver sección 8)** | 2FA para el SuperAdmin con lo que ya está instalado (Google2FA y QR, vía Filament 5): `docs/etapa-11-ingreso-2fa.md` |
+| R6 | **Implementado (ver sección 8)** | Protección gradual por cuenta, sin bloqueos (desafío humano, aviso al dueño de la cuenta, aviso al SuperAdmin): `docs/etapa-11-ingreso-2fa.md` |
 | R7 | **Corregido** | Los pedidos con firma inválida ya no guardan filas (antes quedaban 90 días); como mucho un aviso por minuto en el log. No había exposición de datos: la tabla no se muestra en ningún lado |
 | R8 | **Corregido** | Cambiar el correo desde el perfil del técnico pide la contraseña actual. Antes, con una sesión robada se cambiaba el correo y «Olvidé mi contraseña» mandaba el enlace al correo nuevo, aunque no estuviera confirmado |
+
+## 8. Cierre de la etapa (14/10/2026)
+
+**Etapa 11 cerrada.** Todo lo de abajo está integrado en `main` (PR #63 a #82). No se verificó en producción desde este repositorio: los controles manuales de despliegue están en `docs/etapa-11-2fa.md` (sección 4) y `docs/operacion-produccion.md`.
+
+| # | Estado final | Dónde |
+|---|---|---|
+| R1 | Aceptado: solo herramientas de compilación; se resuelve con la migración a Tailwind 4 | Sección 7 |
+| R2 | CSP en modo solo reporte, apagada por defecto; cabeceras de seguridad también en el panel (#79) | `docs/csp.md` |
+| R3, R4 | Integración de WhatsApp por empresa retirada; quedan columnas viejas sin uso | Sección 4 |
+| R5 | **Implementado:** 2FA obligatorio para el SuperAdmin, con recuperación (#81) | `docs/etapa-11-2fa.md` |
+| R6 | **Implementado:** desafío humano por intento ante muchos fallos contra una cuenta, sin bloqueo; avisos limitados (#82) | `docs/etapa-11-r6.md` |
+| R7, R8 | Corregidos | Sección 7 |
+| Correo pendiente | Confirmación del correo nuevo, cancelación por corrección del dueño y fallos de envío (#77, #78, #80) | `docs/autenticacion.md` |
+
+**Queda para más adelante:**
+- aplicar la CSP;
+- 2FA para dueños;
+- quitar de los logs de nginx las URL con tokens (mitigación propuesta en `docs/autenticacion.md`);
+- borrar las columnas `whatsapp_*`;
+- migrar a Tailwind 4.
