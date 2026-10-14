@@ -46,8 +46,15 @@ Para sumar contraseñas a la lista, agregalas en minúsculas, una por línea.
   pide de nuevo desde el aviso.
 - **Reenvío:** máximo 3 enlaces cada 10 minutos por cuenta, además del
   límite de 6 por minuto de la ruta.
-- **Cambio de correo:** desde cualquier pantalla (perfil, panel, SuperAdmin),
-  el correo nuevo queda sin confirmar y se manda el enlace a esa dirección.
+- **Cambio del correo propio** (perfil del técnico, o el dueño editándose a sí mismo en el panel), desde la Etapa 11:
+  - pide la **contraseña actual**;
+  - el correo nuevo queda **pendiente** (`pending_email`), y el anterior sigue siendo el de ingreso y recuperación de contraseña;
+  - se manda un enlace al correo nuevo (vence a los 60 minutos, un solo uso; en la base queda solo el hash del token) y un aviso al correo actual;
+  - un pedido nuevo invalida el enlace anterior; se puede cancelar desde el perfil; máximo 3 pedidos cada 10 minutos (cancelar no reinicia el tope);
+  - al confirmar se vuelve a comprobar que ninguna otra cuenta use ese correo; un pendiente no reserva la dirección ni le impide nada a su verdadero dueño;
+  - el enlace se puede abrir sin sesión, pero no desde la sesión de otra cuenta.
+  Ver `App\Services\Auth\PendingEmailChange`.
+- **Correo de otra cuenta** (el dueño corrige el de un técnico, o el SuperAdmin): cambia en el acto, queda sin confirmar y se manda el enlace de confirmación a esa dirección, como antes.
 - **Si el correo no sale** (SMTP caído), el técnico se crea igual y queda un
   aviso en el log.
 - **Restricción puntual (ya existía):** las cuentas nuevas sin confirmar no

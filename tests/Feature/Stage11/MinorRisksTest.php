@@ -65,10 +65,11 @@ class MinorRisksTest extends TestCase
         $this->patch("/{$slug}/profile", ['name' => 'Nombre Nuevo', 'email' => $tech->email])->assertSessionHasNoErrors();
         $this->assertSame('Nombre Nuevo', $tech->fresh()->name);
 
-        // El correo, con la contraseña: cambia y queda sin confirmar.
+        // El correo, con la contraseña: queda pendiente hasta confirmarlo desde la
+        // dirección nueva (ver PendingEmailChangeTest); el actual no cambia.
         $this->patch("/{$slug}/profile", ['name' => 'Nombre Nuevo', 'email' => 'nuevo@empresa.test', 'current_password' => 'clave-actual-123'])->assertSessionHasNoErrors();
-        $this->assertSame('nuevo@empresa.test', $tech->fresh()->email);
-        $this->assertNull($tech->fresh()->email_verified_at);
+        $this->assertSame($tech->email, $tech->fresh()->email);
+        $this->assertSame('nuevo@empresa.test', $tech->fresh()->pending_email);
     }
 
     /*

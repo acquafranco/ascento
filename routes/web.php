@@ -135,6 +135,10 @@ Route::prefix('{company:slug}')
             Route::patch('/profile', 'update')
                 ->name('profile.update');
 
+            // Cambio de correo pendiente de confirmación (Etapa 11).
+            Route::post('/profile/correo/cancelar', 'cancelEmailChange')
+                ->name('profile.email.cancel');
+
             // Foto de perfil del técnico (Etapa 8.2).
             Route::post('/profile/foto', 'updatePhoto')
                 ->middleware('throttle:20,1,profile.photo.update')->name('profile.photo.update');
@@ -413,6 +417,12 @@ Route::get('/files/backups/{backup}', BackupDownloadController::class)
     ->middleware(['auth', 'throttle:10,1,backups.download'])->whereNumber('backup')->name('backups.download');
 
 // Administrativo que no puede entrar al panel (Etapa 6): el motivo, sin 403 genérico.
+// Confirmación del correo nuevo (Etapa 11): se abre desde el correo, con o sin sesión.
+Route::get('/correo/confirmar/{user}/{token}', \App\Http\Controllers\Auth\ConfirmEmailChangeController::class)
+    ->whereNumber('user')
+    ->middleware('throttle:20,1,email-change.confirm')
+    ->name('email-change.confirm');
+
 Route::get('/acceso-administrativo', function (Request $request) {
     $user = $request->user();
 

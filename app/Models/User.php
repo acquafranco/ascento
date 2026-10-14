@@ -44,10 +44,12 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     protected $hidden = [
         'password',
         'remember_token',
+        'pending_email_token',
     ];
 
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'pending_email_expires_at' => 'datetime',
         'password' => 'hashed',
         'is_super_admin' => 'boolean',
         'onboarding_completed_at' => 'datetime',
