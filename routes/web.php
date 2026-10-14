@@ -30,7 +30,6 @@ use App\Http\Controllers\TelegramLinkController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\VisitController;
 use App\Http\Controllers\VisitPhotoController;
-use App\Http\Controllers\WhatsAppController;
 use App\Http\Controllers\WorkOrderController;
 use App\Models\Company;
 use App\Models\User;
@@ -103,11 +102,6 @@ Route::prefix('{company:slug}')
     ])
     ->scopeBindings()
     ->group(function () {
-
-        Route::get('/whatsapp/connect', [
-            WhatsAppController::class,
-            'connect',
-        ])->middleware('admin')->name('whatsapp.connect');
 
         /*
         |--------------------------------------------------------------------------
@@ -469,11 +463,6 @@ Route::get('/files/elevator-documents/{elevatorDocument}', ElevatorDocumentContr
     ->middleware(['auth', 'subscription'])
     ->whereNumber('elevatorDocument')
     ->name('elevator-documents.show');
-
-Route::get('/whatsapp/callback', [
-    WhatsAppController::class,
-    'callback',
-])->middleware('auth')->name('whatsapp.callback');
 
 /*
 |--------------------------------------------------------------------------

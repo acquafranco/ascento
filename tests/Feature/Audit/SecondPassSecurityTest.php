@@ -6,14 +6,10 @@ use App\Exceptions\PlanLimitReachedException;
 use App\Filament\Resources\Buildings\Pages\CreateBuilding;
 use App\Filament\Resources\Buildings\Pages\EditBuilding;
 use App\Models\Building;
-use App\Models\Company;
 use App\Models\Report;
 use App\Models\Subscription;
-use App\Services\WhatsAppService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\Concerns\InteractsWithTenants;
@@ -152,18 +148,5 @@ class SecondPassSecurityTest extends TestCase
         $this->actingAs($this->a['technician'])->get('/admin/buildings/'.$other->id.'/edit')->assertRedirect();
 
         $this->assertSame('Edificio de la empresa sin asignar', $other->fresh()->name);
-    }
-
-    public function test_whatsapp_logs_never_contain_phones_or_message_text(): void
-    {
-        Log::spy();
-
-        $company = Company::factory()->create(['whatsapp_access_token' => 'tok', 'whatsapp_phone_number_id' => '123']);
-        Http::fake(['graph.facebook.com/*' => Http::response(['ok' => true])]);
-
-        app(WhatsAppService::class)->send($company, '5491123456789', 'Mensaje privado del cliente');
-
-        Log::shouldNotHaveReceived('info', fn ($message, $context = []) => str_contains(json_encode($context), '5491123456789') || str_contains(json_encode($context), 'Mensaje privado'));
-        $this->assertTrue(true);
     }
 }

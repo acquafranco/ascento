@@ -2,11 +2,10 @@
 
 use App\Http\Controllers\MercadoPagoWebhookController;
 use App\Http\Controllers\TelegramWebhookController;
-use App\Http\Controllers\WhatsAppWebhookController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/whatsapp/webhook', [WhatsAppWebhookController::class, 'verify']);
-Route::post('/whatsapp/webhook', [WhatsAppWebhookController::class, 'handle']);
+// La integración de WhatsApp por empresa (webhook de Meta y botones de
+// órdenes para técnicos) se retiró en la Etapa 11: estaba en desuso.
 
 // Notificaciones de Mercado Pago (configurar esta URL en la app de MP,
 // eventos "Planes y suscripciones"). Ver MercadoPagoWebhookController.

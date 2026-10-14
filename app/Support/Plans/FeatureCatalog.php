@@ -127,7 +127,6 @@ final class FeatureCatalog
 
             // Avisos
             $x('in_app_notifications', 'notifications', 'Avisos en la app', 'Campanita con los avisos de cada usuario.', '03/08/2026 (27ae44b)', self::ESSENTIAL),
-            $x('whatsapp', 'notifications', 'Conexión con WhatsApp', 'Conexión de la empresa con WhatsApp (solo el dueño).', '31/07/2026 (e2839db)', self::ROLE),
             $x('push', 'notifications', 'Notificaciones push', 'Avisos en el celular de técnicos, oficina y clientes.', '07/10/2026 (8e849e8)', self::ESSENTIAL),
             $x('telegram', 'notifications', 'Avisos por Telegram', 'Los técnicos pueden recibir sus avisos por Telegram.', '08/10/2026 (8a7db68)', self::ESSENTIAL),
             $x('visit_reminders', 'notifications', 'Recordatorios de visitas', 'Aviso diario de las visitas del mes a los técnicos.', '09/10/2026 (1ecd184)', self::ESSENTIAL),
