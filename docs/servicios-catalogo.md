@@ -70,12 +70,17 @@ El importe **siempre se recalcula en el servidor** al guardar (`ServicePricing`)
 ## Editar, pausar y finalizar
 
 - **Editar:** recalcula con el alcance y los equipos actuales. Si el importe cambia (precio, modalidad, alcance, equipos activos o paradas cargadas), el formulario muestra el importe anterior, el nuevo y la causa, y exige marcar «Confirmo el nuevo importe»; el servidor también lo exige. Editar solo la descripción u otros datos no cambia el importe si los equipos no cambiaron. Los cobros ya generados no cambian.
+- **Vencimiento de los cobros al editar (regla aprobada):** si cambia el día de vencimiento o el inicio, se ajustan **solo los cobros de período pendientes y sin pagos** de esa contratación (`ServiceBillingService::syncPendingCharges`):
+  - con el nuevo día, cada uno vence ese día del mes de su período (misma regla que al emitirlo); si con esa fecha sigue vencido, sigue vencido;
+  - si el inicio se corre a un mes posterior, los de períodos anteriores al nuevo inicio se anulan con motivo («La contratación ahora empieza el …»); no se borran.
+  - Nunca cambian los importes, ni los cobros pagados, parcialmente pagados o anulados, ni el cobro de «Volver a cobrar». Editar otros datos no mueve vencimientos.
 - **Cambios simultáneos:** se guarda el importe que el usuario vio. Si otro usuario cambia equipos o paradas mientras se completa el formulario, el servidor recalcula y no guarda: en el alta, muestra el importe nuevo y pide volver a guardar; al editar, borra la confirmación y pide confirmar el importe nuevo.
 - **Contratos anteriores al catálogo:** al editarlos se muestran como «Mantenimiento» y «Precio acordado» con su importe; guardarlos no cambia el importe.
 - **Pausar / Reactivar:** cambia el estado. Al reactivar no se cobran los meses en que estuvo pausado o finalizado. Regla de reactivación (decisión comercial: alternativa A, sin prorrateo ni cobros retroactivos):
   - El ciclo de cobro sigue contado desde la **fecha de inicio original**.
   - Se cobra el primer período que **empieza** en el mes de la reactivación o después. Si se reactiva a mitad de un período trimestral o semestral, ese período en curso no se cobra; el siguiente cobro es el del próximo ciclo. Ejemplo: trimestral desde enero, pausado en febrero y reactivado en mayo → próximo cobro en julio.
   - Un período ya cobrado nunca se repite.
+  - **Primer cobro de una contratación (regla aprobada):** si al emitirse el día pactado de su mes ya pasó (por ejemplo, alta el 15 con día 10), vence ese día del mes siguiente; el período cobrado no cambia. No nace vencido.
   - Vencimiento: el día pactado del mes en que empieza el período. Si se reactiva en ese mes después del día pactado, el cobro nace con el vencimiento ya pasado y figura como **Vencida** (en Cobranzas y en los indicadores de deuda).
 - **Finalizar:** estado «Finalizado» y fecha de fin hoy (o la anterior, si ya tenía una). Deja de generar cobros y conserva el historial, las visitas y los cobros.
 - **Mismas acciones en todos lados:** Pausar, Reactivar (solo desde pausado), Finalizar y Volver a cobrar son las mismas en «Servicios contratados», en la ficha de la contratación y en la del cliente o edificio (`MaintenanceServiceResource::lifecycleActions`). Cada una exige poder gestionar la contratación. Una contratación finalizada se reactiva desde «Editar» (estado y fecha de fin).

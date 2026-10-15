@@ -96,6 +96,27 @@ class ReceivableService
         });
     }
 
+    /**
+     * Nuevo vencimiento de una obligación abierta y sin pagos (por ejemplo, porque
+     * cambió el día pactado de su contratación). Devuelve si cambió. Las pagadas,
+     * parcialmente pagadas o anuladas no se tocan.
+     */
+    public function reschedule(Receivable $receivable, CarbonInterface $dueDate): bool
+    {
+        return DB::transaction(function () use ($receivable, $dueDate) {
+            $locked = Receivable::withoutGlobalScopes()->lockForUpdate()->findOrFail($receivable->id);
+
+            if ($locked->status !== Receivable::PENDING || (float) $locked->paid_amount > 0 || $locked->due_date?->isSameDay($dueDate)) {
+                return false;
+            }
+
+            $locked->forceFill(['due_date' => $dueDate])->save();
+            $receivable->setRawAttributes($locked->getAttributes(), true);
+
+            return true;
+        });
+    }
+
     /** Anula una obligación sin pagos (los pagos no se borran). */
     public function void(Receivable $receivable, string $reason): void
     {

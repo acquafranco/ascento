@@ -221,8 +221,9 @@ class ServicesSectionTest extends TestCase
         $payments = app(ReceivableService::class);
 
         // Pendiente, vencido, parcialmente pagado y pagado: no.
+        $overdue = $this->oneTime(['building_id' => $this->a['building']->id, 'payment_due_day' => 16]); // vence el 16/10
+        $this->travelTo(Carbon::parse('2026-10-17 10:00')); // ya pasó: vencido
         $pending = $this->oneTime();
-        $overdue = $this->oneTime(['building_id' => $this->a['building']->id, 'payment_due_day' => 5]);
         $partial = $this->oneTime(['description' => 'Parcial']);
         $payments->registerPayment($partial->receivables()->sole(), 10000, today(), 'cash', null, $this->a['admin']);
         $paid = $this->oneTime(['description' => 'Pagado']);
