@@ -135,10 +135,10 @@ class MaintenanceService extends Model
         return $this->hasMany(Receivable::class);
     }
 
-    /** Primer cobro del servicio (para el pago único, el único que genera). */
+    /** Último cobro del servicio (para el pago único: el vigente, o el nuevo si se volvió a cobrar). */
     public function oneTimeReceivable(): HasOne
     {
-        return $this->hasOne(Receivable::class)->oldestOfMany();
+        return $this->hasOne(Receivable::class)->latestOfMany();
     }
 
     /** Cobro de un servicio de pago único, solo informativo; null si no es de pago único o aún no se generó. */

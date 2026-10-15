@@ -10,10 +10,10 @@ class ListServiceCatalogItems extends ListRecords
 {
     protected static string $resource = ServiceCatalogItemResource::class;
 
-    protected ?string $subheading = 'Los servicios que ofrecés. Se contratan desde la ficha de cada cliente o edificio, con el precio que acuerdes.';
+    protected ?string $subheading = 'El catálogo: lo que ofrecés y su precio de referencia. No genera cobros por sí solo; se contrata en «Servicios contratados» o desde la ficha del cliente o del edificio, con el precio que acuerdes.';
 
     protected function getHeaderActions(): array
     {
-        return [CreateAction::make()->label('Nuevo servicio')];
+        return [CreateAction::make()->label('Nuevo servicio ofrecido')];
     }
 }
