@@ -181,7 +181,7 @@ class CompanyEraser
             return 0;
         }
 
-        $direct = collect([['building_visits', 'user_id'], ['delivery_notes', 'user_id'], ['reports', 'user_id'], ['quotes', 'created_by'], ['portal_memberships', 'user_id']])
+        $direct = collect([['building_visits', 'user_id'], ['delivery_notes', 'user_id'], ['reports', 'user_id'], ['quotes', 'created_by'], ['portal_memberships', 'user_id'], ['on_call_shifts', 'user_id'], ['on_call_members', 'user_id']])
             ->sum(fn ($ref) => DB::table($ref[0])->whereIn($ref[1], $erased)->where('company_id', '!=', $id)->count());
 
         $viaParent = collect([
@@ -271,6 +271,13 @@ class CompanyEraser
             $n += DB::table($table)->whereIn('work_order_id', $workOrders ?: [0])->delete();
         }
         $n += $of('work_orders')->delete();
+
+        // Guardias técnicas (después de las órdenes, que referencian sus turnos; antes que los usuarios).
+        $n += $of('on_call_changes')->delete();
+        $of('on_call_shifts')->update(['parent_shift_id' => null]);
+        foreach (['on_call_shifts', 'on_call_members', 'on_call_schedules'] as $table) {
+            $n += $of($table)->delete();
+        }
 
         foreach (['quote_events', 'quote_items', 'quotes', 'maintenance_services', 'service_catalog_items', 'elevator_documents', 'elevators'] as $table) {
             $n += $of($table)->delete();

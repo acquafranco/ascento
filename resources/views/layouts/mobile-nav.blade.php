@@ -12,7 +12,8 @@
 <div x-data="{ more: false }" @keydown.escape.window="more = false" class="lg:hidden">
     <nav class="t-nav-bottom fixed inset-x-0 bottom-0 z-50 border-t border-ink-100 bg-white/95 backdrop-blur"
          style="padding-bottom: env(safe-area-inset-bottom);" aria-label="Secciones">
-        <div class="mx-auto grid max-w-lg grid-cols-5">
+        {{-- Una columna por sección principal + «Más». --}}
+        <div class="mx-auto grid max-w-lg" style="grid-template-columns: repeat({{ count($navMain) + 1 }}, minmax(0, 1fr));">
             @foreach($navMain as $item)
                 <a href="{{ $item['href'] }}" @if($item['active']) aria-current="page" @endif
                    class="relative flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-semibold {{ $item['active'] ? 'text-ink' : 'text-ink-500' }}">

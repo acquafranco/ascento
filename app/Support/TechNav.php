@@ -33,6 +33,7 @@ class TechNav
                 $item('Visitas', 'buildings.index', ['buildings.index', 'delivery-notes.building'], 'calendar'),
                 $item('Trabajos', 'work-orders.index', ['work-orders.*', 'delivery-notes.work-order'], 'wrench'),
                 $item('Reportes', 'reports.index', ['reports.*'], 'report'),
+                $item('Guardias', 'on-call.index', ['on-call.*'], 'shield'),
             ],
             'more' => [
                 $item('Remitos', 'delivery-notes.index', ['delivery-notes.index', 'delivery-notes.show'], 'document'),
@@ -69,6 +70,7 @@ class TechNav
             'help' => '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 0 1 4.9.7c0 1.7-2.4 2.1-2.4 3.6M12 17h.01"/>',
             'check' => '<path d="m5 12 4.5 4.5L19 7"/>',
             'clock' => '<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>',
+            'shield' => '<path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/>',
             'camera' => '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
             default => '',
         };

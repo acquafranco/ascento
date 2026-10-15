@@ -8,6 +8,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -63,6 +64,16 @@ class DeliveryNoteForm
                                     ->options(fn (?DeliveryNote $record) => $record?->workOrder
                                         ? [$record->work_order_id => WorkOrderLabels::type($record->workOrder->type)]
                                         : []),
+
+                                // Discreto y solo en el panel: el trabajo se originó en una guardia
+                                // (el remito, el PDF y lo que ve el cliente no cambian).
+                                TextEntry::make('on_call_origin')
+                                    ->label('Guardia')
+                                    ->columnSpan(12)
+                                    ->state(fn (?DeliveryNote $record) => $record?->workOrder?->onCallShift
+                                        ? $record->workOrder->onCallShift->schedule?->name.' · de guardia: '.$record->workOrder->onCallShift->user?->name.' ('.$record->workOrder->onCallShift->periodLabel().')'
+                                        : null)
+                                    ->visible(fn (?DeliveryNote $record) => (bool) $record?->workOrder?->on_call_shift_id),
 
                                 Select::make('user_id')
                                     ->label('Técnico')

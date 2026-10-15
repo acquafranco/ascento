@@ -53,7 +53,7 @@ class WorkOrderResource extends Resource
     {
         return $table
             // Eager loading de lo que usan las columnas/acciones (evita N+1).
-            ->modifyQueryUsing(fn (Builder $query) => $query->with(['building', 'users']))
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['building', 'users', 'onCallShift.user', 'onCallShift.schedule']))
             ->columns([
 
                 Tables\Columns\TextColumn::make('building.name')
@@ -125,6 +125,20 @@ class WorkOrderResource extends Resource
                     ->label('Creado')
                     ->dateTime('d/m/Y H:i')
                     ->sortable(),
+                // Trabajo originado durante una guardia (lo indica quien carga la orden).
+                Tables\Columns\TextColumn::make('on_call')
+                    ->label('Guardia')
+                    ->state(fn ($record) => $record->onCallShift ? $record->onCallShift->schedule?->name.' · '.$record->onCallShift->user?->name : null)
+                    ->placeholder('—')
+                    ->toggleable(),
+            ])
+
+            ->filters([
+                Tables\Filters\TernaryFilter::make('on_call_shift_id')
+                    ->label('Trabajos de guardia')
+                    ->nullable()
+                    ->trueLabel('Solo de guardia')
+                    ->falseLabel('Sin guardia'),
             ])
 
             ->defaultSort('created_at', 'desc')

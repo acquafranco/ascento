@@ -10,6 +10,7 @@ use App\Models\DeliveryNote;
 use App\Models\Elevator;
 use App\Models\ElevatorDocument;
 use App\Models\MaintenanceService;
+use App\Models\OnCallSchedule;
 use App\Models\Quote;
 use App\Models\Report;
 use App\Models\ReportPhoto;
@@ -24,6 +25,7 @@ use App\Notifications\App\ExportFinishedNotification;
 use App\Services\Elevators\ElevatorDocumentService;
 use App\Services\Exports\CompanyDataExporter;
 use App\Services\Exports\CompanyExportService;
+use App\Services\OnCall\OnCallService;
 use App\Services\Parachute\ParachuteService;
 use App\Services\Repairs\RepairService;
 use App\Services\Reports\ReportPhotoService;
@@ -244,6 +246,25 @@ class CompanyExportTest extends TestCase
         $this->assertSame(['No satisfactoria', 'Inspector Externo', 'Ing. Exportada', 'Observación exportada'], [$row[5], $row[6], $row[7], $row[9]]);
         $names = collect(range(0, $opened['zip']->numFiles - 1))->map(fn ($i) => $opened['zip']->getNameIndex($i));
         $this->assertTrue($names->contains(fn ($n) => str_starts_with($n, 'adjuntos/paracaidas/prueba-'.$test->id.'-')));
+    }
+
+    public function test_on_call_guards_shifts_and_changes_are_exported(): void
+    {
+        // Guardias técnicas: configuración, turnos (con el reemplazo) y su historial de cambios.
+        $this->actingInPanel($this->a['admin']);
+        $schedule = OnCallSchedule::create(['name' => 'Guardia exportada', 'days' => [1, 2, 3, 4, 5], 'starts_time' => '18:00', 'ends_time' => '08:00', 'technicians_needed' => 1, 'mode' => 'manual', 'is_active' => true]);
+        $service = app(OnCallService::class);
+        $shift = $service->assign($schedule, $this->a['technician'], now()->addDay(), now()->addDays(8), $this->a['admin']);
+        $other = User::factory()->technician()->create(['company_id' => $this->a['company']->id, 'name' => 'Reemplazo Exportado']);
+        $service->replace($shift, now()->addDays(2), now()->addDays(3), $other, $this->a['admin'], 'Motivo exportado');
+        auth()->logout();
+
+        $opened = $this->open($this->generate());
+        $this->assertSame('Guardia exportada', collect($opened['sheets']['Guardias'])->firstWhere(0, $schedule->id)[1]);
+        $this->assertCount(5, $opened['sheets']['Turnos de guardia']); // encabezado + original (modificado) + 3 turnos resultantes
+        $this->assertSame('Motivo exportado', collect($opened['sheets']['Turnos de guardia'])->firstWhere(0, $shift->id)[9]);
+        $this->assertTrue(collect($opened['sheets']['Cambios de guardia'])->contains(fn ($row) => $row[3] === 'Cambio de guardia' && $row[8] === 'Motivo exportado'));
+        $this->assertStringNotContainsString('Guardia B', $this->allText($opened));
     }
 
     public function test_repair_components_and_their_files_are_exported(): void
