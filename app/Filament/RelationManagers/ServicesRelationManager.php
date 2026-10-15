@@ -11,10 +11,8 @@ use App\Models\Building;
 use App\Models\Client;
 use App\Models\MaintenanceService;
 use App\Models\ServiceCatalogItem;
-use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
-use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
@@ -106,21 +104,8 @@ class ServicesRelationManager extends RelationManager
 
                         return $record;
                     }),
-                MaintenanceServiceResource::statusAction(MaintenanceService::PAUSED, 'Pausar', 'heroicon-o-pause', 'warning')
-                    ->visible(fn (MaintenanceService $r) => $r->status === MaintenanceService::ACTIVE),
-                MaintenanceServiceResource::statusAction(MaintenanceService::ACTIVE, 'Reactivar', 'heroicon-o-play', 'success')
-                    ->visible(fn (MaintenanceService $r) => $r->status === MaintenanceService::PAUSED),
-                Action::make('finish')->label('Finalizar')->icon('heroicon-o-stop-circle')->color('danger')
-                    ->visible(fn (MaintenanceService $r) => $r->status !== MaintenanceService::FINISHED)
-                    ->requiresConfirmation()
-                    ->modalHeading('Finalizar la contratación')
-                    ->modalDescription('Deja de generar cobros desde hoy. No se borra nada: el historial, las visitas y los cobros ya generados se conservan.')
-                    ->modalSubmitActionLabel('Finalizar')
-                    ->action(function (MaintenanceService $record) {
-                        $record->update(['status' => MaintenanceService::FINISHED, 'end_date' => $record->end_date && $record->end_date->lt(today()) ? $record->end_date : today()]);
-
-                        Notification::make()->title('Contratación finalizada')->success()->send();
-                    }),
+                // Las mismas acciones que en «Servicios contratados».
+                ...MaintenanceServiceResource::lifecycleActions(),
             ])
             // Enlaces solo a lo que el usuario puede abrir (un administrativo con «ver»: la ficha de lectura).
             ->recordUrl(fn (MaintenanceService $r) => MaintenanceServiceResource::canView($r) ? MaintenanceServiceResource::getUrl('view', ['record' => $r]) : null)

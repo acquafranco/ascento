@@ -1,8 +1,22 @@
-# Catálogo de servicios y contrataciones
+# Servicios: ofrecidos (catálogo) y contratados
+
+## Dónde está
+
+Una sola entrada en el menú: **Comercial → Servicios** (`App\Filament\Clusters\ServicesCluster`), con dos vistas en pestañas (en celular, un selector):
+
+| Vista | Qué es | Dirección |
+|---|---|---|
+| **Servicios contratados** | Lo que tiene cada cliente: genera cobros y cubre visitas. Botón «Contratar servicio». | `/admin/servicios/contratados` |
+| **Servicios ofrecidos** | El catálogo: lo que la empresa ofrece y su precio de referencia. Botón «Nuevo servicio ofrecido». | `/admin/servicios/ofrecidos` |
+
+- Entrar a «Servicios» abre la primera vista a la que el usuario tiene acceso.
+- Son registros distintos: una contratación nunca aparece en «Servicios ofrecidos». La columna «Contratos activos» de un servicio ofrecido lleva a «Servicios contratados» filtrado por ese servicio.
+- Las direcciones anteriores (`/admin/maintenance-services/…` y `/admin/catalogo-servicios/…`) redirigen a las nuevas, con la misma subruta y filtros.
+- En la ficha del cliente y del edificio sigue la pestaña «Servicios contratados» (acceso contextual), con las mismas acciones y el mismo formulario.
 
 ## Idea general
 
-- **Catálogo** (`service_catalog_items`, Comercial → «Catálogo de servicios»): lo que la empresa ofrece, con un precio de referencia. No genera cobros ni visitas por sí solo.
+- **Catálogo** (`service_catalog_items`, Servicios → «Servicios ofrecidos»): lo que la empresa ofrece, con un precio de referencia. No genera cobros ni visitas por sí solo.
 - **Contratación** (`maintenance_services`, la tabla de siempre): un servicio contratado por un cliente, con su alcance, su precio y su vigencia. Es lo que factura (`ServiceBillingService`), cubre visitas (`MaintenanceService::covering`) y cuenta en la agenda y los indicadores.
 - No hay tabla nueva de asignaciones: se reutiliza `maintenance_services` y se le agregan columnas. Así los cobros, visitas, remitos, la exportación y el borrado de empresas siguen funcionando igual.
 
@@ -29,7 +43,7 @@ Modalidades (`PRICING_MODES`):
 
 ## Contratar
 
-Desde la ficha del cliente (o del edificio) → «Servicios contratados» → «Agregar servicio», o desde Comercial → Servicios → Nuevo:
+Desde la ficha del cliente (o del edificio) → «Servicios contratados» → «Agregar servicio», o desde Servicios → «Servicios contratados» → «Contratar servicio»:
 
 1. **Servicio:** del catálogo (precarga nombre, tipo, modalidad, precio y frecuencia de cobro, todo editable) o sin catálogo.
 2. **Alcance:**
@@ -64,6 +78,9 @@ El importe **siempre se recalcula en el servidor** al guardar (`ServicePricing`)
   - Un período ya cobrado nunca se repite.
   - Vencimiento: el día pactado del mes en que empieza el período. Si se reactiva en ese mes después del día pactado, el cobro nace con el vencimiento ya pasado y figura como **Vencida** (en Cobranzas y en los indicadores de deuda).
 - **Finalizar:** estado «Finalizado» y fecha de fin hoy (o la anterior, si ya tenía una). Deja de generar cobros y conserva el historial, las visitas y los cobros.
+- **Mismas acciones en todos lados:** Pausar, Reactivar (solo desde pausado), Finalizar y Volver a cobrar son las mismas en «Servicios contratados», en la ficha de la contratación y en la del cliente o edificio (`MaintenanceServiceResource::lifecycleActions`). Cada una exige poder gestionar la contratación. Una contratación finalizada se reactiva desde «Editar» (estado y fecha de fin).
+- **Cobros de la contratación:** la ficha de la contratación tiene la pestaña «Cobros» (el mismo componente que la cuenta corriente del cliente), con sus cobros y el registro de pagos. Ahí no se cargan cobros manuales.
+- **Volver a cobrar un pago único anulado:** si el cobro de un pago único se anuló y no tiene otro vigente, la acción «Volver a cobrar» crea un cobro nuevo vinculado a la contratación, por su importe acordado, con vencimiento el día pactado de este mes (o del siguiente, si ya pasó). El cobro anulado queda intacto. No aparece si el cobro está pendiente, vencido, parcialmente pagado o pagado, si la contratación está pausada, ni para servicios periódicos. El servidor lo verifica dentro de una transacción con bloqueo de la contratación (`ServiceBillingService::rebillOneTime`): un doble clic o dos solicitudes simultáneas no crean dos cobros, y la facturación automática no agrega otro.
 - No se borra nada.
 
 ## Cambios del catálogo
@@ -94,7 +111,7 @@ Solo agrega tablas y columnas: no modifica datos existentes. Las contrataciones 
 - Catálogo y contrataciones usan el área **Cobranzas**:
   - «ver» permite consultar;
   - «gestionar» permite crear y cambiar.
-- Los técnicos no acceden.
+- Los técnicos no acceden. Sin permiso de Cobranzas, la sección «Servicios» no aparece ni se abre.
 - Todo se filtra por empresa (`BelongsToCompany`), incluidos los equipos que cuenta el cálculo y las opciones de los formularios.
 
 ## Pendiente / límites conocidos
@@ -104,4 +121,6 @@ Solo agrega tablas y columnas: no modifica datos existentes. Las contrataciones 
 - Un servicio de pago único queda activo hasta que alguien lo finaliza. No genera más cobros.
 - Dos contrataciones de mantenimiento en el mismo edificio se avisan pero se permiten; cada visita se vincula a una sola (la del edificio y, entre varias, la de inicio más reciente).
 
-Pruebas: `tests/Feature/Billing/ServiceCatalogTest.php` y `tests/Feature/Billing/ServiceContractReviewTest.php`.
+- Los cobros manuales de Cobranzas siguen siendo libres: si alguien carga a mano un cobro por un pago único (en lugar de usar «Volver a cobrar»), el sistema no lo vincula ni lo controla.
+
+Pruebas: `tests/Feature/Billing/ServiceCatalogTest.php`, `ServiceContractReviewTest.php`, `ServiceAmountConcurrencyTest.php`, `ServiceChargeStatusTest.php` y `ServicesSectionTest.php`.

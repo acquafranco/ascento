@@ -3,8 +3,10 @@
 namespace App\Filament\Resources\MaintenanceServices;
 
 use App\Enums\PermissionArea;
+use App\Filament\Clusters\ServicesCluster;
 use App\Filament\Concerns\GuardedByPermission;
 use App\Filament\Concerns\ScopedToCurrentCompany;
+use App\Filament\RelationManagers\AccountStatementRelationManager;
 use App\Filament\Resources\MaintenanceServices\Pages\CreateMaintenanceService;
 use App\Filament\Resources\MaintenanceServices\Pages\EditMaintenanceService;
 use App\Filament\Resources\MaintenanceServices\Pages\ListMaintenanceServices;
@@ -14,6 +16,7 @@ use App\Filament\Resources\Receivables\ReceivableResource;
 use App\Models\MaintenanceService;
 use App\Models\Receivable;
 use App\Models\ServiceCatalogItem;
+use App\Services\Billing\ServiceBillingService;
 use App\Services\Catalog\ServicePricing;
 use App\Support\CompanyContext;
 use BackedEnum;
@@ -28,10 +31,13 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Validation\ValidationException;
 
 /**
- * Servicios / contratos de mantenimiento. Cada período de un servicio
- * activo genera una obligación de cobro (ver ServiceBillingService).
+ * Servicios contratados (sección «Servicios»): lo que cada cliente tiene
+ * contratado. Cada período de una contratación activa genera una obligación
+ * de cobro (ver ServiceBillingService). Lo que la empresa ofrece está en
+ * «Servicios ofrecidos» (ServiceCatalogItemResource).
  */
 class MaintenanceServiceResource extends Resource
 {
@@ -47,17 +53,21 @@ class MaintenanceServiceResource extends Resource
 
     protected static ?string $model = MaintenanceService::class;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-wrench-screwdriver';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-text';
 
-    protected static ?string $navigationLabel = 'Servicios';
+    protected static ?string $cluster = ServicesCluster::class;
 
-    protected static ?string $modelLabel = 'Servicio';
+    protected static ?string $navigationLabel = 'Servicios contratados';
 
-    protected static ?string $pluralModelLabel = 'Servicios';
+    protected static ?string $modelLabel = 'contratación';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Comercial';
+    protected static ?string $pluralModelLabel = 'Servicios contratados';
+
+    protected static bool $hasTitleCaseModelLabel = false;
 
     protected static ?int $navigationSort = 1;
+
+    protected static ?string $slug = 'contratados';
 
     protected static ?string $recordTitleAttribute = 'description';
 
@@ -96,7 +106,7 @@ class MaintenanceServiceResource extends Resource
                 // Pago único: estado de su cobro (informativo; el estado del contrato no cambia).
                 TextEntry::make('one_time_charge')->label('Cobro del pago único')
                     ->state(fn (MaintenanceService $record) => $record->oneTimeCharge()?->displayStatusLabel())
-                    ->badge()->color(fn (MaintenanceService $record) => self::chargeColor($record->oneTimeCharge()))
+                    ->badge()->color(fn (MaintenanceService $record) => ReceivableResource::statusColor((string) $record->oneTimeCharge()?->displayStatus()))
                     ->helperText(fn (MaintenanceService $record) => ($charge = $record->oneTimeCharge())
                         ? 'Vence el '.$charge->due_date?->format('d/m/Y').' · saldo '.ServicePricing::money($charge->balance())
                         : null)
@@ -148,12 +158,9 @@ class MaintenanceServiceResource extends Resource
                 SelectFilter::make('client_id')->label('Cliente')->relationship('client', 'name', fn ($query) => $query->where('company_id', CompanyContext::currentId()))->searchable()->preload(),
             ])
             ->recordActions([
-                static::statusAction(MaintenanceService::PAUSED, 'Pausar', 'heroicon-o-pause', 'warning')
-                    ->visible(fn (MaintenanceService $r) => $r->status === MaintenanceService::ACTIVE),
-                static::statusAction(MaintenanceService::ACTIVE, 'Activar', 'heroicon-o-play', 'success')
-                    ->visible(fn (MaintenanceService $r) => $r->status !== MaintenanceService::ACTIVE),
                 ViewAction::make(),
                 EditAction::make(),
+                ...static::lifecycleActions(),
             ]);
     }
 
@@ -176,20 +183,9 @@ class MaintenanceServiceResource extends Resource
     {
         return TextColumn::make('one_time_charge')->label('Cobro (pago único)')
             ->state(fn (MaintenanceService $r) => $r->oneTimeCharge()?->displayStatusLabel())
-            ->badge()->color(fn (MaintenanceService $r) => self::chargeColor($r->oneTimeCharge()))
+            ->badge()->color(fn (MaintenanceService $r) => ReceivableResource::statusColor((string) $r->oneTimeCharge()?->displayStatus()))
             ->url(fn (MaintenanceService $r) => self::chargeUrl($r->oneTimeCharge()))
             ->placeholder('—')->toggleable();
-    }
-
-    private static function chargeColor(?Receivable $charge): string
-    {
-        return match ($charge?->displayStatus()) {
-            Receivable::PAID => 'success',
-            'overdue' => 'danger',
-            Receivable::PARTIAL => 'warning',
-            Receivable::PENDING => 'info',
-            default => 'gray',
-        };
     }
 
     /** Enlace al cobro, solo si el usuario puede abrirlo. */
@@ -198,12 +194,73 @@ class MaintenanceServiceResource extends Resource
         return $charge && ReceivableResource::canView($charge) ? ReceivableResource::getUrl('view', ['record' => $charge]) : null;
     }
 
+    /**
+     * Pausar, reactivar, finalizar y volver a cobrar: las mismas acciones (y reglas) en
+     * «Servicios contratados», en la ficha de la contratación y en la del cliente o edificio.
+     * Cada una exige poder gestionar la contratación (también ante solicitudes armadas a mano).
+     *
+     * @return list<Action>
+     */
+    public static function lifecycleActions(): array
+    {
+        return [
+            static::statusAction(MaintenanceService::PAUSED, 'Pausar', 'heroicon-o-pause', 'warning')
+                ->visible(fn (MaintenanceService $r) => $r->status === MaintenanceService::ACTIVE),
+            static::statusAction(MaintenanceService::ACTIVE, 'Reactivar', 'heroicon-o-play', 'success')
+                ->visible(fn (MaintenanceService $r) => $r->status === MaintenanceService::PAUSED),
+            static::finishAction(),
+            static::rebillAction(),
+        ];
+    }
+
+    public static function finishAction(): Action
+    {
+        return Action::make('finish')->label('Finalizar')->icon('heroicon-o-stop-circle')->color('danger')
+            ->visible(fn (MaintenanceService $r) => $r->status !== MaintenanceService::FINISHED)
+            ->authorize(fn (MaintenanceService $r) => static::canEdit($r))
+            ->requiresConfirmation()
+            ->modalHeading('Finalizar la contratación')
+            ->modalDescription('Deja de generar cobros desde hoy. No se borra nada: el historial, las visitas y los cobros ya generados se conservan.')
+            ->modalSubmitActionLabel('Finalizar')
+            ->action(function (MaintenanceService $record) {
+                $record->update(['status' => MaintenanceService::FINISHED, 'end_date' => $record->end_date && $record->end_date->lt(today()) ? $record->end_date : today()]);
+
+                Notification::make()->title('Contratación finalizada')->success()->send();
+            });
+    }
+
+    /** Pago único con su cobro anulado: crea un cobro nuevo vinculado (ServiceBillingService::rebillOneTime). */
+    public static function rebillAction(): Action
+    {
+        return Action::make('rebill')->label('Volver a cobrar')->icon('heroicon-o-arrow-path')->color('warning')
+            ->visible(fn (MaintenanceService $r) => app(ServiceBillingService::class)->canRebill($r))
+            ->authorize(fn (MaintenanceService $r) => static::canEdit($r))
+            ->requiresConfirmation()
+            ->modalHeading('Volver a cobrar el pago único')
+            ->modalDescription(fn (MaintenanceService $r) => 'Su cobro anterior está anulado y se conserva como está. Se crea un cobro nuevo de '
+                .ServicePricing::money((float) $r->amount).' (el importe de la contratación), vinculado a ella, con vencimiento el '
+                .app(ServiceBillingService::class)->rebillDueDate($r)->format('d/m/Y').'.')
+            ->modalSubmitActionLabel('Crear el cobro')
+            ->action(function (MaintenanceService $record) {
+                try {
+                    app(ServiceBillingService::class)->rebillOneTime($record, auth()->user());
+                } catch (ValidationException $e) {
+                    Notification::make()->title('No se creó el cobro')->body(collect($e->errors())->flatten()->first())->danger()->send();
+
+                    return;
+                }
+
+                Notification::make()->title('Cobro creado')->body('Lo ves en Cobranzas y en «Cobros» de la contratación.')->success()->send();
+            });
+    }
+
     public static function statusAction(string $status, string $label, string $icon, string $color): Action
     {
         return Action::make('set_'.$status)
             ->label($label)
             ->icon($icon)
             ->color($color)
+            ->authorize(fn (MaintenanceService $r) => static::canEdit($r))
             ->requiresConfirmation()
             ->modalDescription($status === MaintenanceService::ACTIVE
                 ? 'Se generan los cobros pendientes desde ahora (los períodos anteriores no).'
@@ -229,6 +286,8 @@ class MaintenanceServiceResource extends Resource
     {
         return [
             RelationManagers\VisitsRelationManager::class,
+            // Los cobros de la contratación (el mismo componente que la cuenta corriente del cliente).
+            AccountStatementRelationManager::class,
         ];
     }
 }

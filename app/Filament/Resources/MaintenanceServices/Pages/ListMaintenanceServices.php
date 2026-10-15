@@ -10,10 +10,10 @@ class ListMaintenanceServices extends ListRecords
 {
     protected static string $resource = MaintenanceServiceResource::class;
 
-    protected ?string $subheading = 'Lo que cada cliente paga por el mantenimiento periódico. Las visitas y mantenimientos son parte del servicio: se cobra el servicio, no cada visita.';
+    protected ?string $subheading = 'Lo que tiene contratado cada cliente y genera sus cobros. Se cobra el servicio, no cada visita. Los servicios que ofrecés y sus precios de referencia están en «Servicios ofrecidos».';
 
     protected function getHeaderActions(): array
     {
-        return [CreateAction::make()->label('Nuevo servicio')];
+        return [CreateAction::make()->label('Contratar servicio')];
     }
 }

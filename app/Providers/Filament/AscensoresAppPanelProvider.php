@@ -61,6 +61,12 @@ class AscensoresAppPanelProvider extends PanelProvider
                 for: 'App\\Filament\\Pages'
             )
 
+            // Secciones con sub-navegación (Servicios: contratados y ofrecidos).
+            ->discoverClusters(
+                in: app_path('Filament/Clusters'),
+                for: 'App\\Filament\\Clusters'
+            )
+
             ->pages([
                 Dashboard::class,
             ])

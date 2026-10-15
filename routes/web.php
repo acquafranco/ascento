@@ -44,6 +44,14 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
+// Rutas anteriores a la sección «Servicios» unificada: los enlaces guardados
+// siguen funcionando (redirigen a la vista nueva, con la misma subruta y filtros).
+foreach (['admin/maintenance-services' => 'admin/servicios/contratados', 'admin/catalogo-servicios' => 'admin/servicios/ofrecidos'] as $old => $new) {
+    Route::get($old.'/{path?}', fn (Request $request, ?string $path = null) => redirect()->to(
+        url($new.($path ? '/'.$path : '')).($request->getQueryString() ? '?'.$request->getQueryString() : '')
+    ))->where('path', '.*');
+}
+
 Route::get('/', function () {
 
     // Logueado: a la pantalla de su rol (panel para admins, app para técnicos).

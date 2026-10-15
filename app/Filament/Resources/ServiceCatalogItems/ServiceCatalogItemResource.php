@@ -3,8 +3,10 @@
 namespace App\Filament\Resources\ServiceCatalogItems;
 
 use App\Enums\PermissionArea;
+use App\Filament\Clusters\ServicesCluster;
 use App\Filament\Concerns\GuardedByPermission;
 use App\Filament\Concerns\ScopedToCurrentCompany;
+use App\Filament\Resources\MaintenanceServices\MaintenanceServiceResource;
 use App\Filament\Resources\ServiceCatalogItems\Pages\CreateServiceCatalogItem;
 use App\Filament\Resources\ServiceCatalogItems\Pages\EditServiceCatalogItem;
 use App\Filament\Resources\ServiceCatalogItems\Pages\ListServiceCatalogItems;
@@ -35,9 +37,10 @@ use Filament\Tables\Table;
 use Illuminate\Validation\Rule;
 
 /**
- * Catálogo de servicios que ofrece la empresa. Crear uno no lo asigna a nadie:
- * se contrata desde la ficha del cliente o del edificio (o en «Servicios»).
- * Cambiar su precio no modifica las contrataciones existentes.
+ * Servicios ofrecidos (sección «Servicios»): el catálogo de la empresa. Crear
+ * uno no lo asigna a nadie: se contrata desde «Servicios contratados» o desde la
+ * ficha del cliente o del edificio. Cambiar su precio no modifica las
+ * contrataciones existentes.
  */
 class ServiceCatalogItemResource extends Resource
 {
@@ -55,19 +58,19 @@ class ServiceCatalogItemResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-rectangle-stack';
 
-    protected static ?string $navigationLabel = 'Catálogo de servicios';
+    protected static ?string $cluster = ServicesCluster::class;
 
-    protected static ?string $modelLabel = 'Servicio del catálogo';
+    protected static ?string $navigationLabel = 'Servicios ofrecidos';
 
-    protected static ?string $pluralModelLabel = 'Catálogo de servicios';
+    protected static ?string $modelLabel = 'servicio ofrecido';
+
+    protected static ?string $pluralModelLabel = 'Servicios ofrecidos';
 
     protected static bool $hasTitleCaseModelLabel = false;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Comercial';
-
     protected static ?int $navigationSort = 2;
 
-    protected static ?string $slug = 'catalogo-servicios';
+    protected static ?string $slug = 'ofrecidos';
 
     protected static ?string $recordTitleAttribute = 'name';
 
@@ -129,7 +132,11 @@ class ServiceCatalogItemResource extends Resource
                 TextColumn::make('base_price')->label('Precio de referencia')
                     ->state(fn (ServiceCatalogItem $r) => self::priceLabel($r))->wrap(),
                 TextColumn::make('billing_frequency')->label('Cobro')->formatStateUsing(fn ($state) => MaintenanceService::FREQUENCIES[$state][0] ?? $state)->toggleable(),
-                TextColumn::make('active_contracts_count')->label('Contratos activos')->alignCenter(),
+                // Lleva a «Servicios contratados» filtrado por este servicio (no se repiten las contrataciones acá).
+                TextColumn::make('active_contracts_count')->label('Contratos activos')->alignCenter()
+                    ->url(fn (ServiceCatalogItem $r) => $r->active_contracts_count && MaintenanceServiceResource::canViewAny()
+                        ? MaintenanceServiceResource::getUrl('index', ['filters' => ['catalog_item_id' => ['value' => $r->id]]])
+                        : null),
                 IconColumn::make('is_active')->label('Disponible')->boolean(),
             ])
             ->filters([
