@@ -154,14 +154,31 @@ final class ServiceAssignmentForm
                         ->afterStateHydrated(fn (TextInput $component, ?MaintenanceService $record) => $record && $record->unit_price === null ? $component->state((float) $record->amount) : null),
                 ]),
                 View::make('filament.services.pricing-summary')
-                    ->viewData(fn (Get $get, ?MaintenanceService $record) => ['summary' => self::preview($get, $creating, $fixedClientId, $fixedBuildingId, $record)]),
+                    ->viewData(function (Get $get, Set $set, ?MaintenanceService $record) use ($creating, $fixedClientId, $fixedBuildingId) {
+                        $summary = self::preview($get, $creating, $fixedClientId, $fixedBuildingId, $record);
+                        // Importe que el usuario tiene a la vista: al guardar, el servidor lo compara con el
+                        // recalculado (si otro usuario cambió equipos o paradas, no se guarda sin mostrarlo).
+                        $shown = ($summary['ready'] ?? false) && ! collect($summary['rows'])->contains(fn ($r) => $r['error']) ? round((float) $summary['total'], 2) : null;
+                        $set('shown_total', $shown);
+                        // Si el importe nuevo ya no es el que se confirmó, la confirmación se borra.
+                        if ($get('confirm_amount_change') && ($summary['change'] ?? null) && abs((float) $get('confirmed_amount') - $summary['change']['new']) >= 0.005) {
+                            $set('confirm_amount_change', false);
+                            $set('confirmed_amount', null);
+                        }
+
+                        return ['summary' => $summary];
+                    }),
                 // Al editar, si el importe cambia, se confirma explícitamente (el servidor también lo exige).
                 Checkbox::make('confirm_amount_change')
                     ->label(fn (Get $get, ?MaintenanceService $record) => ($change = self::preview($get, $creating, $fixedClientId, $fixedBuildingId, $record)['change'] ?? null)
                         ? 'Confirmo el nuevo importe: '.ServicePricing::money($change['new']).' (antes '.ServicePricing::money($change['old']).')'
                         : 'Confirmo el nuevo importe')
                     ->visible(fn (Get $get, ?MaintenanceService $record) => ! $creating && $record && (self::preview($get, $creating, $fixedClientId, $fixedBuildingId, $record)['change'] ?? null) !== null)
-                    ->accepted()->validationMessages(['accepted' => 'Confirmá el nuevo importe para guardar.']),
+                    ->accepted()->validationMessages(['accepted' => 'Confirmá el nuevo importe para guardar.'])
+                    // Se confirma el importe que estaba a la vista, no cualquiera que resulte al guardar.
+                    ->live()->afterStateUpdated(fn (?bool $state, Get $get, Set $set) => $set('confirmed_amount', $state ? $get('shown_total') : null)),
+                Hidden::make('shown_total'),
+                Hidden::make('confirmed_amount'),
             ]),
 
             Section::make('Cobro y vigencia')->columnSpanFull()->schema([
@@ -334,7 +351,8 @@ final class ServiceAssignmentForm
     {
         // Datos del formulario que no son columnas.
         $confirmed = (bool) ($data['confirm_amount_change'] ?? false);
-        unset($data['scope'], $data['building_ids'], $data['equipment_kind'], $data['confirm_amount_change']);
+        $confirmedAmount = is_numeric($data['confirmed_amount'] ?? null) ? round((float) $data['confirmed_amount'], 2) : null;
+        unset($data['scope'], $data['building_ids'], $data['equipment_kind'], $data['confirm_amount_change'], $data['confirmed_amount'], $data['shown_total']);
         $companyId = (int) CompanyContext::currentId();
         $data['building_id'] = $scope === self::SCOPE_CLIENT ? null : ((int) ($data['building_id'] ?? 0) ?: null);
         $data['units'] = $scope === self::SCOPE_EQUIPMENT ? array_values(array_filter((array) ($data['units'] ?? []))) : null;
@@ -367,8 +385,15 @@ final class ServiceAssignmentForm
             throw ValidationException::withMessages(['unit_price' => 'El importe tiene que ser mayor que cero.']);
         }
         // Editar nunca cambia el importe sin confirmarlo (por ejemplo, si cambiaron los equipos del edificio).
-        if ($record && ! $confirmed && ($change = self::amountChange($record, $data['pricing_mode'], (float) ($data['unit_price'] ?? 0), $pricing, $data['building_id'], $data['units'], $equipmentKind))) {
-            throw ValidationException::withMessages(['confirm_amount_change' => 'El importe cambia de '.ServicePricing::money($change['old']).' a '.ServicePricing::money($change['new']).' ('.implode('; ', $change['reasons']).'). Confirmá el nuevo importe para guardar.']);
+        if ($record && ($change = self::amountChange($record, $data['pricing_mode'], (float) ($data['unit_price'] ?? 0), $pricing, $data['building_id'], $data['units'], $equipmentKind))) {
+            if (! $confirmed) {
+                throw ValidationException::withMessages(['confirm_amount_change' => 'El importe cambia de '.ServicePricing::money($change['old']).' a '.ServicePricing::money($change['new']).' ('.implode('; ', $change['reasons']).'). Confirmá el nuevo importe para guardar.']);
+            }
+            // La confirmación vale para el importe confirmado: si cambió después (otro usuario
+            // modificó equipos o paradas), se muestra el nuevo y se pide confirmarlo otra vez.
+            if ($confirmedAmount === null || abs($confirmedAmount - $change['new']) >= 0.005) {
+                throw ValidationException::withMessages(['confirm_amount_change' => 'El importe cambió mientras editabas: ahora es '.ServicePricing::money($change['new']).($confirmedAmount !== null ? ' (habías confirmado '.ServicePricing::money($confirmedAmount).')' : '').' ('.implode('; ', $change['reasons']).'). Revisalo y volvé a confirmarlo.']);
+            }
         }
 
         $data['unit_price'] = $pricing['unit_price'];
@@ -444,6 +469,14 @@ final class ServiceAssignmentForm
 
         // Todo o nada: si un edificio no se puede (sin equipos, repetido), no se crea ninguno.
         $prepared = self::errorsAt($statePath, fn () => array_map(fn ($buildingId) => self::prepare(['building_id' => $buildingId] + $data, $scope, $equipmentKind), $targets));
+
+        // El importe recalculado tiene que ser el que se mostró: si otro usuario cambió equipos o
+        // paradas mientras se completaba el formulario, no se crea nada y se muestra el nuevo resumen.
+        $shown = is_numeric($data['shown_total'] ?? null) ? round((float) $data['shown_total'], 2) : null;
+        $total = round((float) array_sum(array_column($prepared, 'amount')), 2);
+        if ($shown !== null && abs($shown - $total) >= 0.005) {
+            throw ValidationException::withMessages(["{$statePath}.unit_price" => 'El importe cambió mientras completabas el formulario: ahora es '.ServicePricing::money($total).' (se mostraba '.ServicePricing::money($shown).'), porque cambiaron los equipos o las paradas cargadas. Revisá el resumen y volvé a guardar.']);
+        }
 
         return DB::transaction(fn () => array_map(fn (array $row) => MaintenanceService::create($row), $prepared));
     }
