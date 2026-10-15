@@ -139,6 +139,8 @@ class PublicBuildingInfo
             'company' => [
                 'name' => $company?->name,
                 'logo' => $logo,
+                // Color de la empresa solo como acento (borde superior), nunca para texto: no afecta el contraste.
+                'accent' => preg_match('/^#[0-9a-fA-F]{6}$/', (string) $company?->primary_color) ? $company->primary_color : null,
                 'phone' => $page->show_contact ? ($company?->phone ?: null) : null,
                 'email' => $page->show_contact ? ($company?->email ?: null) : null,
                 // Solo para el panel (aviso si se habilita el contacto sin datos); no se muestra en la página pública.

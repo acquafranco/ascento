@@ -25,6 +25,7 @@ use App\Filament\Resources\Clients\Pages\EditClient;
 use App\Filament\Resources\Companies\CompanyResource;
 use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
 use App\Filament\Resources\Elevators\ElevatorResource;
+use App\Filament\Resources\Emergency\EmergencyRequestResource;
 use App\Filament\Resources\Inspections\InspectionResource;
 use App\Filament\Resources\Maintenances\MaintenanceResource;
 use App\Filament\Resources\MaintenanceServices\MaintenanceServiceResource;
@@ -94,6 +95,7 @@ class StaffPermissionsTest extends TestCase
         MaintenanceServiceResource::class => PermissionArea::Receivables,
         ServiceCatalogItemResource::class => PermissionArea::Receivables,
         OnCallScheduleResource::class => PermissionArea::OnCall,
+        EmergencyRequestResource::class => PermissionArea::WorkOrders,
         ReceivableResource::class => PermissionArea::Receivables,
         QuoteResource::class => PermissionArea::Quotes,
         StockItemResource::class => PermissionArea::Stock,

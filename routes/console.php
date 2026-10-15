@@ -48,6 +48,9 @@ Schedule::command('parachute:remind')->dailyAt('08:15')->withoutOverlapping();
 Schedule::command('oncall:rotations')->dailyAt('02:30')->withoutOverlapping();
 Schedule::command('oncall:remind')->hourly()->withoutOverlapping();
 
+// Pedidos de ayuda desde el QR: reintento de los correos que fallaron (hasta 3 intentos por aviso).
+Schedule::command('emergency:retry-mail')->everyTwoMinutes()->withoutOverlapping();
+
 // Fotos de visitas subidas para un remito que nunca se firmó (24 h).
 Schedule::command('visit-photos:prune')->dailyAt('03:45')->withoutOverlapping();
 

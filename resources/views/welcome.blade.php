@@ -315,6 +315,75 @@
             </div>
         </section>
 
+        {{-- ============ CONECTA A TODOS ============ --}}
+        {{-- Empresa, administración y quienes usan el ascensor, conectados. Solo funciones que existen hoy:
+             el portal y el pedido de ayuda llevan su plan (de la configuración real) y el pedido aclara que
+             depende de que la empresa lo active y que no reemplaza la alarma ni el 911. --}}
+        @php
+            $connectFrom = function (\App\Enums\PlanFeature ...$features) {
+                $offered = \App\Models\SubscriptionPlan::offered();
+                if ($offered->isNotEmpty() && $offered->every(fn ($p) => $p->allowsAll($features))) {
+                    return null;
+                }
+                $from = \App\Models\SubscriptionPlan::cheapestWith(...$features);
+
+                return $from ? ($from->is($offered->last()) ? 'Plan '.$from->shortName() : 'Desde '.$from->shortName()) : false;
+            };
+            $portalBadge = $connectFrom(\App\Enums\PlanFeature::ClientPortal);
+            $helpBadge = $connectFrom(\App\Enums\PlanFeature::PublicQr, \App\Enums\PlanFeature::EmergencyRequests);
+            $qrBadge = $connectFrom(\App\Enums\PlanFeature::PublicQr);
+            $actors = array_values(array_filter([
+                ['Empresa de mantenimiento', 'Organiza mantenimientos, técnicos, inspecciones, órdenes de trabajo y documentación en un solo lugar, y cierra cada trabajo con el remito firmado.', 'M10.3 2.7A3.2 3.2 0 0 0 6.2 6.8L2.5 10.5V13.5H5.5L9.2 9.8A3.2 3.2 0 0 0 13.3 5.7L11.4 7.6L9.4 7.2L9 5.2L10.3 2.7Z', [], 'Más organización'],
+                $portalBadge === false ? null : ['Administración del consorcio', 'Entra al portal y ve lo que la empresa le comparte de sus edificios: remitos, reportes, presupuestos y documentos. Una visión clara del mantenimiento, sin perseguir a nadie.', 'M3.5 14V3C3.5 2.4 3.9 2 4.5 2H11.5C12.1 2 12.5 2.4 12.5 3V14M2 14H14M6 4.5H7M9 4.5H10M6 7H7M9 7H10M6 9.5H7M9 9.5H10M7 14V12H9V14', array_filter(['Portal' => $portalBadge]), 'Más tranquilidad y transparencia'],
+                $qrBadge === false ? null : ['Quienes viven o usan el edificio', 'Escanean el QR del ascensor y consultan la información que la empresa publica. Si la empresa lo activa, pueden pedir ayuda si quedaron atrapados.', 'M6 7A2.2 2.2 0 1 0 6 2.6A2.2 2.2 0 0 0 6 7ZM1.8 13.5C2.2 11 3.9 9.4 6 9.4C8.1 9.4 9.8 11 10.2 13.5M11 7A1.8 1.8 0 1 0 11 3.4M12.2 9.6C13.4 10.1 14.2 11.6 14.4 13.5', array_filter(['QR' => $qrBadge, 'Pedido de ayuda' => $helpBadge === false ? null : ($helpBadge ?? 'En todos los planes')]), 'Información a mano'],
+            ]));
+        @endphp
+        <section id="conecta" class="relative overflow-hidden border-b border-ink/10 bg-paper py-20 sm:py-28" data-connect>
+            <div class="mx-auto max-w-7xl px-5 sm:px-8">
+                <div data-reveal class="mx-auto max-w-3xl text-center">
+                    <span class="font-mono text-xs uppercase tracking-widest text-amber-600">Mucho más que tu empresa</span>
+                    <h2 class="mt-3 font-display text-3xl font-semibold tracking-tight sm:text-[2.75rem] sm:leading-[1.1]">
+                        El cuidado del ascensor <span class="text-amber-600">conecta a todos.</span>
+                    </h2>
+                    <p class="mt-5 text-base leading-relaxed text-ink/65 sm:text-lg">
+                        Ascento no solo ordena tu empresa: acerca la información del mantenimiento a la administración del edificio y a las personas que usan el ascensor todos los días. Cada uno ve lo que le corresponde, y todos saben quién lo cuida.
+                    </p>
+                </div>
+
+                <ol class="relative mx-auto mt-14 grid max-w-6xl gap-5 lg:grid-cols-3 lg:gap-8" aria-label="Quiénes se conectan con Ascento">
+                    @foreach ($actors as $i => [$title, $text, $icon, $badges, $benefit])
+                        <li data-reveal style="transition-delay: {{ $i * 0.08 }}s" class="relative">
+                            @if (! $loop->last)
+                                {{-- Conector: vertical en el celular, horizontal en pantallas grandes. --}}
+                                <span class="absolute left-8 top-full h-5 w-px bg-amber-500/50 lg:left-auto lg:right-[-2rem] lg:top-1/2 lg:h-px lg:w-8" aria-hidden="true"></span>
+                            @endif
+                            <article class="h-full rounded-2xl border border-ink/10 bg-white p-6 shadow-card">
+                                <div class="flex items-center gap-3">
+                                    <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600" aria-hidden="true">
+                                        <svg width="20" height="20" viewBox="0 0 16 16" fill="none"><path d="{{ $icon }}" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    </span>
+                                    <h3 class="font-display text-lg font-semibold leading-snug">{{ $title }}</h3>
+                                </div>
+                                <p class="mt-4 text-[15px] leading-relaxed text-ink/70">{{ $text }}</p>
+                                <p class="mt-4 text-sm font-semibold text-amber-700">{{ $benefit }}</p>
+                                @if ($badges)
+                                    <p class="mt-3 flex flex-wrap gap-1.5">
+                                        @foreach ($badges as $what => $badge)
+                                            <span class="rounded-full bg-ink/5 px-2.5 py-1 text-xs font-medium text-ink/60">{{ $what }}: {{ lcfirst($badge) }}</span>
+                                        @endforeach
+                                    </p>
+                                @endif
+                            </article>
+                        </li>
+                    @endforeach
+                </ol>
+
+                <p class="mx-auto mt-10 max-w-3xl text-center text-xs leading-relaxed text-ink/45" data-connect-note>
+                    El pedido de ayuda desde el QR está disponible solo si el plan lo incluye y la empresa lo activa. Avisa a la empresa de mantenimiento y a la administración del edificio: no es un servicio de emergencias ni reemplaza la alarma del ascensor o el 911.
+                </p>
+            </div>
+        </section>
+
         {{-- ============ BENEFICIOS ============ --}}
         <section id="beneficios" class="py-24 sm:py-32" data-floor="01">
             <div class="mx-auto max-w-7xl px-5 sm:px-8">

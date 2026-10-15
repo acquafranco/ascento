@@ -7,17 +7,24 @@
     $d = fn ($date) => $date?->format('d/m/Y');
     $tag = fn (string $text, string $tone) => '<span class="qr-tag qr-'.$tone.'">'.e($text).'</span>';
 @endphp
-<div class="qr-wrap" data-public-qr>
-    <header class="qr-head">
+<div class="qr-wrap" data-public-qr @if($info['company']['accent'] ?? null) style="--qr-accent: {{ $info['company']['accent'] }}" @endif>
+    {{-- Identidad de la empresa que mantiene el ascensor (no de Ascento: Ascento va al pie). --}}
+    <header class="qr-head" data-qr="company">
         @if($info['company']['logo'])
-            <img src="{{ $info['company']['logo'] }}" alt="" class="qr-logo">
+            {{-- Si la imagen no carga (archivo movido o sin conexión), se oculta: nunca un ícono roto. --}}
+            <img src="{{ $info['company']['logo'] }}" alt="Logo de {{ $info['company']['name'] }}" class="qr-logo" onerror="this.remove()">
         @endif
-        <div>
-            <p class="qr-company">{{ $info['company']['name'] }}</p>
+        <div style="min-width:0">
+            <p class="qr-company">Mantenimiento a cargo de <strong>{{ $info['company']['name'] }}</strong></p>
             <h1 class="qr-building">{{ $info['building']['name'] }}</h1>
-            @if($info['building']['address'])<p class="qr-muted">{{ $info['building']['address'] }}</p>@endif
+            @if($info['building']['address'])<p class="qr-company">{{ $info['building']['address'] }}</p>@endif
         </div>
     </header>
+
+    {{-- Pedido de ayuda (solo si la empresa lo habilitó y su plan lo incluye; ver EmergencyRequestService). --}}
+    @if(! empty($help))
+        @include('public-qr.partials.help-form', ['help' => $help])
+    @endif
 
     @if($info['show']['maintenance'] || $info['show']['inspection'])
         <section class="qr-card">
@@ -107,4 +114,6 @@
         <p><strong>Esta información es administrativa.</strong> La publica la empresa de mantenimiento con los registros que carga en Ascento. No es una evaluación ni una certificación de seguridad y no reemplaza la de un profesional habilitado.</p>
         <p class="qr-muted">Actualizado: {{ $info['updated_at']?->format('d/m/Y') ?? '—' }}</p>
     </section>
+
+    @include('public-qr.partials.footer')
 </div>

@@ -73,6 +73,8 @@ class Company extends Model
         'photos_maintenance' => 'boolean',
         'photos_inspection' => 'boolean',
         'photos_work_order' => 'boolean',
+        // Pedido de ayuda desde el QR: NO es asignable en masa; solo lo cambia el dueño desde «Mi empresa» (saveEmergencySetting).
+        'emergency_requests_enabled' => 'boolean',
         'whatsapp_connected' => 'boolean',
         'trial_ends_at' => 'datetime',
         'activity_started_at' => 'date',

@@ -11,6 +11,7 @@ use App\Models\CompanyExport;
 use App\Models\DeliveryNote;
 use App\Models\Elevator;
 use App\Models\ElevatorDocument;
+use App\Models\EmergencyRequest;
 use App\Models\MaintenanceService;
 use App\Models\OnCallChange;
 use App\Models\OnCallSchedule;
@@ -313,6 +314,11 @@ class CompanyDataExporter
             $this->scoped(ServiceCatalogItem::class, true), fn ($c) => [$c->id, $c->name, ServiceCatalogItem::categoryLabel($c->category), ServiceCatalogItem::pricingModeLabel($c->pricing_mode),
                 $c->base_price !== null ? $this->money($c->base_price) : '', ServiceCatalogItem::EQUIPMENT_KINDS[$c->equipment_kind] ?? '', MaintenanceService::FREQUENCIES[$c->billing_frequency][0] ?? $c->billing_frequency,
                 implode(', ', (array) $c->includes), $c->description, (bool) $c->is_active, $c->deleted_at !== null]);
+
+        // Pedidos de ayuda desde el QR (sin la IP cifrada ni la clave de idempotencia).
+        $this->sheet('Pedidos de ayuda', ['ID', 'Código', 'Fecha', 'Edificio ID', 'Edificio', 'Ascensor ID', 'Cliente ID', 'Estado', 'Pedidos repetidos', 'Rondas de aviso', 'Avisados (1.ª ronda)', 'Cerrado', 'Nota de cierre'],
+            $this->scoped(EmergencyRequest::class), fn ($e) => [$e->id, $e->reference, $e->created_at, $e->building_id, $this->name('buildings', $e->building_id), $e->elevator_id, $e->client_id,
+                $e->statusLabel(), $e->repeat_count, $e->notify_rounds, $e->recipients_count, $e->closed_at, $e->close_note]);
 
         // Guardias técnicas: configuración, turnos (con su historial de cambios) y registro de cambios.
         $this->sheet('Guardias', ['ID', 'Nombre', 'Horario', 'Técnicos a la vez', 'Modalidad', 'Activa'],

@@ -181,7 +181,7 @@ class CompanyEraser
             return 0;
         }
 
-        $direct = collect([['building_visits', 'user_id'], ['delivery_notes', 'user_id'], ['reports', 'user_id'], ['quotes', 'created_by'], ['portal_memberships', 'user_id'], ['on_call_shifts', 'user_id'], ['on_call_members', 'user_id']])
+        $direct = collect([['building_visits', 'user_id'], ['delivery_notes', 'user_id'], ['reports', 'user_id'], ['quotes', 'created_by'], ['portal_memberships', 'user_id'], ['on_call_shifts', 'user_id'], ['on_call_members', 'user_id'], ['emergency_deliveries', 'user_id']])
             ->sum(fn ($ref) => DB::table($ref[0])->whereIn($ref[1], $erased)->where('company_id', '!=', $id)->count());
 
         $viaParent = collect([
@@ -271,6 +271,11 @@ class CompanyEraser
             $n += DB::table($table)->whereIn('work_order_id', $workOrders ?: [0])->delete();
         }
         $n += $of('work_orders')->delete();
+
+        // Pedidos de ayuda desde el QR (antes que edificios, ascensores, clientes y usuarios).
+        foreach (['emergency_deliveries', 'emergency_requests'] as $table) {
+            $n += $of($table)->delete();
+        }
 
         // Guardias técnicas (después de las órdenes, que referencian sus turnos; antes que los usuarios).
         $n += $of('on_call_changes')->delete();

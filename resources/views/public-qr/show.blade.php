@@ -7,9 +7,9 @@
     <meta name="referrer" content="no-referrer">
     <title>{{ $info['building']['name'] }} · Información del ascensor</title>
     @include('public-qr.partials.styles')
-    <style>body { margin: 0; background: #f8fafc; }</style>
+    <style>body { margin: 0; background: #F4F5F7; }</style>
 </head>
 <body>
-    @include('public-qr.partials.content', ['info' => $info])
+    @include('public-qr.partials.content', ['info' => $info, 'help' => $help ?? null])
 </body>
 </html>

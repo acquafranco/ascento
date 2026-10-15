@@ -54,6 +54,8 @@ enum PlanFeature: string
     case Repairs = 'repairs';
     // Guardias técnicas (cobertura fuera de horario): en los tres planes.
     case OnCall = 'on_call';
+    // Solicitud de ayuda por posible atrapamiento desde el QR público: Profesional y Empresa.
+    case EmergencyRequests = 'emergency_requests';
 
     public function label(): string
     {
@@ -88,6 +90,7 @@ enum PlanFeature: string
             self::ParachuteTests => 'Pruebas de paracaídas',
             self::Repairs => 'Componentes enviados a reparación',
             self::OnCall => 'Gestión de guardias técnicas',
+            self::EmergencyRequests => 'Solicitud de ayuda por atrapamiento desde el QR',
         };
     }
 
@@ -107,6 +110,7 @@ enum PlanFeature: string
             self::ReportVideos => 'un video por reporte para mostrar la falla',
             self::WorkPhotos => 'fotos de antes y después de mantenimientos y órdenes, y reportes de inspección con fotos',
             self::ClientContacts => 'historial de contactos con cada cliente y seguimiento de los que llevan tiempo sin contacto',
+            self::EmergencyRequests => 'botón en el QR del edificio para que quien quedó atrapado en el ascensor pida ayuda: avisa a tu empresa y a la administración del edificio',
             self::OnCall => 'gestión de guardias técnicas: quién cubre noches, fines de semana y feriados, con turnos, rotaciones y cambios con historial',
             default => mb_strtolower($this->label()),
         };

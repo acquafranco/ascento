@@ -17,6 +17,7 @@ use App\Http\Controllers\ParachuteTestFileController;
 use App\Http\Controllers\Portal\PortalController;
 use App\Http\Controllers\Portal\PortalInvitationController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PublicEmergencyController;
 use App\Http\Controllers\PublicQrController;
 use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\QuoteDocumentController;
@@ -87,6 +88,16 @@ Route::get(
 Route::get('/qr/{token}', [PublicQrController::class, 'show'])
     ->where('token', '[A-Za-z0-9]{1,64}')
     ->middleware('throttle:60,1,public-qr.show')->name('public-qr.show');
+
+// Pedido de ayuda por atrapamiento desde el QR (sin cuenta). Sin CSRF de sesión
+// (funciona con cookies bloqueadas): lo reemplaza el comprobante firmado de la
+// página, que además es la clave de idempotencia. Límites por IP (además de los
+// del servicio por edificio y por empresa).
+Route::post('/qr/{token}/ayuda', [PublicEmergencyController::class, 'store'])
+    ->where('token', '[A-Za-z0-9]{1,64}')
+    ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class])
+    ->middleware(['throttle:10,1,public-qr.help', 'throttle:40,60,public-qr.help-hour'])
+    ->name('public-qr.help');
 
 Route::get('/{company:slug}/public/delivery-notes/{token}/pdf', [DeliveryNoteController::class, 'publicPdf'])
     ->middleware('throttle:30,1,delivery-notes.public.pdf')->name('delivery-notes.public.pdf');
@@ -501,6 +512,12 @@ Route::get('/qr-codes/{building}/download/{format}', [PublicQrController::class,
     ->whereNumber('building')->whereIn('format', ['svg', 'png'])
     ->name('public-qr.download');
 
+// Hoja para imprimir y pegar en el ascensor (A4 o compacta), con las mismas reglas que la descarga.
+Route::get('/qr-codes/{building}/hoja/{size}', [PublicQrController::class, 'sheet'])
+    ->middleware(['auth', 'subscription', 'throttle:30,1,public-qr.sheet'])
+    ->whereNumber('building')->whereIn('size', ['a4', 'compacta'])
+    ->name('public-qr.sheet');
+
 Route::get('/files/elevator-documents/{elevatorDocument}', ElevatorDocumentController::class)
     ->middleware(['auth', 'subscription'])
     ->whereNumber('elevatorDocument')
@@ -517,6 +534,8 @@ Route::get('/files/elevator-documents/{elevatorDocument}', ElevatorDocumentContr
 Route::prefix('portal')->name('portal.')->middleware(['auth', 'portal'])->group(function () {
     Route::get('/', [PortalController::class, 'home'])->name('home');
     Route::get('/documentos', [PortalController::class, 'documents'])->name('documents');
+    // Pedidos de ayuda desde el QR de SUS edificios autorizados (solo lectura).
+    Route::get('/pedidos-de-ayuda', [PortalController::class, 'emergencies'])->name('emergencies');
     Route::get('/servicio/{type}', [PortalController::class, 'visits'])->whereIn('type', ['maintenance', 'inspection'])->name('visits');
     Route::post('/empresa', [PortalController::class, 'switchCompany'])->name('switch-company');
     Route::get('/edificios/{building}', [PortalController::class, 'building'])->whereNumber('building')->name('building');

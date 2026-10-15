@@ -167,7 +167,7 @@ class PlanFeaturesTest extends TestCase
         Log::spy();
         $inicial = SubscriptionPlan::findBySlug('inicial');
         $all = array_map(fn (PlanFeature $f) => $f->value, PlanFeature::toggleable());
-        $result = app(PlanFeatureManager::class)->update($super, $inicial, array_values(array_diff($all, ['tasks', 'public_qr', 'repairs', 'client_contacts', 'quotes', 'digital_delivery_notes', 'attention_advanced', 'company_indicators', 'elevator_history_advanced', 'failure_analysis', 'client_portal', 'report_videos', 'advanced_indicators', 'advanced_alerts', 'work_photos'])));
+        $result = app(PlanFeatureManager::class)->update($super, $inicial, array_values(array_diff($all, ['tasks', 'public_qr', 'repairs', 'client_contacts', 'quotes', 'digital_delivery_notes', 'attention_advanced', 'company_indicators', 'elevator_history_advanced', 'failure_analysis', 'client_portal', 'report_videos', 'advanced_indicators', 'advanced_alerts', 'work_photos', 'emergency_requests'])));
         $this->assertEqualsCanonicalizing(['tasks', 'public_qr', 'repairs'], $result['removed']);
         $this->assertSame([], $result['added']);
         Log::shouldHaveReceived('notice')->once();

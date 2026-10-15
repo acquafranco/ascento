@@ -11,6 +11,7 @@ use App\Models\BuildingVisit;
 use App\Models\DeliveryNote;
 use App\Models\Elevator;
 use App\Models\ElevatorDocument;
+use App\Models\EmergencyRequest;
 use App\Models\Quote;
 use App\Models\Report;
 use App\Models\ReportPhoto;
@@ -116,6 +117,23 @@ class PortalController extends Controller
             'buildingNames' => $buildings->pluck('name', 'id'),
             'newKeys' => $this->newKeys($request),
         ]);
+    }
+
+    /**
+     * Pedidos de ayuda por atrapamiento de SUS edificios autorizados, en la empresa
+     * activa del portal. Solo lectura; sin búsqueda por código.
+     */
+    public function emergencies(Request $request)
+    {
+        $user = $request->user();
+        $companyId = PortalAccess::currentCompanyId($user);
+        $ids = $this->buildingIds($request);
+
+        $requests = EmergencyRequest::withoutGlobalScopes()->where('company_id', $companyId)->whereIn('building_id', $ids ?: [0])
+            ->with(['building' => fn ($q) => $q->withoutGlobalScopes(), 'elevator' => fn ($q) => $q->withoutGlobalScopes()])
+            ->latest('created_at')->paginate(20);
+
+        return view('portal.emergencies', ['requests' => $requests]);
     }
 
     /** Mantenimientos o inspecciones (por separado), con su remito si fue compartido. */
