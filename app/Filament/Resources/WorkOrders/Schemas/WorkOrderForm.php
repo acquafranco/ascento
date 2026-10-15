@@ -2,11 +2,13 @@
 
 namespace App\Filament\Resources\WorkOrders\Schemas;
 
+use App\Enums\PlanFeature;
 use App\Filament\Support\JobDetail;
 use App\Models\Building;
 use App\Models\WorkOrder;
 use App\Services\Visits\WorkPhotoGallery;
 use App\Support\ElevatorComponents;
+use App\Support\Plans\PlanGuard;
 use Filament\Forms;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\View;
@@ -170,7 +172,8 @@ class WorkOrderForm
                     ->options(fn (?WorkOrder $record) => OnCallShiftOptions::for($record))
                     ->searchable()
                     ->helperText(fn () => OnCallShiftOptions::onDutyNow())
-                    ->disabled(fn (?WorkOrder $record) => $record?->deliveryNote()->exists() ?? false),
+                    ->disabled(fn (?WorkOrder $record) => $record?->deliveryNote()->exists() ?? false)
+                    ->visible(fn () => PlanGuard::currentAllows(PlanFeature::OnCall)),
 
                 Forms\Components\Select::make(
                     'type'

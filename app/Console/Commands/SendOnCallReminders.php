@@ -2,9 +2,11 @@
 
 namespace App\Console\Commands;
 
+use App\Enums\PlanFeature;
 use App\Models\OnCallSchedule;
 use App\Models\OnCallShift;
 use App\Services\OnCall\OnCallNotifier;
+use App\Support\Plans\PlanGuard;
 use Illuminate\Console\Command;
 
 /**
@@ -25,6 +27,9 @@ class SendOnCallReminders extends Command
             ->whereIn('on_call_schedule_id', OnCallSchedule::withoutGlobalScopes()->where('is_active', true)->select('id'))
             ->orderBy('id')
             ->each(function (OnCallShift $shift) use ($notifier, &$sent) {
+                if (! PlanGuard::companyAllows((int) $shift->company_id, PlanFeature::OnCall)) {
+                    return;
+                }
                 $notifier->upcoming($shift);
                 $shift->forceFill(['reminded_at' => now()])->saveQuietly();
                 $sent++;

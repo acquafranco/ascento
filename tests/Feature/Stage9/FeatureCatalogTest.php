@@ -44,7 +44,9 @@ class FeatureCatalogTest extends TestCase
     use InteractsWithTenants, RefreshDatabase;
 
     private const BASE = ['buildings', 'clients', 'technicians', 'maintenances', 'inspections', 'work_orders', 'reports', 'history', 'map', 'digital_delivery_notes',
-        'agenda', 'attention_center', 'elevator_file', 'indicators', 'tasks', 'public_qr', 'parachute_tests', 'repairs'];
+        'agenda', 'attention_center', 'elevator_file', 'indicators', 'tasks', 'public_qr', 'parachute_tests', 'repairs',
+        // Guardias técnicas: en los tres planes, sin costo adicional.
+        'on_call'];
 
     private const PROFESIONAL = ['quotes', 'attention_advanced', 'company_indicators', 'elevator_history_advanced', 'failure_analysis', 'client_portal', 'report_videos', 'client_contacts'];
 

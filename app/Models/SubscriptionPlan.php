@@ -200,6 +200,7 @@ class SubscriptionPlan extends Model
             ['QR público de los edificios', $feature(PlanFeature::PublicQr)],
             ['Pruebas de paracaídas', $feature(PlanFeature::ParachuteTests)],
             ['Componentes enviados a reparación', $feature(PlanFeature::Repairs)],
+            ['Gestión de guardias técnicas', $feature(PlanFeature::OnCall)],
             ['Presupuestos con PDF y envío por correo', $feature(PlanFeature::Quotes)],
             ['Portal para clientes', $feature(PlanFeature::ClientPortal)],
             ['Historial de contactos con clientes', $feature(PlanFeature::ClientContacts)],

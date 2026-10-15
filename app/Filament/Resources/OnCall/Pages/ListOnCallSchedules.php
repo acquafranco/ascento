@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\OnCall\Pages;
 
+use App\Enums\PlanFeature;
+use App\Filament\Concerns\RequiresPlanFeature;
 use App\Filament\Resources\OnCall\OnCallScheduleResource;
 use App\Filament\Resources\OnCall\Widgets\OnCallOverview;
 use Filament\Actions\CreateAction;
@@ -9,6 +11,10 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListOnCallSchedules extends ListRecords
 {
+    use RequiresPlanFeature;
+
+    protected static PlanFeature $planFeature = PlanFeature::OnCall;
+
     protected static string $resource = OnCallScheduleResource::class;
 
     protected ?string $subheading = 'Cobertura técnica fuera del horario habitual: quién está de guardia ahora, las próximas franjas y los cambios.';

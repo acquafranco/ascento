@@ -2,11 +2,13 @@
 
 namespace App\Services\OnCall;
 
+use App\Enums\PlanFeature;
 use App\Models\OnCallChange;
 use App\Models\OnCallSchedule;
 use App\Models\OnCallShift;
 use App\Models\User;
 use App\Support\CompanyContext;
+use App\Support\Plans\PlanGuard;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -48,6 +50,8 @@ class OnCallService
         $from = Carbon::parse($from)->seconds(0);
         $to = $to ? Carbon::parse($to)->seconds(0) : null;
 
+        PlanGuard::ensureCurrent(PlanFeature::OnCall);
+
         return DB::transaction(function () use ($schedule, $user, $from, $to, $actor, $reason) {
             $schedule = $this->lockSchedule($schedule);
             $this->assertTechnician($schedule, $user);
@@ -79,6 +83,8 @@ class OnCallService
     {
         $from = Carbon::parse($from)->seconds(0);
         $to = $to ? Carbon::parse($to)->seconds(0) : null;
+
+        PlanGuard::ensureCurrent(PlanFeature::OnCall);
 
         return DB::transaction(function () use ($shift, $from, $to, $newUser, $actor, $reason) {
             $schedule = $this->lockSchedule($shift->schedule()->withoutGlobalScopes()->firstOrFail());
@@ -162,6 +168,8 @@ class OnCallService
     /** Finaliza la guardia: cancela los turnos futuros y corta los vigentes desde ahora. Conserva todo el historial. */
     public function finishSchedule(OnCallSchedule $schedule, ?User $actor = null, ?string $reason = null): void
     {
+        PlanGuard::ensureCurrent(PlanFeature::OnCall);
+
         DB::transaction(function () use ($schedule, $actor, $reason) {
             $schedule = $this->lockSchedule($schedule);
             $now = now()->seconds(0);
