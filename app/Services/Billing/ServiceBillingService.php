@@ -80,6 +80,8 @@ class ServiceBillingService
         }
 
         $created = 0;
+        // ¿Es el primer cobro de la contratación? (para la regla de su vencimiento)
+        $first = ! Receivable::withoutGlobalScopes()->where('maintenance_service_id', $service->id)->exists();
 
         foreach ($this->periodsFor($service, $upTo) as $period) {
             $exists = Receivable::withoutGlobalScopes()
@@ -98,18 +100,70 @@ class ServiceBillingService
                     'service',
                     $service->description.' — '.ucfirst($period->locale('es')->translatedFormat('F Y')),
                     (float) $service->amount,
-                    $period->copy()->day($service->payment_due_day),
+                    $this->dueDateFor($service, $period, $first, today()),
                     auth()->user(),
                     serviceId: $service->id,
                     periodStart: $period,
                 ));
                 $created++;
+                $first = false;
             } catch (UniqueConstraintViolationException) {
                 // Otro proceso lo generó al mismo tiempo: ya existe.
             }
         }
 
         return $created;
+    }
+
+    /**
+     * Vencimiento de un cobro de período: el día pactado del mes en que empieza el
+     * período. El PRIMER cobro de una contratación, si al emitirse ese día ya pasó,
+     * vence ese día del mes siguiente (no nace vencido). Los demás (incluida la
+     * reactivación) vencen el día pactado aunque ya haya pasado.
+     */
+    public function dueDateFor(MaintenanceService $service, CarbonInterface $period, bool $first, CarbonInterface $issuedOn): Carbon
+    {
+        $day = max(1, min(28, (int) $service->payment_due_day));
+        $due = Carbon::parse($period)->startOfMonth()->day($day);
+
+        return $first && $due->lt(Carbon::parse($issuedOn)->startOfDay()) ? $due->addMonthNoOverflow() : $due;
+    }
+
+    /**
+     * Al editar la contratación (día de vencimiento o inicio), ajusta solo sus cobros
+     * de período pendientes y sin pagos:
+     * - con el nuevo inicio, los de períodos anteriores a él se anulan (con motivo, no se borran);
+     * - los demás toman el vencimiento con el nuevo día pactado (mismo período y misma regla
+     *   que al emitirlos). Si con esa fecha siguen vencidos, siguen vencidos.
+     * Nunca toca importes, cobros pagados, parcialmente pagados o anulados, ni el cobro
+     * nuevo de «Volver a cobrar».
+     *
+     * @return array{rescheduled: int, voided: int}
+     */
+    public function syncPendingCharges(MaintenanceService $service): array
+    {
+        $result = ['rescheduled' => 0, 'voided' => 0];
+        $all = Receivable::withoutGlobalScopes()->where('maintenance_service_id', $service->id);
+        $firstId = (clone $all)->min('id');
+        $start = Carbon::parse($service->start_date)->startOfMonth();
+
+        $pending = (clone $all)->where('status', Receivable::PENDING)->where('paid_amount', 0)->whereNotNull('period_start')->orderBy('period_start')->get();
+
+        foreach ($pending as $receivable) {
+            if ($receivable->period_start->lt($start)) {
+                $this->receivables->void($receivable, 'La contratación ahora empieza el '.Carbon::parse($service->start_date)->format('d/m/Y').': este período quedó fuera.');
+                $result['voided']++;
+
+                continue;
+            }
+
+            $due = $this->dueDateFor($service, $receivable->period_start, (int) $receivable->id === (int) $firstId, $receivable->created_at ?? today());
+            if ($this->receivables->reschedule($receivable, $due)) {
+                $result['rescheduled']++;
+            }
+        }
+
+        return $result;
     }
 
     /**

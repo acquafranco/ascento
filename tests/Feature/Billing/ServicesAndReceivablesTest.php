@@ -102,7 +102,10 @@ class ServicesAndReceivablesTest extends TestCase
         $this->assertSame($service->id, $receivable->maintenance_service_id);
         $this->assertSame('service', $receivable->source);
         $this->assertEquals(120000, $receivable->amount);
-        $this->assertSame('2026-10-10', $receivable->due_date->toDateString());
+        // Alta el 15/10 con día 10 (ya pasado): el primer cobro vence el 10 del mes siguiente (regla aprobada);
+        // el período cobrado sigue siendo octubre.
+        $this->assertSame('2026-11-10', $receivable->due_date->toDateString());
+        $this->assertSame('pending', $receivable->displayStatus());
         $this->assertSame('2026-10-01', $receivable->period_start->toDateString());
         $this->assertStringContainsString('Octubre 2026', $receivable->concept);
     }
