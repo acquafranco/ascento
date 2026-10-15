@@ -25,6 +25,19 @@
         <h1 class="t-h1 mt-0.5">Hola, {{ Str::of(auth()->user()->name)->before(' ') }}</h1>
     </header>
 
+    {{-- Guardia en curso (si la tiene): el detalle está en la pestaña «Guardias». --}}
+    @php $onCallNow = \App\Services\OnCall\TechnicianOnCall::activeNow(auth()->user()); @endphp
+    @if($onCallNow)
+        <a href="{{ route('on-call.index', ['company' => $slug]) }}" data-on-call-banner
+           class="mb-4 flex items-center gap-3 rounded-2xl border-2 border-brand bg-brand-50 px-4 py-3">
+            <svg class="h-6 w-6 shrink-0 text-brand-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{!! TechNav::icon('shield') !!}</svg>
+            <span class="min-w-0 flex-1">
+                <span class="block font-semibold text-ink">Estás de guardia: {{ $onCallNow['schedule']->name }}</span>
+                <span class="block text-sm text-ink-700">Hasta {{ ucfirst($onCallNow['until']->translatedFormat('D d/m H:i')) }}</span>
+            </span>
+        </a>
+    @endif
+
     {{-- Contadores: enlazan a cada listado y se actualizan solos. --}}
     <div class="grid grid-cols-3 gap-2.5" data-tech-counters data-counts-url="{{ route('technician.counters', ['company' => $slug]) }}">
         @foreach([

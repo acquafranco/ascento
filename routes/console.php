@@ -43,6 +43,11 @@ Schedule::command('notifications:visits')->dailyAt('08:00')->withoutOverlapping(
 // Pruebas de paracaídas próximas o vencidas (Etapa 7): una vez por día, sin duplicar.
 Schedule::command('parachute:remind')->dailyAt('08:15')->withoutOverlapping();
 
+// Guardias técnicas: turnos futuros de las rotaciones (horizonte de 8 semanas)
+// y recordatorio al técnico de la guardia que empieza en las próximas 24 h.
+Schedule::command('oncall:rotations')->dailyAt('02:30')->withoutOverlapping();
+Schedule::command('oncall:remind')->hourly()->withoutOverlapping();
+
 // Fotos de visitas subidas para un remito que nunca se firmó (24 h).
 Schedule::command('visit-photos:prune')->dailyAt('03:45')->withoutOverlapping();
 

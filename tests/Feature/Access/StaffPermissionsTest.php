@@ -28,6 +28,7 @@ use App\Filament\Resources\Elevators\ElevatorResource;
 use App\Filament\Resources\Inspections\InspectionResource;
 use App\Filament\Resources\Maintenances\MaintenanceResource;
 use App\Filament\Resources\MaintenanceServices\MaintenanceServiceResource;
+use App\Filament\Resources\OnCall\OnCallScheduleResource;
 use App\Filament\Resources\ParachuteTests\ParachuteTestResource;
 use App\Filament\Resources\Quotes\QuoteResource;
 use App\Filament\Resources\Receivables\ReceivableResource;
@@ -92,6 +93,7 @@ class StaffPermissionsTest extends TestCase
         MaintenanceResource::class => PermissionArea::Visits,
         MaintenanceServiceResource::class => PermissionArea::Receivables,
         ServiceCatalogItemResource::class => PermissionArea::Receivables,
+        OnCallScheduleResource::class => PermissionArea::OnCall,
         ReceivableResource::class => PermissionArea::Receivables,
         QuoteResource::class => PermissionArea::Quotes,
         StockItemResource::class => PermissionArea::Stock,

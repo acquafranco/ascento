@@ -17,6 +17,7 @@ class WorkOrder extends Model
     protected $fillable = [
         'company_id',
         'building_id',
+        'on_call_shift_id',
         'type',
         'status',
         'priority',
@@ -58,6 +59,26 @@ class WorkOrder extends Model
 
         // Eliminar una orden abierta es cancelarla: se avisa a sus técnicos.
         static::deleted(fn (WorkOrder $workOrder) => app(\App\Services\Notifications\AssignmentNotifier::class)->workOrderCancelled($workOrder));
+
+        // Guardia de origen: solo un turno de la misma empresa, y una vez que la
+        // orden tiene remito no se cambia (el remito firmado no se reescribe).
+        static::saving(function (WorkOrder $workOrder) {
+            if (! $workOrder->isDirty('on_call_shift_id')) {
+                return;
+            }
+            if ($workOrder->exists && $workOrder->deliveryNote()->exists()) {
+                $workOrder->on_call_shift_id = $workOrder->getOriginal('on_call_shift_id');
+
+                return;
+            }
+            if ($workOrder->on_call_shift_id) {
+                $companyId = $workOrder->company_id ?? (\App\Support\CompanyContext::currentId());
+                $ok = OnCallShift::withoutGlobalScopes()->whereKey($workOrder->on_call_shift_id)->where('company_id', $companyId)->exists();
+                if (! $ok) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['on_call_shift_id' => 'Esa guardia no es de tu empresa.']);
+                }
+            }
+        });
 
         static::creating(function (WorkOrder $workOrder) {
 
@@ -101,6 +122,12 @@ class WorkOrder extends Model
      * Devuelve el primer técnico asignado.
      */
 
+
+    /** Turno de guardia en el que se originó (si lo indicó quien la cargó). */
+    public function onCallShift()
+    {
+        return $this->belongsTo(OnCallShift::class, 'on_call_shift_id');
+    }
 
     public function deliveryNote()
     {

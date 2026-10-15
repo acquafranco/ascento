@@ -1,0 +1,38 @@
+<?php
+
+namespace App\Filament\Resources\OnCall\Pages;
+
+use App\Filament\Resources\OnCall\OnCallScheduleResource;
+use App\Models\OnCallSchedule;
+use App\Services\OnCall\OnCallService;
+use App\Services\OnCall\RotationService;
+use Filament\Resources\Pages\EditRecord;
+
+class EditOnCallSchedule extends EditRecord
+{
+    protected static string $resource = OnCallScheduleResource::class;
+
+    protected ?string $subheading = 'Los cambios valen desde ahora: los turnos pasados y en curso no se recalculan.';
+
+    protected function afterSave(): void
+    {
+        /** @var OnCallSchedule $schedule */
+        $schedule = $this->record;
+        $labels = ['name' => 'nombre', 'notes' => 'indicaciones', 'days' => 'días', 'starts_time' => 'hora de inicio', 'ends_time' => 'hora de fin',
+            'technicians_needed' => 'técnicos a la vez', 'mode' => 'modalidad', 'rotation_days' => 'duración del turno', 'rotation_starts_on' => 'inicio de la rotación'];
+        $changed = array_values(array_intersect_key($labels, $schedule->getChanges()));
+
+        if ($changed) {
+            app(OnCallService::class)->log($schedule, null, 'schedule_updated', null, null, now(), null, null, 'Cambió: '.implode(', ', $changed).'.', auth()->user());
+        }
+
+        if ($schedule->isRotation()) {
+            OnCallRotationFeedback::send(app(RotationService::class)->sync($schedule, auth()->user(), reason: 'Rotación modificada'));
+        }
+    }
+
+    protected function getRedirectUrl(): string
+    {
+        return OnCallScheduleResource::getUrl('view', ['record' => $this->record]);
+    }
+}

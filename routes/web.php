@@ -12,6 +12,7 @@ use App\Http\Controllers\ElevatorDocumentController;
 use App\Http\Controllers\HelpController;
 use App\Http\Controllers\InspectionReportController;
 use App\Http\Controllers\NotificationInboxController;
+use App\Http\Controllers\OnCallController;
 use App\Http\Controllers\ParachuteTestFileController;
 use App\Http\Controllers\Portal\PortalController;
 use App\Http\Controllers\Portal\PortalInvitationController;
@@ -237,6 +238,14 @@ Route::prefix('{company:slug}')
             ])->where('date', '\d{4}-\d{2}-\d{2}')->name('users.template.day');
 
         });
+
+        /*
+        |--------------------------------------------------------------------------
+        | GUARDIAS (consulta del técnico: solo sus asignaciones)
+        |--------------------------------------------------------------------------
+        */
+
+        Route::get('/guardias', [OnCallController::class, 'index'])->name('on-call.index');
 
         /*
         |--------------------------------------------------------------------------

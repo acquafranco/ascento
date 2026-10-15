@@ -29,6 +29,8 @@ enum PermissionArea: string
     case PublicPages = 'public_pages';
     // Etapa 8.4: componentes enviados a reparación.
     case Repairs = 'repairs';
+    // Guardias técnicas: planificación de la cobertura fuera de horario.
+    case OnCall = 'on_call';
 
     public const VIEW = 'view';
 
@@ -53,6 +55,7 @@ enum PermissionArea: string
             self::Contacts => 'Historial de contactos',
             self::PublicPages => 'QR y datos públicos',
             self::Repairs => 'Reparaciones',
+            self::OnCall => 'Guardias',
         };
     }
 

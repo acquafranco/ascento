@@ -12,6 +12,9 @@ use App\Models\DeliveryNote;
 use App\Models\Elevator;
 use App\Models\ElevatorDocument;
 use App\Models\MaintenanceService;
+use App\Models\OnCallChange;
+use App\Models\OnCallSchedule;
+use App\Models\OnCallShift;
 use App\Models\ParachuteSchedule;
 use App\Models\ParachuteTest;
 use App\Models\ParachuteTestFile;
@@ -310,6 +313,18 @@ class CompanyDataExporter
             $this->scoped(ServiceCatalogItem::class, true), fn ($c) => [$c->id, $c->name, ServiceCatalogItem::categoryLabel($c->category), ServiceCatalogItem::pricingModeLabel($c->pricing_mode),
                 $c->base_price !== null ? $this->money($c->base_price) : '', ServiceCatalogItem::EQUIPMENT_KINDS[$c->equipment_kind] ?? '', MaintenanceService::FREQUENCIES[$c->billing_frequency][0] ?? $c->billing_frequency,
                 implode(', ', (array) $c->includes), $c->description, (bool) $c->is_active, $c->deleted_at !== null]);
+
+        // Guardias técnicas: configuración, turnos (con su historial de cambios) y registro de cambios.
+        $this->sheet('Guardias', ['ID', 'Nombre', 'Horario', 'Técnicos a la vez', 'Modalidad', 'Activa'],
+            $this->scoped(OnCallSchedule::class), fn ($g) => [$g->id, $g->name, $g->coverageLabel(), $g->technicians_needed, $g->modeLabel(), (bool) $g->is_active]);
+
+        $this->sheet('Turnos de guardia', ['ID', 'Guardia ID', 'Técnico ID', 'Técnico', 'Desde', 'Hasta', 'Origen', 'Estado', 'Turno anterior ID', 'Motivo del cambio'],
+            $this->scoped(OnCallShift::class)->with('user:id,name,deleted_at'), fn ($t) => [$t->id, $t->on_call_schedule_id, $t->user_id, $t->user?->name,
+                $t->starts_at, $t->ends_at, OnCallShift::ORIGINS[$t->origin] ?? $t->origin, OnCallShift::STATUSES[$t->status] ?? $t->status, $t->parent_shift_id, $t->close_reason]);
+
+        $this->sheet('Cambios de guardia', ['ID', 'Fecha', 'Guardia ID', 'Cambio', 'Técnico anterior ID', 'Técnico nuevo ID', 'Desde', 'Hasta', 'Motivo', 'Detalle', 'Hecho por ID'],
+            $this->scoped(OnCallChange::class), fn ($c) => [$c->id, $c->created_at, $c->on_call_schedule_id, $c->actionLabel(), $c->from_user_id, $c->to_user_id,
+                $c->period_start, $c->period_end, $c->reason, $c->summary, $c->user_id]);
 
         // Usuarios: personal de la empresa, solo datos operativos (nunca contraseña, tokens ni chats).
         $this->sheet('Usuarios', ['ID', 'Nombre', 'Email', 'Rol', 'Cliente (portal)', 'Teléfono', 'Estado', 'Alta'],

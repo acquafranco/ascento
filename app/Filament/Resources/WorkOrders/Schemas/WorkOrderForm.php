@@ -162,6 +162,16 @@ class WorkOrderForm
                     ->preload()
                     ->required(),
 
+                // Guardia de origen (opcional): la elige quien carga la orden; nunca se
+                // deduce por la hora. Turnos vigentes o de los últimos 3 días.
+                Forms\Components\Select::make('on_call_shift_id')
+                    ->label('Guardia (si se originó durante una)')
+                    ->placeholder('No es un trabajo de guardia')
+                    ->options(fn (?WorkOrder $record) => OnCallShiftOptions::for($record))
+                    ->searchable()
+                    ->helperText(fn () => OnCallShiftOptions::onDutyNow())
+                    ->disabled(fn (?WorkOrder $record) => $record?->deliveryNote()->exists() ?? false),
+
                 Forms\Components\Select::make(
                     'type'
                 )
