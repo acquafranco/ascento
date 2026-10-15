@@ -192,4 +192,87 @@ class ServiceChargeDueDateTest extends TestCase
         $this->assertSame($otherCharge, Receivable::withoutGlobalScopes()->where('maintenance_service_id', $other->id)->sole()->toArray());
         Livewire::test(ListReceivables::class)->assertCountTableRecords(1);
     }
+
+    public function test_due_dates_across_year_end_february_and_days_beyond_28(): void
+    {
+        // Alta el 15/12 con día 10: vence el 10/01 del año siguiente.
+        $this->travelTo(Carbon::parse('2026-12-15 10:00'));
+        $service = MaintenanceService::create(['client_id' => $this->client->id, 'building_id' => $this->a['building']->id, 'description' => 'Diciembre', 'amount' => 1000, 'frequency' => 'monthly', 'start_date' => '2026-12-01', 'payment_due_day' => 10, 'status' => 'active']);
+        $charge = $service->receivables()->sole();
+        $this->assertSame('2027-01-10', $charge->due_date->toDateString());
+
+        // Misma instancia editada en la misma ejecución: el ajuste también corre (antes no).
+        $service->update(['payment_due_day' => 28]);
+        $this->assertSame('2026-12-28', $charge->fresh()->due_date->toDateString());
+
+        // 29, 30 o 31: el formulario no los acepta y el modelo los limita a 28.
+        Livewire::test(EditMaintenanceService::class, ['record' => $service->getRouteKey()])->set('data.payment_due_day', 31)->call('save')->assertHasFormErrors(['payment_due_day']);
+        $service->update(['payment_due_day' => 31]);
+        $this->assertSame([28, '2026-12-28'], [$service->fresh()->payment_due_day, $charge->fresh()->due_date->toDateString()]);
+
+        // Febrero: el día 28 existe siempre.
+        $this->travelTo(Carbon::parse('2027-02-02 10:00'));
+        app(ServiceBillingService::class)->generateAll();
+        $this->assertSame('2027-02-28', $service->receivables()->whereDate('period_start', '2027-02-01')->sole()->due_date->toDateString());
+        $this->assertSame(3, $service->receivables()->count()); // dic, ene, feb: sin duplicados
+    }
+
+    public function test_a_charge_paid_or_voided_meanwhile_is_left_alone(): void
+    {
+        $service = $this->contract();
+        $charge = Receivable::sole();
+
+        // Otro usuario registra un pago justo después de que el ajuste leyó los pendientes.
+        $hit = false;
+        Receivable::retrieved(function (Receivable $r) use ($charge, &$hit) {
+            if (! $hit && $r->id === $charge->id && $r->status === Receivable::PENDING) {
+                $hit = true;
+                \DB::table('receivables')->where('id', $r->id)->update(['status' => Receivable::PARTIAL, 'paid_amount' => 500]);
+            }
+        });
+        $this->edit($service, ['start_date' => '2026-11-01']);
+
+        $this->assertTrue($hit);
+        $this->assertSame([Receivable::PARTIAL, 500.0], [$charge->fresh()->status, (float) $charge->fresh()->paid_amount]);
+        $this->assertSame('2026-11-01', $service->fresh()->start_date->toDateString()); // la edición se guardó igual
+    }
+
+    public function test_a_manual_void_reason_is_never_overwritten(): void
+    {
+        $service = $this->contract();
+        $charge = Receivable::sole();
+
+        $hit = false;
+        Receivable::retrieved(function (Receivable $r) use ($charge, &$hit) {
+            if (! $hit && $r->id === $charge->id && $r->status === Receivable::PENDING) {
+                $hit = true;
+                \DB::table('receivables')->where('id', $r->id)->update(['status' => Receivable::VOID, 'void_reason' => 'Anulado a mano', 'voided_at' => now()]);
+            }
+        });
+        $this->edit($service, ['start_date' => '2026-11-01']);
+
+        $this->assertTrue($hit);
+        $this->assertSame('Anulado a mano', $charge->fresh()->void_reason);
+    }
+
+    public function test_an_old_wrongly_overdue_charge_can_be_corrected_from_the_contract(): void
+    {
+        // Cobro emitido por la versión anterior: alta el 15/10 con día 10, vence el 10/10 (nació vencido).
+        $this->travelTo(Carbon::parse('2026-10-15 10:00'));
+        $service = $this->contract();
+        $charge = Receivable::sole();
+        \DB::table('receivables')->where('id', $charge->id)->update(['due_date' => '2026-10-10']);
+        $this->cobranzasShows($charge->fresh(), 'Vencida');
+
+        // Guardar sin cambiar el día no mueve vencimientos (regla acordada).
+        $this->edit($service, ['description' => 'Abono']);
+        $this->assertSame('2026-10-10', $charge->fresh()->due_date->toDateString());
+
+        // Cambiar el día (y, si se quiere conservar el mismo, volver a él) lo corrige con la regla actual.
+        $this->edit($service, ['payment_due_day' => 11]);
+        $this->edit($service, ['payment_due_day' => 10]);
+        $this->assertSame('2026-11-10', $charge->fresh()->due_date->toDateString());
+        $this->cobranzasShows($charge->fresh(), 'Pendiente');
+        $this->assertSame(1, Receivable::count());
+    }
 }

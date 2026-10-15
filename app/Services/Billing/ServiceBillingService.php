@@ -151,8 +151,18 @@ class ServiceBillingService
 
         foreach ($pending as $receivable) {
             if ($receivable->period_start->lt($start)) {
-                $this->receivables->void($receivable, 'La contratación ahora empieza el '.Carbon::parse($service->start_date)->format('d/m/Y').': este período quedó fuera.');
-                $result['voided']++;
+                // Se vuelve a verificar con bloqueo: si entretanto recibió un pago o alguien lo anuló,
+                // no se toca (ni se pisa el motivo de una anulación hecha a mano).
+                $voided = DB::transaction(function () use ($receivable, $service) {
+                    $locked = Receivable::withoutGlobalScopes()->lockForUpdate()->find($receivable->id);
+                    if (! $locked || $locked->status !== Receivable::PENDING || (float) $locked->paid_amount > 0) {
+                        return false;
+                    }
+                    $this->receivables->void($locked, 'La contratación ahora empieza el '.Carbon::parse($service->start_date)->format('d/m/Y').': este período quedó fuera.');
+
+                    return true;
+                });
+                $result['voided'] += (int) $voided;
 
                 continue;
             }

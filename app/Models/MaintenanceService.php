@@ -95,7 +95,8 @@ class MaintenanceService extends Model
         static::saved(function (MaintenanceService $service) {
             // Editar el día de vencimiento o el inicio ajusta sus cobros pendientes sin pagos
             // (ServiceBillingService::syncPendingCharges); el resto del historial no cambia.
-            if (! $service->wasRecentlyCreated && $service->wasChanged(['payment_due_day', 'start_date'])) {
+            // (wasChanged solo refleja actualizaciones: un alta nunca lo dispara, aunque se edite la misma instancia después.)
+            if ($service->wasChanged(['payment_due_day', 'start_date'])) {
                 app(ServiceBillingService::class)->syncPendingCharges($service);
             }
 
