@@ -43,6 +43,8 @@ class StaffUserResource extends Resource
 
     protected static ?string $navigationLabel = 'Administrativos';
 
+    protected static ?int $navigationSort = 3;
+
     protected static ?string $modelLabel = 'administrativo';
 
     protected static ?string $pluralModelLabel = 'administrativos';

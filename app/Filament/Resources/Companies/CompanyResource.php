@@ -24,6 +24,8 @@ class CompanyResource extends Resource
 
     protected static ?string $navigationLabel = 'Empresas';
 
+    protected static string|\UnitEnum|null $navigationGroup = 'Plataforma';
+
     protected static ?string $modelLabel = 'Empresa';
 
     protected static ?string $pluralModelLabel = 'Empresas';

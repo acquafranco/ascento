@@ -41,6 +41,10 @@ class ReportResource extends Resource
 
     protected static ?string $navigationLabel = 'Reportes';
 
+    protected static string|\UnitEnum|null $navigationGroup = 'Operaciones';
+
+    protected static ?int $navigationSort = 6;
+
     protected static ?string $modelLabel = 'reporte';
 
     protected static ?string $pluralModelLabel = 'reportes';

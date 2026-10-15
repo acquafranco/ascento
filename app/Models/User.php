@@ -316,11 +316,21 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     }
 
     /**
-     * Se abre sola solo la primera vez: hasta que la termine o la omita.
+     * Introducción breve del panel y botón «?»: el dueño y los
+     * administrativos vigentes. El SuperAdmin usa el Centro de ayuda.
+     */
+    public function canUseHelpIntro(): bool
+    {
+        return $this->canUseOnboarding() || Access::isActiveStaff($this);
+    }
+
+    /**
+     * Se abre sola solo la primera vez: hasta que la termine o la descarte
+     * (Omitir o cerrar). Abrirla después desde «?» no cambia esto.
      */
     public function shouldAutoStartOnboarding(): bool
     {
-        return $this->canUseOnboarding()
+        return $this->canUseHelpIntro()
             && $this->onboarding_completed_at === null
             && $this->onboarding_skipped_at === null;
     }

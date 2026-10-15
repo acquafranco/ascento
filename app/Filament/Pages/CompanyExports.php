@@ -19,7 +19,9 @@ class CompanyExports extends Page
 
     protected static ?string $navigationLabel = 'Exportar datos';
 
-    protected static ?int $navigationSort = 7;
+    protected static string|\UnitEnum|null $navigationGroup = 'Administración';
+
+    protected static ?int $navigationSort = 5;
 
     protected static ?string $slug = 'exportaciones';
 

@@ -40,6 +40,8 @@ class MaintenanceResource extends Resource
 
     protected static ?string $navigationLabel = 'Mantenimientos';
 
+    protected static ?int $navigationSort = 2;
+
     protected static ?string $modelLabel = 'Mantenimiento';
 
     protected static ?string $pluralModelLabel = 'Mantenimientos';

@@ -40,6 +40,8 @@ class InspectionResource extends Resource
 
     protected static ?string $navigationLabel = 'Inspecciones';
 
+    protected static ?int $navigationSort = 3;
+
     protected static ?string $modelLabel = 'Inspección';
 
     protected static ?string $pluralModelLabel = 'Inspecciones';

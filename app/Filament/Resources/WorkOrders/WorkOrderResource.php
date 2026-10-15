@@ -38,6 +38,8 @@ class WorkOrderResource extends Resource
 
     protected static ?string $navigationLabel = 'Órdenes de trabajo';
 
+    protected static ?int $navigationSort = 4;
+
     protected static ?string $modelLabel = 'Orden de trabajo';
 
     protected static ?string $pluralModelLabel = 'Órdenes de trabajo';

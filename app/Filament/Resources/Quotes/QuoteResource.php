@@ -44,6 +44,8 @@ class QuoteResource extends Resource
     // 📌 nombres UI
     protected static ?string $navigationLabel = 'Presupuestos';
 
+    protected static ?int $navigationSort = 1;
+
     protected static ?string $modelLabel = 'Presupuesto';
 
     protected static ?string $pluralModelLabel = 'Presupuestos';

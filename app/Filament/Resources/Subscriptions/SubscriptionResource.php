@@ -31,6 +31,8 @@ class SubscriptionResource extends Resource
 
     protected static ?string $navigationLabel = 'Suscripciones';
 
+    protected static string|\UnitEnum|null $navigationGroup = 'Plataforma';
+
     protected static ?string $modelLabel = 'Suscripción';
 
     protected static ?string $pluralModelLabel = 'Suscripciones';

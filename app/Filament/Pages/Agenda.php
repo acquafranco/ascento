@@ -44,7 +44,7 @@ class Agenda extends Page
 
     protected static string|\UnitEnum|null $navigationGroup = 'Operaciones';
 
-    protected static ?int $navigationSort = 0;
+    protected static ?int $navigationSort = 1;
 
     protected static ?string $slug = 'agenda';
 

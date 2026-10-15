@@ -45,8 +45,8 @@ class HelpTip extends Component
             && $this->key !== ''
             && ! $this->dismissed
             && $user->canSeeHelpTips()
-            // Mientras corre la guía de bienvenida, no se apilan ayudas.
-            && ! $user->shouldAutoStartOnboarding()
+            // Mientras corre la guía de bienvenida del dueño (la larga), no se apilan ayudas.
+            && ! ($user->canUseOnboarding() && $user->shouldAutoStartOnboarding())
             && ! $user->hasSeenHelp($this->key);
 
         return view('livewire.help-tip', [

@@ -36,6 +36,10 @@ class Subscription extends Page
 
     protected static ?string $navigationLabel = 'Mi suscripción';
 
+    protected static string|\UnitEnum|null $navigationGroup = 'Administración';
+
+    protected static ?int $navigationSort = 4;
+
     protected static ?string $title = 'Mi suscripción';
 
     protected static ?string $slug = 'subscription';

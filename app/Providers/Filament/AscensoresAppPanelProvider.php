@@ -8,10 +8,12 @@ use App\Http\Middleware\AuthenticatePanel;
 use App\Http\Middleware\EnsureActiveSubscription;
 use App\Services\Telegram\TelegramService;
 use App\Support\Help\HelpTopics;
+use App\Support\NavigationState;
 use App\Support\Realtime;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\NavigationGroup;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
@@ -33,11 +35,12 @@ class AscensoresAppPanelProvider extends PanelProvider
             ->default()
             ->id('ascensores_app')
             ->path('admin')
-            ->navigationGroups([
-
-                'Gestión',
-
-            ])
+            // Categorías del menú, en este orden. Plegables: arrancan cerradas
+            // (salvo la de la pantalla actual) y cada persona decide cuáles deja
+            // abiertas (ver filament.partials.sidebar-state). Es solo visual.
+            ->navigationGroups(collect(['Gestión', 'Operaciones', 'Comercial', 'Administración', 'Plataforma'])
+                ->map(fn (string $label) => NavigationGroup::make($label)->collapsible())
+                ->all())
             ->colors([
                 'primary' => Color::Amber,
             ])
@@ -78,14 +81,27 @@ class AscensoresAppPanelProvider extends PanelProvider
 
             ->widgets([])
 
-            // Guía de bienvenida + ayuda: solo para admins de empresa.
+            // Introducción + botón «?»: dueño y administrativos (no el SuperAdmin).
             // Encabezado: notificaciones, ayuda y el perfil al extremo derecho
             // (la ayuda va justo antes del menú de usuario).
             ->renderHook(
                 PanelsRenderHook::USER_MENU_BEFORE,
-                fn (): string => auth()->user()?->canUseOnboarding()
+                fn (): string => auth()->user()?->canUseHelpIntro()
                     ? view('filament.partials.help-button')->render()
                     : '',
+            )
+            // Si el navegador no deja guardar preferencias, se usa una memoria
+            // temporal: el menú y Alpine funcionan igual (solo no se recuerda).
+            ->renderHook(
+                PanelsRenderHook::HEAD_START,
+                fn (): string => view('filament.partials.storage-fallback')->render(),
+            )
+            ->renderHook(
+                PanelsRenderHook::SIDEBAR_NAV_END,
+                fn (): string => auth()->check() ? view('filament.partials.sidebar-state', [
+                    'storageKey' => NavigationState::storageKey(auth()->user(), filament()->getCurrentPanel()?->getId() ?? 'panel'),
+                    'urgentUrls' => NavigationState::urgentUrls(),
+                ])->render() : '',
             )
             ->renderHook(
                 PanelsRenderHook::STYLES_AFTER,
@@ -95,7 +111,7 @@ class AscensoresAppPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::BODY_END,
-                fn (): string => auth()->user()?->canUseOnboarding()
+                fn (): string => auth()->user()?->canUseHelpIntro()
                     ? Blade::render('@livewire(\App\Livewire\AdminOnboarding::class, [\'routeName\' => $routeName])', [
                         'routeName' => HelpTopics::currentRouteName(),
                     ])

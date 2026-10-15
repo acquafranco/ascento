@@ -57,7 +57,7 @@ class EmergencyRequestResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Operaciones';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 7;
 
     protected static ?string $slug = 'pedidos-de-ayuda';
 

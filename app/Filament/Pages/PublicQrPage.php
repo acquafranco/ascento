@@ -44,7 +44,7 @@ class PublicQrPage extends Page
 
     protected static ?string $navigationLabel = 'QR públicos';
 
-    protected static ?int $navigationSort = 30;
+    protected static ?int $navigationSort = 5;
 
     protected static ?string $slug = 'qr-publicos';
 

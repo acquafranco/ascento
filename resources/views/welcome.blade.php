@@ -346,9 +346,14 @@
                         El cuidado del ascensor <span class="text-amber-600">conecta a todos.</span>
                     </h2>
                     <p class="mt-5 text-base leading-relaxed text-ink/65 sm:text-lg">
-                        Ascento no solo ordena tu empresa: acerca la información del mantenimiento a la administración del edificio y a las personas que usan el ascensor todos los días. Cada uno ve lo que le corresponde, y todos saben quién lo cuida.
+                        Ascento ordena el trabajo de tu empresa y, de paso, acerca la información del mantenimiento a la administración del edificio y a las personas que usan el ascensor todos los días. Cada uno ve lo que le corresponde, y todos saben quién lo cuida.
+                    </p>
+                    <p class="mt-3 text-base font-medium leading-relaxed text-ink/80 sm:text-lg">
+                        Para tu empresa, eso es un servicio que se nota: clientes informados, menos llamados para preguntar y una relación más clara con cada consorcio.
                     </p>
                 </div>
+
+                @include('partials.landing-connect-diagram', ['helpOn' => $helpBadge !== false])
 
                 <ol class="relative mx-auto mt-14 grid max-w-6xl gap-5 lg:grid-cols-3 lg:gap-8" aria-label="Quiénes se conectan con Ascento">
                     @foreach ($actors as $i => [$title, $text, $icon, $badges, $benefit])

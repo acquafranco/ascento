@@ -25,6 +25,9 @@
         <h1 class="t-h1 mt-0.5">Hola, {{ Str::of(auth()->user()->name)->before(' ') }}</h1>
     </header>
 
+    {{-- Bienvenida breve, una sola vez por técnico. --}}
+    @include('help.technician-welcome')
+
     {{-- Guardia en curso (si la tiene): el detalle está en la pestaña «Guardias». --}}
     @php $onCallNow = \App\Services\OnCall\TechnicianOnCall::activeNow(auth()->user()); @endphp
     @if($onCallNow)

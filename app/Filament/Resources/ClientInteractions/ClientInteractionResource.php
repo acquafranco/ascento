@@ -45,6 +45,8 @@ class ClientInteractionResource extends Resource
 
     protected static ?string $navigationLabel = 'Historial de contactos';
 
+    protected static ?int $navigationSort = 6;
+
     protected static ?string $modelLabel = 'contacto';
 
     protected static ?string $pluralModelLabel = 'contactos';

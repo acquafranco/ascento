@@ -3,38 +3,39 @@
 namespace App\Livewire;
 
 use App\Filament\Pages\CompanySettings;
-use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\HelpCenter;
-use App\Filament\Pages\Subscription;
 use App\Filament\Resources\Buildings\BuildingResource;
 use App\Filament\Resources\Clients\ClientResource;
-use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
-use App\Filament\Resources\Maintenances\MaintenanceResource;
-use App\Filament\Resources\Quotes\QuoteResource;
-use App\Filament\Resources\Reports\ReportResource;
 use App\Filament\Resources\Users\UserResource;
 use App\Filament\Resources\WorkOrders\WorkOrderResource;
 use App\Models\Building;
 use App\Models\Client;
 use App\Models\User;
 use App\Models\WorkOrder;
+use App\Support\Help\HelpTopics;
+use App\Support\Help\NavigationGuide;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Renderless;
 use Livewire\Component;
 
 /**
- * Guía de bienvenida + ayuda contextual del panel /admin.
+ * Introducción del panel, botón «?» y recorrido del menú por categorías.
  *
- * - Se abre sola la primera vez que entra un admin de empresa.
- * - El estado (terminada / omitida) se guarda en SU usuario: nunca se
- *   recibe un id desde el navegador, así que no se puede leer ni tocar el
- *   estado de otro admin ni de otra empresa.
- * - Los pasos señalan los ítems reales del menú lateral (URLs generadas
- *   desde los Resources/Pages de Filament).
+ * - La introducción es breve (cómo orientarse, que las categorías del menú se
+ *   despliegan y dónde está la ayuda; el dueño, además, los primeros pasos
+ *   para configurar su empresa). Se abre sola la primera vez que entra el
+ *   dueño o un administrativo.
+ * - Terminada («Terminar») o descartada («Omitir» o cerrar con la X o Esc),
+ *   no vuelve a abrirse sola. Abrirla después desde «?» no cambia ese estado.
+ *   Nada se marca solo por cargar una página o por un error de JavaScript:
+ *   solo esos botones llaman al servidor.
+ * - El estado se guarda en SU usuario: nunca se recibe un id desde el
+ *   navegador, así que no se puede leer ni tocar el de otra persona.
  * - El paso actual también se guarda en el servidor (users.onboarding_step):
- *   al seguir un enlace, recargar, volver después o abrir Ascento en otro
- *   navegador (p. ej. desde el correo de confirmación) se retoma donde quedó.
- *   Cerrar con la X la pausa hasta la próxima sesión (sesión del servidor).
+ *   si sigue un enlace o recarga en medio de la introducción, se retoma.
+ * - «Recorrer el menú» explica una categoría y cada opción que ESTA persona
+ *   ve en el menú (NavigationGuide); abre la categoría si está cerrada y la
+ *   vuelve a dejar como estaba al terminar. No guarda nada en el servidor.
  */
 class AdminOnboarding extends Component
 {
@@ -42,19 +43,31 @@ class AdminOnboarding extends Component
     #[Locked]
     public string $section = 'dashboard';
 
+    /** Ruta de la pantalla donde se abrió (guías de «En esta pantalla»). */
+    #[Locked]
+    public string $routeName = '';
+
+    /** Dirección de la pantalla, para «Volver a donde estabas» desde el Centro de ayuda. */
+    #[Locked]
+    public string $from = '';
+
     public function mount(?string $routeName = null): void
     {
-        $this->section = static::sectionFor($routeName ?? (string) request()->route()?->getName());
+        $this->routeName = $routeName ?? (string) request()->route()?->getName();
+        $this->section = static::sectionFor($this->routeName);
+        $this->from = '/'.ltrim(request()->path(), '/');
     }
 
     public const PAUSED_SESSION_KEY = 'onboarding.paused';
 
+    #[Renderless]
     public function complete(): void
     {
         $this->user()->forceFill(['onboarding_completed_at' => now(), 'onboarding_step' => null])->save();
         session()->forget(self::PAUSED_SESSION_KEY);
     }
 
+    #[Renderless]
     public function skip(): void
     {
         $this->user()->forceFill(['onboarding_skipped_at' => now(), 'onboarding_step' => null])->save();
@@ -65,7 +78,7 @@ class AdminOnboarding extends Component
     #[Renderless]
     public function saveStep(int $index): void
     {
-        $index = max(0, min($index, count(static::steps()) - 1));
+        $index = max(0, min($index, count(static::steps($this->user(), withMenu: false)) - 1));
         $user = $this->user();
 
         if ($user->onboarding_step !== $index) {
@@ -73,7 +86,10 @@ class AdminOnboarding extends Component
         }
     }
 
-    /** X: no se vuelve a abrir sola en esta sesión; después retoma en el mismo paso. */
+    /**
+     * Oculta la introducción solo por esta sesión (retoma en el mismo paso en
+     * la próxima). La X y Esc ya no la usan: cerrar es descartar (skip).
+     */
     #[Renderless]
     public function pause(): void
     {
@@ -99,14 +115,18 @@ class AdminOnboarding extends Component
     public function render()
     {
         $user = $this->user();
+        $owner = $user->canUseOnboarding();
 
         return view('livewire.admin-onboarding', [
             'autoStart' => $user->shouldAutoStartOnboarding() && $user->company?->hasActiveAccess() && ! session(self::PAUSED_SESSION_KEY),
             'savedStep' => (int) $user->onboarding_step,
-            'steps' => static::steps(),
-            'checklist' => $this->checklist(),
+            'steps' => static::steps($user),
+            'menu' => NavigationGuide::for($user),
+            'checklist' => $owner ? $this->checklist() : [],
             'sectionHelp' => static::sectionHelp()[$this->section] ?? static::sectionHelp()['dashboard'],
-            'helpCenterUrl' => HelpCenter::getUrl(),
+            'screenGuides' => HelpTopics::screenGuides($this->routeName, $user),
+            'helpCenterUrl' => HelpCenter::getUrl(['desde' => $this->from]),
+            'from' => $this->from,
         ]);
     }
 
@@ -114,7 +134,7 @@ class AdminOnboarding extends Component
     {
         $user = auth()->user();
 
-        abort_unless($user instanceof User && $user->canUseOnboarding(), 403);
+        abort_unless($user instanceof User && $user->canUseHelpIntro(), 403);
 
         return $user;
     }
@@ -165,94 +185,84 @@ class AdminOnboarding extends Component
     }
 
     /**
-     * Pasos del recorrido. `target` es la URL del ítem del menú lateral que
-     * se resalta; null = tarjeta centrada (bienvenida y cierre).
+     * Pasos de la introducción. `target` es la URL del ítem del menú lateral
+     * que se señala; `group`, la categoría del menú; `help`, el botón «?»;
+     * sin ninguno, tarjeta centrada. El dueño suma los primeros pasos para
+     * configurar su empresa; un administrativo, solo cómo orientarse.
      *
-     * @return list<array{key: string, title: string, body: string, target: ?string, flow?: list<string>}>
+     * @return list<array{key: string, title: string, body: string, target: ?string, group?: ?string, help?: bool, flow?: list<string>, list?: list<array{title: string, text: string}>}>
      */
-    public static function steps(): array
+    public static function steps(?User $user = null, bool $withMenu = true): array
     {
-        return [
-            [
-                'key' => 'welcome',
-                'title' => 'Bienvenido a Ascento 👋',
-                'body' => 'Te vamos a mostrar rápidamente cómo configurar tu empresa y empezar a trabajar. Son unos pocos pasos y podés cerrarla cuando quieras.',
-                'target' => null,
-            ],
-            [
-                'key' => 'company',
-                'title' => 'Mi empresa',
-                'body' => 'Empezá por acá. Cargá el nombre de tu empresa, la razón social, el CUIT, los datos de contacto, el logo y el color que la identifica dentro de Ascento.',
-                'target' => CompanySettings::getUrl(),
-            ],
-            [
-                'key' => 'dashboard',
-                'title' => 'Inicio',
-                'body' => 'Es tu resumen del día y se actualiza solo. Ves las órdenes de trabajo pendientes, en proceso y completadas hoy, los remitos del día, los presupuestos que esperan respuesta, cuántos edificios y máquinas tenés, y qué técnicos están ocupados o disponibles.',
-                'target' => Dashboard::getUrl(),
-            ],
-            [
-                'key' => 'technicians',
-                'title' => 'Técnicos',
-                'body' => 'Ahora cargá a las personas que trabajan en la calle: nombre, email, número de teléfono y una contraseña. Con ese email y esa contraseña cada técnico entra a Ascento desde su celular. Si hace mantenimiento o inspección lo definís después, al asignarlo a un edificio.',
-                'target' => UserResource::getUrl(),
-            ],
-            [
-                'key' => 'clients',
-                'title' => 'Clientes',
-                'body' => 'Son los consorcios, empresas, hospitales o particulares para los que trabajás. Un cliente puede tener uno o varios edificios. Entrá a Clientes y tocá "Crear Cliente" para cargar el primero.',
-                'target' => ClientResource::getUrl(),
-            ],
-            [
-                'key' => 'buildings',
-                'title' => 'Edificios',
-                'body' => 'Después de crear un cliente, cargá sus edificios: dirección, contacto y cada ascensor y montacargas con su tracción (sin equipos no se programan visitas). Desde la lista, con "Asignar empleado", elegís quién hace el mantenimiento (hasta dos técnicos) y quién la inspección (uno por edificio). Para muchos edificios a la vez, usá el botón "Asignar técnicos" de arriba de la lista.',
-                'target' => BuildingResource::getUrl(),
-                'flow' => ['Cliente', 'Edificios', 'Técnicos asignados'],
-            ],
-            [
-                'key' => 'maintenances',
-                'title' => 'Mantenimientos e inspecciones',
-                'body' => 'Con todo cargado, tus técnicos ya pueden trabajar. Desde el celular ven los edificios que tienen asignados, cuántas visitas les tocan en el período y su progreso; al terminar cada visita firman el remito. Si habilitás las fotos en «Mi empresa», también cargan fotos de antes y después desde la visita. Acá ves los mantenimientos realizados y, justo debajo, las inspecciones.',
-                'target' => MaintenanceResource::getUrl(),
-            ],
-            [
-                'key' => 'reports',
-                'title' => 'Reportes',
-                'body' => 'Cuando un técnico detecta un problema en un ascensor, lo informa desde el celular con una foto y una prioridad. Te llega un aviso y acá lo seguís: pendiente, en revisión o resuelto.',
-                'target' => ReportResource::getUrl(),
-            ],
-            [
-                'key' => 'delivery_notes',
-                'title' => 'Remitos',
-                'body' => 'Es el historial de todo el trabajo hecho: remitos de mantenimiento, de inspección y de órdenes de trabajo, con la firma del técnico (y la del cliente, si firmó). Los podés ver y descargar cuando quieras. No se pueden borrar, así tu historial queda siempre completo.',
-                'target' => DeliveryNoteResource::getUrl(),
-            ],
-            [
-                'key' => 'work_orders',
-                'title' => 'Órdenes de trabajo',
-                'body' => 'Para trabajos puntuales (un reclamo, una instalación, una modernización) creá una orden: elegí el edificio y el ascensor, quién lo va a hacer (uno o varios técnicos), el tipo de trabajo, la prioridad y el detalle. El técnico la ve en su celular, la toma y la cierra con el remito.',
-                'target' => WorkOrderResource::getUrl(),
-            ],
-            [
-                'key' => 'quotes',
-                'title' => 'Presupuestos',
-                'body' => 'Armá presupuestos para tus clientes: edificio, equipo, ítems con cantidad y precio (el total se calcula solo) y validez. Les vas cambiando el estado (borrador, enviado, aprobado, rechazado o anulado) y se los podés mandar por WhatsApp o por mail con un link para verlo online.',
-                'target' => QuoteResource::getUrl(),
-            ],
-            [
-                'key' => 'subscription',
-                'title' => 'Mi suscripción',
-                'body' => 'Acá ves tu plan, cuánto usaste de cada límite (edificios, clientes, técnicos y reportes) y podés elegir o cambiar de plan con Mercado Pago.',
-                'target' => Subscription::getUrl(),
-            ],
-            [
-                'key' => 'done',
-                'title' => '¡Listo! Ya conocés lo básico de Ascento.',
-                'body' => 'Te recomendamos arrancar por los primeros pasos de abajo. Si te olvidás de algo, tocá el botón "?" de arriba a la derecha: ahí podés volver a ver esta guía y la ayuda de cada sección.',
-                'target' => null,
-            ],
+        $user ??= auth()->user();
+        $owner = $user instanceof User && $user->canUseOnboarding();
+        $menu = $withMenu && $user instanceof User ? NavigationGuide::for($user) : [];
+        $groups = array_values(array_filter($menu, fn ($g) => $g['label'] !== null));
+
+        $steps = [[
+            'key' => 'welcome',
+            'title' => 'Bienvenido a Ascento 👋',
+            'body' => $owner
+                ? 'En un minuto te mostramos cómo orientarte y por dónde empezar a configurar tu empresa. Podés cerrarla cuando quieras: la volvés a ver desde el botón «?».'
+                : 'En un minuto te mostramos cómo orientarte. Podés cerrarla cuando quieras: la volvés a ver desde el botón «?».',
+            'target' => null,
+        ], [
+            'key' => 'menu',
+            'title' => 'El menú, por categorías',
+            'body' => 'Las secciones están agrupadas en categorías. Tocá el nombre de una para desplegarla o cerrarla: la flecha indica si está abierta. Ascento recuerda en este navegador las que dejás abiertas.',
+            'target' => null,
+            'group' => $groups[0]['label'] ?? null,
+            'list' => array_map(fn ($g) => ['title' => $g['title'], 'text' => $g['intro']], $groups),
+        ]];
+
+        if ($owner) {
+            $steps = array_merge($steps, [
+                [
+                    'key' => 'company',
+                    'title' => 'Primero, tu empresa',
+                    'body' => 'En «Mi empresa» (arriba del menú) cargá los datos, el logo y el color de tu empresa: salen en los remitos, los presupuestos y el portal de tus clientes.',
+                    'target' => CompanySettings::getUrl(),
+                ],
+                [
+                    'key' => 'technicians',
+                    'title' => 'Tus técnicos',
+                    'body' => 'En «Administración → Técnicos» cargá a cada técnico con su correo y una contraseña. Con eso entran a Ascento desde el celular.',
+                    'target' => UserResource::getUrl(),
+                ],
+                [
+                    'key' => 'clients',
+                    'title' => 'Tus clientes',
+                    'body' => 'En «Gestión → Clientes» cargá los consorcios, administraciones o empresas para los que trabajás. Un cliente puede tener varios edificios.',
+                    'target' => ClientResource::getUrl(),
+                ],
+                [
+                    'key' => 'buildings',
+                    'title' => 'Sus edificios',
+                    'body' => 'En «Gestión → Edificios» cargá cada edificio con su dirección y sus ascensores y montacargas. Desde la lista, «Asignar empleado» define quién hace el mantenimiento y quién la inspección: con eso el técnico ya ve sus visitas.',
+                    'target' => BuildingResource::getUrl(),
+                    'flow' => ['Cliente', 'Edificios', 'Técnicos asignados'],
+                ],
+            ]);
+        }
+
+        $steps[] = [
+            'key' => 'help',
+            'title' => '¿Dudas? Tocá «?»',
+            'body' => 'Desde este botón ves la ayuda de la pantalla en la que estás, recorrés cada categoría del menú paso a paso, volvés a ver esta guía y abrís el Centro de ayuda para buscar cualquier tarea.',
+            'target' => null,
+            'help' => true,
         ];
+
+        $steps[] = [
+            'key' => 'done',
+            'title' => $owner ? '¡Listo! Ya conocés lo básico de Ascento.' : '¡Listo!',
+            'body' => $owner
+                ? 'Te recomendamos arrancar por los primeros pasos de abajo. Si te olvidás de algo, tocá «?».'
+                : 'Abrí las categorías que uses y, si necesitás algo, tocá «?» o entrá a «Ayuda».',
+            'target' => null,
+        ];
+
+        return $steps;
     }
 
     /**
