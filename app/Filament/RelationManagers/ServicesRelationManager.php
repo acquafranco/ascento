@@ -68,7 +68,7 @@ class ServicesRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['building', 'catalogItem']))
+            ->modifyQueryUsing(fn ($query) => $query->with(['building', 'catalogItem', 'oneTimeReceivable']))
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('description')->label('Servicio')->wrap()
@@ -76,6 +76,7 @@ class ServicesRelationManager extends RelationManager
                 TextColumn::make('scope')->label('Se aplica a')->state(fn (MaintenanceService $r) => $r->scopeLabel())->wrap(),
                 TextColumn::make('amount')->label('Importe')->formatStateUsing(fn ($state, MaintenanceService $r) => $r->amountLabel())
                     ->description(fn (MaintenanceService $r) => $r->pricing_mode ? $r->pricingExplanation() : null)->wrap(),
+                MaintenanceServiceResource::oneTimeChargeColumn(),
                 TextColumn::make('start_date')->label('Desde')->date('d/m/Y')->toggleable(),
                 TextColumn::make('end_date')->label('Hasta')->date('d/m/Y')->placeholder('—')->toggleable(),
                 TextColumn::make('status')->label('Estado')->badge()
