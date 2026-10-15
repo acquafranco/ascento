@@ -2,6 +2,9 @@
 
 namespace App\Support;
 
+use App\Enums\PlanFeature;
+use App\Support\Plans\PlanGuard;
+
 /**
  * Secciones de la app del técnico: una sola fuente para la barra de
  * escritorio, la barra inferior del celular y el menú "Más". Se calcula una
@@ -33,7 +36,9 @@ class TechNav
                 $item('Visitas', 'buildings.index', ['buildings.index', 'delivery-notes.building'], 'calendar'),
                 $item('Trabajos', 'work-orders.index', ['work-orders.*', 'delivery-notes.work-order'], 'wrench'),
                 $item('Reportes', 'reports.index', ['reports.*'], 'report'),
-                $item('Guardias', 'on-call.index', ['on-call.*'], 'shield'),
+                // Guardias técnicas: en los planes que las incluyen (hoy, los tres).
+                ...($user?->company_id && PlanGuard::companyAllows((int) $user->company_id, PlanFeature::OnCall)
+                    ? [$item('Guardias', 'on-call.index', ['on-call.*'], 'shield')] : []),
             ],
             'more' => [
                 $item('Remitos', 'delivery-notes.index', ['delivery-notes.index', 'delivery-notes.show'], 'document'),

@@ -143,6 +143,14 @@ final class HelpGuides
                 'Cargá el presupuesto y el costo final, y adjuntá documentos o fotos.',
             ], ['No se puede marcar como reparado un componente que solo fue enviado.', 'No se borran: se cancelan. Cada cambio queda en el historial.'], PlanFeature::Repairs, PermissionArea::Repairs),
 
+            $g($P, 'Operación diaria', 'on_call', 'Guardias técnicas', 'Quién cubre fuera de horario y los cambios de guardia.', [
+                'En «Guardias», creá una guardia con sus días y horario (por ejemplo, de 18:00 a 08:00) y cuántos técnicos cubren a la vez.',
+                'Asigná técnicos por período o de forma permanente con «Asignar técnico», o elegí la modalidad rotativa con el orden de los técnicos.',
+                'Si alguien no puede cubrir, usá «Cambiar técnico» en su turno (todo o una parte) e indicá el motivo.',
+                'Arriba de todo ves quién está de guardia ahora y podés consultar cualquier fecha y hora.',
+                'Al cargar una orden de trabajo que surgió en una guardia, elegí la guardia en el campo «Guardia».',
+            ], ['Lo que ya pasó no se modifica: los cambios valen desde ahora. Cada cambio queda en el historial.'], PlanFeature::OnCall, PermissionArea::OnCall),
+
             $g($P, 'Comercial y administración', 'quotes', 'Presupuestos', 'Presupuestos con tu logo, numerados y con enlace para el cliente.', [
                 'En «Presupuestos», creá uno con sus ítems: el total se calcula solo.',
                 'Con «Enviar al cliente» lo mandás por correo. En «Compartir» podés copiar el enlace para el cliente o enviarlo por WhatsApp.',
@@ -225,6 +233,7 @@ final class HelpGuides
                 '«Visitas»: los mantenimientos e inspecciones del mes en tus edificios.',
                 '«Trabajos»: las órdenes que te asignó la oficina.',
                 '«Reportes»: las fallas que cargaste.',
+                '«Guardias»: cuándo te toca cubrir fuera de horario y los cambios de guardia.',
                 'En «Más» están los remitos, la planilla del mes, todos los edificios y tu perfil.',
             ]),
             $g($T, 'Tu día', 't_visit', 'Hacer un mantenimiento o una inspección', 'De la visita al remito firmado.', [
@@ -248,6 +257,11 @@ final class HelpGuides
                 'Sacá una foto o elegí una de la galería.',
                 'Tocá «Enviar reporte».',
             ]),
+            $g($T, 'Tu día', 't_on_call', 'Tus guardias', 'Cuándo te toca cubrir fuera de horario.', [
+                'En «Guardias» ves si estás de guardia ahora (arriba, destacado), tus próximas guardias y las anteriores.',
+                'Si la oficina cambia una guardia, te llega un aviso y el cambio aparece en «Cambios en tus guardias».',
+                'Los trabajos que te asignen durante una guardia los hacés en «Trabajos», como siempre.',
+            ], ['La planificación la arma la oficina: si no podés cubrir una guardia, avisales.'], PlanFeature::OnCall),
             $g($T, 'Tu día', 't_video', 'Agregar un video al reporte', 'Un video corto donde se vea la falla.', [
                 'Al crear el reporte, tocá «Agregar video» y grabá uno corto.',
             ], feature: PlanFeature::ReportVideos),

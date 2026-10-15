@@ -347,6 +347,7 @@
 ['QR público del edificio', 'Residentes y visitantes ven, sin cuenta, solo lo que la empresa elige publicar.', 'M3 3H7V7H3V3ZM9 3H13V7H9V3ZM3 9H7V13H3V9ZM9.5 9.5H10.5M12 9V13M9 12H10', $F::PublicQr],
 ['Pruebas de paracaídas', 'Registro de cada prueba y aviso de las próximas o vencidas según cada equipo.', 'M8 2L13 4V8C13 11 10.8 13.2 8 14C5.2 13.2 3 11 3 8V4L8 2ZM6 8L7.5 9.5L10.5 6.5', $F::ParachuteTests],
 ['Componentes en reparación', 'Qué está en el taller, con qué proveedor y cuándo vuelve, con el historial de cada cambio.', 'M10 3L13 6L7 12H4V9L10 3ZM9 4L12 7', $F::Repairs],
+['Gestión de guardias técnicas', 'Quién cubre las noches, los fines de semana y los feriados, con turnos, rotaciones y cambios de guardia registrados. Cada técnico ve las suyas en el celular.', 'M8 2L13 4V8C13 11 10.8 13.2 8 14C5.2 13.2 3 11 3 8V4L8 2ZM8 5.5V8.5L10 9.5', $F::OnCall],
 ['Avisos en tiempo real y tareas', 'Campanita y push en el celular, y tareas con responsable, vencimiento y recordatorio.', 'M8 2C5.8 2 4 3.8 4 6V9L2.5 11H13.5L12 9V6C12 3.8 10.2 2 8 2ZM6.5 13C6.8 13.9 7.3 14.3 8 14.3C8.7 14.3 9.2 13.9 9.5 13', $F::Tasks],
 ['Mapa y centro de atención', 'Todos los edificios en el mapa y lo que necesita tu atención hoy.', 'M8 8C9.7 8 11 6.7 11 5C11 3.3 9.7 2 8 2C6.3 2 5 3.3 5 5C5 6.7 6.3 8 8 8ZM3 14C3 11.2 5.2 9 8 9C10.8 9 13 11.2 13 14', [$F::Map, $F::AttentionCenter]],
 ['Stock, servicios y cobranzas', 'Repuestos con aviso de mínimo, abonos con su frecuencia de cobro y lo que te deben.', 'M3 5L8 2L13 5V11L8 14L3 11V5ZM3 5L8 8L13 5M8 8V14', null],
@@ -367,7 +368,7 @@
                     $byTitle = $benefits->keyBy(0);
                     $benefitGroups = [
                         ['Mantenimiento y trabajo en la calle', 'Del edificio a la oficina: agenda, técnicos, remitos y el registro de cada trabajo.',
-                            ['Agenda de mantenimientos e inspecciones', 'Técnicos desde el celular', 'Órdenes y remitos digitales', 'Fotos de antes y después', 'Video en los reportes', 'Pruebas de paracaídas', 'Componentes en reparación']],
+                            ['Agenda de mantenimientos e inspecciones', 'Técnicos desde el celular', 'Órdenes y remitos digitales', 'Fotos de antes y después', 'Video en los reportes', 'Pruebas de paracaídas', 'Componentes en reparación', 'Gestión de guardias técnicas']],
                         ['Clientes y edificios', 'Tu cartera ordenada y lo que cada cliente puede ver.',
                             ['Clientes, edificios y ascensores', 'Portal para tus clientes', 'QR público del edificio', 'Presupuestos profesionales', 'Historial de contactos']],
                         ['Control de la empresa', 'Avisos, números y lo que necesita tu atención hoy.',

@@ -81,6 +81,13 @@ final class SalesAssistant
                     $available,
                 ], ['trial']);
             }
+            if ($available = self::availability($plans, PlanFeature::OnCall)) {
+                $topics[] = $t('on_call', 'Guardias técnicas', [
+                    'Organizás qué técnico está de guardia cada noche, fin de semana o feriado: por período, de forma permanente o en rotación. Los cambios de guardia quedan registrados con su motivo.',
+                    'Cada técnico ve sus guardias en el celular, y los trabajos que surgen se cargan como órdenes de trabajo vinculadas a la guardia. Organiza a tu equipo: no es un servicio de atención de emergencias.',
+                    $available.' Sin costo adicional.',
+                ], ['trial']);
+            }
             if ($available = self::availability($plans, PlanFeature::ClientPortal)) {
                 $topics[] = $t('portal', 'Portal para tus clientes', [
                     'Cada consorcio o administración entra con su usuario y ve solo lo que le compartís de sus edificios: remitos, reportes, presupuestos y documentos.',

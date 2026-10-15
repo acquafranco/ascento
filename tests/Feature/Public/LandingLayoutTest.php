@@ -29,15 +29,15 @@ class LandingLayoutTest extends TestCase
         return $m[0];
     }
 
-    public function test_the_sixteen_features_are_kept_once_each_in_three_groups(): void
+    public function test_the_seventeen_features_are_kept_once_each_in_three_groups(): void
     {
         $benefits = $this->section($this->home(), 'beneficios');
 
         $this->assertSame(3, substr_count($benefits, 'data-carousel '));
         preg_match_all('#<h3[^>]*>([^<]+)</h3>#', $benefits, $m);
-        $this->assertCount(16, $m[1]);
+        $this->assertCount(17, $m[1]); // + «Gestión de guardias técnicas»
         $this->assertSame($m[1], array_unique($m[1]), 'Ninguna función repetida.');
-        foreach (['Agenda de mantenimientos e inspecciones', 'Técnicos desde el celular', 'Stock, servicios y cobranzas', 'Video en los reportes'] as $title) {
+        foreach (['Agenda de mantenimientos e inspecciones', 'Técnicos desde el celular', 'Stock, servicios y cobranzas', 'Video en los reportes', 'Gestión de guardias técnicas'] as $title) {
             $this->assertContains($title, $m[1]);
         }
         // Controles accesibles en cada grupo.

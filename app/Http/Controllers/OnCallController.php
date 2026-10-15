@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\PlanFeature;
 use App\Models\OnCallChange;
 use App\Models\OnCallSchedule;
 use App\Models\OnCallShift;
 use App\Models\WorkOrder;
+use App\Support\Plans\PlanGuard;
 use Illuminate\Http\Request;
 
 /**
@@ -22,6 +24,9 @@ class OnCallController extends Controller
         $user = $request->user();
         $companyId = (int) $user->company_id;
         $now = now();
+
+        // Funcionalidad del plan (hoy incluida en los tres): sin ella, no hay pestaña.
+        abort_unless(PlanGuard::companyAllows($companyId, PlanFeature::OnCall), 404);
 
         $mine = fn () => OnCallShift::withoutGlobalScopes()->where('company_id', $companyId)->where('user_id', $user->id)
             ->with(['schedule' => fn ($q) => $q->withoutGlobalScopes(), 'parent.user']);

@@ -2,8 +2,10 @@
 
 namespace App\Console\Commands;
 
+use App\Enums\PlanFeature;
 use App\Models\OnCallSchedule;
 use App\Services\OnCall\RotationService;
+use App\Support\Plans\PlanGuard;
 use Illuminate\Console\Command;
 
 /** Guardias rotativas: mantiene generados los turnos futuros hasta el horizonte (idempotente). */
@@ -18,6 +20,9 @@ class SyncOnCallRotations extends Command
         $created = 0;
         OnCallSchedule::withoutGlobalScopes()->where('is_active', true)->where('mode', OnCallSchedule::ROTATION)
             ->each(function (OnCallSchedule $schedule) use ($rotations, &$created) {
+                if (! PlanGuard::companyAllows((int) $schedule->company_id, PlanFeature::OnCall)) {
+                    return;
+                }
                 $created += $rotations->sync($schedule)['created'];
             });
 

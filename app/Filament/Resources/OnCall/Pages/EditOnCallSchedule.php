@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\OnCall\Pages;
 
+use App\Enums\PlanFeature;
+use App\Filament\Concerns\RequiresPlanFeature;
 use App\Filament\Resources\OnCall\OnCallScheduleResource;
 use App\Models\OnCallSchedule;
 use App\Services\OnCall\OnCallService;
@@ -10,6 +12,10 @@ use Filament\Resources\Pages\EditRecord;
 
 class EditOnCallSchedule extends EditRecord
 {
+    use RequiresPlanFeature;
+
+    protected static PlanFeature $planFeature = PlanFeature::OnCall;
+
     protected static string $resource = OnCallScheduleResource::class;
 
     protected ?string $subheading = 'Los cambios valen desde ahora: los turnos pasados y en curso no se recalculan.';

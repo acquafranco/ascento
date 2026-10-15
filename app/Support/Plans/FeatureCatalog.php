@@ -98,6 +98,7 @@ final class FeatureCatalog
             $f('operations', PlanFeature::Tasks, 'Tareas con responsable, vencimiento y recordatorio.', 'Etapa 6 (12/10/2026, 80680d1)'),
             $f('operations', PlanFeature::ParachuteTests, 'Registro de pruebas y avisos de las próximas o vencidas.', 'Etapa 7 (13/10/2026, 2b60fa3)'),
             $f('operations', PlanFeature::Repairs, 'Seguimiento de componentes enviados a un taller.', 'Etapa 8.4 (13/10/2026, c3ee1d4)'),
+            $f('operations', PlanFeature::OnCall, 'Guardias técnicas (noches, fines de semana y feriados): turnos por período, permanentes o rotativos, cambios con historial y pestaña «Guardias» del técnico.', 'Guardias técnicas (15/10/2026, 01c433f)'),
 
             // Remitos
             $x('signed_delivery_note', 'delivery_notes', 'Remito firmado', 'El técnico cierra cada trabajo con el remito y la firma.', 'Base original (02/07/2026, c0a17f7)', self::ESSENTIAL),
