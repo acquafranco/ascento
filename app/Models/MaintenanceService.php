@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -132,6 +133,18 @@ class MaintenanceService extends Model
     public function receivables(): HasMany
     {
         return $this->hasMany(Receivable::class);
+    }
+
+    /** Primer cobro del servicio (para el pago único, el único que genera). */
+    public function oneTimeReceivable(): HasOne
+    {
+        return $this->hasOne(Receivable::class)->oldestOfMany();
+    }
+
+    /** Cobro de un servicio de pago único, solo informativo; null si no es de pago único o aún no se generó. */
+    public function oneTimeCharge(): ?Receivable
+    {
+        return $this->frequency === 'once' ? $this->oneTimeReceivable : null;
     }
 
     /** Visitas realizadas bajo este contrato (mantenimientos e inspecciones). */

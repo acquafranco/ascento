@@ -58,7 +58,11 @@ El importe **siempre se recalcula en el servidor** al guardar (`ServicePricing`)
 - **Editar:** recalcula con el alcance y los equipos actuales. Si el importe cambia (precio, modalidad, alcance, equipos activos o paradas cargadas), el formulario muestra el importe anterior, el nuevo y la causa, y exige marcar «Confirmo el nuevo importe»; el servidor también lo exige. Editar solo la descripción u otros datos no cambia el importe si los equipos no cambiaron. Los cobros ya generados no cambian.
 - **Cambios simultáneos:** se guarda el importe que el usuario vio. Si otro usuario cambia equipos o paradas mientras se completa el formulario, el servidor recalcula y no guarda: en el alta, muestra el importe nuevo y pide volver a guardar; al editar, borra la confirmación y pide confirmar el importe nuevo.
 - **Contratos anteriores al catálogo:** al editarlos se muestran como «Mantenimiento» y «Precio acordado» con su importe; guardarlos no cambia el importe.
-- **Pausar / Reactivar:** cambia el estado. Al reactivar no se cobran los meses en que estuvo pausado o finalizado: se cobra desde el mes en que vuelve a estar activo. En servicios trimestrales o semestrales el ciclo sigue contado desde el inicio: se cobra el primer período que empieza desde el mes de la reactivación, sin prorrateo; un período ya cobrado nunca se repite.
+- **Pausar / Reactivar:** cambia el estado. Al reactivar no se cobran los meses en que estuvo pausado o finalizado. Regla de reactivación (decisión comercial: alternativa A, sin prorrateo ni cobros retroactivos):
+  - El ciclo de cobro sigue contado desde la **fecha de inicio original**.
+  - Se cobra el primer período que **empieza** en el mes de la reactivación o después. Si se reactiva a mitad de un período trimestral o semestral, ese período en curso no se cobra; el siguiente cobro es el del próximo ciclo. Ejemplo: trimestral desde enero, pausado en febrero y reactivado en mayo → próximo cobro en julio.
+  - Un período ya cobrado nunca se repite.
+  - Vencimiento: el día pactado del mes en que empieza el período. Si se reactiva en ese mes después del día pactado, el cobro nace con el vencimiento ya pasado y figura como **Vencida** (en Cobranzas y en los indicadores de deuda).
 - **Finalizar:** estado «Finalizado» y fecha de fin hoy (o la anterior, si ya tenía una). Deja de generar cobros y conserva el historial, las visitas y los cobros.
 - No se borra nada.
 
@@ -68,7 +72,7 @@ El precio, el nombre y la modalidad se **copian** a la contratación al contrata
 
 ## Integraciones
 
-- **Cobros:** sin cambios para lo existente. «Pago único» genera un solo cobro en toda la vida de la contratación (aunque se pause, se reactive o cambie su inicio). Finalizar la contratación no modifica su cobro. No hay facturación automática nueva.
+- **Cobros:** sin cambios para lo existente. «Pago único» genera un solo cobro en toda la vida de la contratación (aunque se pause, se reactive o cambie su inicio). Finalizar la contratación no modifica su cobro. En la ficha y en los listados de contrataciones de pago único se muestra el estado de su cobro (Pendiente, Vencida, Parcialmente pagada, Pagada o Anulada, el mismo de Cobranzas) con enlace al cobro; es solo informativo: no cambia el estado de la contratación ni genera cobros. Si el cobro todavía no se generó, no se muestra ningún estado. No hay facturación automática nueva.
 - **Visitas:** `covering()` solo vincula visitas a contrataciones de mantenimiento o inspección (o anteriores al catálogo, sin tipo). Una guardia o una limpieza no «cubren» visitas.
 - **Frecuencias:** la frecuencia de cobro es independiente de la frecuencia de visitas (Edificios → «Frecuencia de visitas»). Contratar no crea visitas ni planes de visita.
 - **Agenda:** un edificio sin técnico aparece como «falta asignar» solo si tiene un contrato de mantenimiento (o sin tipo).

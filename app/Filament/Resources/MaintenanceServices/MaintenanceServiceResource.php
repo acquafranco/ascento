@@ -10,7 +10,9 @@ use App\Filament\Resources\MaintenanceServices\Pages\EditMaintenanceService;
 use App\Filament\Resources\MaintenanceServices\Pages\ListMaintenanceServices;
 use App\Filament\Resources\MaintenanceServices\Pages\ViewMaintenanceService;
 use App\Filament\Resources\MaintenanceServices\Schemas\ServiceAssignmentForm;
+use App\Filament\Resources\Receivables\ReceivableResource;
 use App\Models\MaintenanceService;
+use App\Models\Receivable;
 use App\Models\ServiceCatalogItem;
 use App\Services\Catalog\ServicePricing;
 use App\Support\CompanyContext;
@@ -91,6 +93,15 @@ class MaintenanceServiceResource extends Resource
                 TextEntry::make('amount')->label('Importe')->formatStateUsing(fn ($state, MaintenanceService $record) => $record->amountLabel()),
                 TextEntry::make('pricing_explanation')->label('Cómo se calculó')->state(fn (MaintenanceService $record) => $record->pricingExplanation())
                     ->helperText(fn (MaintenanceService $record) => self::equipmentChangedNote($record)),
+                // Pago único: estado de su cobro (informativo; el estado del contrato no cambia).
+                TextEntry::make('one_time_charge')->label('Cobro del pago único')
+                    ->state(fn (MaintenanceService $record) => $record->oneTimeCharge()?->displayStatusLabel())
+                    ->badge()->color(fn (MaintenanceService $record) => self::chargeColor($record->oneTimeCharge()))
+                    ->helperText(fn (MaintenanceService $record) => ($charge = $record->oneTimeCharge())
+                        ? 'Vence el '.$charge->due_date?->format('d/m/Y').' · saldo '.ServicePricing::money($charge->balance())
+                        : null)
+                    ->url(fn (MaintenanceService $record) => self::chargeUrl($record->oneTimeCharge()))
+                    ->visible(fn (MaintenanceService $record) => $record->oneTimeCharge() !== null),
                 TextEntry::make('frequency')->label('Frecuencia de cobro')->formatStateUsing(fn ($state, MaintenanceService $record) => $record->frequencyLabel()),
                 TextEntry::make('status')->label('Estado')->badge()->formatStateUsing(fn ($state) => MaintenanceService::STATUSES[$state] ?? $state)
                     ->color(fn ($state) => match ($state) {
@@ -111,7 +122,7 @@ class MaintenanceServiceResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['client', 'building']))
+            ->modifyQueryUsing(fn ($query) => $query->with(['client', 'building', 'oneTimeReceivable']))
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('client.name')->label('Cliente')->searchable()->sortable(),
@@ -121,6 +132,7 @@ class MaintenanceServiceResource extends Resource
                     ->description(fn (MaintenanceService $r) => ServiceCatalogItem::categoryLabel($r->category).' · '.$r->scopeLabel()),
                 TextColumn::make('amount')->label('Importe')->formatStateUsing(fn ($state, MaintenanceService $r) => $r->amountLabel())
                     ->description(fn (MaintenanceService $r) => $r->pricing_mode ? $r->pricingExplanation() : null),
+                static::oneTimeChargeColumn(),
                 TextColumn::make('start_date')->label('Desde')->date('d/m/Y')->toggleable(),
                 TextColumn::make('end_date')->label('Hasta')->date('d/m/Y')->placeholder('—')->toggleable(),
                 TextColumn::make('status')->label('Estado')->badge()
@@ -157,6 +169,33 @@ class MaintenanceServiceResource extends Resource
         return $now['error'] === null && $now['quantity'] !== (int) $record->quantity
             ? "Hoy el alcance tiene {$now['quantity']} (se calculó con {$record->quantity}). El importe acordado no cambia solo: editá la contratación para recalcularlo."
             : null;
+    }
+
+    /** Columna «Cobro» de los servicios de pago único: estado de su cobro, con enlace. Vacía si no hay cobro. */
+    public static function oneTimeChargeColumn(): TextColumn
+    {
+        return TextColumn::make('one_time_charge')->label('Cobro (pago único)')
+            ->state(fn (MaintenanceService $r) => $r->oneTimeCharge()?->displayStatusLabel())
+            ->badge()->color(fn (MaintenanceService $r) => self::chargeColor($r->oneTimeCharge()))
+            ->url(fn (MaintenanceService $r) => self::chargeUrl($r->oneTimeCharge()))
+            ->placeholder('—')->toggleable();
+    }
+
+    private static function chargeColor(?Receivable $charge): string
+    {
+        return match ($charge?->displayStatus()) {
+            Receivable::PAID => 'success',
+            'overdue' => 'danger',
+            Receivable::PARTIAL => 'warning',
+            Receivable::PENDING => 'info',
+            default => 'gray',
+        };
+    }
+
+    /** Enlace al cobro, solo si el usuario puede abrirlo. */
+    private static function chargeUrl(?Receivable $charge): ?string
+    {
+        return $charge && ReceivableResource::canView($charge) ? ReceivableResource::getUrl('view', ['record' => $charge]) : null;
     }
 
     public static function statusAction(string $status, string $label, string $icon, string $color): Action
