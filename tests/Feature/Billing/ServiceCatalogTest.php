@@ -301,8 +301,10 @@ class ServiceCatalogTest extends TestCase
             ->assertHasFormErrors(['confirm_amount_change']);
         $this->assertEquals(100000, $service->fresh()->amount);
 
+        // Como en pantalla: primero se ve el importe nuevo y recién después se confirma.
         Livewire::test(EditMaintenanceService::class, ['record' => $service->getRouteKey()])
-            ->fillForm(['unit_price' => 60000, 'confirm_amount_change' => true])
+            ->fillForm(['unit_price' => 60000])
+            ->fillForm(['confirm_amount_change' => true])
             ->call('save')
             ->assertHasNoFormErrors();
 

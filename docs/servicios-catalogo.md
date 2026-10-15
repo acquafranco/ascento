@@ -56,8 +56,9 @@ El importe **siempre se recalcula en el servidor** al guardar (`ServicePricing`)
 ## Editar, pausar y finalizar
 
 - **Editar:** recalcula con el alcance y los equipos actuales. Si el importe cambia (precio, modalidad, alcance, equipos activos o paradas cargadas), el formulario muestra el importe anterior, el nuevo y la causa, y exige marcar «Confirmo el nuevo importe»; el servidor también lo exige. Editar solo la descripción u otros datos no cambia el importe si los equipos no cambiaron. Los cobros ya generados no cambian.
+- **Cambios simultáneos:** se guarda el importe que el usuario vio. Si otro usuario cambia equipos o paradas mientras se completa el formulario, el servidor recalcula y no guarda: en el alta, muestra el importe nuevo y pide volver a guardar; al editar, borra la confirmación y pide confirmar el importe nuevo.
 - **Contratos anteriores al catálogo:** al editarlos se muestran como «Mantenimiento» y «Precio acordado» con su importe; guardarlos no cambia el importe.
-- **Pausar / Reactivar:** cambia el estado. Al reactivar no se cobran los meses en que estuvo pausado o finalizado: se cobra desde el mes en que vuelve a estar activo.
+- **Pausar / Reactivar:** cambia el estado. Al reactivar no se cobran los meses en que estuvo pausado o finalizado: se cobra desde el mes en que vuelve a estar activo. En servicios trimestrales o semestrales el ciclo sigue contado desde el inicio: se cobra el primer período que empieza desde el mes de la reactivación, sin prorrateo; un período ya cobrado nunca se repite.
 - **Finalizar:** estado «Finalizado» y fecha de fin hoy (o la anterior, si ya tenía una). Deja de generar cobros y conserva el historial, las visitas y los cobros.
 - No se borra nada.
 
