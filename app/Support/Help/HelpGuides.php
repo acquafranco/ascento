@@ -143,6 +143,13 @@ final class HelpGuides
                 'Cargá el presupuesto y el costo final, y adjuntá documentos o fotos.',
             ], ['No se puede marcar como reparado un componente que solo fue enviado.', 'No se borran: se cancelan. Cada cambio queda en el historial.'], PlanFeature::Repairs, PermissionArea::Repairs),
 
+            $g($P, 'Operación diaria', 'emergency', 'Pedidos de ayuda desde el QR', 'Qué pasa cuando alguien toca «Estoy atrapado en el ascensor».', [
+                'En «Mi empresa», activá «Permitir solicitudes de emergencia desde el QR público». Viene apagado.',
+                'El botón aparece en la página del QR de los edificios publicados.',
+                'Al confirmarlo, avisa a tu empresa (dueño, administrativos con «Órdenes de trabajo» y técnicos de guardia) y a la administración del edificio en el portal.',
+                'En «Pedidos de ayuda» ves cada pedido, a quién se avisó y por qué canal, y lo cerrás como atendido o falsa alarma.',
+            ], ['Es un aviso sin confirmar, no un servicio de emergencias: no reemplaza la alarma del ascensor ni el 911.', 'Los pedidos repetidos del mismo edificio se suman al abierto: no generan otro aviso cada vez.'], PlanFeature::EmergencyRequests, PermissionArea::WorkOrders),
+
             $g($P, 'Operación diaria', 'on_call', 'Guardias técnicas', 'Quién cubre fuera de horario y los cambios de guardia.', [
                 'En «Guardias», creá una guardia con sus días y horario (por ejemplo, de 18:00 a 08:00) y cuántos técnicos cubren a la vez.',
                 'Asigná técnicos por período o de forma permanente con «Asignar técnico», o elegí la modalidad rotativa con el orden de los técnicos.',

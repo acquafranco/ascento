@@ -6,7 +6,7 @@
     <meta name="robots" content="noindex, nofollow">
     <title>Código no disponible</title>
     @include('public-qr.partials.styles')
-    <style>body { margin: 0; background: #f8fafc; }</style>
+    <style>body { margin: 0; background: #F4F5F7; }</style>
 </head>
 <body>
     <div class="qr-wrap" data-public-qr-unavailable>
@@ -14,6 +14,7 @@
             <h1 class="qr-h2">Este código no está disponible</h1>
             <p class="qr-line qr-muted">El código pudo haberse reemplazado o desactivado. Si necesitás información del ascensor, consultá a la administración del edificio.</p>
         </section>
+        @include('public-qr.partials.footer')
     </div>
 </body>
 </html>

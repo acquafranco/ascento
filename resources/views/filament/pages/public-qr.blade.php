@@ -50,7 +50,9 @@
                         <div style="max-width:220px; margin:.5rem 0; background:#fff; padding:.5rem; border-radius:.5rem" data-qr-image>{!! $qr !!}</div>
                         <p class="asc-small" style="word-break:break-all"><a href="{{ $page->publicUrl() }}" target="_blank" rel="noopener" class="asc-link" style="color:#d97706">{{ $page->publicUrl() }}</a></p>
                         <p class="asc-small" style="display:flex; gap:.75rem; flex-wrap:wrap">
-                            <a href="{{ route('public-qr.download', ['building' => $building->id, 'format' => 'svg']) }}" class="asc-link" style="color:#d97706">Descargar SVG (para imprimir)</a>
+                            <a href="{{ route('public-qr.sheet', ['building' => $building->id, 'size' => 'a4']) }}" target="_blank" rel="noopener" class="asc-link" style="color:#d97706" data-qr-sheet-link>Hoja para imprimir (A4)</a>
+                            <a href="{{ route('public-qr.sheet', ['building' => $building->id, 'size' => 'compacta']) }}" target="_blank" rel="noopener" class="asc-link" style="color:#d97706">Versión compacta</a>
+                            <a href="{{ route('public-qr.download', ['building' => $building->id, 'format' => 'svg']) }}" class="asc-link" style="color:#d97706">Descargar SVG</a>
                             <a href="{{ route('public-qr.download', ['building' => $building->id, 'format' => 'png']) }}" class="asc-link" style="color:#d97706">Descargar PNG</a>
                         </p>
                     @else

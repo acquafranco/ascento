@@ -73,7 +73,11 @@ class Notifier
         return $created;
     }
 
-    public function sendTo(User $user, AppNotification $notification, int $companyId, bool $mail = true, bool $broadcast = true): ?DatabaseNotification
+    /**
+     * @param  bool  $pushAfterResponse  el push sale después de responder (por defecto, en el momento):
+     *                                   lo usa la solicitud de ayuda del QR para confirmar el registro sin esperar a los servicios de push
+     */
+    public function sendTo(User $user, AppNotification $notification, int $companyId, bool $mail = true, bool $broadcast = true, bool $pushAfterResponse = false): ?DatabaseNotification
     {
         // Estado actual (no el que tenía el objeto al dispararse el evento).
         $user = User::find($user->id);
@@ -95,11 +99,14 @@ class Notifier
         }
 
         if ($notification->wantsPush() && $user->canReceivePush() && filled(config('webpush.vapid.public_key'))) {
-            try {
-                NotificationFacade::sendNow($user, $notification, [WebPushChannel::class]);
-            } catch (Throwable $e) {
-                Log::warning('No se pudo enviar el push', ['notification_id' => $row->id, 'user_id' => $user->id, 'exception' => $e::class]);
-            }
+            $push = function () use ($user, $notification, $row) {
+                try {
+                    NotificationFacade::sendNow($user, $notification, [WebPushChannel::class]);
+                } catch (Throwable $e) {
+                    Log::warning('No se pudo enviar el push', ['notification_id' => $row->id, 'user_id' => $user->id, 'exception' => $e::class]);
+                }
+            };
+            $pushAfterResponse && ! app()->runningInConsole() ? dispatch($push)->afterResponse() : $push();
         }
 
         if ($mail && ($message = $notification->toMail($user))) {

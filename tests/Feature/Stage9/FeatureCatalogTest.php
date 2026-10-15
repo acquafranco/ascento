@@ -48,7 +48,9 @@ class FeatureCatalogTest extends TestCase
         // Guardias técnicas: en los tres planes, sin costo adicional.
         'on_call'];
 
-    private const PROFESIONAL = ['quotes', 'attention_advanced', 'company_indicators', 'elevator_history_advanced', 'failure_analysis', 'client_portal', 'report_videos', 'client_contacts'];
+    private const PROFESIONAL = ['quotes', 'attention_advanced', 'company_indicators', 'elevator_history_advanced', 'failure_analysis', 'client_portal', 'report_videos', 'client_contacts',
+        // Pedido de ayuda por atrapamiento desde el QR: Profesional y Empresa.
+        'emergency_requests'];
 
     private const EMPRESA = ['advanced_indicators', 'advanced_alerts', 'work_photos'];
 

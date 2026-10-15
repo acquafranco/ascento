@@ -13,6 +13,12 @@
         ['portal.notifications', 'Avisos', route('portal.notifications')],
         ['portal.help', 'Ayuda', route('portal.help')],
     ];
+    // Pedidos de ayuda de sus edificios: si la empresa tiene la función o ya hay pedidos (historial).
+    if ($user?->isClientUser() && ($cid = \App\Support\Portal\PortalAccess::currentCompanyId($user))
+        && (\App\Support\Plans\PlanGuard::companyAllows($cid, \App\Enums\PlanFeature::EmergencyRequests)
+            || \App\Models\EmergencyRequest::withoutGlobalScopes()->where('company_id', $cid)->whereIn('building_id', \App\Support\Portal\PortalAccess::buildingIds($user, $cid))->exists())) {
+        array_splice($tabs, 4, 0, [['portal.emergencies', 'Pedidos de ayuda', route('portal.emergencies')]]);
+    }
     $current = request()->route()?->getName().(request()->route('type') ? ':'.request()->route('type') : '');
 @endphp
 <!DOCTYPE html>
