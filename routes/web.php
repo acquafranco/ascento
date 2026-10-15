@@ -146,6 +146,8 @@ Route::prefix('{company:slug}')
 
         // Ayuda de la app del técnico (Etapa 9.3).
         Route::get('/ayuda', [HelpController::class, 'technician'])->name('help.technician');
+        // Bienvenida de la app (una sola vez por técnico: se marca al tocar «Entendido»).
+        Route::post('/ayuda/bienvenida', [HelpController::class, 'dismissTechnicianWelcome'])->middleware('throttle:20,1,help.welcome')->name('help.technician.welcome');
 
         Route::controller(ProfileController::class)->group(function () {
 
@@ -551,6 +553,7 @@ Route::prefix('portal')->name('portal.')->middleware(['auth', 'portal'])->group(
     Route::get('/responsables/{user}/foto', [PortalController::class, 'responsiblePhoto'])->whereNumber('user')->middleware('throttle:120,1,portal.responsible-photo')->name('responsible-photo');
     // Ayuda del portal (Etapa 9.3).
     Route::get('/ayuda', [HelpController::class, 'portal'])->name('help');
+    Route::post('/ayuda/bienvenida', [HelpController::class, 'dismissPortalWelcome'])->middleware('throttle:20,1,portal.help.welcome')->name('help.welcome');
     Route::get('/notificaciones', [NotificationInboxController::class, 'index'])->name('notifications');
     Route::get('/notificaciones/contador', [NotificationInboxController::class, 'count'])->middleware('throttle:60,1,portal.notifications.count')->name('notifications.count');
     Route::get('/notificaciones/{notification}', [NotificationInboxController::class, 'open'])->whereUuid('notification')->name('notifications.open');

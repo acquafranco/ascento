@@ -18,7 +18,9 @@ class SystemBackups extends Page
 
     protected static ?string $navigationLabel = 'Backups';
 
-    protected static ?int $navigationSort = 90;
+    protected static string|\UnitEnum|null $navigationGroup = 'Plataforma';
+
+    protected static ?int $navigationSort = 4;
 
     protected static ?string $slug = 'backups';
 

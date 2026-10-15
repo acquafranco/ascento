@@ -29,6 +29,10 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
 
     protected static ?string $navigationLabel = 'Mi empresa';
 
+    // Primera del menú (arriba, sin categoría): el panel abre la primera opción,
+    // así el dueño sigue entrando a «Mi empresa», como siempre.
+    protected static ?int $navigationSort = -10;
+
     public ?array $data = [];
 
     public function mount(): void

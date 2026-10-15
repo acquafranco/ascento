@@ -2,6 +2,9 @@
     <h1 class="p-h1">Hola, {{ $user->name }}</h1>
     <p class="p-sub">{{ $portalClient?->name }} · Información que {{ $portalCompany?->name }} comparte sobre tus edificios.</p>
 
+    {{-- Bienvenida breve, una sola vez por persona. --}}
+    @include('portal.partials.welcome')
+
     @include('portal.partials.push-card', ['company' => $portalCompany, 'promptOnly' => true])
 
     <section class="p-sec">

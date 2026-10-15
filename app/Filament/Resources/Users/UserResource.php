@@ -44,12 +44,13 @@ class UserResource extends Resource
 
     protected static ?string $navigationLabel = 'Técnicos';
 
+    protected static ?int $navigationSort = 2;
+
     protected static ?string $modelLabel = 'Técnico';
 
     protected static ?string $pluralModelLabel = 'Técnicos';
 
-    protected static string|\UnitEnum|null $navigationGroup =
-        'Administración';
+    protected static string|\UnitEnum|null $navigationGroup = 'Administración';
 
     public static function form(Schema $form): Schema
     {

@@ -52,7 +52,7 @@ class BuildingsMap extends Page
 
     protected static string|\UnitEnum|null $navigationGroup = 'Gestión';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 4;
 
     /** Máximo de edificios "sin ubicar" que se listan (el resto se cuenta). */
     public const LIST_LIMIT = 25;

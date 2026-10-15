@@ -66,14 +66,76 @@ class HelpTopics
 
     /** Guía completa de cada ayuda (HelpGuides) para el enlace «Ver la guía completa». */
     private const GUIDES = [
-        'company_setup' => 'start', 'technicians_intro' => 'start', 'clients_intro' => 'clients_buildings', 'buildings_intro' => 'assignments',
-        'elevators_intro' => 'elevators', 'technical_file' => 'elevators', 'elevator_history' => 'elevators', 'maintenance_intro' => 'visits',
+        'company_setup' => 'company_data', 'technicians_intro' => 'technicians', 'clients_intro' => 'client_create', 'buildings_intro' => 'assignments',
+        'elevators_intro' => 'elevators', 'technical_file' => 'elevators', 'elevator_history' => 'elevator_history', 'maintenance_intro' => 'visits',
         'inspections_intro' => 'visits', 'agenda_intro' => 'agenda', 'work_orders_intro' => 'work_orders', 'delivery_notes_intro' => 'delivery_notes',
-        'budgets_intro' => 'quotes', 'reports_intro' => 'reports', 'stock_intro' => 'stock', 'services_intro' => 'services_receivables',
-        'receivables_intro' => 'services_receivables', 'map_intro' => 'map', 'attention_center' => 'insights', 'exports_intro' => 'export',
+        'budgets_intro' => 'quotes', 'reports_intro' => 'reports', 'stock_intro' => 'stock', 'services_intro' => 'services_overview',
+        'receivables_intro' => 'receivables', 'map_intro' => 'map', 'attention_center' => 'insights', 'exports_intro' => 'export',
         'indicators' => 'insights', 'tasks_intro' => 'tasks', 'contacts_intro' => 'contacts', 'public_qr_intro' => 'public_qr',
-        'parachute_intro' => 'parachute', 'repairs_intro' => 'repairs', 'staff_intro' => 'staff',
+        'parachute_intro' => 'parachute', 'repairs_intro' => 'repairs', 'staff_intro' => 'staff', 'on_call_intro' => 'on_call',
+        'emergency_intro' => 'emergency',
     ];
+
+    /**
+     * Guías de cada pantalla para «?» → «En esta pantalla» (nombre de ruta de
+     * Filament → artículos, del más al menos usado). Solo se muestran las que
+     * la persona puede abrir.
+     */
+    private const SCREEN_GUIDES = [
+        'pages.company-settings' => ['company_data', 'emergency_setup', 'work_photos'],
+        'pages.subscription' => ['subscription', 'fix_limit'],
+        'pages.agenda' => ['agenda', 'before_ascento', 'assignments'],
+        'pages.atencion' => ['insights'],
+        'pages.indicadores' => ['insights'],
+        'pages.exportaciones' => ['export'],
+        'pages.mapa' => ['map', 'building_create'],
+        'pages.qr-publicos' => ['public_qr', 'emergency_setup', 'fix_emergency_button'],
+        'pages.paracaidas' => ['parachute'],
+        'pages.ayuda' => ['help_button', 'nav'],
+        'resources.pruebas-paracaidas.' => ['parachute'],
+        'resources.users.' => ['technicians', 'assignments', 'passwords'],
+        'resources.clients.' => ['client_create', 'portal', 'portal_access', 'deactivate'],
+        'resources.buildings.' => ['building_create', 'assignments', 'deactivate'],
+        'resources.elevators.' => ['elevators', 'elevator_history'],
+        'resources.maintenances.' => ['visits', 'work_cycle', 'fix_visit_pending'],
+        'resources.inspections.' => ['visits', 'parachute'],
+        'resources.work-orders.' => ['work_orders', 'work_order_status', 'materials', 'on_call_work'],
+        'resources.delivery-notes.' => ['delivery_notes', 'portal_share'],
+        'resources.quotes.' => ['quotes', 'quote_charge'],
+        'resources.reports.' => ['reports', 'report_videos'],
+        'resources.stock-items.' => ['stock', 'stock_adjust', 'materials'],
+        'servicios.resources.' => ['services_overview', 'service_contract', 'service_lifecycle', 'rebill'],
+        'resources.receivables.' => ['receivables', 'quote_charge', 'rebill'],
+        'resources.guardias.' => ['on_call', 'on_call_assign', 'on_call_replace', 'on_call_query'],
+        'resources.pedidos-de-ayuda.' => ['emergency', 'emergency_setup'],
+        'resources.tareas.' => ['tasks'],
+        'resources.contactos.' => ['contacts'],
+        'resources.reparaciones.' => ['repairs'],
+        'resources.administrativos.' => ['staff', 'staff_permissions'],
+        'resources.companies.' => ['sa_companies'],
+        'resources.subscriptions.' => ['sa_subscriptions'],
+        'pages.planes' => ['sa_plans'],
+        'pages.backups' => ['sa_backups'],
+        'pages.dashboard' => ['nav', 'work_cycle', 'start'],
+    ];
+
+    /** Guías de la pantalla actual que esta persona puede abrir. @return list<array> */
+    public static function screenGuides(string $routeName, ?User $user): array
+    {
+        foreach (self::SCREEN_GUIDES as $needle => $keys) {
+            if (str_contains($routeName, $needle)) {
+                return array_values(array_filter(array_map(fn ($key) => HelpGuides::find($user, HelpGuides::PANEL, $key), $keys)));
+            }
+        }
+
+        return array_values(array_filter([HelpGuides::find($user, HelpGuides::PANEL, 'nav')]));
+    }
+
+    /** @return array<string, list<string>> (para las pruebas) */
+    public static function screenGuideMap(): array
+    {
+        return self::SCREEN_GUIDES;
+    }
 
     /** Enlace a la guía completa, solo si esta persona puede ver esa guía (plan y permisos). */
     public static function guideUrl(string $key, ?User $user): ?string

@@ -43,7 +43,7 @@ class ParachuteTestsPage extends Page
 
     protected static ?string $navigationLabel = 'Pruebas de paracaídas';
 
-    protected static ?int $navigationSort = 40;
+    protected static ?int $navigationSort = 9;
 
     protected static ?string $slug = 'paracaidas';
 

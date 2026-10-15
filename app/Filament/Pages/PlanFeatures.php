@@ -29,7 +29,9 @@ class PlanFeatures extends Page
 
     protected static ?string $navigationLabel = 'Planes';
 
-    protected static ?int $navigationSort = 85;
+    protected static string|\UnitEnum|null $navigationGroup = 'Plataforma';
+
+    protected static ?int $navigationSort = 3;
 
     protected static ?string $slug = 'planes';
 

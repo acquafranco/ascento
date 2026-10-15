@@ -63,7 +63,7 @@ class RepairComponentResource extends Resource
 
     protected static ?string $slug = 'reparaciones';
 
-    protected static ?int $navigationSort = 60;
+    protected static ?int $navigationSort = 10;
 
     public static function permissionArea(): ?PermissionArea
     {
