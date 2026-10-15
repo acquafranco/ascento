@@ -51,10 +51,13 @@ El importe **siempre se recalcula en el servidor** al guardar (`ServicePricing`)
 
 **Repetidos:** no se permite el mismo servicio (mismo ítem de catálogo o, sin catálogo, el mismo nombre) activo para el mismo cliente y alcance. Contratarlo para equipos distintos del mismo edificio sí se permite.
 
+**Superposición (aviso, no bloquea):** si el alcance ya tiene otra contratación activa que cubre visitas del mismo tipo (o una anterior al catálogo, sin tipo), el formulario la muestra antes de confirmar y permite continuar. No se avisa por equipos distintos del mismo edificio ni por «solo ascensores» frente a «solo montacargas». Las visitas no se duplican: cada remito se vincula a una sola contratación (`covering`) y la agenda pide una visita por edificio.
+
 ## Editar, pausar y finalizar
 
-- **Editar:** recalcula con el alcance y los equipos actuales. Los cobros ya generados no cambian.
-- **Pausar / Reactivar:** cambia el estado.
+- **Editar:** recalcula con el alcance y los equipos actuales. Si el importe cambia (precio, modalidad, alcance, equipos activos o paradas cargadas), el formulario muestra el importe anterior, el nuevo y la causa, y exige marcar «Confirmo el nuevo importe»; el servidor también lo exige. Editar solo la descripción u otros datos no cambia el importe si los equipos no cambiaron. Los cobros ya generados no cambian.
+- **Contratos anteriores al catálogo:** al editarlos se muestran como «Mantenimiento» y «Precio acordado» con su importe; guardarlos no cambia el importe.
+- **Pausar / Reactivar:** cambia el estado. Al reactivar no se cobran los meses en que estuvo pausado o finalizado: se cobra desde el mes en que vuelve a estar activo.
 - **Finalizar:** estado «Finalizado» y fecha de fin hoy (o la anterior, si ya tenía una). Deja de generar cobros y conserva el historial, las visitas y los cobros.
 - No se borra nada.
 
@@ -64,7 +67,7 @@ El precio, el nombre y la modalidad se **copian** a la contratación al contrata
 
 ## Integraciones
 
-- **Cobros:** sin cambios para lo existente. «Pago único» genera un solo cobro, el del período de inicio. No hay facturación automática nueva.
+- **Cobros:** sin cambios para lo existente. «Pago único» genera un solo cobro en toda la vida de la contratación (aunque se pause, se reactive o cambie su inicio). Finalizar la contratación no modifica su cobro. No hay facturación automática nueva.
 - **Visitas:** `covering()` solo vincula visitas a contrataciones de mantenimiento o inspección (o anteriores al catálogo, sin tipo). Una guardia o una limpieza no «cubren» visitas.
 - **Frecuencias:** la frecuencia de cobro es independiente de la frecuencia de visitas (Edificios → «Frecuencia de visitas»). Contratar no crea visitas ni planes de visita.
 - **Agenda:** un edificio sin técnico aparece como «falta asignar» solo si tiene un contrato de mantenimiento (o sin tipo).
@@ -94,6 +97,6 @@ Solo agrega tablas y columnas: no modifica datos existentes. Las contrataciones 
 - No existe un tipo de equipo «camillero». Hoy se resuelve con un ítem aplicado a equipos específicos.
 - La pestaña del edificio muestra las contrataciones de ese edificio. Las de «todo el cliente» se ven en la ficha del cliente.
 - Un servicio de pago único queda activo hasta que alguien lo finaliza. No genera más cobros.
-- No se detecta como repetida una contratación de mantenimiento del catálogo sobre un edificio que ya tiene un contrato anterior sin catálogo. Ambas son válidas, y la visita se vincula a una sola.
+- Dos contrataciones de mantenimiento en el mismo edificio se avisan pero se permiten; cada visita se vincula a una sola (la del edificio y, entre varias, la de inicio más reciente).
 
-Pruebas: `tests/Feature/Billing/ServiceCatalogTest.php`.
+Pruebas: `tests/Feature/Billing/ServiceCatalogTest.php` y `tests/Feature/Billing/ServiceContractReviewTest.php`.

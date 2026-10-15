@@ -8,6 +8,7 @@ use App\Models\ServiceCatalogItem;
 use App\Services\Catalog\ServicePricing;
 use App\Support\CompanyContext;
 use Closure;
+use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
@@ -20,6 +21,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Components\View;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -77,6 +79,8 @@ final class ServiceAssignmentForm
                     TextInput::make('description')->label('Nombre en el contrato')->required()->maxLength(255)->default('Mantenimiento mensual de ascensores'),
                     Select::make('category')->label('Tipo de servicio')->required()->native(false)
                         ->options(collect(ServiceCatalogItem::CATEGORIES)->map(fn ($c) => $c[0]))->default('maintenance')
+                        // Contratos anteriores al catálogo (sin tipo): ya se tratan como mantenimiento.
+                        ->afterStateHydrated(fn (Select $component, ?MaintenanceService $record) => $record && ! $record->category ? $component->state('maintenance') : null)
                         ->helperText('Solo mantenimiento e inspección cubren las visitas periódicas.'),
                 ]),
             ]),
@@ -127,6 +131,10 @@ final class ServiceAssignmentForm
                     ->visible(fn (Get $get) => $get('scope') === self::SCOPE_EQUIPMENT && filled($get('building_id')))
                     ->required(fn (Get $get) => $get('scope') === self::SCOPE_EQUIPMENT)
                     ->columns(['default' => 2, 'md' => 3])->live(),
+                // Aviso (no bloquea): ya hay otra contratación que cubre visitas en este alcance.
+                View::make('filament.services.overlap-warning')
+                    ->viewData(fn (Get $get, ?MaintenanceService $record) => ['overlaps' => self::overlapsInForm($get, $creating, $fixedClientId, $fixedBuildingId, $record)])
+                    ->visible(fn (Get $get, ?MaintenanceService $record) => self::overlapsInForm($get, $creating, $fixedClientId, $fixedBuildingId, $record)->isNotEmpty()),
             ]),
 
             Section::make('Precio')->columnSpanFull()->schema([
@@ -146,7 +154,14 @@ final class ServiceAssignmentForm
                         ->afterStateHydrated(fn (TextInput $component, ?MaintenanceService $record) => $record && $record->unit_price === null ? $component->state((float) $record->amount) : null),
                 ]),
                 View::make('filament.services.pricing-summary')
-                    ->viewData(fn (Get $get) => ['summary' => self::preview($get, $creating, $fixedClientId, $fixedBuildingId)]),
+                    ->viewData(fn (Get $get, ?MaintenanceService $record) => ['summary' => self::preview($get, $creating, $fixedClientId, $fixedBuildingId, $record)]),
+                // Al editar, si el importe cambia, se confirma explícitamente (el servidor también lo exige).
+                Checkbox::make('confirm_amount_change')
+                    ->label(fn (Get $get, ?MaintenanceService $record) => ($change = self::preview($get, $creating, $fixedClientId, $fixedBuildingId, $record)['change'] ?? null)
+                        ? 'Confirmo el nuevo importe: '.ServicePricing::money($change['new']).' (antes '.ServicePricing::money($change['old']).')'
+                        : 'Confirmo el nuevo importe')
+                    ->visible(fn (Get $get, ?MaintenanceService $record) => ! $creating && $record && (self::preview($get, $creating, $fixedClientId, $fixedBuildingId, $record)['change'] ?? null) !== null)
+                    ->accepted()->validationMessages(['accepted' => 'Confirmá el nuevo importe para guardar.']),
             ]),
 
             Section::make('Cobro y vigencia')->columnSpanFull()->schema([
@@ -178,7 +193,7 @@ final class ServiceAssignmentForm
     }
 
     /** Vista previa (la misma regla que al guardar). */
-    private static function preview(Get $get, bool $creating, ?int $fixedClientId, ?int $fixedBuildingId): array
+    private static function preview(Get $get, bool $creating, ?int $fixedClientId, ?int $fixedBuildingId, ?MaintenanceService $record = null): array
     {
         $clientId = $fixedClientId ?? (int) $get('client_id');
         $mode = (string) ($get('pricing_mode') ?: ServiceCatalogItem::CUSTOM);
@@ -210,7 +225,103 @@ final class ServiceAssignmentForm
         $rows = collect($buildings)->map(fn (?int $buildingId) => ['building' => $buildingId ? Building::find($buildingId)?->name : 'Todo el cliente']
             + $pricing->calculate((int) CompanyContext::currentId(), $mode, $price, $clientId, $buildingId, $scope === self::SCOPE_EQUIPMENT ? (array) $get('units') : null, (string) ($get('equipment_kind') ?: 'all')));
 
-        return ['ready' => true, 'rows' => $rows->all(), 'total' => (float) $rows->sum('total'), 'frequency' => MaintenanceService::FREQUENCIES[$get('frequency')][0] ?? null, 'several' => $rows->count() > 1];
+        // Al editar: importe anterior, nuevo y por qué cambió.
+        $change = null;
+        if (! $creating && $record && $rows->count() === 1 && ! $rows[0]['error']) {
+            $change = self::amountChange($record, $mode, $price, $rows[0], $buildings[0], $scope === self::SCOPE_EQUIPMENT ? (array) $get('units') : null, (string) ($get('equipment_kind') ?: 'all'));
+        }
+
+        return ['ready' => true, 'rows' => $rows->all(), 'total' => (float) $rows->sum('total'), 'frequency' => MaintenanceService::FREQUENCIES[$get('frequency')][0] ?? null, 'several' => $rows->count() > 1, 'change' => $change];
+    }
+
+    /**
+     * Si el importe recalculado difiere del guardado: anterior, nuevo y causas.
+     *
+     * @param  array{quantity: int, total: float}  $pricing
+     * @return array{old: float, new: float, reasons: list<string>}|null
+     */
+    public static function amountChange(MaintenanceService $record, string $mode, float $unitPrice, array $pricing, ?int $buildingId, ?array $units, string $equipmentKind): ?array
+    {
+        $old = round((float) $record->amount, 2);
+        $new = round((float) $pricing['total'], 2);
+        if (abs($old - $new) < 0.005) {
+            return null;
+        }
+
+        $reasons = [];
+        $oldMode = $record->pricing_mode ?: ServiceCatalogItem::CUSTOM;
+        if ($oldMode !== $mode) {
+            $reasons[] = 'cambió la modalidad ('.ServiceCatalogItem::pricingModeLabel($oldMode).' → '.ServiceCatalogItem::pricingModeLabel($mode).')';
+        }
+        // Contratos anteriores al catálogo: su «precio» es el importe.
+        $oldPrice = $record->unit_price !== null ? (float) $record->unit_price : (float) $record->amount;
+        if (abs($oldPrice - round($unitPrice, 2)) >= 0.005) {
+            $reasons[] = 'cambió el precio ('.ServicePricing::money($oldPrice).' → '.ServicePricing::money(round($unitPrice, 2)).')';
+        }
+        $sameScope = (int) $record->building_id === (int) $buildingId
+            && collect($record->units ?? [])->sort()->values()->all() === collect(array_values(array_filter((array) $units)))->sort()->values()->all()
+            && ($record->pricing_detail['equipment_kind'] ?? 'all') === $equipmentKind;
+        if (! $sameScope) {
+            $reasons[] = 'cambió el alcance o los equipos que cuenta';
+        }
+        if ($oldMode === $mode && in_array($mode, [ServiceCatalogItem::PER_EQUIPMENT, ServiceCatalogItem::PER_STOP], true) && (int) $record->quantity !== (int) $pricing['quantity']) {
+            $word = $mode === ServiceCatalogItem::PER_STOP ? 'paradas cargadas' : 'equipos activos';
+            $reasons[] = $sameScope
+                ? "cambió la cantidad de {$word} (de {$record->quantity} a {$pricing['quantity']})"
+                : "cantidad de {$word}: de {$record->quantity} a {$pricing['quantity']}";
+        }
+
+        return ['old' => $old, 'new' => $new, 'reasons' => $reasons ?: ['se recalculó con los datos actuales']];
+    }
+
+    /**
+     * Otras contrataciones activas del cliente que ya cubren visitas en ese alcance
+     * (del mismo tipo, o anteriores al catálogo sin tipo). Solo para avisar: puede haber
+     * dos servicios legítimos (por ejemplo, ascensores y montacargas por separado).
+     *
+     * @param  list<string>|null  $units
+     * @return Collection<int, MaintenanceService>
+     */
+    public static function overlapping(int $clientId, ?int $buildingId, ?array $units, string $category, string $equipmentKind, ?MaintenanceService $except = null): Collection
+    {
+        if (! $clientId || ! ServiceCatalogItem::providesVisits($category)) {
+            return collect();
+        }
+        $units = array_values(array_filter((array) $units));
+        $kinds = ['elevator', 'freight'];
+
+        return MaintenanceService::query()
+            ->where('client_id', $clientId)
+            ->where('status', MaintenanceService::ACTIVE)
+            ->where(fn ($q) => $q->whereNull('category')->orWhere('category', $category))
+            ->when($buildingId, fn ($q) => $q->where(fn ($q) => $q->whereNull('building_id')->orWhere('building_id', $buildingId)))
+            ->when($except, fn ($q) => $q->whereKeyNot($except->getKey()))
+            ->with('building')
+            ->orderBy('start_date')
+            ->get()
+            // Equipos distintos del mismo edificio, o solo ascensores frente a solo montacargas, no se superponen.
+            ->reject(fn (MaintenanceService $s) => ($units && $s->units && ! array_intersect($units, $s->units))
+                || (in_array($equipmentKind, $kinds, true) && in_array($s->pricing_detail['equipment_kind'] ?? 'all', $kinds, true) && ($s->pricing_detail['equipment_kind'] ?? 'all') !== $equipmentKind))
+            ->values();
+    }
+
+    /** @return Collection<int, MaintenanceService> */
+    private static function overlapsInForm(Get $get, bool $creating, ?int $fixedClientId, ?int $fixedBuildingId, ?MaintenanceService $record): Collection
+    {
+        $clientId = $fixedClientId ?? (int) $get('client_id');
+        $scope = (string) $get('scope');
+        $buildings = match (true) {
+            $scope === self::SCOPE_CLIENT => [null],
+            $creating && ! $fixedBuildingId && $scope === self::SCOPE_BUILDINGS => array_map('intval', (array) $get('building_ids')),
+            default => [(int) ($fixedBuildingId ?? $get('building_id')) ?: null],
+        };
+        if ($scope !== self::SCOPE_CLIENT && array_filter($buildings) === []) {
+            return collect();
+        }
+
+        return collect($buildings)
+            ->flatMap(fn (?int $buildingId) => self::overlapping($clientId, $buildingId, $scope === self::SCOPE_EQUIPMENT ? (array) $get('units') : null, (string) ($get('category') ?: 'maintenance'), (string) ($get('equipment_kind') ?: 'all'), $record))
+            ->unique('id')->values();
     }
 
     /**
@@ -222,7 +333,8 @@ final class ServiceAssignmentForm
     public static function prepare(array $data, string $scope, ?string $equipmentKind, ?MaintenanceService $record = null): array
     {
         // Datos del formulario que no son columnas.
-        unset($data['scope'], $data['building_ids'], $data['equipment_kind']);
+        $confirmed = (bool) ($data['confirm_amount_change'] ?? false);
+        unset($data['scope'], $data['building_ids'], $data['equipment_kind'], $data['confirm_amount_change']);
         $companyId = (int) CompanyContext::currentId();
         $data['building_id'] = $scope === self::SCOPE_CLIENT ? null : ((int) ($data['building_id'] ?? 0) ?: null);
         $data['units'] = $scope === self::SCOPE_EQUIPMENT ? array_values(array_filter((array) ($data['units'] ?? []))) : null;
@@ -253,6 +365,10 @@ final class ServiceAssignmentForm
         }
         if ($pricing['total'] <= 0) {
             throw ValidationException::withMessages(['unit_price' => 'El importe tiene que ser mayor que cero.']);
+        }
+        // Editar nunca cambia el importe sin confirmarlo (por ejemplo, si cambiaron los equipos del edificio).
+        if ($record && ! $confirmed && ($change = self::amountChange($record, $data['pricing_mode'], (float) ($data['unit_price'] ?? 0), $pricing, $data['building_id'], $data['units'], $equipmentKind))) {
+            throw ValidationException::withMessages(['confirm_amount_change' => 'El importe cambia de '.ServicePricing::money($change['old']).' a '.ServicePricing::money($change['new']).' ('.implode('; ', $change['reasons']).'). Confirmá el nuevo importe para guardar.']);
         }
 
         $data['unit_price'] = $pricing['unit_price'];
