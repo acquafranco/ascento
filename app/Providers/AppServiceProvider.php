@@ -12,6 +12,7 @@ use App\Models\WorkOrder;
 use App\Observers\ActivityObserver;
 use App\Observers\UserAccessObserver;
 use App\Services\Activity\ActivityLogger;
+use App\Services\Location\TechnicianLocationService;
 use App\Services\Portal\PortalInvitations;
 use App\Support\Access\ActionGuard;
 use App\Support\Access\PanelAccessHook;
@@ -130,6 +131,11 @@ class AppServiceProvider extends ServiceProvider
 
             if ($endpoint && $event->user instanceof User) {
                 $event->user->deletePushSubscription($endpoint);
+            }
+
+            // Y deja de figurar su última posición en el mapa del administrador.
+            if ($event->user instanceof User && $event->user->role === 'technician') {
+                app(TechnicianLocationService::class)->forget($event->user);
             }
         });
         Gate::define('view-user-template', function (User $authUser, User $user) {

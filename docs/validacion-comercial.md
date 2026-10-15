@@ -28,7 +28,7 @@ Este documento no contiene testimonios, métricas de uso ni resultados de client
 
 ## 2. Perfil objetivo (hipótesis, no dato)
 
-- Empresa de mantenimiento de ascensores, preferentemente de **2 a 25 técnicos** y **10 a 300 edificios** (el rango que cubren los límites de los planes).
+- Empresa de mantenimiento de ascensores, preferentemente de **2 a 25 técnicos** y **10 a 400 edificios** (el rango que cubren los límites de los planes).
 - Hoy trabaja con papel, planillas o WhatsApp, o con un sistema genérico que no entiende de ascensores.
 - Quien decide suele ser el dueño o el encargado de operaciones. El técnico es el usuario diario y tiene que poder usarlo desde el celular.
 - Atiende consorcios o administraciones que piden comprobantes.
@@ -50,7 +50,7 @@ El SuperAdmin puede cambiar las funciones de cada plan desde **Planes** (`/admin
 | | Inicial | Profesional | Empresa |
 |---|---|---|---|
 | Precio mensual cargado (ARS) | 69.000 | 119.000 | 169.000 |
-| Edificios / clientes / técnicos | 20 / 50 / 3 | 70 / 150 / 10 | 300 / 420 / 25 |
+| Edificios / clientes / técnicos | 20 / 50 / 3 | 120 / 150 / 10 | 400 / 420 / 25 |
 | Usuarios administrativos (además del dueño) | Sin administrativos | Hasta 1 | Hasta 5 |
 | Reportes por mes | 15 | Sin límite | Sin límite |
 | Clientes, edificios, técnicos, mantenimientos, inspecciones, órdenes, remitos firmados, reportes, mapa | ✓ | ✓ | ✓ |

@@ -134,8 +134,8 @@ class SalesAssistantTest extends TestCase
         $this->assertStringContainsString('No escribas contraseñas ni códigos', $html);
 
         // Rangos de edificios: de los topes reales de los planes.
-        $this->assertSame(['Hasta 20', '21 a 70', '71 a 300', 'Más de 300'], SalesAssistant::buildingRanges());
-        $this->assertStringContainsString('<option>21 a 70</option>', $html);
+        $this->assertSame(['Hasta 20', '21 a 120', '121 a 400', 'Más de 400'], SalesAssistant::buildingRanges());
+        $this->assertStringContainsString('<option>21 a 120</option>', $html);
     }
 
     public function test_commercial_topics_come_first_and_the_emergency_option_last(): void

@@ -80,6 +80,15 @@ final class TechnicianGuides
                 'related' => ['t_work_order'],
             ]),
 
+            $a('t-cuenta', 't_location', 'Compartir tu ubicación con la oficina', 'Voluntario: vos decidís si la oficina ve dónde estás.', [
+                'Entrá a «Más → Mi perfil» y bajá a «Ubicación».',
+                'Tocá «Activar ubicación» y después «Permitir ubicación en este celular»: el celular te pide permiso.',
+                'Para dejar de compartirla, tocá «Desactivar ubicación». Se borra tu última posición.',
+            ], [
+                'notes' => ['Solo se manda mientras tenés Ascento abierto en la pantalla. Con el celular bloqueado no se actualiza.', 'Se comparte solo tu última posición y su hora, no un recorrido. Al cerrar sesión también se borra.'],
+                'keywords' => ['ubicacion', 'gps', 'mapa', 'localizacion', 'compartir ubicacion', 'permiso'],
+            ]),
+
             $a('t-cuenta', 't_notifications', 'Recibir avisos de trabajos nuevos', 'Para enterarte en el momento.', [
                 'En «Mi perfil», activá los avisos en este celular.',
                 'Si tu empresa lo tiene, también podés conectar Telegram en «Avisos por Telegram».',

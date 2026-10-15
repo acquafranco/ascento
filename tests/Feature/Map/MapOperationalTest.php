@@ -92,7 +92,7 @@ class MapOperationalTest extends TestCase
         $this->actingInPanel($a['admin'])->get(BuildingsMap::getUrl())->assertOk()
             ->assertSee('Cómo leer este mapa')
             ->assertSee('Cada punto es un edificio')
-            ->assertSee('no sigue la ubicación')
+            ->assertSee('es el <strong>asignado</strong> al edificio, no dónde está', false)
             ->assertSee('Grupo de edificios cercanos');
 
         // Cada marcador es un edificio con la ubicación del EDIFICIO; del

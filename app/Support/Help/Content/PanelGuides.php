@@ -16,6 +16,7 @@ use App\Filament\Pages\PublicQrPage;
 use App\Filament\Pages\Subscription;
 use App\Filament\Pages\SystemBackups;
 use App\Filament\Resources\Buildings\BuildingResource;
+use App\Filament\Resources\Claims\ClientClaimResource;
 use App\Filament\Resources\ClientInteractions\ClientInteractionResource;
 use App\Filament\Resources\Clients\ClientResource;
 use App\Filament\Resources\Companies\CompanyResource;
@@ -325,6 +326,22 @@ final class PanelGuides
                 'open' => WorkOrderResource::class,
             ]),
 
+            $a('ordenes', 'claims', 'Cómo gestionar los reclamos de tus clientes', 'Lo que tus clientes reportan desde el portal: un problema con un ascensor, con su edificio y su categoría.', [
+                'Cuando un cliente presenta un reclamo, te llega un aviso y aparece en «Operaciones → Reclamos de clientes» como «Nuevo».',
+                'Abrilo: ves el edificio, el ascensor (si lo indicó), la categoría, la descripción, las fotos y quién lo presentó.',
+                'Con «Cambiar estado» lo pasás a «En revisión», «En gestión», «Resuelto» o «Cerrado». El cliente ve el estado en su portal.',
+                'Con «Responder al cliente» le escribís: lo ve en su portal y le llega un aviso. En «Más», «Nota interna» guarda algo que solo ve tu empresa.',
+                'Si hace falta un trabajo, en «Más» usá «Crear orden de trabajo»: queda vinculada al reclamo y asignás los técnicos en la orden.',
+            ], [
+                'after' => 'Todo queda en el historial del reclamo, marcado como «Visible para el cliente» o «Interno».',
+                'notes' => ['Un reclamo no es un canal de emergencias: el portal le indica al cliente usar la alarma del ascensor y el 911.', 'Crear la orden es siempre una acción tuya: un reclamo nunca genera órdenes solo, ni dos órdenes.'],
+                'related' => ['work_orders', 'portal'],
+                'keywords' => ['reclamo', 'queja', 'portal', 'cliente', 'consorcio', 'problema', 'pedido'],
+                'feature' => Feature::ClientPortal,
+                'area' => Area::WorkOrders,
+                'open' => ClientClaimResource::class,
+            ]),
+
             $a('ordenes', 'work_order_status', 'Cómo seguir el estado de una orden', 'Qué significa cada estado y cómo se cierra una orden.', [
                 '«Pendiente»: está creada y todavía nadie la tomó.',
                 '«En progreso»: un técnico tocó «Tomar trabajo».',
@@ -534,11 +551,28 @@ final class PanelGuides
                 'Entrá a «Gestión → Mapa». Los edificios se ubican solos con la dirección cargada.',
                 'Si alguno no se pudo ubicar, aparece en «Edificios sin ubicar»: corregí la dirección o marcalo a mano.',
                 'Podés filtrar por zona, técnico y estado del mes. Tocá un punto para ver el cliente y abrir el edificio.',
+                'En la pestaña «Técnicos» ves dónde están los técnicos que activaron su ubicación (si tenés permiso de «Técnicos»).',
             ], [
-                'related' => ['building_create'],
+                'related' => ['building_create', 'technician_location'],
                 'keywords' => ['mapa', 'ubicacion', 'zona', 'recorrido', 'geolocalizacion'],
                 'feature' => Feature::Map,
                 'area' => Area::Buildings,
+                'open' => BuildingsMap::class,
+            ]),
+
+            $a('mapa-qr', 'technician_location', 'Cómo ver la ubicación de los técnicos', 'La pestaña «Técnicos» del mapa: dónde está cada técnico que activó su ubicación.', [
+                'Entrá a «Gestión → Mapa» y tocá la pestaña «Técnicos».',
+                'Cada técnico tiene una tarjeta con su foto, su estado y la hora de su última posición. Tocala para ubicarlo en el mapa.',
+                '«En línea»: posición de los últimos minutos. «Ubicación desactualizada»: es la última que llegó, en gris y con su hora.',
+                'La vista se actualiza sola cada pocos segundos mientras la tenés abierta.',
+            ], [
+                'before' => ['Cada técnico activa su ubicación desde su perfil, en «Ubicación», y da permiso en su celular. Nadie puede activarla por él.', 'La ven el dueño y los administrativos con permiso de «Técnicos».'],
+                'notes' => ['El celular solo manda la posición mientras el técnico tiene Ascento abierto en pantalla: con el teléfono bloqueado no llegan posiciones nuevas.', 'Se guarda solo la última posición (no un recorrido) y se borra si el técnico la desactiva, cierra sesión o pasan unas horas sin novedades.'],
+                'problems' => [['Un técnico figura «Permiso denegado»', 'Activó la ubicación en Ascento pero su celular no da permiso. En su perfil tiene las instrucciones para habilitarlo.'], ['Un técnico figura «Ubicación desactualizada»', 'Su celular no mandó posiciones recientes: puede tener Ascento cerrado, la pantalla bloqueada o estar sin señal.']],
+                'related' => ['map', 'on_call_query'],
+                'keywords' => ['ubicacion', 'gps', 'donde esta', 'tecnicos en el mapa', 'seguimiento', 'localizacion'],
+                'feature' => Feature::Map,
+                'area' => Area::Technicians,
                 'open' => BuildingsMap::class,
             ]),
 

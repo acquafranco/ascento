@@ -96,6 +96,7 @@ class StaffPermissionsTest extends TestCase
         ServiceCatalogItemResource::class => PermissionArea::Receivables,
         OnCallScheduleResource::class => PermissionArea::OnCall,
         EmergencyRequestResource::class => PermissionArea::WorkOrders,
+        \App\Filament\Resources\Claims\ClientClaimResource::class => PermissionArea::WorkOrders,
         ReceivableResource::class => PermissionArea::Receivables,
         QuoteResource::class => PermissionArea::Quotes,
         StockItemResource::class => PermissionArea::Stock,

@@ -135,7 +135,7 @@ final class SalesAssistant
 
     /**
      * Rangos de edificios para el mensaje (opcional), según los topes de los
-     * planes: "Hasta 20", "21 a 70", "71 a 300", "Más de 300".
+     * planes: "Hasta 20", "21 a 120", "121 a 400", "Más de 400".
      *
      * @return list<string>
      */

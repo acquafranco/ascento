@@ -5,6 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     @include('partials.brand-head')
         <meta name="csrf-token" content="{{ csrf_token() }}">
+        @include('location.tracker-config')
         <meta name="ascento-user" content="{{ auth()->id() }}">
 
         <title>{{ config('app.name', 'Ascento') }}</title>

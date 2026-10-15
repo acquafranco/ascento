@@ -4,6 +4,7 @@ import Alpine from 'alpinejs';
 import { listenForNavigation, pushNotificationsComponent, silentSync } from './push-notifications';
 import { initTechUi } from './tech-ui';
 import { initDrafts } from './drafts';
+import { initTechLocation } from './tech-location';
 
 window.Alpine = Alpine;
 
@@ -15,3 +16,4 @@ initTechUi();
 initDrafts();
 listenForNavigation();
 silentSync();
+initTechLocation();

@@ -5,6 +5,8 @@ namespace App\Services\Exports;
 use App\Models\Building;
 use App\Models\BuildingVisit;
 use App\Models\Client;
+use App\Models\ClientClaim;
+use App\Models\ClientClaimEvent;
 use App\Models\ClientInteraction;
 use App\Models\Company;
 use App\Models\CompanyExport;
@@ -319,6 +321,15 @@ class CompanyDataExporter
         $this->sheet('Pedidos de ayuda', ['ID', 'Código', 'Fecha', 'Edificio ID', 'Edificio', 'Ascensor ID', 'Cliente ID', 'Estado', 'Pedidos repetidos', 'Rondas de aviso', 'Avisados (1.ª ronda)', 'Cerrado', 'Nota de cierre'],
             $this->scoped(EmergencyRequest::class), fn ($e) => [$e->id, $e->reference, $e->created_at, $e->building_id, $this->name('buildings', $e->building_id), $e->elevator_id, $e->client_id,
                 $e->statusLabel(), $e->repeat_count, $e->notify_rounds, $e->recipients_count, $e->closed_at, $e->close_note]);
+
+        // Reclamos de clientes desde el portal, con su historial (las notas internas son de la empresa).
+        // La ubicación de los técnicos no se exporta: es efímera y no se guarda historial.
+        $this->sheet('Reclamos', ['ID', 'Número', 'Fecha', 'Cliente ID', 'Edificio ID', 'Edificio', 'Ascensor ID', 'Categoría', 'Descripción', 'Cuándo pasó', 'Estado', 'Presentado por ID', 'Responsable ID', 'Orden de trabajo ID', 'Resuelto', 'Cerrado'],
+            $this->scoped(ClientClaim::class), fn ($c) => [$c->id, $c->reference(), $c->created_at, $c->client_id, $c->building_id, $this->name('buildings', $c->building_id), $c->elevator_id,
+                $c->categoryLabel(), $c->description, $c->occurred_at, $c->statusLabel(), $c->created_by, $c->assigned_to, $c->work_order_id, $c->resolved_at, $c->closed_at]);
+
+        $this->sheet('Historial de reclamos', ['ID', 'Reclamo ID', 'Fecha', 'Tipo', 'Desde', 'Hasta', 'Texto', 'Visible para el cliente', 'Usuario ID'],
+            $this->scoped(ClientClaimEvent::class), fn ($e) => [$e->id, $e->client_claim_id, $e->created_at, $e->type, $e->from, $e->to, $e->body, (bool) $e->public, $e->user_id]);
 
         // Guardias técnicas: configuración, turnos (con su historial de cambios) y registro de cambios.
         $this->sheet('Guardias', ['ID', 'Nombre', 'Horario', 'Técnicos a la vez', 'Modalidad', 'Activa'],

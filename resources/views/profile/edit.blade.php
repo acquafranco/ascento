@@ -19,6 +19,12 @@
             </section>
         @endif
 
+        @if (\App\Services\Location\TechnicianLocationService::canTrack($user))
+            <div class="t-card p-4 sm:p-6">
+                @include('profile.partials.location')
+            </div>
+        @endif
+
         <section class="t-card p-4 sm:p-6">
             @include('profile.partials.update-profile-information-form')
         </section>

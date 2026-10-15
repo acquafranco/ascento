@@ -144,7 +144,7 @@ class OnCallPlansTest extends TestCase
 
         $this->assertSame(['69000.00', '119000.00', '169000.00'], [$plans['inicial']->price, $plans['profesional']->price, $plans['empresa']->price]);
         $limits = fn ($p) => [$p->max_buildings, $p->max_clients, $p->max_technicians, $p->max_reports_per_month, $p->max_admin_users];
-        $this->assertSame([[20, 50, 3, 15, 0], [70, 150, 10, null, 1], [300, 420, 25, null, 5]], [$limits($plans['inicial']), $limits($plans['profesional']), $limits($plans['empresa'])]);
+        $this->assertSame([[20, 50, 3, 15, 0], [120, 150, 10, null, 1], [400, 420, 25, null, 5]], [$limits($plans['inicial']), $limits($plans['profesional']), $limits($plans['empresa'])]);
         foreach ($plans as $plan) {
             $this->assertTrue($plan->allows(PlanFeature::OnCall), $plan->slug); // también los planes históricos
         }

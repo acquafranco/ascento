@@ -17,6 +17,7 @@ use App\Filament\Pages\PublicQrPage;
 use App\Filament\Pages\Subscription;
 use App\Filament\Pages\SystemBackups;
 use App\Filament\Resources\Buildings\BuildingResource;
+use App\Filament\Resources\Claims\ClientClaimResource;
 use App\Filament\Resources\ClientInteractions\ClientInteractionResource;
 use App\Filament\Resources\Clients\ClientResource;
 use App\Filament\Resources\Companies\CompanyResource;
@@ -78,6 +79,7 @@ final class NavigationGuide
             WorkOrderResource::class => ['Reclamos y trabajos puntuales: creás la orden, el técnico la toma y la cierra con el remito.', 'work_orders'],
             DeliveryNoteResource::class => ['Todos los remitos firmados, con su PDF. No se borran: son el historial del trabajo.', 'delivery_notes'],
             ReportResource::class => ['Las fallas que detectan los técnicos, con foto y prioridad. Las vas marcando en revisión o resueltas.', 'reports'],
+            ClientClaimResource::class => ['Lo que tus clientes reportan desde el portal. Cambiás el estado, respondés y, si hace falta, creás la orden.', 'claims'],
             EmergencyRequestResource::class => ['Los pedidos por posible atrapamiento hechos desde el QR. Un número rojo indica los abiertos.', 'emergency'],
             OnCallScheduleResource::class => ['Quién cubre fuera de horario: turnos, rotaciones, reemplazos y quién está de guardia ahora.', 'on_call'],
             ParachuteTestsPage::class => ['La periodicidad y el registro de las pruebas de paracaídas, con aviso de las próximas.', 'parachute'],

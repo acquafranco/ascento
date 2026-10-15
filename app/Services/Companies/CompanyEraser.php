@@ -181,7 +181,7 @@ class CompanyEraser
             return 0;
         }
 
-        $direct = collect([['building_visits', 'user_id'], ['delivery_notes', 'user_id'], ['reports', 'user_id'], ['quotes', 'created_by'], ['portal_memberships', 'user_id'], ['on_call_shifts', 'user_id'], ['on_call_members', 'user_id'], ['emergency_deliveries', 'user_id']])
+        $direct = collect([['building_visits', 'user_id'], ['delivery_notes', 'user_id'], ['reports', 'user_id'], ['quotes', 'created_by'], ['portal_memberships', 'user_id'], ['on_call_shifts', 'user_id'], ['on_call_members', 'user_id'], ['emergency_deliveries', 'user_id'], ['client_claims', 'created_by'], ['client_claims', 'assigned_to'], ['client_claim_events', 'user_id'], ['technician_locations', 'user_id']])
             ->sum(fn ($ref) => DB::table($ref[0])->whereIn($ref[1], $erased)->where('company_id', '!=', $id)->count());
 
         $viaParent = collect([
@@ -267,10 +267,18 @@ class CompanyEraser
         $n += $of('building_visits')->delete();
         $n += $of('building_visit_plans')->delete();
 
+        // Reclamos de clientes (referencian órdenes, edificios, clientes y usuarios).
+        foreach (['client_claim_photos', 'client_claim_events', 'client_claims'] as $table) {
+            $n += $of($table)->delete();
+        }
+
         foreach (['work_order_participants', 'work_order_user'] as $table) {
             $n += DB::table($table)->whereIn('work_order_id', $workOrders ?: [0])->delete();
         }
         $n += $of('work_orders')->delete();
+
+        // Ubicación de técnicos (sin historial: una fila por técnico).
+        $n += $of('technician_locations')->delete();
 
         // Pedidos de ayuda desde el QR (antes que edificios, ascensores, clientes y usuarios).
         foreach (['emergency_deliveries', 'emergency_requests'] as $table) {
@@ -373,6 +381,7 @@ class CompanyEraser
         DB::table('elevator_documents')->where('company_id', $id)->pluck('path')->each(fn ($path) => $add('local', $path, 'elevators'));
         DB::table('parachute_test_files')->where('company_id', $id)->pluck('path')->each(fn ($path) => $add('local', $path, 'elevators'));
         DB::table('repair_component_files')->where('company_id', $id)->pluck('path')->each(fn ($path) => $add('local', $path, 'repairs'));
+        DB::table('client_claim_photos')->where('company_id', $id)->pluck('path')->each(fn ($path) => $add('local', $path, 'client-claims'));
         DB::table('company_exports')->where('company_id', $id)->pluck('path')->each(fn ($path) => $add('local', $path, 'exports'));
         DB::table('users')->where('company_id', $id)->whereNotNull('avatar')->pluck('avatar')->each(fn ($path) => $add('local', $path, 'avatars'));
 

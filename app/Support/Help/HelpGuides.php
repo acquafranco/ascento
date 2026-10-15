@@ -70,7 +70,7 @@ final class HelpGuides
 
             'p-portal' => $c(self::PORTAL, 'Tu portal', 'Qué ves y de qué empresa.', 'home'),
             'p-documentos' => $c(self::PORTAL, 'Documentos y visitas', 'Remitos, presupuestos y visitas de tus edificios.', 'document-text'),
-            'p-ayuda' => $c(self::PORTAL, 'Pedidos de ayuda', 'Pedidos por posible atrapamiento desde el QR.', 'exclamation-triangle'),
+            'p-ayuda' => $c(self::PORTAL, 'Reclamos y pedidos de ayuda', 'Reclamos a tu empresa y pedidos desde el QR.', 'exclamation-triangle'),
             'p-cuenta' => $c(self::PORTAL, 'Avisos y cuenta', 'Avisos en el celular y contraseña.', 'bell'),
             'p-problemas' => $c(self::PORTAL, self::TROUBLESHOOTING, 'Lo que más se consulta.', 'lifebuoy'),
         ];

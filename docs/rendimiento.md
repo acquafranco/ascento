@@ -68,7 +68,7 @@ exagerado a propósito: todo cae dentro de los últimos 90 días.
 ## Lo que se decidió no cambiar
 
 - **Mapa: se siguen mandando todos los marcadores.** El plan más grande
-  admite 300 edificios: unos 150 KB sin comprimir, mucho menos comprimido.
+  admite 400 edificios (300 cuando se midió): unos 200 KB sin comprimir, mucho menos comprimido.
   Los filtros de color, zona, cliente, técnico y estado trabajan en el
   navegador sobre todos los marcadores. Cargar por zona del mapa los rompería
   y agregaría esperas al mover el mapa. Si algún día se superan los ~1000
