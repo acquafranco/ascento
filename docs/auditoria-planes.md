@@ -73,7 +73,7 @@ Dependencias importantes encontradas:
 | | Inicial | Profesional (recomendado) | Empresa |
 |---|---|---|---|
 | Precio | $69.000/mes | $119.000/mes | $169.000/mes |
-| Edificios | 20 | 70 | 300 |
+| Edificios | 20 | 120 | 400 |
 | Clientes | 50 | 150 | 420 |
 | Técnicos (usuarios no admin) | 3 | 10 | 25 |
 | Reportes | 15 por mes | sin límite | sin límite |

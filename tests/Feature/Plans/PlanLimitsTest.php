@@ -96,8 +96,8 @@ class PlanLimitsTest extends TestCase
         $this->assertTrue($plans[1]->is_recommended);
 
         $this->assertSame([20, 50, 3, 15], [$plans[0]->maxBuildings(), $plans[0]->maxClients(), $plans[0]->maxTechnicians(), $plans[0]->maxReportsPerMonth()]);
-        $this->assertSame([70, 150, 10, null], [$plans[1]->maxBuildings(), $plans[1]->maxClients(), $plans[1]->maxTechnicians(), $plans[1]->maxReportsPerMonth()]);
-        $this->assertSame([300, 420, 25, null], [$plans[2]->maxBuildings(), $plans[2]->maxClients(), $plans[2]->maxTechnicians(), $plans[2]->maxReportsPerMonth()]);
+        $this->assertSame([120, 150, 10, null], [$plans[1]->maxBuildings(), $plans[1]->maxClients(), $plans[1]->maxTechnicians(), $plans[1]->maxReportsPerMonth()]);
+        $this->assertSame([400, 420, 25, null], [$plans[2]->maxBuildings(), $plans[2]->maxClients(), $plans[2]->maxTechnicians(), $plans[2]->maxReportsPerMonth()]);
 
         // El plan de $149.000 ya no se ofrece (pero no se borró).
         $this->assertFalse($plans->contains(fn ($p) => (float) $p->price === 149000.0));
@@ -162,9 +162,9 @@ class PlanLimitsTest extends TestCase
         $this->assertSame(20, PlanLimit::Buildings->usage($this->a['company']));
     }
 
-    public function test_profesional_allows_70_and_empresa_300_buildings(): void
+    public function test_profesional_allows_120_and_empresa_400_buildings(): void
     {
-        foreach (['profesional' => 70, 'empresa' => 300] as $slug => $max) {
+        foreach (['profesional' => 120, 'empresa' => 400] as $slug => $max) {
             $this->onPlan($slug);
             $this->fillBuildings($max - 1);
             $this->actingAs($this->a['admin']);
@@ -417,12 +417,12 @@ class PlanLimitsTest extends TestCase
 
         $this->assertSame('Alcanzaste el límite de 20 edificios de tu plan Inicial.', $this->guard()->limitReachedMessage(PlanLimit::Buildings));
         $this->assertSame(
-            'Con Profesional podés administrar hasta 70 edificios y además obtenés hasta 150 clientes, hasta 10 técnicos, reportes sin límite mensual, hasta 1 usuario administrativo, presupuestos y portal para clientes.',
+            'Con Profesional podés administrar hasta 120 edificios y además obtenés hasta 150 clientes, hasta 10 técnicos, reportes sin límite mensual, hasta 1 usuario administrativo, presupuestos y portal para clientes.',
             $this->guard()->upgradePitch(PlanLimit::Buildings),
         );
 
         $this->onPlan('profesional');
-        $this->assertSame('Con Empresa podés administrar hasta 300 edificios y además obtenés hasta 420 clientes, hasta 25 técnicos y hasta 5 usuarios administrativos.', $this->guard()->upgradePitch(PlanLimit::Buildings));
+        $this->assertSame('Con Empresa podés administrar hasta 400 edificios y además obtenés hasta 420 clientes, hasta 25 técnicos y hasta 5 usuarios administrativos.', $this->guard()->upgradePitch(PlanLimit::Buildings));
     }
 
     public function test_the_plans_screen_explains_the_limit_and_shows_the_three_plans(): void
@@ -434,7 +434,7 @@ class PlanLimitsTest extends TestCase
         $this->get(SubscriptionPage::getUrl(['limite' => 'buildings']))
             ->assertOk()
             ->assertSee('Alcanzaste el límite de 20 edificios de tu plan Inicial.')
-            ->assertSee('Con Profesional podés administrar hasta 70 edificios')
+            ->assertSee('Con Profesional podés administrar hasta 120 edificios')
             ->assertSeeInOrder(['Inicial', '$69.000', 'Recomendado', 'Profesional', '$119.000', 'Empresa', '$169.000'])
             ->assertSee('Tu plan')
             ->assertSee('20 / 20');

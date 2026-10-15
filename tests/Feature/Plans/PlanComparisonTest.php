@@ -24,7 +24,7 @@ class PlanComparisonTest extends TestCase
     {
         $m = $this->matrix();
 
-        $this->assertSame(['inicial' => 'Hasta 20', 'profesional' => 'Hasta 70', 'empresa' => 'Hasta 300'], $m['Edificios']);
+        $this->assertSame(['inicial' => 'Hasta 20', 'profesional' => 'Hasta 120', 'empresa' => 'Hasta 400'], $m['Edificios']);
         $this->assertSame(['inicial' => 'Hasta 50', 'profesional' => 'Hasta 150', 'empresa' => 'Hasta 420'], $m['Clientes']);
         $this->assertSame(['inicial' => 'Hasta 3', 'profesional' => 'Hasta 10', 'empresa' => 'Hasta 25'], $m['Usuarios técnicos u operativos']);
         $this->assertSame(['inicial' => 'Hasta 15', 'profesional' => 'Sin límite', 'empresa' => 'Sin límite'], $m['Informes por mes']);

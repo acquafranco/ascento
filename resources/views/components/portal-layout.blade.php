@@ -19,6 +19,10 @@
             || \App\Models\EmergencyRequest::withoutGlobalScopes()->where('company_id', $cid)->whereIn('building_id', \App\Support\Portal\PortalAccess::buildingIds($user, $cid))->exists())) {
         array_splice($tabs, 4, 0, [['portal.emergencies', 'Pedidos de ayuda', route('portal.emergencies')]]);
     }
+    // Reclamos: con el portal en el plan (el mismo control que la pantalla).
+    if (\App\Services\Claims\ClientClaimService::portalCanClaim($user)) {
+        array_splice($tabs, 1, 0, [['portal.claims', 'Reclamos', route('portal.claims.index')]]);
+    }
     $current = request()->route()?->getName().(request()->route('type') ? ':'.request()->route('type') : '');
 @endphp
 <!DOCTYPE html>
@@ -171,7 +175,7 @@
             <nav class="p-nav" aria-label="Secciones del portal">
                 <div class="p-nav-in">
                     @foreach($tabs as [$name, $label, $url])
-                        <a href="{{ $url }}" @if($current === $name || ($name === 'portal.home' && $current === 'portal.building')) aria-current="page" @endif>{{ $label }}</a>
+                        <a href="{{ $url }}" @if($current === $name || ($name === 'portal.home' && $current === 'portal.building') || ($name === 'portal.claims' && str_starts_with($current, 'portal.claims.'))) aria-current="page" @endif>{{ $label }}</a>
                     @endforeach
                 </div>
             </nav>

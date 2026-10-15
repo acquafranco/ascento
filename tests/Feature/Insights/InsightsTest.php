@@ -117,7 +117,7 @@ class InsightsTest extends TestCase
 
         // Precios y límites intactos.
         $this->assertEquals([69000, 119000, 169000], [$plans['inicial']->price, $plans['profesional']->price, $plans['empresa']->price]);
-        $this->assertSame([20, 70, 300], [$plans['inicial']->maxBuildings(), $plans['profesional']->maxBuildings(), $plans['empresa']->maxBuildings()]);
+        $this->assertSame([20, 120, 400], [$plans['inicial']->maxBuildings(), $plans['profesional']->maxBuildings(), $plans['empresa']->maxBuildings()]);
     }
 
     public function test_the_plan_migration_only_adds_keys_and_rolls_back_cleanly(): void

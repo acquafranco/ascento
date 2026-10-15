@@ -1,4 +1,15 @@
 <x-filament-panels::page>
+    @if ($this->canSeeTechnicians())
+        {{-- Pestañas: el mapa de edificios de siempre y la ubicación de los técnicos. --}}
+        <x-filament::tabs label="Vista del mapa" style="margin-bottom:.25rem">
+            <x-filament::tabs.item tag="a" :href="static::getUrl()" :active="$this->activeTab() === 'edificios'" icon="heroicon-m-building-office-2">Edificios</x-filament::tabs.item>
+            <x-filament::tabs.item tag="a" :href="static::getUrl(['vista' => 'tecnicos'])" :active="$this->activeTab() === 'tecnicos'" icon="heroicon-m-user-group" data-map-tab-technicians>Técnicos</x-filament::tabs.item>
+        </x-filament::tabs>
+    @endif
+
+    @if ($this->activeTab() === 'tecnicos')
+        @include('filament.pages.partials.technicians-map')
+    @else
     @vite(['resources/js/buildings-map.js'])
 
     @if (! $this->hasCompany())
@@ -21,7 +32,7 @@
             <ul style="margin:.6rem 0 0;padding-left:1.1rem;line-height:1.55;list-style:disc;">
                 <li><strong>Cada punto es un edificio</strong>, ubicado en la dirección cargada (o donde lo marcaste a mano si la dirección no alcanzaba).</li>
                 <li><strong>Un círculo con un número</strong> agrupa edificios cercanos: tocalo o acercate para separarlos.</li>
-                <li>El <strong>técnico</strong> que figura es el <strong>asignado</strong> al edificio. Ascento <strong>no sigue la ubicación</strong> de los técnicos: no hay GPS ni posiciones en vivo.</li>
+                <li>El <strong>técnico</strong> que figura es el <strong>asignado</strong> al edificio, no dónde está. La ubicación de los técnicos que la activaron se ve en la pestaña <strong>«Técnicos»</strong> (si tenés permiso para verla).</li>
                 <li>El color es el que elegiste para cada edificio o, con "Colorear por: estado del mes", si el mantenimiento de {{ now()->translatedFormat('F') }} está hecho, pendiente o sin técnico.</li>
                 <li>Los datos son los del momento en que abriste la página: recargá para ver cambios.</li>
             </ul>
@@ -237,5 +248,6 @@
                 @endif
             </x-filament::section>
         @endif
+    @endif
     @endif
 </x-filament-panels::page>

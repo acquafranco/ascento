@@ -120,7 +120,7 @@ El modelo de trabajo no cambió: **una visita fija por edificio, tipo y mes**, q
 
 | | Inicial | Profesional | Empresa |
 |---|---|---|---|
-| Edificios / clientes / técnicos | 20 / 50 / 3 | 70 / 150 / 10 | 300 / 420 / 25 |
+| Edificios / clientes / técnicos | 20 / 50 / 3 | 120 / 150 / 10 | 400 / 420 / 25 |
 | Reportes por mes | 15 | sin límite | sin límite |
 | Operación, mapa, agenda, legajo, stock, servicios, cobranzas | ✓ | ✓ | ✓ |
 | Exportación de datos | ✓ | ✓ | ✓ |

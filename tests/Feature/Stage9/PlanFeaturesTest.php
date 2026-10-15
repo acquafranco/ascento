@@ -101,8 +101,8 @@ class PlanFeaturesTest extends TestCase
         // Precios y límites, sin cambios.
         $this->assertSame(['69000.00', '119000.00', '169000.00'], [$plans['inicial']->price, $plans['profesional']->price, $plans['empresa']->price]);
         $this->assertSame([20, 50, 3, 15, 0], [$plans['inicial']->max_buildings, $plans['inicial']->max_clients, $plans['inicial']->max_technicians, $plans['inicial']->max_reports_per_month, $plans['inicial']->max_admin_users]);
-        $this->assertSame([70, 150, 10, null, 1], [$plans['profesional']->max_buildings, $plans['profesional']->max_clients, $plans['profesional']->max_technicians, $plans['profesional']->max_reports_per_month, $plans['profesional']->max_admin_users]);
-        $this->assertSame([300, 420, 25, null, 5], [$plans['empresa']->max_buildings, $plans['empresa']->max_clients, $plans['empresa']->max_technicians, $plans['empresa']->max_reports_per_month, $plans['empresa']->max_admin_users]);
+        $this->assertSame([120, 150, 10, null, 1], [$plans['profesional']->max_buildings, $plans['profesional']->max_clients, $plans['profesional']->max_technicians, $plans['profesional']->max_reports_per_month, $plans['profesional']->max_admin_users]);
+        $this->assertSame([400, 420, 25, null, 5], [$plans['empresa']->max_buildings, $plans['empresa']->max_clients, $plans['empresa']->max_technicians, $plans['empresa']->max_reports_per_month, $plans['empresa']->max_admin_users]);
 
         // La prueba gratis sigue siendo Empresa completo.
         $this->assertTrue($this->a['company']->plan()->allows(PlanFeature::ClientContacts));

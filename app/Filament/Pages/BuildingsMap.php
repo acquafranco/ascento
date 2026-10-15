@@ -8,8 +8,10 @@ use App\Filament\Concerns\RequiresPlanFeature;
 use App\Filament\Resources\Buildings\BuildingResource;
 use App\Jobs\GeocodePendingBuildings;
 use App\Models\Building;
+use App\Models\Company;
 use App\Services\Geocoding\BuildingGeocoder;
 use App\Services\Insights\MaintenanceAgenda;
+use App\Services\Location\TechnicianLocationService;
 use App\Support\Access\Access;
 use App\Support\CompanyContext;
 use Carbon\Carbon;
@@ -18,6 +20,8 @@ use Filament\Pages\Page;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Renderless;
+use Livewire\Attributes\Url;
 
 /**
  * Mapa de todos los edificios de la empresa actual.
@@ -60,6 +64,10 @@ class BuildingsMap extends Page
     /** Desde cuándo buscar puntos nuevos en cada poll (ISO 8601). */
     public string $lastPollAt = '';
 
+    /** Pestaña: «edificios» (el mapa de siempre) o «tecnicos» (ubicación de los técnicos). */
+    #[Url(as: 'vista')]
+    public string $tab = 'edificios';
+
     public static function canAccess(): bool
     {
         $user = auth()->user();
@@ -75,8 +83,17 @@ class BuildingsMap extends Page
         $this->startBackgroundGeocoding();
     }
 
+    public function getTitle(): string
+    {
+        return $this->activeTab() === 'tecnicos' ? 'Mapa de técnicos' : 'Mapa de edificios';
+    }
+
     public function getSubheading(): ?string
     {
+        if ($this->activeTab() === 'tecnicos') {
+            return 'Dónde están los técnicos que activaron su ubicación, y desde cuándo.';
+        }
+
         return '¿Dónde están todos tus edificios? Tocá un punto para ver el detalle.';
     }
 
@@ -417,5 +434,54 @@ class BuildingsMap extends Page
             ->send();
 
         return $this->toMarker($building);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | PESTAÑA «TÉCNICOS»: UBICACIÓN
+    |--------------------------------------------------------------------------
+    | Solo dueño, SuperAdmin dentro de una empresa y administrativos con el área
+    | «Técnicos». La empresa sale del contexto del usuario (nunca del
+    | navegador) y la consulta la vuelve a verificar cada vez.
+    */
+
+    public function canSeeTechnicians(): bool
+    {
+        return $this->hasCompany() && Access::can(auth()->user(), PermissionArea::Technicians);
+    }
+
+    public function activeTab(): string
+    {
+        return $this->tab === 'tecnicos' && $this->canSeeTechnicians() ? 'tecnicos' : 'edificios';
+    }
+
+    /**
+     * Estado y última posición de los técnicos de la empresa actual (lo pide
+     * el mapa cada pocos segundos mientras la pestaña está a la vista).
+     *
+     * Sin re-render (#[Renderless]): solo devuelve los datos.
+     *
+     * @return array{technicians: list<array>, at: string}
+     */
+    #[Renderless]
+    public function technicianLocations(): array
+    {
+        abort_unless($this->canSeeTechnicians(), 403);
+        $company = Company::find(CompanyContext::currentId());
+        abort_unless($company !== null, 403);
+
+        return [
+            'technicians' => app(TechnicianLocationService::class)->forCompany($company)->all(),
+            'at' => now()->toIso8601String(),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    public function technicianMapConfig(): array
+    {
+        return $this->getMapConfig() + [
+            'refreshSeconds' => (int) config('location.map_refresh_seconds', 30),
+            'freshMinutes' => intdiv((int) config('location.fresh_seconds', 300), 60),
+        ];
     }
 }

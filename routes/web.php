@@ -149,6 +149,14 @@ Route::prefix('{company:slug}')
         // Bienvenida de la app (una sola vez por técnico: se marca al tocar «Entendido»).
         Route::post('/ayuda/bienvenida', [HelpController::class, 'dismissTechnicianWelcome'])->middleware('throttle:20,1,help.welcome')->name('help.technician.welcome');
 
+        // Ubicación del técnico (voluntaria, solo la suya; ver TechnicianLocationController).
+        Route::prefix('ubicacion')->name('location.')->controller(\App\Http\Controllers\TechnicianLocationController::class)->group(function () {
+            Route::post('/', 'store')->middleware('throttle:6,1,location.store')->name('store');
+            Route::post('/activar', 'enable')->middleware('throttle:20,1,location.toggle')->name('enable');
+            Route::post('/desactivar', 'disable')->middleware('throttle:20,1,location.toggle')->name('disable');
+            Route::post('/estado', 'report')->middleware('throttle:20,1,location.report')->name('report');
+        });
+
         Route::controller(ProfileController::class)->group(function () {
 
             Route::get('/profile', 'edit')
@@ -508,6 +516,12 @@ Route::get('/files/technician-photos/{user}', TechnicianPhotoController::class)
     ->whereNumber('user')
     ->name('technician-photos.show');
 
+// Foto de un reclamo de cliente, para el panel (privada; ver ClientClaimPhotoController).
+Route::get('/files/client-claims/{photo}', \App\Http\Controllers\ClientClaimPhotoController::class)
+    ->middleware(['auth', 'subscription', 'throttle:120,1,client-claim-photos'])
+    ->whereNumber('photo')
+    ->name('client-claim-photos.show');
+
 // Imagen del QR público de un edificio (Etapa 7), para el panel.
 Route::get('/qr-codes/{building}/download/{format}', [PublicQrController::class, 'download'])
     ->middleware(['auth', 'subscription', 'throttle:30,1,public-qr.download'])
@@ -553,6 +567,14 @@ Route::prefix('portal')->name('portal.')->middleware(['auth', 'portal'])->group(
     Route::get('/responsables/{user}/foto', [PortalController::class, 'responsiblePhoto'])->whereNumber('user')->middleware('throttle:120,1,portal.responsible-photo')->name('responsible-photo');
     // Ayuda del portal (Etapa 9.3).
     Route::get('/ayuda', [HelpController::class, 'portal'])->name('help');
+    // Reclamos a la empresa de mantenimiento (solo los propios, de sus edificios autorizados).
+    Route::prefix('reclamos')->name('claims.')->controller(\App\Http\Controllers\Portal\PortalClaimController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/nuevo', 'create')->name('create');
+        Route::post('/', 'store')->middleware('throttle:10,1,portal.claims.store')->name('store');
+        Route::get('/{claim}', 'show')->whereNumber('claim')->name('show');
+        Route::get('/{claim}/fotos/{photo}', 'photo')->whereNumber(['claim', 'photo'])->middleware('throttle:120,1,portal.claims.photo')->name('photo');
+    });
     Route::post('/ayuda/bienvenida', [HelpController::class, 'dismissPortalWelcome'])->middleware('throttle:20,1,portal.help.welcome')->name('help.welcome');
     Route::get('/notificaciones', [NotificationInboxController::class, 'index'])->name('notifications');
     Route::get('/notificaciones/contador', [NotificationInboxController::class, 'count'])->middleware('throttle:60,1,portal.notifications.count')->name('notifications.count');

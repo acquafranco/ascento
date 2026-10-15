@@ -154,7 +154,7 @@ class PlanGuard
     }
 
     /**
-     * Qué gana al actualizar: "Con Profesional podés administrar hasta 70
+     * Qué gana al actualizar: "Con Profesional podés administrar hasta 120
      * edificios y además obtenés reportes sin límite mensual, presupuestos…".
      */
     public function upgradePitch(?PlanLimit $limit = null, ?PlanFeature $feature = null): ?string

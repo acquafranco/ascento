@@ -35,6 +35,18 @@ final class PortalGuides
                 'En «Mantenimientos» e «Inspecciones» ves las visitas registradas de tus edificios.',
             ], ['keywords' => ['mantenimiento', 'inspeccion', 'visitas', 'mes']]),
 
+            $a('p-ayuda', 'p_claims', 'Cómo presentar un reclamo', 'Para avisarle a tu empresa de mantenimiento que un ascensor tiene un problema.', [
+                'Entrá a «Reclamos» y tocá «Nuevo reclamo».',
+                'Elegí el edificio, el ascensor si sabés cuál, y qué pasó.',
+                'Contá brevemente lo que sucede. Si querés, agregá cuándo pasó y hasta 3 fotos.',
+                'Tocá «Enviar reclamo». Te mostramos el número de reclamo.',
+            ], [
+                'after' => 'En «Reclamos» ves su estado y las respuestas que te comparta la empresa. Que figure registrado no significa que ya lo hayan leído.',
+                'notes' => ['Si hay alguien atrapado o un peligro inmediato, usá la alarma o el intercomunicador del ascensor y llamá al 911: un reclamo no es un canal de emergencias.'],
+                'keywords' => ['reclamo', 'queja', 'problema', 'ascensor roto', 'avisar', 'falla'],
+                'feature' => Feature::ClientPortal,
+            ]),
+
             $a('p-ayuda', 'p_emergencies', 'Pedidos de ayuda desde el QR', 'Los pedidos por posible atrapamiento hechos desde el QR de tus edificios.', [
                 'Si alguien toca «Estoy atrapado en el ascensor» en el QR de un edificio que tenés autorizado, te llega un aviso.',
                 'En «Pedidos de ayuda» ves cada pedido con su edificio, su hora y su estado.',
