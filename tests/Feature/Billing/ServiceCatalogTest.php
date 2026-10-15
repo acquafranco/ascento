@@ -291,9 +291,18 @@ class ServiceCatalogTest extends TestCase
         $this->assign(['scope' => 'buildings', 'building_ids' => [$this->a['building']->id]])->assertHasNoFormErrors();
         $service = MaintenanceService::sole();
 
+        // Sin confirmar el nuevo importe no se guarda (el resumen muestra anterior, nuevo y causa).
         Livewire::test(EditMaintenanceService::class, ['record' => $service->getRouteKey()])
             ->assertFormSet(['scope' => 'buildings', 'building_id' => $this->a['building']->id])
             ->fillForm(['unit_price' => 60000])
+            ->assertSee('El importe cambia: $100.000 → $120.000')
+            ->assertSee('cambió el precio ($50.000 → $60.000)')
+            ->call('save')
+            ->assertHasFormErrors(['confirm_amount_change']);
+        $this->assertEquals(100000, $service->fresh()->amount);
+
+        Livewire::test(EditMaintenanceService::class, ['record' => $service->getRouteKey()])
+            ->fillForm(['unit_price' => 60000, 'confirm_amount_change' => true])
             ->call('save')
             ->assertHasNoFormErrors();
 

@@ -27,6 +27,13 @@
             <p data-pricing-total style="margin: .75rem 0 0; padding-top: .6rem; border-top: 1px solid rgba(128,128,128,.25); font-weight: 700; font-size: 1rem;">
                 {{ $summary['several'] ? 'Total de las '.count($summary['rows']).' contrataciones' : 'Importe' }}: {{ $money($summary['total']) }}@if($summary['frequency']) <span style="font-weight: 400; opacity: .7;">· cobro {{ mb_strtolower($summary['frequency']) }}</span>@endif
             </p>
+            @if(! empty($summary['change']))
+                <div data-pricing-change role="alert" style="margin-top: .6rem; padding: .6rem .75rem; border-radius: .5rem; background: rgba(245,158,11,.12); border: 1px solid rgba(245,158,11,.45);">
+                    <div style="font-weight: 600;">El importe cambia: {{ $money($summary['change']['old']) }} → {{ $money($summary['change']['new']) }}</div>
+                    <div style="overflow-wrap: anywhere;">Causa: {{ implode('; ', $summary['change']['reasons']) }}.</div>
+                    <div style="opacity: .75;">Rige para los cobros que se generen desde ahora; los ya generados no cambian.</div>
+                </div>
+            @endif
             @if($summary['several'])
                 <p style="margin: .35rem 0 0; opacity: .7;">Se crea una contratación por edificio, cada una con su importe.</p>
             @endif

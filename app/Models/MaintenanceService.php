@@ -100,6 +100,13 @@ class MaintenanceService extends Model
         static::saving(function (MaintenanceService $service) {
             $service->payment_due_day = max(1, min(28, (int) ($service->payment_due_day ?: 10)));
 
+            // Al reactivarlo (desde pausado o finalizado) no se cobran los meses
+            // en que no estuvo activo: se cobra desde el mes en que vuelve.
+            if ($service->exists && $service->isDirty('status') && $service->status === self::ACTIVE && $service->getOriginal('status') !== self::ACTIVE) {
+                $from = ($service->billing_from ?? $service->start_date ?? now())->copy()->startOfMonth();
+                $service->billing_from = $from->max(now()->startOfMonth());
+            }
+
             // Equipos: solo los del edificio del contrato (nunca texto libre del request).
             $building = $service->building_id ? Building::withoutGlobalScopes()->withTrashed()->find($service->building_id) : null;
             $units = array_values(array_intersect((array) ($service->units ?? []), $building?->unitLabels() ?? []));

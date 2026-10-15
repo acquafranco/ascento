@@ -72,6 +72,11 @@ class ServiceBillingService
             return 0;
         }
 
+        // Pago único: un solo cobro en toda su vida, aunque se pause, se reactive o cambien sus fechas.
+        if ($service->frequency === 'once' && Receivable::withoutGlobalScopes()->where('maintenance_service_id', $service->id)->exists()) {
+            return 0;
+        }
+
         $created = 0;
 
         foreach ($this->periodsFor($service, $upTo) as $period) {
