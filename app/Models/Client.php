@@ -16,6 +16,17 @@ class Client extends Model
     use ConsumesPlanLimit;
     use HasFactory, SoftDeletes;
 
+    /** Tipos válidos (enum de la columna clients.type). */
+    public const TYPES = [
+        'hospital' => 'Hospital',
+        'consorcio' => 'Consorcio',
+        'empresa' => 'Empresa',
+        'particular' => 'Particular',
+    ];
+
+    /** El mismo valor por defecto que la columna y el formulario. */
+    public const DEFAULT_TYPE = 'consorcio';
+
     protected $fillable = [
         'company_id',
         'name',
