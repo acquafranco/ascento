@@ -4,8 +4,8 @@ namespace App\Support\Access;
 
 use App\Enums\PermissionArea;
 use App\Enums\PlanLimit;
-use App\Models\Company;
 use App\Models\User;
+use App\Support\RequestMemo;
 
 /**
  * Único lugar que decide quién puede qué dentro del panel (Etapa 6).
@@ -59,25 +59,28 @@ final class Access
             return self::BLOCK_DEACTIVATED;
         }
 
-        $company = $user->company_id ? Company::find($user->company_id) : null;
+        // Se calcula una vez por pedido y administrativo (antes, en cada verificación de permisos).
+        return RequestMemo::remember('staff-block:'.$user->id.':'.(int) $user->company_id, function () use ($user) {
+            $company = RequestMemo::company($user->company_id ? (int) $user->company_id : null);
 
-        if (! $company || ! $company->is_active) {
-            return self::BLOCK_COMPANY;
-        }
-
-        $max = $company->plan()->limit(PlanLimit::AdminUsers);
-
-        if ($max !== null) {
-            $ahead = User::withoutGlobalScopes()
-                ->where('company_id', $company->id)->where('role', User::ROLE_STAFF)->whereNull('deleted_at')
-                ->where('id', '<', $user->id)->count();
-
-            if ($ahead >= $max) {
-                return self::BLOCK_PLAN;
+            if (! $company || ! $company->is_active) {
+                return self::BLOCK_COMPANY;
             }
-        }
 
-        return null;
+            $max = $company->plan()->limit(PlanLimit::AdminUsers);
+
+            if ($max !== null) {
+                $ahead = User::withoutGlobalScopes()
+                    ->where('company_id', $company->id)->where('role', User::ROLE_STAFF)->whereNull('deleted_at')
+                    ->where('id', '<', $user->id)->count();
+
+                if ($ahead >= $max) {
+                    return self::BLOCK_PLAN;
+                }
+            }
+
+            return null;
+        });
     }
 
     /** Texto para el administrativo y para el dueño. */

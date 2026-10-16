@@ -9,6 +9,7 @@ use App\Exceptions\PlanLimitReachedException;
 use App\Models\Company;
 use App\Models\SubscriptionPlan;
 use App\Support\CompanyContext;
+use App\Support\RequestMemo;
 
 /**
  * Único lugar que responde "¿esta empresa puede…?" según su plan, y que
@@ -90,7 +91,8 @@ class PlanGuard
     /** Para procesos sin sesión (scheduler, QR público). */
     public static function companyAllows(int $companyId, PlanFeature $feature): bool
     {
-        $company = Company::find($companyId);
+        // Una sola consulta por pedido (antes, una por cada verificación: miles por página).
+        $company = RequestMemo::company($companyId);
 
         return $company !== null && self::for($company)->allows($feature);
     }

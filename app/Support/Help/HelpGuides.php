@@ -5,12 +5,14 @@ namespace App\Support\Help;
 use App\Filament\Pages\HelpCenter;
 use App\Models\User;
 use App\Support\Access\Access;
+use App\Support\CompanyContext;
 use App\Support\Help\Content\HelpFaq;
 use App\Support\Help\Content\PanelGuides;
 use App\Support\Help\Content\PortalGuides;
 use App\Support\Help\Content\TechnicianGuides;
 use App\Support\Plans\PlanGuard;
 use App\Support\Portal\PortalAccess;
+use App\Support\RequestMemo;
 
 /**
  * Centro de ayuda de Ascento: una sola biblioteca de artículos para el panel
@@ -128,12 +130,25 @@ final class HelpGuides
             return [];
         }
 
-        return array_values(array_filter(self::all(), fn (array $guide) => $guide['audience'] === $audience && self::allows($user, $guide)));
+        // Una vez por pedido, persona y empresa (el menú y el botón «?» la piden muchas veces).
+        return RequestMemo::remember('help:'.self::memoKey($user, $audience), fn () => array_values(array_filter(self::all(), fn (array $guide) => $guide['audience'] === $audience && self::allows($user, $guide))));
     }
 
     public static function find(?User $user, string $audience, string $key): ?array
     {
-        return collect(self::for($user, $audience))->firstWhere('key', $key);
+        if ($user === null) {
+            return null;
+        }
+
+        $byKey = RequestMemo::remember('help-keys:'.self::memoKey($user, $audience), fn () => array_column(self::for($user, $audience), null, 'key'));
+
+        return $byKey[$key] ?? null;
+    }
+
+    /** Persona, perfil y empresa con la que opera (lo que cambia qué guías ve). */
+    private static function memoKey(User $user, string $audience): string
+    {
+        return $audience.':'.$user->id.':'.(int) CompanyContext::currentId().':'.(int) ($audience === self::PORTAL ? PortalAccess::currentCompanyId($user) : 0);
     }
 
     /** Las mismas reglas sirven para artículos y preguntas frecuentes. */

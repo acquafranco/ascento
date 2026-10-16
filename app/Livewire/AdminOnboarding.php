@@ -116,12 +116,13 @@ class AdminOnboarding extends Component
     {
         $user = $this->user();
         $owner = $user->canUseOnboarding();
+        $menu = NavigationGuide::for($user);
 
         return view('livewire.admin-onboarding', [
             'autoStart' => $user->shouldAutoStartOnboarding() && $user->company?->hasActiveAccess() && ! session(self::PAUSED_SESSION_KEY),
             'savedStep' => (int) $user->onboarding_step,
-            'steps' => static::steps($user),
-            'menu' => NavigationGuide::for($user),
+            'steps' => static::steps($user, menu: $menu),
+            'menu' => $menu,
             'checklist' => $owner ? $this->checklist() : [],
             'sectionHelp' => static::sectionHelp()[$this->section] ?? static::sectionHelp()['dashboard'],
             'screenGuides' => HelpTopics::screenGuides($this->routeName, $user),
@@ -192,11 +193,11 @@ class AdminOnboarding extends Component
      *
      * @return list<array{key: string, title: string, body: string, target: ?string, group?: ?string, help?: bool, flow?: list<string>, list?: list<array{title: string, text: string}>}>
      */
-    public static function steps(?User $user = null, bool $withMenu = true): array
+    public static function steps(?User $user = null, bool $withMenu = true, ?array $menu = null): array
     {
         $user ??= auth()->user();
         $owner = $user instanceof User && $user->canUseOnboarding();
-        $menu = $withMenu && $user instanceof User ? NavigationGuide::for($user) : [];
+        $menu ??= $withMenu && $user instanceof User ? NavigationGuide::for($user) : [];
         $groups = array_values(array_filter($menu, fn ($g) => $g['label'] !== null));
 
         $steps = [[
