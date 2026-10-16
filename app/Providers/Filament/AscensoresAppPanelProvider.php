@@ -118,6 +118,16 @@ class AscensoresAppPanelProvider extends PanelProvider
                     : '',
             )
 
+            // Configuración inicial guiada de empresas nuevas (solo el dueño; ver CompanySetup).
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn (): string => \App\Services\Onboarding\CompanySetup::isActiveFor(auth()->user())
+                    ? Blade::render('@livewire(\App\Livewire\CompanySetupCoach::class, [\'routeName\' => $routeName])', [
+                        'routeName' => HelpTopics::currentRouteName(),
+                    ])
+                    : '',
+            )
+
             // Ayuda contextual de cada pantalla: aparece hasta que el admin la
             // descarta (estado propio por ayuda; ver HelpTopics / HelpTip).
             ->renderHook(

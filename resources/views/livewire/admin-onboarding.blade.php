@@ -457,8 +457,13 @@
             </div>
         @endif
 
+        @if($setupResumable)
+            <div class="asc-onb-actions" style="flex-wrap: wrap; margin-top:.9rem">
+                <button type="button" class="asc-onb-btn asc-onb-btn-primary" wire:click="resumeSetup" data-setup-resume>Retomar la configuración inicial</button>
+            </div>
+        @endif
         <div class="asc-onb-actions" style="flex-wrap: wrap">
-            <button type="button" class="asc-onb-btn asc-onb-btn-primary" x-on:click="start(0)" data-ascento-restart>Ver la guía desde el principio</button>
+            <button type="button" class="asc-onb-btn {{ $setupResumable ? 'asc-onb-btn-soft' : 'asc-onb-btn-primary' }}" x-on:click="start(0)" data-ascento-restart>Ver la guía desde el principio</button>
             <template x-if="savedIndex() > 0">
                 <button type="button" class="asc-onb-btn asc-onb-btn-soft" x-on:click="start(savedIndex())">Continuar donde la dejé</button>
             </template>
@@ -466,7 +471,7 @@
         <p class="asc-onb-body" style="margin-top:.75rem"><a href="{{ $helpCenterUrl }}" class="asc-onb-link" data-help-center-link>Abrir el Centro de ayuda →</a></p>
 
         @if($checklist !== [])
-            <h3>Primeros pasos</h3>
+            <h3>{{ ($company?->setup_status ?? null) === \App\Services\Onboarding\CompanySetup::COMPLETED ? 'Próximos pasos' : 'Primeros pasos' }}</h3>
             <ul class="asc-onb-check" style="margin-top:0">
                 @foreach ($checklist as $item)
                     <li>

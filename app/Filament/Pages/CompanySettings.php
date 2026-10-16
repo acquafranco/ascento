@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Enums\PlanFeature;
 use App\Models\Company;
 use App\Rules\Cuit;
+use App\Services\Onboarding\CompanySetup;
 use App\Support\Access\Access;
 use App\Support\Help\HelpTopics;
 use App\Support\Plans\PlanUpsell;
@@ -361,6 +362,9 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
         $data = $this->form->getState();
 
         $user->company->update($data);
+
+        // Configuración inicial guiada: el paso de los datos de la empresa queda hecho.
+        CompanySetup::companySaved($user);
 
         Notification::make()
             ->title('Empresa actualizada')
