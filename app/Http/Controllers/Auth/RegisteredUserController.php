@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Rules\Cuit;
+use App\Services\Onboarding\CompanySetup;
 use App\Support\Auth\PasswordPolicy;
 use App\Support\Auth\RegistrationChallenge;
 use App\Support\Provinces;
@@ -152,6 +153,9 @@ class RegisteredUserController extends Controller
                     'trial_ends_at' => now()->addDays(SubscriptionPlan::TRIAL_DAYS),
 
                 ]);
+
+                // Empresa nueva: se le abre la configuración inicial guiada (CompanySetup).
+                $company->forceFill(['setup_status' => CompanySetup::PENDING])->save();
 
                 /*
                 |--------------------------------------------------------------------------

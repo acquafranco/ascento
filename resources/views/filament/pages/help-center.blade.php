@@ -65,6 +65,16 @@
             </nav>
         @endif
 
+        @if($this->canResumeSetup())
+            <div class="hc-card" style="display:flex; flex-wrap:wrap; gap:.75rem; align-items:center; justify-content:space-between" data-help-setup>
+                <div>
+                    <p class="hc-h" style="margin:0">Configuración inicial</p>
+                    <p class="hc-small" style="margin:.2rem 0 0">Seguí donde la dejaste: técnico, cliente, edificio y tu primera orden de trabajo.</p>
+                </div>
+                <button type="button" wire:click="resumeSetup" class="hg-open" style="border:0; background:none; cursor:pointer" data-setup-resume>Retomar →</button>
+            </div>
+        @endif
+
         {{-- Buscador: siempre arriba. --}}
         <section class="hc-search" role="search" data-help-filters>
             <h2 id="hc-search-title">¿Qué necesitás hacer?</h2>

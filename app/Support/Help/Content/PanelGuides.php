@@ -71,6 +71,19 @@ final class PanelGuides
                 'owner' => true,
             ]),
 
+            $a('primeros-pasos', 'setup', 'La configuración inicial guiada', 'Para empresas nuevas: de los datos de tu empresa a tu primera orden de trabajo, paso a paso.', [
+                'Al registrarte se abre sola una bienvenida. Tocá «Empezar».',
+                'Un panel abajo a la derecha te indica el paso actual y te lleva al formulario de siempre: tus datos, un técnico, un cliente, un edificio con sus ascensores y una orden asignada al técnico.',
+                'Cada paso se marca solo cuando guardás el registro real.',
+                'Al final ves cómo le aparece la orden al técnico y te felicitamos.',
+            ], [
+                'after' => 'Después sigue la ayuda de inicio con los próximos pasos (agenda, servicios, portal, QR y guardias, según tu plan).',
+                'notes' => ['Con «Pausar» la cerrás hasta tu próxima sesión, sin perder lo hecho. Si la omitiste, la retomás desde «Ayuda» o el botón «?».', 'Se guarda por empresa y solo la usa el dueño de la cuenta.'],
+                'related' => ['start', 'nav'],
+                'keywords' => ['configuracion inicial', 'onboarding', 'primeros pasos', 'empezar', 'guia', 'tutorial'],
+                'owner' => true,
+            ]),
+
             $a('primeros-pasos', 'nav', 'Cómo moverte por el menú', 'El menú agrupa las secciones en categorías que se despliegan, así ves primero lo importante.', [
                 'Arriba del menú están los accesos de todos los días: «Mi empresa» (solo el dueño), «Inicio», «Centro de atención», «Indicadores» y «Ayuda», según tu plan y tus permisos.',
                 'Debajo están las categorías: «Gestión» (clientes, edificios y equipos), «Operaciones» (visitas, órdenes, remitos, guardias), «Comercial» (presupuestos, servicios y cobranzas) y «Administración» (tu equipo, tu plan y la exportación).',

@@ -78,6 +78,9 @@ class Company extends Model
         'emergency_requests_enabled' => 'boolean',
         'whatsapp_connected' => 'boolean',
         'trial_ends_at' => 'datetime',
+        // Configuración inicial guiada (CompanySetup): no asignable en masa.
+        'setup_acks' => 'array',
+        'setup_completed_at' => 'datetime',
         'activity_started_at' => 'date',
     ];
 

@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Enums\PlanLimit;
+use App\Services\Onboarding\CompanySetup;
 use App\Support\Access\Access;
 use App\Support\Help\HelpGuides;
 use App\Support\Help\HelpSearch;
@@ -93,6 +94,23 @@ class HelpCenter extends Page
         $guard = PlanGuard::for($company);
 
         return ['plan' => $guard->plan()->shortName(), 'lines' => array_map(fn (PlanLimit $l) => $guard->usageLabel($l), PlanLimit::cases())];
+    }
+
+    /** Dueño de una empresa nueva: retomar la configuración inicial guiada. */
+    public function canResumeSetup(): bool
+    {
+        $user = auth()->user();
+
+        return CompanySetup::appliesTo($user)
+            && in_array($user->company->setup_status, [CompanySetup::PENDING, CompanySetup::SKIPPED], true);
+    }
+
+    public function resumeSetup()
+    {
+        abort_unless($this->canResumeSetup(), 403);
+        app(CompanySetup::class)->resume(auth()->user()->company);
+
+        return $this->redirect(CompanySetup::dashboardUrl());
     }
 
     public function showTopic(string $slug): void

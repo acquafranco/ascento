@@ -2,18 +2,30 @@
 
 namespace App\Livewire;
 
+use App\Enums\PlanFeature;
+use App\Filament\Pages\Agenda;
 use App\Filament\Pages\CompanySettings;
 use App\Filament\Pages\HelpCenter;
+use App\Filament\Pages\PublicQrPage;
 use App\Filament\Resources\Buildings\BuildingResource;
 use App\Filament\Resources\Clients\ClientResource;
+use App\Filament\Resources\MaintenanceServices\MaintenanceServiceResource;
+use App\Filament\Resources\OnCall\OnCallScheduleResource;
 use App\Filament\Resources\Users\UserResource;
 use App\Filament\Resources\WorkOrders\WorkOrderResource;
 use App\Models\Building;
+use App\Models\BuildingPublicPage;
 use App\Models\Client;
+use App\Models\Company;
+use App\Models\MaintenanceService;
+use App\Models\OnCallSchedule;
+use App\Models\PortalMembership;
 use App\Models\User;
 use App\Models\WorkOrder;
+use App\Services\Onboarding\CompanySetup;
 use App\Support\Help\HelpTopics;
 use App\Support\Help\NavigationGuide;
+use App\Support\Plans\PlanGuard;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Renderless;
 use Livewire\Component;
@@ -74,6 +86,16 @@ class AdminOnboarding extends Component
         session()->forget(self::PAUSED_SESSION_KEY);
     }
 
+    /** «Retomar la configuración inicial» (botón «?»): vuelve a mostrar la guía donde quedó. */
+    public function resumeSetup()
+    {
+        $user = $this->user();
+        abort_unless($user->canUseOnboarding() && CompanySetup::appliesTo($user), 403);
+        app(CompanySetup::class)->resume($user->company);
+
+        return $this->redirect(url()->previous() ?: CompanySetup::dashboardUrl());
+    }
+
     /** Guarda el paso en el que está (valor acotado: nunca uno inexistente). */
     #[Renderless]
     public function saveStep(int $index): void
@@ -119,10 +141,14 @@ class AdminOnboarding extends Component
         $menu = NavigationGuide::for($user);
 
         return view('livewire.admin-onboarding', [
-            'autoStart' => $user->shouldAutoStartOnboarding() && $user->company?->hasActiveAccess() && ! session(self::PAUSED_SESSION_KEY),
+            // Mientras la empresa nueva hace su configuración guiada, la introducción espera.
+            'autoStart' => $user->shouldAutoStartOnboarding() && $user->company?->hasActiveAccess() && ! session(self::PAUSED_SESSION_KEY)
+                && $user->company?->setup_status !== CompanySetup::PENDING,
+            'setupResumable' => $owner && in_array($user->company?->setup_status, [CompanySetup::PENDING, CompanySetup::SKIPPED], true),
             'savedStep' => (int) $user->onboarding_step,
             'steps' => static::steps($user, menu: $menu),
             'menu' => $menu,
+            'company' => $user->company,
             'checklist' => $owner ? $this->checklist() : [],
             'sectionHelp' => static::sectionHelp()[$this->section] ?? static::sectionHelp()['dashboard'],
             'screenGuides' => HelpTopics::screenGuides($this->routeName, $user),
@@ -149,6 +175,11 @@ class AdminOnboarding extends Component
     protected function checklist(): array
     {
         $company = $this->user()->company;
+
+        // Después de la configuración guiada: los próximos pasos para aprender el resto.
+        if ($company->setup_status === CompanySetup::COMPLETED) {
+            return $this->nextSteps($company);
+        }
 
         return [
             [
@@ -186,6 +217,51 @@ class AdminOnboarding extends Component
     }
 
     /**
+     * Próximos pasos tras la configuración guiada, con el progreso real de la
+     * empresa. Solo los que su plan incluye.
+     *
+     * @return list<array{label: string, done: bool, url: string}>
+     */
+    protected function nextSteps(Company $company): array
+    {
+        $guard = PlanGuard::for($company);
+        $id = $company->id;
+
+        return array_values(array_filter([
+            [
+                'label' => 'Asigná técnicos a tus edificios para que tengan sus visitas',
+                'done' => Building::query()->whereExists(fn ($q) => $q->selectRaw('1')->from('building_user')->whereColumn('building_user.building_id', 'buildings.id'))->exists(),
+                'url' => BuildingResource::getUrl('index'),
+            ],
+            $guard->allows(PlanFeature::Agenda) ? [
+                'label' => 'Mirá la agenda de mantenimientos del mes',
+                'done' => false,
+                'url' => Agenda::getUrl(),
+            ] : null,
+            [
+                'label' => 'Cargá el servicio contratado de un cliente (genera sus cobros)',
+                'done' => MaintenanceService::withoutGlobalScopes()->where('company_id', $id)->exists(),
+                'url' => MaintenanceServiceResource::getUrl('index'),
+            ],
+            $guard->allows(PlanFeature::ClientPortal) ? [
+                'label' => 'Invitá a tu cliente al portal',
+                'done' => PortalMembership::where('company_id', $id)->exists(),
+                'url' => ClientResource::getUrl('index'),
+            ] : null,
+            $guard->allows(PlanFeature::PublicQr) ? [
+                'label' => 'Generá e imprimí el QR de un edificio',
+                'done' => BuildingPublicPage::withoutGlobalScopes()->where('company_id', $id)->exists(),
+                'url' => PublicQrPage::getUrl(),
+            ] : null,
+            $guard->allows(PlanFeature::OnCall) ? [
+                'label' => 'Organizá las guardias fuera de horario',
+                'done' => OnCallSchedule::withoutGlobalScopes()->where('company_id', $id)->exists(),
+                'url' => OnCallScheduleResource::getUrl('index'),
+            ] : null,
+        ]));
+    }
+
+    /**
      * Pasos de la introducción. `target` es la URL del ítem del menú lateral
      * que se señala; `group`, la categoría del menú; `help`, el botón «?»;
      * sin ninguno, tarjeta centrada. El dueño suma los primeros pasos para
@@ -200,12 +276,17 @@ class AdminOnboarding extends Component
         $menu ??= $withMenu && $user instanceof User ? NavigationGuide::for($user) : [];
         $groups = array_values(array_filter($menu, fn ($g) => $g['label'] !== null));
 
+        // Una empresa que ya hizo la configuración guiada no repite esos pasos.
+        $setupDone = $owner && in_array($user->company?->setup_status, [CompanySetup::COMPLETED], true);
+
         $steps = [[
             'key' => 'welcome',
             'title' => 'Bienvenido a Ascento 👋',
-            'body' => $owner
+            'body' => $setupDone
+                ? 'Tu empresa ya está configurada. En un minuto te mostramos cómo moverte por el resto de Ascento. Podés cerrarla cuando quieras: la volvés a ver desde el botón «?».'
+                : ($owner
                 ? 'En un minuto te mostramos cómo orientarte y por dónde empezar a configurar tu empresa. Podés cerrarla cuando quieras: la volvés a ver desde el botón «?».'
-                : 'En un minuto te mostramos cómo orientarte. Podés cerrarla cuando quieras: la volvés a ver desde el botón «?».',
+                : 'En un minuto te mostramos cómo orientarte. Podés cerrarla cuando quieras: la volvés a ver desde el botón «?».'),
             'target' => null,
         ], [
             'key' => 'menu',
@@ -216,7 +297,7 @@ class AdminOnboarding extends Component
             'list' => array_map(fn ($g) => ['title' => $g['title'], 'text' => $g['intro']], $groups),
         ]];
 
-        if ($owner) {
+        if ($owner && ! $setupDone) {
             $steps = array_merge($steps, [
                 [
                     'key' => 'company',
@@ -257,9 +338,11 @@ class AdminOnboarding extends Component
         $steps[] = [
             'key' => 'done',
             'title' => $owner ? '¡Listo! Ya conocés lo básico de Ascento.' : '¡Listo!',
-            'body' => $owner
+            'body' => $setupDone
+                ? 'Tu empresa ya está configurada. Estos son los próximos pasos para aprovechar el resto de Ascento; si te olvidás de algo, tocá «?».'
+                : ($owner
                 ? 'Te recomendamos arrancar por los primeros pasos de abajo. Si te olvidás de algo, tocá «?».'
-                : 'Abrí las categorías que uses y, si necesitás algo, tocá «?» o entrá a «Ayuda».',
+                : 'Abrí las categorías que uses y, si necesitás algo, tocá «?» o entrá a «Ayuda».'),
             'target' => null,
         ];
 
