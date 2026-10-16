@@ -19,15 +19,19 @@ use App\Support\Access\PanelAccessHook;
 use App\Support\Auth\PasswordPolicy;
 use App\Support\Realtime;
 use App\Support\RealtimeCounters;
+use App\Support\RequestMemo;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Notifications\VerifyEmail;
+use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Foundation\Http\Events\RequestHandled;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Notifications\Events\NotificationSent;
 use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -138,6 +142,16 @@ class AppServiceProvider extends ServiceProvider
                 app(TechnicianLocationService::class)->forget($event->user);
             }
         });
+        // Memoria por pedido (RequestMemo): se vacía al terminar cada pedido y ante
+        // cualquier escritura en las tablas que la afectan (también las masivas o
+        // con DB::table), así nunca se usa un plan, una empresa o un permiso viejo.
+        Event::listen(RequestHandled::class, fn () => RequestMemo::flush());
+        DB::listen(function (QueryExecuted $query) {
+            if (RequestMemo::hasItems() && RequestMemo::invalidates($query->sql)) {
+                RequestMemo::flush();
+            }
+        });
+
         Gate::define('view-user-template', function (User $authUser, User $user) {
 
             // Nunca entre empresas distintas.

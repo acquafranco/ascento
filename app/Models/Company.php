@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\PlanFeature;
 use App\Rules\Cuit;
+use App\Support\RequestMemo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -302,6 +303,7 @@ class Company extends Model
 
     public function forgetPlan(): void
     {
+        RequestMemo::flush();
         $this->resolvedPlan = null;
         $this->unsetRelation('latestSubscription');
     }

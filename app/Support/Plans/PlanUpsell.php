@@ -7,6 +7,7 @@ use App\Enums\PlanLimit;
 use App\Filament\Pages\Subscription;
 use App\Models\Company;
 use App\Support\CompanyContext;
+use App\Support\RequestMemo;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 
@@ -20,7 +21,7 @@ class PlanUpsell
     {
         $id = CompanyContext::currentId();
 
-        return $id ? Company::find($id) : null;
+        return RequestMemo::company($id ? (int) $id : null);
     }
 
     /** Pantalla "Mi suscripción" con los planes y el motivo. */
