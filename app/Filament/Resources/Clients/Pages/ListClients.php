@@ -19,6 +19,10 @@ class ListClients extends ListRecords
         return [
             $this->planUsageAction(),
             CreateAction::make(),
+            // Importación masiva: solo quien puede gestionar clientes (la página lo vuelve a verificar).
+            \Filament\Actions\Action::make('import')->label('Importar desde Excel')->icon('heroicon-o-arrow-up-tray')->color('gray')
+                ->url(ImportClients::getUrl())
+                ->visible(fn () => ImportClients::canAccess()),
         ];
     }
 }

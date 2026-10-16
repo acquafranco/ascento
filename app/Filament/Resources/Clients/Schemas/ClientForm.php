@@ -20,13 +20,8 @@ class ClientForm
 
             Select::make('type')
                 ->label('Tipo de cliente')
-                ->options([
-                    'hospital' => 'Hospital',
-                    'consorcio' => 'Consorcio',
-                    'empresa' => 'Empresa',
-                    'particular' => 'Particular',
-                ])
-                ->default('consorcio')
+                ->options(\App\Models\Client::TYPES)
+                ->default(\App\Models\Client::DEFAULT_TYPE)
                 ->required(),
 
             TextInput::make('contact_person')

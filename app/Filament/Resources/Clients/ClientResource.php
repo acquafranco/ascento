@@ -83,6 +83,7 @@ class ClientResource extends Resource
         return [
             'index' => ListClients::route('/'),
             'create' => CreateClient::route('/create'),
+            'import' => \App\Filament\Resources\Clients\Pages\ImportClients::route('/importar'),
             'view' => ViewClient::route('/{record}'),
             'edit' => EditClient::route('/{record}/edit'),
         ];
