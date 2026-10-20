@@ -3,9 +3,9 @@
 
     - Ilustración, no una captura: muestra cómo circula la información entre la
       empresa de mantenimiento, la administración del consorcio y quienes usan
-      el ascensor (por el QR). El pedido de ayuda va con línea punteada y la
-      leyenda «si la empresa lo activa»: no se muestra como algo que llega
-      siempre ni como un rescate.
+      el ascensor (por el QR). «Reportar un problema» va con línea punteada:
+      un reporte que la empresa gestiona (y comparte con la administración si
+      quiere), nunca como un rescate ni una alarma.
     - Solo SVG y CSS, sin bibliotecas ni recursos externos. La secuencia corre
       una sola vez al entrar en pantalla (unos 6 s) y queda quieta; «Ver de
       nuevo» la repite. Sin JavaScript o con movimiento reducido se ve el
@@ -37,9 +37,9 @@
     .cx-qr rect { fill: #14171C; }
     .cx-qr .cx-qrbg { fill: #fff; stroke: #14171C; stroke-width: 1.2; }
     .cx-line { fill: none; stroke: #FF6A1A; stroke-width: 2.2; stroke-linecap: round; }
-    .cx-help { fill: none; stroke: #B42318; stroke-width: 1.8; stroke-dasharray: 2 6; stroke-linecap: round; }
+    .cx-help { fill: none; stroke: #C2410C; stroke-width: 1.8; stroke-dasharray: 2 6; stroke-linecap: round; }
     .cx-chip rect { fill: #14171C; } .cx-chip text { font: 600 11.5px/1 ui-sans-serif, system-ui, sans-serif; fill: #fff; }
-    .cx-chip.cx-chip-help rect { fill: #fff; stroke: #B42318; stroke-dasharray: 3 3; } .cx-chip.cx-chip-help text { fill: #B42318; }
+    .cx-chip.cx-chip-help rect { fill: #fff; stroke: #C2410C; stroke-dasharray: 3 3; } .cx-chip.cx-chip-help text { fill: #9A3412; }
     .cx-steps { list-style: none; margin: 1.25rem 0 0; padding: 0; display: grid; gap: .6rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); counter-reset: cx; }
     .cx-steps li { counter-increment: cx; border-radius: .9rem; padding: .7rem .85rem .75rem; border: 1px solid rgba(20,23,28,.08); background: #fff; font-size: .85rem; line-height: 1.45; color: rgba(20,23,28,.72); transition: border-color .4s ease, box-shadow .4s ease; }
     .cx-steps li strong { display: block; color: #14171C; font-size: .9rem; margin-bottom: .15rem; }
@@ -118,7 +118,7 @@
                 <g class="cx-chip c2"><rect x="585" y="62" width="104" height="22" rx="11"/><text x="637" y="77" text-anchor="middle">Portal del cliente</text></g>
                 <g class="cx-chip c3"><rect x="590" y="292" width="100" height="22" rx="11"/><text x="640" y="307" text-anchor="middle">Info pública</text></g>
                 @if($helpOn)
-                    <g class="cx-chip cx-chip-help c4"><rect x="330" y="356" width="300" height="24" rx="12"/><text x="480" y="372" text-anchor="middle">Pedido de ayuda · si la empresa lo activa</text></g>
+                    <g class="cx-chip cx-chip-help c4"><rect x="330" y="356" width="300" height="24" rx="12"/><text x="480" y="372" text-anchor="middle">Reportar un problema · lo gestiona tu empresa</text></g>
                 @endif
             </svg>
         </div>
@@ -164,7 +164,7 @@
 
                 <g class="cx-chip c1"><rect x="113" y="80" width="104" height="20" rx="10"/><text x="165" y="94" text-anchor="middle">Remito firmado</text></g>
                 @if($helpOn)
-                    <g class="cx-chip cx-chip-help c4"><rect x="55" y="372" width="250" height="22" rx="11"/><text x="180" y="387" text-anchor="middle">Pedido de ayuda · si la empresa lo activa</text></g>
+                    <g class="cx-chip cx-chip-help c4"><rect x="55" y="372" width="250" height="22" rx="11"/><text x="180" y="387" text-anchor="middle">Reportar un problema</text></g>
                 @endif
             </svg>
         </div>
@@ -176,7 +176,7 @@
         <li data-cx-step="2"><strong>La administración está al tanto</strong>Ve en su portal las visitas y lo que le compartís, sin tener que llamar para preguntar.</li>
         <li data-cx-step="3"><strong>El edificio sabe quién lo cuida</strong>Con el QR, vecinos y visitantes consultan la información que decidís publicar.</li>
         @if($helpOn)
-            <li data-cx-step="4"><strong>Un canal más, si tu plan lo incluye y lo activás</strong>Desde el QR se puede pedir ayuda por un posible atrapamiento. Avisa a tu empresa y a la administración; no reemplaza la alarma ni el 911.</li>
+            <li data-cx-step="4"><strong>Un canal más, si tu plan lo incluye</strong>Desde el QR, quien nota un problema lo reporta y tu empresa lo gestiona en Ascento (y lo comparte con la administración si quiere). No es un servicio de emergencias ni reemplaza la alarma o el 911.</li>
         @endif
     </ol>
     <button type="button" class="cx-replay" data-cx-replay>Ver de nuevo la animación</button>

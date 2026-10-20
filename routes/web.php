@@ -1,9 +1,12 @@
 <?php
 
 use App\Enums\PlanLimit;
+use App\Http\Controllers\Auth\ConfirmEmailChangeController;
+use App\Http\Controllers\Auth\TwoFactorController;
 use App\Http\Controllers\BackupDownloadController;
 use App\Http\Controllers\BuildingCheckController;
 use App\Http\Controllers\BuildingController;
+use App\Http\Controllers\ClientClaimPhotoController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\CompanyExportDownloadController;
 use App\Http\Controllers\DashboardController;
@@ -15,11 +18,13 @@ use App\Http\Controllers\NotificationInboxController;
 use App\Http\Controllers\OnCallController;
 use App\Http\Controllers\ParachuteController;
 use App\Http\Controllers\ParachuteTestFileController;
+use App\Http\Controllers\Portal\PortalClaimController;
 use App\Http\Controllers\Portal\PortalController;
 use App\Http\Controllers\Portal\PortalInvitationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicEmergencyController;
 use App\Http\Controllers\PublicQrController;
+use App\Http\Controllers\PublicQrReportController;
 use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\QuoteDocumentController;
 use App\Http\Controllers\RepairComponentFileController;
@@ -28,7 +33,9 @@ use App\Http\Controllers\ReportPdfController;
 use App\Http\Controllers\ReportPhotoController;
 use App\Http\Controllers\ReportVideoController;
 use App\Http\Controllers\TechnicianCountersController;
+use App\Http\Controllers\TechnicianLocationController;
 use App\Http\Controllers\TechnicianPhotoController;
+use App\Http\Controllers\TechnicianQrReportController;
 use App\Http\Controllers\TelegramLinkController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\VisitController;
@@ -36,8 +43,10 @@ use App\Http\Controllers\VisitPhotoController;
 use App\Http\Controllers\WorkOrderController;
 use App\Models\Company;
 use App\Models\User;
+use App\Services\Auth\AccountAttackGuard;
 use App\Support\Access\Access;
 use App\Support\HomeRedirect;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -90,15 +99,31 @@ Route::get('/qr/{token}', [PublicQrController::class, 'show'])
     ->where('token', '[A-Za-z0-9]{1,64}')
     ->middleware('throttle:60,1,public-qr.show')->name('public-qr.show');
 
-// Pedido de ayuda por atrapamiento desde el QR (sin cuenta). Sin CSRF de sesión
-// (funciona con cookies bloqueadas): lo reemplaza el comprobante firmado de la
-// página, que además es la clave de idempotencia. Límites por IP (además de los
-// del servicio por edificio y por empresa).
+// Pedido de ayuda por atrapamiento: RETIRADO (Ascento Conecta). No registra ni
+// avisa nada; solo responde con claridad a una página vieja que todavía lo envíe
+// (ver PublicEmergencyController). Sin CSRF de sesión, como antes.
 Route::post('/qr/{token}/ayuda', [PublicEmergencyController::class, 'store'])
     ->where('token', '[A-Za-z0-9]{1,64}')
-    ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class])
+    ->withoutMiddleware([PreventRequestForgery::class])
     ->middleware(['throttle:10,1,public-qr.help', 'throttle:40,60,public-qr.help-hour'])
     ->name('public-qr.help');
+
+// Documento técnico publicado en el pasaporte del QR (solo los publicados, de ese edificio).
+Route::get('/qr/{token}/documentos/{document}', [PublicQrController::class, 'document'])
+    ->where('token', '[A-Za-z0-9]{1,64}')->whereNumber('document')
+    ->middleware('throttle:30,1,public-qr.document')->name('public-qr.document');
+
+// «Reportar un problema» desde el QR (Ascento Conecta), sin cuenta. Sin CSRF de
+// sesión (funciona con cookies bloqueadas): lo reemplaza el comprobante firmado
+// de la página (QrReportNonce), que además evita duplicados. Límites por IP acá
+// y por edificio y empresa en el servicio.
+Route::prefix('/qr/{token}/reportar')->where(['token' => '[A-Za-z0-9]{1,64}'])->name('public-qr.report')
+    ->withoutMiddleware([PreventRequestForgery::class])->group(function () {
+        Route::get('/', [PublicQrReportController::class, 'create'])->middleware('throttle:60,1,public-qr.report.form');
+        Route::post('/revisar', [PublicQrReportController::class, 'review'])->middleware('throttle:30,1,public-qr.report.review')->name('.review');
+        Route::post('/', [PublicQrReportController::class, 'store'])
+            ->middleware(['throttle:5,1,public-qr.report.store', 'throttle:20,60,public-qr.report.store-hour'])->name('.store');
+    });
 
 Route::get('/{company:slug}/public/delivery-notes/{token}/pdf', [DeliveryNoteController::class, 'publicPdf'])
     ->middleware('throttle:30,1,delivery-notes.public.pdf')->name('delivery-notes.public.pdf');
@@ -151,7 +176,7 @@ Route::prefix('{company:slug}')
         Route::post('/ayuda/bienvenida', [HelpController::class, 'dismissTechnicianWelcome'])->middleware('throttle:20,1,help.welcome')->name('help.technician.welcome');
 
         // Ubicación del técnico (voluntaria, solo la suya; ver TechnicianLocationController).
-        Route::prefix('ubicacion')->name('location.')->controller(\App\Http\Controllers\TechnicianLocationController::class)->group(function () {
+        Route::prefix('ubicacion')->name('location.')->controller(TechnicianLocationController::class)->group(function () {
             Route::post('/', 'store')->middleware('throttle:6,1,location.store')->name('store');
             Route::post('/activar', 'enable')->middleware('throttle:20,1,location.toggle')->name('enable');
             Route::post('/desactivar', 'disable')->middleware('throttle:20,1,location.toggle')->name('disable');
@@ -268,6 +293,11 @@ Route::prefix('{company:slug}')
         */
 
         Route::get('/guardias', [OnCallController::class, 'index'])->name('on-call.index');
+
+        // Reporte del QR (Ascento Conecta): el técnico asignado al edificio lo consulta desde su aviso.
+        Route::get('/reportes-qr/{claim}', [TechnicianQrReportController::class, 'show'])->whereNumber('claim')->name('qr-reports.technician');
+        Route::get('/reportes-qr/{claim}/fotos/{photo}', [TechnicianQrReportController::class, 'photo'])->whereNumber(['claim', 'photo'])
+            ->middleware('throttle:120,1,qr-reports.technician.photo')->name('qr-reports.technician.photo');
         Route::get('/paracaidas', [ParachuteController::class, 'index'])->name('parachute.index');
 
         /*
@@ -458,7 +488,7 @@ Route::get('/files/backups/{backup}', BackupDownloadController::class)
 
 // Administrativo que no puede entrar al panel (Etapa 6): el motivo, sin 403 genérico.
 // Confirmación del correo nuevo (Etapa 11): se abre desde el correo, con o sin sesión.
-Route::get('/correo/confirmar/{user}/{token}', \App\Http\Controllers\Auth\ConfirmEmailChangeController::class)
+Route::get('/correo/confirmar/{user}/{token}', ConfirmEmailChangeController::class)
     ->whereNumber('user')
     ->middleware('throttle:20,1,email-change.confirm')
     ->name('email-change.confirm');
@@ -466,7 +496,7 @@ Route::get('/correo/confirmar/{user}/{token}', \App\Http\Controllers\Auth\Confir
 // Segundo factor del SuperAdmin (Etapa 11). EnsureSuperAdminTwoFactor deja
 // pasar solo estas rutas (y salir) mientras falte configurarlo o verificarlo.
 Route::middleware('auth')->prefix('seguridad/segundo-factor')->name('two-factor.')
-    ->controller(\App\Http\Controllers\Auth\TwoFactorController::class)->group(function () {
+    ->controller(TwoFactorController::class)->group(function () {
         Route::get('/configurar', 'setup')->name('setup');
         Route::post('/configurar', 'start')->middleware('throttle:10,1,two-factor.start')->name('start');
         Route::post('/confirmar', 'confirm')->middleware('throttle:10,1,two-factor.confirm')->name('confirm');
@@ -519,7 +549,7 @@ Route::get('/files/technician-photos/{user}', TechnicianPhotoController::class)
     ->name('technician-photos.show');
 
 // Foto de un reclamo de cliente, para el panel (privada; ver ClientClaimPhotoController).
-Route::get('/files/client-claims/{photo}', \App\Http\Controllers\ClientClaimPhotoController::class)
+Route::get('/files/client-claims/{photo}', ClientClaimPhotoController::class)
     ->middleware(['auth', 'subscription', 'throttle:120,1,client-claim-photos'])
     ->whereNumber('photo')
     ->name('client-claim-photos.show');
@@ -557,6 +587,8 @@ Route::prefix('portal')->name('portal.')->middleware(['auth', 'portal'])->group(
     Route::get('/servicio/{type}', [PortalController::class, 'visits'])->whereIn('type', ['maintenance', 'inspection'])->name('visits');
     Route::post('/empresa', [PortalController::class, 'switchCompany'])->name('switch-company');
     Route::get('/edificios/{building}', [PortalController::class, 'building'])->whereNumber('building')->name('building');
+    // Resumen mensual del edificio (Ascento Conecta): bajo demanda, con registros reales.
+    Route::get('/edificios/{building}/resumen', [PortalController::class, 'summary'])->whereNumber('building')->middleware('throttle:30,1,portal.summary')->name('building-summary');
     Route::get('/remitos/{deliveryNote}', [PortalController::class, 'deliveryNote'])->name('delivery-note');
     Route::get('/remitos/{deliveryNote}/pdf', [PortalController::class, 'deliveryNotePdf'])->middleware('throttle:30,1,portal.delivery-note-pdf')->name('delivery-note-pdf');
     Route::get('/reportes/{report}', [PortalController::class, 'report'])->whereNumber('report')->name('report');
@@ -570,7 +602,7 @@ Route::prefix('portal')->name('portal.')->middleware(['auth', 'portal'])->group(
     // Ayuda del portal (Etapa 9.3).
     Route::get('/ayuda', [HelpController::class, 'portal'])->name('help');
     // Reclamos a la empresa de mantenimiento (solo los propios, de sus edificios autorizados).
-    Route::prefix('reclamos')->name('claims.')->controller(\App\Http\Controllers\Portal\PortalClaimController::class)->group(function () {
+    Route::prefix('reclamos')->name('claims.')->controller(PortalClaimController::class)->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('/nuevo', 'create')->name('create');
         Route::post('/', 'store')->middleware('throttle:10,1,portal.claims.store')->name('store');
@@ -601,7 +633,7 @@ Route::middleware(['auth', 'subscription'])->prefix('notificaciones')->name('not
 // Ingreso y activación del portal (sin sesión). La activación usa el token
 // de la invitación: de un solo uso, vence a las 72 h.
 Route::middleware('guest')->prefix('portal')->name('portal.')->group(function () {
-    Route::get('/ingresar', fn (\Illuminate\Http\Request $request) => view('auth.login', ['portal' => true, 'challenge' => \App\Services\Auth\AccountAttackGuard::challengeForView($request)]))->name('login');
+    Route::get('/ingresar', fn (Request $request) => view('auth.login', ['portal' => true, 'challenge' => AccountAttackGuard::challengeForView($request)]))->name('login');
     Route::get('/activar/{token}', [PortalInvitationController::class, 'show'])->middleware('throttle:20,1,portal.invitation')->name('invitation');
     Route::post('/activar', [PortalInvitationController::class, 'store'])->middleware('throttle:6,1,portal.invitation.store')->name('invitation.store');
 });

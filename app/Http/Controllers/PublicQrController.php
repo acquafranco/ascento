@@ -7,7 +7,9 @@ use App\Enums\PlanFeature;
 use App\Models\Building;
 use App\Models\BuildingPublicPage;
 use App\Models\Company;
-use App\Services\Emergency\EmergencyRequestService;
+use App\Models\Elevator;
+use App\Models\ElevatorDocument;
+use App\Services\Claims\ClientClaimService;
 use App\Services\PublicQr\PublicBuildingInfo;
 use App\Services\PublicQr\PublicQrService;
 use App\Support\Access\Access;
@@ -16,14 +18,16 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * QR público de un edificio (Etapa 7).
  *
- * show(): página de SOLO LECTURA, sin cuenta. El token se busca en cada
- * pedido: si se desactivó o regeneró, el enlace anterior responde 404 (lo
- * mismo que un token inexistente, sin pistas). No tiene formularios ni
- * enlaces al portal o al panel, no se indexa y no se guarda en caché.
+ * show(): pasaporte del ascensor, sin cuenta (Ascento Conecta). El token se
+ * busca en cada pedido: si se desactivó o regeneró, el enlace anterior
+ * responde 404 (lo mismo que un token inexistente, sin pistas). Su única
+ * acción es «Reportar un problema» (PublicQrReportController). No enlaza al
+ * portal ni al panel, no se indexa y no se guarda en caché.
  *
  * download(): la imagen del QR, para quien gestiona o ve el QR del edificio
  * en el panel (área «QR y datos públicos»).
@@ -45,15 +49,42 @@ class PublicQrController extends Controller
             return $this->headers(response()->view('public-qr.unavailable', [], 404));
         }
 
-        // Pedido de ayuda: solo si la empresa lo habilitó y su plan lo incluye (se vuelve a verificar al enviarlo).
-        $emergency = app(EmergencyRequestService::class);
-        $help = $emergency->availableFor($page) ? [
-            'action' => route('public-qr.help', ['token' => $page->token]),
-            'nonce' => $emergency->issueNonce($page),
-            'elevators' => $emergency->elevatorChoices($page),
-        ] : null;
+        // «Reportar un problema»: si el plan lo incluye y la empresa no lo apagó (se vuelve a verificar al enviar).
+        $report = ClientClaimService::qrAvailableFor($page) ? route('public-qr.report', ['token' => $page->token]) : null;
 
-        return $this->headers(response()->view('public-qr.show', ['info' => $info->for($page), 'preview' => false, 'help' => $help]));
+        return $this->headers(response()->view('public-qr.show', ['info' => $info->for($page), 'preview' => false, 'report' => $report]));
+    }
+
+    /**
+     * Documento técnico PUBLICADO en el QR (pasaporte del ascensor). Solo si
+     * el QR está activo, el plan lo incluye, el bloque «Documentación» está
+     * encendido, el documento es de un ascensor de ESTE edificio y empresa y
+     * la empresa lo publicó. Cualquier otro caso: 404 (cambiar el número en la
+     * dirección no da acceso a nada).
+     */
+    public function document(string $token, int $document): StreamedResponse|Response
+    {
+        $page = strlen($token) === PublicQrService::TOKEN_LENGTH
+            ? BuildingPublicPage::withoutGlobalScopes()->where('token', $token)->where('is_active', true)->first()
+            : null;
+        $company = $page ? Company::find($page->company_id) : null;
+
+        abort_unless($page && $page->show_documents && $company && $company->hasActiveAccess() && PlanGuard::for($company)->allows(PlanFeature::PublicQr), 404);
+
+        $file = ElevatorDocument::withoutGlobalScopes()->where('company_id', $page->company_id)->where('public_on_qr', true)
+            ->whereIn('elevator_id', Elevator::withoutGlobalScopes()->where('company_id', $page->company_id)->where('building_id', $page->building_id)->select('id'))
+            ->find($document);
+
+        abort_unless($file && $file->hasSafePath() && Storage::disk('local')->exists($file->path), 404);
+
+        return Storage::disk('local')->response($file->path, $file->original_name ?: basename($file->path), [
+            'Content-Type' => $file->mime,
+            'Cache-Control' => 'no-store, max-age=0',
+            'X-Content-Type-Options' => 'nosniff',
+            'X-Robots-Tag' => 'noindex, nofollow',
+            'Referrer-Policy' => 'no-referrer',
+            'Content-Security-Policy' => "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox",
+        ]);
     }
 
     public function download(Request $request, Building $building, string $format, PublicQrService $service): Response
@@ -102,7 +133,7 @@ class PublicQrController extends Controller
             'companyLogo' => $embed('public', $company?->logo, ['image/png', 'image/jpeg', 'image/webp']),
             'ascentoLogo' => is_file($ascento) ? 'data:image/png;base64,'.base64_encode((string) file_get_contents($ascento)) : null,
             'building' => $building,
-            'help' => app(EmergencyRequestService::class)->availableFor($page),
+            'report' => ClientClaimService::qrAvailableFor($page),
             'url' => $page->publicUrl(),
         ])->withHeaders(['Cache-Control' => 'private, no-store', 'X-Robots-Tag' => 'noindex, nofollow']);
     }

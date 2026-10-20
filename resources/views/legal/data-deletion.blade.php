@@ -61,7 +61,7 @@
 
     <x-legal.section n="04" title="Datos que cargó una empresa sobre vos" id="terceros">
         <p>Si figurás en Ascento porque una empresa te cargó como cliente, contacto de un edificio o firmante de un remito, esa empresa es quien decide sobre esos datos. Podés pedirle directamente que los corrija o elimine. Si nos escribís a nosotros, le haremos llegar tu pedido y te ayudaremos a ejercer tus derechos.</p>
-        <p>Quien usa el QR de un ascensor no tiene cuenta y no deja datos personales: un pedido de ayuda se guarda sin nombre ni dirección IP.</p>
+        <p>Quien usa el QR de un ascensor no tiene cuenta: un reporte se guarda sin nombre ni dirección IP. Si escribiste datos personales en un reporte o adjuntaste una foto y querés que se borren, pedíselo a la empresa de mantenimiento del edificio, que es quien gestiona ese reporte, o escribinos.</p>
     </x-legal.section>
 
     <x-legal.section n="05" title="Cómo verificamos el pedido" id="verificacion">

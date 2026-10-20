@@ -73,7 +73,7 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
             'photos_maintenance' => (bool) $company->photos_maintenance,
             'photos_inspection' => (bool) $company->photos_inspection,
             'photos_work_order' => (bool) $company->photos_work_order,
-            'emergency_requests_enabled' => (bool) $company->emergency_requests_enabled,
+            'qr_reports_enabled' => (bool) $company->qr_reports_enabled,
             // Los datos de WhatsApp (incluido el access token) NO se cargan
             // acá: todo lo que entra al form viaja al navegador en el estado
             // de Livewire.
@@ -204,20 +204,20 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
                             ->values()->all(),
                     ]),
 
-                // Pedido de ayuda por atrapamiento desde el QR (Profesional y Empresa). Apagado por defecto.
-                Section::make('Pedidos de ayuda desde el QR')
-                    ->description(fn () => $this->hasEmergencyRequests()
-                        ? 'Si lo activás, la página del QR de cada edificio publicado muestra el botón «Estoy atrapado en el ascensor». Al confirmarlo se avisa a tu empresa (dueño, administrativos con «Órdenes de trabajo» y técnicos de guardia) y a los usuarios del portal de la administración del edificio. Es un aviso, no un servicio de emergencias: no reemplaza la alarma del ascensor ni el 911. Se guarda al tocarlo.'
-                        : 'Disponible en los planes Profesional y Empresa: un botón en el QR del edificio para que quien quedó atrapado pida ayuda. Los pedidos ya registrados se conservan.')
-                    ->icon('heroicon-o-exclamation-triangle')
+                // Reportes de problemas desde el QR (Ascento Conecta; Profesional y Empresa). Encendido por defecto.
+                Section::make('Reportes de problemas desde el QR')
+                    ->description(fn () => $this->hasQrReports()
+                        ? 'La página del QR de cada edificio publicado muestra «Reportar un problema»: quien usa el ascensor cuenta qué notó (puertas, ruidos, luces, daños) y opcionalmente adjunta una foto. Llega a «Reclamos de clientes» y se avisa a tu empresa y a los técnicos asignados al edificio. No es un servicio de emergencias ni un pedido de rescate. Se guarda al tocarlo.'
+                        : 'Disponible en los planes Profesional y Empresa: quien usa el ascensor reporta un problema desde el QR del edificio. Los reportes ya registrados se conservan.')
+                    ->icon('heroicon-o-flag')
                     ->schema([
-                        Forms\Components\Toggle::make('emergency_requests_enabled')
-                            ->label('Permitir solicitudes de emergencia desde el QR público')
+                        Forms\Components\Toggle::make('qr_reports_enabled')
+                            ->label('Recibir reportes de problemas desde el QR público')
                             ->rule('boolean')
-                            ->dehydrated(false) // nunca viaja en «Guardar cambios»: solo con saveEmergencySetting
-                            ->disabled(fn () => ! $this->hasEmergencyRequests())
+                            ->dehydrated(false) // nunca viaja en «Guardar cambios»: solo con saveQrReportsSetting
+                            ->disabled(fn () => ! $this->hasQrReports())
                             ->live()
-                            ->afterStateUpdated(fn ($livewire, $state) => $livewire->saveEmergencySetting($state)),
+                            ->afterStateUpdated(fn ($livewire, $state) => $livewire->saveQrReportsSetting($state)),
                     ]),
 
                 Section::make('Apariencia')
@@ -291,40 +291,40 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
             ->default('#2563eb');
     }
 
-    private function hasEmergencyRequests(): bool
+    private function hasQrReports(): bool
     {
-        return (bool) Auth::user()?->company?->plan()->allows(PlanFeature::EmergencyRequests);
+        return (bool) Auth::user()?->company?->plan()->allows(PlanFeature::QrReports);
     }
 
     /**
-     * Interruptor de pedidos de ayuda, guardado en el momento: solo el dueño de SU
-     * empresa, solo verdadero o falso y solo si el plan lo incluye.
+     * Interruptor de reportes desde el QR, guardado en el momento: solo el dueño
+     * de SU empresa, solo verdadero o falso y solo si el plan lo incluye.
      */
-    public function saveEmergencySetting(mixed $on): void
+    public function saveQrReportsSetting(mixed $on): void
     {
         $user = Auth::user();
         abort_if($user->isSuperAdmin() || ! Access::isOwner($user) || ! $user->company, 403);
         $company = $user->company;
 
-        if (! $company->plan()->allows(PlanFeature::EmergencyRequests)) {
-            $this->data['emergency_requests_enabled'] = (bool) $company->emergency_requests_enabled;
-            PlanUpsell::featureNotification($company, PlanFeature::EmergencyRequests)->send();
+        if (! $company->plan()->allows(PlanFeature::QrReports)) {
+            $this->data['qr_reports_enabled'] = (bool) $company->qr_reports_enabled;
+            PlanUpsell::featureNotification($company, PlanFeature::QrReports)->send();
 
             return;
         }
 
         if (! is_bool($on)) {
-            $this->data['emergency_requests_enabled'] = (bool) $company->emergency_requests_enabled;
+            $this->data['qr_reports_enabled'] = (bool) $company->qr_reports_enabled;
             Notification::make()->title('No se guardó el cambio')->body('Valor inválido para el interruptor.')->danger()->send();
 
             return;
         }
 
-        $company->forceFill(['emergency_requests_enabled' => $on])->save();
+        $company->forceFill(['qr_reports_enabled' => $on])->save();
 
         Notification::make()
-            ->title($on ? 'Pedidos de ayuda activados' : 'Pedidos de ayuda desactivados')
-            ->body($on ? 'El botón aparece en el QR de los edificios publicados. Los avisos llegan a tu empresa y a la administración de cada edificio.' : 'El botón ya no aparece y no se registran pedidos nuevos. Los registrados se conservan.')
+            ->title($on ? 'Reportes desde el QR activados' : 'Reportes desde el QR desactivados')
+            ->body($on ? '«Reportar un problema» aparece en el QR de los edificios publicados.' : 'El botón ya no aparece y no se registran reportes nuevos. Los registrados se conservan.')
             ->success()
             ->send();
     }

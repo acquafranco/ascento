@@ -148,7 +148,7 @@ final class PanelGuides
             ], [
                 'before' => ['Solo el dueño de la cuenta entra a «Mi empresa».'],
                 'after' => 'El logo y los datos se usan en los documentos nuevos, en el portal de tus clientes y en la página del QR público.',
-                'related' => ['work_photos', 'emergency_setup', 'notifications'],
+                'related' => ['work_photos', 'qr_reports_setup', 'notifications'],
                 'keywords' => ['logo', 'datos', 'cuit', 'razon social', 'color', 'empresa', 'configuracion', 'membrete'],
                 'owner' => true,
                 'open' => CompanySettings::class,
@@ -339,17 +339,17 @@ final class PanelGuides
                 'open' => WorkOrderResource::class,
             ]),
 
-            $a('ordenes', 'claims', 'Cómo gestionar los reclamos de tus clientes', 'Lo que tus clientes reportan desde el portal: un problema con un ascensor, con su edificio y su categoría.', [
-                'Cuando un cliente presenta un reclamo, te llega un aviso y aparece en «Operaciones → Reclamos de clientes» como «Nuevo».',
-                'Abrilo: ves el edificio, el ascensor (si lo indicó), la categoría, la descripción, las fotos y quién lo presentó.',
-                'Con «Cambiar estado» lo pasás a «En revisión», «En gestión», «Resuelto» o «Cerrado». El cliente ve el estado en su portal.',
-                'Con «Responder al cliente» le escribís: lo ve en su portal y le llega un aviso. En «Más», «Nota interna» guarda algo que solo ve tu empresa.',
-                'Si hace falta un trabajo, en «Más» usá «Crear orden de trabajo»: queda vinculada al reclamo y asignás los técnicos en la orden.',
+            $a('ordenes', 'claims', 'Cómo gestionar reclamos y reportes', 'Lo que tus clientes presentan desde el portal y lo que cualquier persona reporta desde el QR de un edificio.', [
+                'Cuando llega un reclamo del portal o un reporte del QR, te llega un aviso y aparece en «Operaciones → Reclamos y reportes» como «Recibido». La columna «Origen» dice de dónde vino.',
+                'Abrilo: ves el edificio, el ascensor (si lo indicaron), la categoría, la descripción, las fotos y, en «Avisos», a quién se intentó avisar.',
+                'Con «Cambiar estado» lo pasás a «En revisión», «En gestión», «Resuelto» o «Cerrado». Para «Resuelto» o «Cerrado» tenés que escribir en qué te basás: queda en el historial con tu nombre.',
+                'Si hace falta un trabajo, en «Más» usá «Crear orden de trabajo»: queda vinculada y el estado pasa a «Asociado a una orden de trabajo».',
+                'Un reporte del QR lo ve solo tu empresa. En «Más» podés «Compartir con la administración» (lo ve en su portal, sin fotos ni notas internas) o «Mostrar su estado en el QR».',
             ], [
-                'after' => 'Todo queda en el historial del reclamo, marcado como «Visible para el cliente» o «Interno».',
-                'notes' => ['Un reclamo no es un canal de emergencias: el portal le indica al cliente usar la alarma del ascensor y el 911.', 'Crear la orden es siempre una acción tuya: un reclamo nunca genera órdenes solo, ni dos órdenes.'],
-                'related' => ['work_orders', 'portal'],
-                'keywords' => ['reclamo', 'queja', 'portal', 'cliente', 'consorcio', 'problema', 'pedido'],
+                'after' => 'Todo queda en el historial, marcado como «Visible para el cliente» o «Interno».',
+                'notes' => ['Los estados son el seguimiento administrativo de tu empresa: no confirman una reparación ni que el ascensor esté en condiciones.', 'Un reclamo o un reporte no es un canal de emergencias: el portal y el QR indican usar la alarma del ascensor y el 911.', 'Crear la orden es siempre una acción tuya: nunca se genera sola, ni dos órdenes.'],
+                'related' => ['work_orders', 'portal', 'qr_reports_setup'],
+                'keywords' => ['reclamo', 'queja', 'portal', 'cliente', 'consorcio', 'problema', 'pedido', 'reporte', 'qr', 'incidencia'],
                 'feature' => Feature::ClientPortal,
                 'area' => Area::WorkOrders,
                 'open' => ClientClaimResource::class,
@@ -591,14 +591,14 @@ final class PanelGuides
 
             $a('mapa-qr', 'public_qr', 'Cómo obtener e imprimir el QR de un edificio', 'Un código para que residentes y visitantes vean información del ascensor sin cuenta.', [
                 'Entrá a «Gestión → QR públicos» y abrí el edificio.',
-                'Elegí qué se publica: ascensores del edificio, estado informado de cada uno, último mantenimiento, última inspección, pruebas de paracaídas, trabajos pendientes y contacto de la empresa.',
+                'Elegí qué se publica: ascensores, estado informado de cada uno, último mantenimiento e inspección, historial de servicios, lo que corresponde este período, pruebas de paracaídas, trabajos pendientes, documentación e incidencias publicadas, y contacto de la empresa.',
                 'Tocá «Generar QR».',
                 'Usá «Hoja para imprimir (A4)» o «Versión compacta» para imprimirlo con tu logo, o descargá la imagen.',
                 'Pegalo en el edificio, en un lugar visible.',
             ], [
                 'after' => 'Quien escanea ve solo lo que elegiste publicar. Si cambiás el estado informado de un ascensor, la página lo muestra al instante.',
-                'notes' => ['«Regenerar QR» o «Desactivar» dejan sin efecto el código impreso.', 'Nunca se publican datos del cliente, montos ni notas internas. No es una certificación de seguridad.'],
-                'related' => ['emergency_setup', 'parachute'],
+                'notes' => ['«Regenerar QR» o «Desactivar» dejan sin efecto el código impreso.', 'Nunca se publican datos del cliente, técnicos, firmas, montos ni notas internas. Documentos e incidencias, solo los que publiques uno por uno.', 'Es un historial de documentos: no es una certificación de seguridad ni un servicio de emergencias.', 'Si imprimiste la hoja con el recuadro «¿Quedaste atrapado?», reimprimila: esa opción ya no existe.'],
+                'related' => ['qr_reports_setup', 'parachute'],
                 'keywords' => ['qr', 'codigo', 'imprimir', 'cartel', 'hoja', 'residentes', 'vecinos'],
                 'feature' => Feature::PublicQr,
                 'area' => Area::PublicPages,
@@ -606,29 +606,28 @@ final class PanelGuides
                 'open' => PublicQrPage::class,
             ]),
 
-            $a('mapa-qr', 'emergency_setup', 'Cómo habilitar o deshabilitar los pedidos de ayuda por QR', 'El botón «Estoy atrapado en el ascensor» en la página del QR.', [
+            $a('mapa-qr', 'qr_reports_setup', 'Cómo activar o desactivar los reportes desde el QR', 'El botón «Reportar un problema» en la página del QR.', [
                 'Abrí «Mi empresa» (arriba del menú).',
-                'En «Pedidos de ayuda desde el QR», activá o desactivá «Permitir solicitudes de emergencia desde el QR público». Se guarda al tocarlo.',
+                'En «Reportes de problemas desde el QR», activá o desactivá «Recibir reportes de problemas desde el QR público». Se guarda al tocarlo.',
             ], [
-                'before' => ['Lo cambia solo el dueño de la cuenta.', 'Viene desactivado. Solo está en los planes que incluyen el pedido de ayuda.'],
-                'after' => 'Activado, el botón aparece en la página del QR de los edificios publicados. Desactivarlo no borra los pedidos ya registrados.',
-                'notes' => ['Es un aviso sin confirmar, no un servicio de emergencias: no garantiza que alguien lo vea ni una atención inmediata, y no reemplaza la alarma del ascensor ni el 911.'],
-                'related' => ['emergency', 'public_qr'],
-                'keywords' => ['emergencia', 'atrapado', 'atrapamiento', 'boton', 'activar', 'desactivar', 'pedido de ayuda'],
-                'feature' => Feature::EmergencyRequests,
+                'before' => ['Lo cambia solo el dueño de la cuenta.', 'Está en los planes Profesional y Empresa, y viene activado.'],
+                'after' => 'Activado, la página del QR de los edificios publicados muestra «Reportar un problema». Lo que se reporta llega a «Reclamos y reportes» y se avisa a tu empresa y a los técnicos asignados al edificio.',
+                'notes' => ['Quien reporta elige qué notó (puertas, ruidos, detenciones, luces, daños u otro), lo describe y puede sumar una foto. No necesita cuenta.', 'No es un servicio de emergencias: la página lo dice y remite a la alarma del ascensor y al 911.', 'Desactivarlo no borra los reportes ya registrados.'],
+                'related' => ['claims', 'public_qr'],
+                'keywords' => ['reporte', 'reportar', 'problema', 'qr', 'activar', 'desactivar', 'vecinos', 'incidencia'],
+                'feature' => Feature::QrReports,
                 'owner' => true,
                 'open' => CompanySettings::class,
             ]),
 
-            $a('mapa-qr', 'emergency', 'Cómo consultar y cerrar un pedido de ayuda', 'Qué pasa cuando alguien toca «Estoy atrapado en el ascensor».', [
-                'Al confirmarse un pedido, Ascento avisa a tu empresa (dueño, administrativos con «Órdenes de trabajo» y técnicos de guardia en ese momento) y a la administración del edificio en el portal.',
-                'En «Operaciones → Pedidos de ayuda» ves cada pedido. Un número rojo en el menú indica los abiertos.',
-                'Abrilo: en «Avisos» ves a quién se avisó y por qué canal (aviso en Ascento, push, correo).',
-                'Verificá la situación y cerralo como atendido o falsa alarma, con una nota.',
+            $a('mapa-qr', 'emergency', 'Pedidos de ayuda (historial)', 'Los pedidos por atrapamiento que se registraron mientras esa opción existía.', [
+                'El botón «Estoy atrapado en el ascensor» ya no existe: el QR ofrece «Reportar un problema» y remite a la alarma del ascensor y al 911 ante una urgencia.',
+                'Los pedidos registrados antes siguen en «Operaciones → Pedidos de ayuda (historial)», con sus avisos.',
+                'Si queda alguno abierto, verificá la situación y cerralo como atendido, falsa alarma o cerrado, con una nota.',
             ], [
-                'notes' => ['Los pedidos repetidos del mismo edificio se suman al abierto: no generan otro aviso cada vez.', 'El sistema no puede confirmar que alguien haya visto el aviso.'],
-                'related' => ['emergency_setup', 'on_call_query'],
-                'keywords' => ['emergencia', 'atrapado', 'pedido de ayuda', 'alerta', 'cerrar pedido', 'falsa alarma'],
+                'notes' => ['No se reciben pedidos nuevos: una página vieja que lo intente recibe el aviso de que la opción ya no está disponible, y no se registra nada.'],
+                'related' => ['qr_reports_setup', 'claims'],
+                'keywords' => ['emergencia', 'atrapado', 'pedido de ayuda', 'historial', 'cerrar pedido', 'falsa alarma'],
                 'feature' => Feature::EmergencyRequests,
                 'area' => Area::WorkOrders,
                 'open' => EmergencyRequestResource::class,
@@ -904,11 +903,11 @@ final class PanelGuides
                 'Si no aparece, puede no estar incluida en tu plan o en tus permisos. El dueño de la cuenta lo ve en «Mi suscripción» y en «Administrativos».',
             ], ['related' => ['nav', 'help_button'], 'keywords' => ['no encuentro', 'menu', 'desaparecio', 'donde esta', 'seccion']]),
 
-            $a('problemas', 'fix_emergency_button', 'El botón de pedido de ayuda no aparece en el QR', 'Depende del plan, de la activación y del QR del edificio.', [
-                'Revisá que «Permitir solicitudes de emergencia desde el QR público» esté activado en «Mi empresa».',
+            $a('problemas', 'fix_qr_report_button', '«Reportar un problema» no aparece en el QR', 'Depende del plan, de la activación y del QR del edificio.', [
+                'Revisá que «Recibir reportes de problemas desde el QR público» esté activado en «Mi empresa».',
                 'Revisá que el QR del edificio esté generado y activo en «QR públicos».',
-                'Si tu plan no incluye el pedido de ayuda, el interruptor aparece deshabilitado.',
-            ], ['related' => ['emergency_setup', 'public_qr'], 'keywords' => ['boton', 'emergencia', 'no aparece', 'qr', 'atrapado'], 'feature' => Feature::PublicQr]),
+                'Si tu plan no incluye los reportes desde el QR, el interruptor aparece deshabilitado.',
+            ], ['related' => ['qr_reports_setup', 'public_qr'], 'keywords' => ['boton', 'reportar', 'no aparece', 'qr', 'problema'], 'feature' => Feature::PublicQr]),
 
             $a('problemas', 'fix_on_call_none', 'Nadie figura de guardia', 'Hay un hueco en la cobertura.', [
                 'En «Guardias», mirá «Para revisar»: ahí aparece el turno sin técnico y, si es una rotación, si le faltan participantes o dejó de generar turnos.',

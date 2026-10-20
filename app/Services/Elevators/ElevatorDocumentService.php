@@ -2,9 +2,11 @@
 
 namespace App\Services\Elevators;
 
+use App\Enums\PermissionArea;
 use App\Models\Elevator;
 use App\Models\ElevatorDocument;
 use App\Models\User;
+use App\Support\Access\Access;
 use App\Support\CompanyContext;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -72,5 +74,29 @@ class ElevatorDocumentService
 
             throw $e;
         }
+    }
+
+    /**
+     * Publicar (o retirar) un documento en el pasaporte público del QR: una
+     * acción explícita, de quien gestiona documentos Y los datos públicos, en
+     * su empresa. Queda quién y cuándo. El documento se ve solo si el QR del
+     * edificio tiene encendido el bloque «Documentación».
+     */
+    public function publishOnQr(ElevatorDocument $document, User $actor, bool $public): ElevatorDocument
+    {
+        abort_unless(
+            Access::can($actor, PermissionArea::Documents, PermissionArea::MANAGE)
+            && Access::can($actor, PermissionArea::PublicPages, PermissionArea::MANAGE),
+            403,
+        );
+        abort_unless((int) $document->company_id === (int) CompanyContext::currentId(), 404);
+
+        $document->forceFill([
+            'public_on_qr' => $public,
+            'published_on_qr_at' => $public ? now() : null,
+            'published_on_qr_by' => $public ? $actor->id : null,
+        ])->save();
+
+        return $document;
     }
 }

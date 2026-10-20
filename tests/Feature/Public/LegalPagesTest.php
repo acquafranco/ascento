@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Public;
 
+use App\Services\PublicQr\PublicQrService;
+use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -40,7 +42,7 @@ class LegalPagesTest extends TestCase
                 $this->assertStringNotContainsString($broken, $html, "{$page} contiene «{$broken}»");
             }
             // La fecha es la de la versión, no la del día en que se abre.
-            $this->assertStringContainsString('Versión vigente desde el 19 de octubre de 2026', $html);
+            $this->assertStringContainsString('Versión vigente desde el 20 de octubre de 2026', $html);
         }
     }
 
@@ -55,12 +57,19 @@ class LegalPagesTest extends TestCase
             ->assertDontSee('pendiente de completar')->assertDontSee('Borrador pendiente de revisión legal');
     }
 
-    public function test_the_terms_describe_what_ascento_is_not_and_the_real_limits_of_the_help_request(): void
+    public function test_the_terms_describe_what_ascento_is_not_and_the_real_limits_of_the_qr_report(): void
     {
         $this->get(route('legal.terms'))->assertOk()
             ->assertSee('No mantiene, repara ni inspecciona ascensores', false)
-            ->assertSee('El pedido de ayuda no es un servicio de emergencias')
-            ->assertSeeInOrder(['Envío:', 'Registro:', 'Intento de aviso:', 'Lectura:', 'Atención:'], false)
+            ->assertSee('plataforma de gestión y comunicación', false)
+            ->assertSee('Reportar un problema no es un servicio de emergencias')
+            ->assertSee('Un reporte no es una solicitud de rescate atendida', false)
+            ->assertSee('Emitir o registrar un aviso no garantiza que alguien lo haya recibido', false)
+            ->assertSee('no garantizamos un servicio sin interrupciones', false)
+            ->assertSee('no reemplaza los medios de comunicación y de emergencia', false)
+            ->assertSee('según sus procedimientos y las obligaciones que le correspondan', false)
+            ->assertSeeInOrder(['Envío:', 'Registro:', 'Intento de aviso:', 'Lectura:', 'Gestión:'], false)
+            ->assertDontSee('Estoy atrapado en el ascensor», que cualquier persona puede usar', false)
             ->assertSee('911')
             ->assertSee('imagen del trazo dibujado en la pantalla', false)
             ->assertSee('no se aplican', false)
@@ -100,8 +109,8 @@ class LegalPagesTest extends TestCase
         $tenant = $this->makeTenant();
         $this->giveCompanyPlan($tenant['company'], 'empresa');
         $this->actingAs($tenant['admin']);
-        \Filament\Facades\Filament::setCurrentPanel(\Filament\Facades\Filament::getPanel('ascensores_app'));
-        $page = app(\App\Services\PublicQr\PublicQrService::class)->generate($tenant['admin'], $tenant['building']);
+        Filament::setCurrentPanel(Filament::getPanel('ascensores_app'));
+        $page = app(PublicQrService::class)->generate($tenant['admin'], $tenant['building']);
         auth()->logout();
         $this->get('/qr/'.$page->token)->assertOk()->assertSee('data-legal-links', false)
             ->assertSee(route('legal.terms'), false)->assertSee(route('legal.privacy'), false);

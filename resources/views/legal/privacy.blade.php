@@ -20,7 +20,7 @@
         <p>En Ascento hay dos situaciones distintas, y conviene saber en cuál estás:</p>
         <ul>
             <li><strong>Datos que trata Ascento por su cuenta.</strong> Los de las cuentas de las empresas que contratan Ascento y de sus usuarios (nombre, correo, teléfono, acceso), la facturación de la suscripción, la seguridad del servicio (por ejemplo, registros de acceso y prevención de abusos) y la atención de consultas. Para estos datos, el responsable es el titular de Ascento, identificado al pie de esta página.</li>
-            <li><strong>Datos que una empresa cliente carga para su trabajo.</strong> Los de sus clientes y edificios, los de las personas de contacto, los remitos con firmas y fotos, los reportes, las pruebas, los reclamos y los pedidos de ayuda de sus edificios. Sobre estos datos decide <strong>esa empresa</strong>: ella define qué carga, para qué y con quién lo comparte. Ascento los guarda y procesa para prestarle el servicio, siguiendo sus instrucciones y sin usarlos para fines propios distintos de prestar, proteger y mantener el servicio.</li>
+            <li><strong>Datos que una empresa cliente carga para su trabajo.</strong> Los de sus clientes y edificios, los de las personas de contacto, los remitos con firmas y fotos, los reportes, las pruebas, los reclamos, los reportes de problemas desde el QR y los pedidos de ayuda registrados de sus edificios. Sobre estos datos decide <strong>esa empresa</strong>: ella define qué carga, para qué y con quién lo comparte. Ascento los guarda y procesa para prestarle el servicio, siguiendo sus instrucciones y sin usarlos para fines propios distintos de prestar, proteger y mantener el servicio.</li>
         </ul>
         <p>Si tus datos figuran en Ascento porque los cargó una empresa (por ejemplo, sos administrador de un consorcio o técnico de una empresa), lo más rápido para consultarlos, corregirlos o pedir que se borren es dirigirte a esa empresa. También podés escribirnos y le haremos llegar tu pedido.</p>
         <p>El tratamiento se rige por la Ley 25.326 de Protección de Datos Personales de la República Argentina y su reglamentación.</p>
@@ -37,7 +37,7 @@
                     <tr><td class="px-4 py-3 font-semibold text-[#14171C]">Técnicos</td><td class="px-4 py-3">Nombre, correo, teléfono, foto de perfil si la cargan, trabajos asignados, remitos y firmas, y, solo si la empresa usa esa función y el técnico da permiso en su navegador, su ubicación mientras tiene la aplicación abierta.</td></tr>
                     <tr><td class="px-4 py-3 font-semibold text-[#14171C]">Clientes, administraciones y contactos</td><td class="px-4 py-3">Nombre, persona de contacto, teléfono, correo y notas que cargue la empresa; si tienen acceso al portal, su cuenta (nombre, correo, contraseña cifrada), los edificios autorizados y los reclamos que envíen, con sus fotos.</td></tr>
                     <tr><td class="px-4 py-3 font-semibold text-[#14171C]">Personas en los registros de trabajo</td><td class="px-4 py-3">Nombre y firma dibujada de quien firma un remito (técnico y, si firma, alguien del cliente), y lo que aparezca en fotos, reportes u observaciones. Las fotos se guardan sin metadatos, incluida la ubicación GPS.</td></tr>
-                    <tr><td class="px-4 py-3 font-semibold text-[#14171C]">Visitantes del QR</td><td class="px-4 py-3">No se pide ningún dato personal. Si alguien envía un pedido de ayuda, se guardan el edificio, el ascensor si lo elige, la fecha y hora y una huella cifrada de la conexión para frenar abusos; <strong>la dirección IP no se guarda</strong>.</td></tr>
+                    <tr><td class="px-4 py-3 font-semibold text-[#14171C]">Visitantes del QR</td><td class="px-4 py-3">No se pide ningún dato personal ni una cuenta. Si alguien reporta un problema, se guardan el edificio, el ascensor si lo elige, lo que notó, lo que escribe, la foto si la adjunta, la fecha y hora y una huella cifrada de la conexión para frenar abusos; <strong>la dirección IP no se guarda</strong>. La foto queda en un archivo privado que solo ven la empresa y los técnicos asignados al edificio (no se publica ni se comparte con la administración). Recomendamos no incluir datos personales en el texto ni personas en la foto.</td></tr>
                     <tr><td class="px-4 py-3 font-semibold text-[#14171C]">Todas las personas con cuenta</td><td class="px-4 py-3">Sesiones (con dirección IP y navegador), registro de acciones sensibles en el panel (con IP), avisos recibidos y su lectura, suscripciones a notificaciones del navegador y, si lo conectan, el identificador de su chat de Telegram.</td></tr>
                 </tbody>
             </table>
@@ -49,7 +49,7 @@
         <ul>
             <li><strong>Prestar el servicio:</strong> crear y administrar cuentas, permitir que cada empresa organice su trabajo, genere remitos y comparta información con sus clientes.</li>
             <li><strong>Avisos:</strong> enviar los avisos que corresponden a cada persona según su rol (trabajos asignados, remitos firmados, guardias, pruebas, pedidos de ayuda).</li>
-            <li><strong>Seguridad:</strong> controlar accesos, detectar usos indebidos y abusos del pedido de ayuda, y dejar constancia de acciones sensibles.</li>
+            <li><strong>Seguridad:</strong> controlar accesos, detectar usos indebidos y abusos de los reportes desde el QR, y dejar constancia de acciones sensibles.</li>
             <li><strong>Suscripción y soporte:</strong> gestionar los planes y pagos de las empresas y responder consultas.</li>
             <li><strong>Obligaciones legales:</strong> cumplir lo que exija la normativa.</li>
         </ul>
@@ -61,7 +61,7 @@
         <ul>
             <li><strong>Dentro de cada empresa:</strong> solo sus usuarios, según los permisos que la empresa les asigna. Una empresa nunca ve los datos de otra.</li>
             <li><strong>Portal del cliente:</strong> solo lo que la empresa comparte, de los edificios que autorizó para cada persona.</li>
-            <li><strong>Página pública del QR:</strong> la información del edificio y del ascensor que la empresa decide publicar. No muestra datos de técnicos, residentes ni contactos.</li>
+            <li><strong>Página pública del QR:</strong> la información del edificio y del ascensor que la empresa decide publicar, incluidos los documentos y el estado de las incidencias que publique uno por uno. No muestra datos de técnicos, residentes ni contactos, ni el texto o las fotos de los reportes.</li>
             <li><strong>Enlace público de un remito:</strong> cualquier persona que tenga el enlace puede ver ese remito, incluidos los nombres y las firmas. La empresa decide con quién lo comparte.</li>
             <li><strong>El equipo de Ascento:</strong> solo cuando es necesario para soporte, seguridad o mantenimiento del servicio.</li>
             <li><strong>Proveedores que ayudan a prestar el servicio</strong> (sección 05) y autoridades, cuando una ley u orden judicial lo exija.</li>

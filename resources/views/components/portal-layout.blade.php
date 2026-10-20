@@ -13,15 +13,14 @@
         ['portal.notifications', 'Avisos', route('portal.notifications')],
         ['portal.help', 'Ayuda', route('portal.help')],
     ];
-    // Pedidos de ayuda de sus edificios: si la empresa tiene la función o ya hay pedidos (historial).
+    // Pedidos de ayuda (retirados): solo como historial, si sus edificios tienen alguno.
     if ($user?->isClientUser() && ($cid = \App\Support\Portal\PortalAccess::currentCompanyId($user))
-        && (\App\Support\Plans\PlanGuard::companyAllows($cid, \App\Enums\PlanFeature::EmergencyRequests)
-            || \App\Models\EmergencyRequest::withoutGlobalScopes()->where('company_id', $cid)->whereIn('building_id', \App\Support\Portal\PortalAccess::buildingIds($user, $cid))->exists())) {
-        array_splice($tabs, 4, 0, [['portal.emergencies', 'Pedidos de ayuda', route('portal.emergencies')]]);
+        && \App\Models\EmergencyRequest::withoutGlobalScopes()->where('company_id', $cid)->whereIn('building_id', \App\Support\Portal\PortalAccess::buildingIds($user, $cid))->exists()) {
+        array_splice($tabs, 4, 0, [['portal.emergencies', 'Pedidos de ayuda (historial)', route('portal.emergencies')]]);
     }
     // Reclamos: con el portal en el plan (el mismo control que la pantalla).
     if (\App\Services\Claims\ClientClaimService::portalCanClaim($user)) {
-        array_splice($tabs, 1, 0, [['portal.claims', 'Reclamos', route('portal.claims.index')]]);
+        array_splice($tabs, 1, 0, [['portal.claims', 'Reclamos e incidencias', route('portal.claims.index')]]);
     }
     $current = request()->route()?->getName().(request()->route('type') ? ':'.request()->route('type') : '');
 @endphp

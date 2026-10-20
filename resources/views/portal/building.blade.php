@@ -6,6 +6,8 @@
     <h1 class="p-h1">{{ $building->name }}</h1>
     <p class="p-sub">{{ trim($building->address.' '.$building->locality) }}</p>
 
+    <p style="margin:0 0 12px"><a class="p-btn" href="{{ route('portal.building-summary', $building) }}" data-building-summary-link>Resumen del mes</a></p>
+
     <div class="p-stats">
         @foreach(\App\Support\Portal\PortalDocuments::TYPES as $key => $label)
             <a class="p-stat" href="{{ route('portal.documents', ['type' => $key, 'building' => $building->id]) }}"><b>{{ $counts[$key] ?? 0 }}</b><span class="p-muted">{{ $label }}</span></a>
@@ -52,6 +54,50 @@
             </ul>
         @endif
     </section>
+
+    {{-- Este período: solo con una frecuencia de visitas cargada (nada inventado). --}}
+    <section class="p-sec" data-building-period>
+        <div class="p-sec-head"><h2>Este período</h2></div>
+        @if(empty($period))
+            <div class="p-empty">La empresa no cargó una frecuencia de visitas para este edificio, así que no se muestran visitas previstas.</div>
+        @else
+            <ul class="p-list">
+                @foreach($period as $p)
+                    <li class="p-row">
+                        <span>{{ $p['type'] }} · {{ $p['period'] }} <span class="p-muted">({{ mb_strtolower($p['frequency']) }})</span></span>
+                        @if($p['done'] >= $p['expected'])
+                            <span class="p-tag ok">Registrado</span>
+                        @elseif($p['not_done'] > 0 && $p['pending'] === 0)
+                            <span class="p-tag bad">Registrado como no realizado</span>
+                        @else
+                            <span class="p-tag warn">Previsto, sin registrar todavía</span>
+                        @endif
+                    </li>
+                @endforeach
+            </ul>
+            <p class="p-muted" style="font-size:13px; margin:6px 2px 0">Según la frecuencia acordada con la empresa. «Previsto» no significa que la visita ya se hizo.</p>
+        @endif
+    </section>
+
+    {{-- Reclamos e incidencias del edificio (los propios y los reportes del QR que la empresa compartió). --}}
+    @if(\App\Services\Claims\ClientClaimService::portalCanClaim(auth()->user()))
+        <section class="p-sec" data-building-incidents>
+            <div class="p-sec-head"><h2>Reclamos e incidencias</h2><a class="p-link" href="{{ route('portal.claims.index') }}">Ver todos →</a></div>
+            @if($incidents->isEmpty())
+                <div class="p-empty">No hay reclamos ni incidencias compartidas de este edificio.</div>
+            @else
+                <ul class="p-list">
+                    @foreach($incidents as $c)
+                        <li><a class="p-row" href="{{ route('portal.claims.show', $c->id) }}">
+                            <span class="p-row-main" style="display:block"><span class="p-row-title">{{ $c->reference() }} · {{ $c->categoryLabel() }}</span>
+                                <span class="p-row-text">{{ $c->created_at->format('d/m/Y') }}{{ $c->isFromQr() ? ' · Reportado desde el QR' : '' }}</span></span>
+                            <span class="p-row-side"><span class="p-tag">{{ $c->statusLabel() }}</span></span>
+                        </a></li>
+                    @endforeach
+                </ul>
+            @endif
+        </section>
+    @endif
 
     @include('portal.partials.responsibles', ['responsibles' => $responsibles, 'title' => 'Responsables de este edificio', 'single' => true])
 

@@ -8,6 +8,7 @@ use App\Filament\Concerns\OwnerRecordOfCurrentCompany;
 use App\Filament\Support\ClientSharing;
 use App\Models\ElevatorDocument;
 use App\Services\Elevators\ElevatorDocumentService;
+use App\Support\Access\Access;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
@@ -51,6 +52,10 @@ class DocumentsRelationManager extends RelationManager
                     ->description(fn (ElevatorDocument $record) => $record->isExpired() ? 'Vencido' : ($record->expiresSoon() ? 'Vence pronto' : null)),
                 TextColumn::make('created_at')->label('Subido')->date('d/m/Y'),
                 ClientSharing::column(),
+                TextColumn::make('public_on_qr')->label('En el QR')->badge()
+                    ->state(fn (ElevatorDocument $record) => $record->public_on_qr ? 'Publicado' : 'No')
+                    ->color(fn (string $state) => $state === 'Publicado' ? 'warning' : 'gray')
+                    ->tooltip('Publicado: cualquiera que escanee el QR del edificio puede abrirlo, si el QR tiene el bloque «Documentación».'),
             ])
             ->emptyStateHeading('Sin documentación')
             ->emptyStateDescription('Subí planos, manuales, certificados o fotos del equipo. Los certificados con fecha de vencimiento avisan en el Centro de atención.')
@@ -74,6 +79,26 @@ class DocumentsRelationManager extends RelationManager
                     }),
             ])
             ->recordActions([
+                Action::make('publishOnQr')
+                    ->label('Publicar en el QR')
+                    ->icon('heroicon-o-qr-code')
+                    ->visible(fn (ElevatorDocument $record) => ! $record->public_on_qr && $this->canPublishOnQr())
+                    ->requiresConfirmation()
+                    ->modalHeading('Publicar en el QR del edificio')
+                    ->modalDescription('Cualquier persona que escanee el QR podrá abrir y descargar este archivo, sin cuenta (si el QR tiene encendido el bloque «Documentación»). Revisá que no tenga datos personales ni información privada.')
+                    ->modalSubmitActionLabel('Publicar')
+                    ->action(function (ElevatorDocument $record) {
+                        app(ElevatorDocumentService::class)->publishOnQr($record, auth()->user(), true);
+                        Notification::make()->title('Publicado en el QR')->success()->send();
+                    }),
+                Action::make('unpublishOnQr')
+                    ->label('Quitar del QR')
+                    ->icon('heroicon-o-eye-slash')
+                    ->visible(fn (ElevatorDocument $record) => (bool) $record->public_on_qr && $this->canPublishOnQr())
+                    ->action(function (ElevatorDocument $record) {
+                        app(ElevatorDocumentService::class)->publishOnQr($record, auth()->user(), false);
+                        Notification::make()->title('Quitado del QR')->success()->send();
+                    }),
                 Action::make('delete')
                     ->label('Borrar')
                     ->icon('heroicon-o-trash')
@@ -81,5 +106,13 @@ class DocumentsRelationManager extends RelationManager
                     ->requiresConfirmation()
                     ->action(fn (ElevatorDocument $record) => $record->delete()),
             ]);
+    }
+
+    private function canPublishOnQr(): bool
+    {
+        $user = auth()->user();
+
+        return Access::can($user, PermissionArea::Documents, PermissionArea::MANAGE)
+            && Access::can($user, PermissionArea::PublicPages, PermissionArea::MANAGE);
     }
 }

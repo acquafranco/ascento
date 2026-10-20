@@ -27,6 +27,11 @@ class BuildingPublicPage extends Model
         'show_pending_work' => 'Trabajos pendientes',
         'show_repairs' => 'Componentes en reparación',
         'show_contact' => 'Contacto de la empresa',
+        // Pasaporte del ascensor (Ascento Conecta)
+        'show_service_history' => 'Historial de servicios registrados (fechas, tipo y número de remito)',
+        'show_next_visit' => 'Lo que corresponde este período según la frecuencia de visitas',
+        'show_documents' => 'Documentación técnica que publiques (una por una)',
+        'show_incidents' => 'Estado de las incidencias que publiques (una por una)',
     ];
 
     protected $fillable = [];
@@ -42,6 +47,11 @@ class BuildingPublicPage extends Model
         'show_safety_tests' => 'boolean',
         'show_pending_work' => 'boolean',
         'show_contact' => 'boolean',
+        'show_repairs' => 'boolean',
+        'show_service_history' => 'boolean',
+        'show_next_visit' => 'boolean',
+        'show_documents' => 'boolean',
+        'show_incidents' => 'boolean',
         'generated_at' => 'datetime',
         'deactivated_at' => 'datetime',
     ];

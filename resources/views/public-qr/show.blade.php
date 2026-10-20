@@ -10,6 +10,6 @@
     <style>body { margin: 0; background: #F4F5F7; }</style>
 </head>
 <body>
-    @include('public-qr.partials.content', ['info' => $info, 'help' => $help ?? null])
+    @include('public-qr.partials.content', ['info' => $info, 'report' => $report ?? null])
 </body>
 </html>

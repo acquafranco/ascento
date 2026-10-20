@@ -17,9 +17,10 @@ use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Reclamos del portal: la persona ve y crea SOLO sus reclamos, de los
- * edificios que tiene autorizados en la empresa actual. Cualquier otro
- * reclamo responde 404 (sin pistas). Las notas internas nunca llegan acá.
+ * Reclamos e incidencias del portal: la persona ve y crea SUS reclamos y,
+ * además, ve los reportes del QR de sus edificios autorizados que la empresa
+ * decidió compartir (sin fotos ni notas internas). Todo de la empresa actual.
+ * Cualquier otro responde 404 (sin pistas).
  */
 class PortalClaimController extends Controller
 {
@@ -51,11 +52,20 @@ class PortalClaimController extends Controller
             ->orderBy('name')->get(['id', 'name', 'address']);
     }
 
+    /** Los reclamos que esta persona ve: los suyos y los reportes del QR compartidos de sus edificios. */
+    public static function visibleQuery(Request $request, int $companyId)
+    {
+        $user = $request->user();
+        $buildings = PortalAccess::buildingIds($user, $companyId)->all() ?: [0];
+
+        return ClientClaim::withoutGlobalScopes()->where('company_id', $companyId)
+            ->where(fn ($q) => $q->where('created_by', $user->id)
+                ->orWhere(fn ($w) => $w->where('origin', ClientClaim::ORIGIN_QR)->where('shared_with_client', true)->whereIn('building_id', $buildings)));
+    }
+
     public function index(Request $request): View
     {
-        $claims = ClientClaim::withoutGlobalScopes()
-            ->where('company_id', $this->companyId($request))
-            ->where('created_by', $request->user()->id)
+        $claims = self::visibleQuery($request, $this->companyId($request))
             ->with(['building', 'elevator'])
             ->latest('created_at')->paginate(15);
 
@@ -107,7 +117,10 @@ class PortalClaimController extends Controller
 
     public function show(Request $request, int $claim): View
     {
-        $claim = $this->own($request, $claim)->load(['building', 'elevator', 'photos', 'publicEvents.user']);
+        $claim = self::visibleQuery($request, $this->companyId($request))->findOrFail($claim);
+        abort_unless(ClientClaimService::portalCanSee($request->user(), $claim), 404);
+        // Las fotos de un reporte del QR no se comparten (las tomó una persona sin cuenta).
+        $claim->load(['building', 'elevator', 'publicEvents.user'])->setRelation('photos', $claim->isFromQr() ? collect() : $claim->photos()->get());
 
         return view('portal.claims.show', ['claim' => $claim]);
     }

@@ -27,6 +27,10 @@ class ClientClaimEvent extends Model
     {
         return match ($this->type) {
             'created' => 'Reclamo registrado',
+            'qr_created' => 'Reporte registrado desde el QR del edificio',
+            'notified' => 'Avisos registrados',
+            'shared' => $this->to === 'on' ? 'Compartido con la administración' : 'Dejó de compartirse con la administración',
+            'published' => $this->to === 'on' ? 'Estado publicado en el QR' : 'Estado retirado del QR',
             'status' => 'Estado: '.(ClientClaim::STATUSES[$this->from] ?? $this->from).' → '.(ClientClaim::STATUSES[$this->to] ?? $this->to),
             'assigned' => $this->to ? 'Asignado a '.$this->to : 'Sin responsable',
             'note' => 'Nota interna',

@@ -33,8 +33,8 @@
         .code svg { display: block; width: 100%; height: auto; }
         .building { font-size: {{ $compact ? '10pt' : '15pt' }}; font-weight: 700; margin: 0; overflow-wrap: anywhere; }
         .address { font-size: {{ $compact ? '8pt' : '11pt' }}; color: #5B6472; margin: 1mm 0 0; }
-        .help { margin-top: {{ $compact ? '4mm' : '8mm' }}; border: 0.6mm solid #b91c1c; border-radius: 3mm; padding: {{ $compact ? '2.5mm 3mm' : '4mm 6mm' }}; font-size: {{ $compact ? '8pt' : '12pt' }}; line-height: 1.4; max-width: {{ $compact ? '86mm' : '150mm' }}; }
-        .help strong { color: #b91c1c; }
+        .help { margin-top: {{ $compact ? '4mm' : '8mm' }}; border: 0.6mm solid #FF6600; border-radius: 3mm; padding: {{ $compact ? '2.5mm 3mm' : '4mm 6mm' }}; font-size: {{ $compact ? '8pt' : '12pt' }}; line-height: 1.4; max-width: {{ $compact ? '86mm' : '150mm' }}; }
+        .help strong { color: #11161D; }
         .safety { margin-top: {{ $compact ? '2mm' : '4mm' }}; font-size: {{ $compact ? '7pt' : '10pt' }}; color: #5B6472; max-width: {{ $compact ? '86mm' : '150mm' }}; }
         .foot { margin-top: auto; padding-top: {{ $compact ? '3mm' : '8mm' }}; display: flex; align-items: center; gap: 2mm; font-size: {{ $compact ? '7pt' : '10pt' }}; color: #5B6472; }
         .foot img { height: {{ $compact ? '5mm' : '8mm' }}; width: auto; }
@@ -70,10 +70,10 @@
             <p class="address">{{ $address }}</p>
         @endif
 
-        @if($help)
-            <p class="help" data-sheet="help"><strong>¿Quedaste atrapado?</strong> Escaneá el código y tocá «Estoy atrapado en el ascensor» para enviar un aviso a la empresa de mantenimiento (y a la administración, si usa Ascento). No es un servicio de emergencias.</p>
+        @if($report)
+            <p class="help" data-sheet="report"><strong>¿Notaste un problema?</strong> Escaneá el código y tocá «Reportar un problema». Se registra en Ascento para que la empresa de mantenimiento lo revise. No es un servicio de emergencias ni garantiza una respuesta inmediata.</p>
         @endif
-        <p class="safety">En una emergencia, usá el botón de alarma o el intercomunicador del ascensor. Si hay peligro inmediato, llamá al 911.</p>
+        <p class="safety">Ante una emergencia o si alguien queda atrapado, usá el botón de alarma o el intercomunicador del ascensor. Si hay peligro inmediato, llamá al 911.</p>
 
         <div class="foot" data-sheet="ascento">
             @if($ascentoLogo)<img src="{{ $ascentoLogo }}" alt="Ascento">@endif

@@ -106,6 +106,7 @@ class PublicQrPage extends Page
             'company_id' => $building->company_id, 'building_id' => $building->id, 'is_active' => false,
             'show_elevators' => true, 'show_status' => false, 'show_last_maintenance' => true, 'show_last_inspection' => true,
             'show_safety_tests' => false, 'show_pending_work' => false, 'show_contact' => false, 'show_repairs' => false,
+            'show_service_history' => false, 'show_next_visit' => false, 'show_documents' => false, 'show_incidents' => false,
         ]);
 
         return $draft;

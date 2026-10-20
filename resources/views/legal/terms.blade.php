@@ -20,7 +20,7 @@
         <ul>
             <li>Ascento es un <strong>software de gestión</strong>: sirve para registrar, organizar y comunicar información sobre el mantenimiento de ascensores. <strong>No mantiene, repara ni inspecciona ascensores</strong> y no reemplaza a la empresa conservadora, a los profesionales habilitados ni a los servicios de emergencia.</li>
             <li>Lo que se carga en Ascento (remitos, inspecciones, pruebas, fotos) lo cargan las empresas y sus técnicos. <strong>Un registro no prueba por sí solo que el trabajo se haya hecho bien</strong>.</li>
-            <li>El pedido de ayuda desde el QR <strong>registra el pedido e intenta avisar</strong>; no garantiza que alguien lo vea ni que llegue asistencia. Ante un atrapamiento: alarma del ascensor y, si hay peligro, <strong>911</strong>.</li>
+            <li>Ascento es una plataforma de gestión y comunicación. <strong>Un reporte desde el QR no es una solicitud de rescate</strong>: se registra e intenta avisar, pero no garantiza que alguien lo vea ni una respuesta inmediata. Ante un atrapamiento o un peligro: alarma o intercomunicador del ascensor y <strong>911</strong>.</li>
         </ul>
     </x-legal.note>
 
@@ -58,7 +58,8 @@
             <li>conservar, por los medios que corresponda, los documentos que la ley o sus contratos le obliguen a mantener: Ascento permite exportarlos, pero no reemplaza esa obligación;</li>
             <li>dar de alta solo a personas autorizadas, asignar los permisos adecuados y dar de baja a quien deje de estar autorizado;</li>
             <li>tener una base legal para cargar datos personales de sus clientes, técnicos y terceros, e informarles lo necesario (ver la <a href="{{ route('legal.privacy') }}">Política de Privacidad</a>);</li>
-            <li>si activa el pedido de ayuda desde el QR, mantener destinatarios que puedan recibirlo (sección 07) y tener sus propios procedimientos de atención.</li>
+            <li>si recibe reportes de problemas desde el QR, revisarlos y gestionarlos según sus propios procedimientos y las obligaciones que le correspondan (sección 07), y mantener personas habilitadas para recibir los avisos;</li>
+            <li>publicar en el QR o compartir en el portal solo información y documentos que tenga derecho a difundir, sin datos personales que no corresponda mostrar.</li>
         </ul>
         <p>La empresa cliente responde por lo que hacen en su cuenta los usuarios que ella da de alta, sin perjuicio de la responsabilidad personal de cada uno.</p>
     </x-legal.section>
@@ -91,25 +92,27 @@
         <p><strong>Ubicación.</strong> Si la empresa usa esa función y el técnico da permiso en su navegador, Ascento recibe la ubicación que informa su navegador (con su margen de precisión) solo mientras tiene la aplicación abierta, y la guarda por pocas horas. No hay seguimiento en segundo plano. La empresa cliente debe informar a sus técnicos y contar con la base legal para usarla.</p>
     </x-legal.section>
 
-    <x-legal.section n="07" title="QR público y pedido de ayuda" id="qr">
-        <p>La empresa cliente puede publicar un QR por edificio con información que ella elige. Si su plan lo incluye y ella lo activa, la página del QR muestra el botón «Estoy atrapado en el ascensor», que cualquier persona puede usar sin cuenta.</p>
-        <x-legal.note tone="danger" title="El pedido de ayuda no es un servicio de emergencias">
-            <p>Ante un atrapamiento, usá el botón de alarma o el intercomunicador del ascensor. Si hay peligro inmediato, llamá al <strong>911</strong>. Ascento no presta asistencia, no tiene personal de guardia y no garantiza respuesta.</p>
+    <x-legal.section n="07" title="QR público y reporte de problemas" id="qr">
+        <p>La empresa cliente puede publicar un QR por edificio con la información que ella elige (el «pasaporte del ascensor»): datos del edificio y de los equipos, fechas de servicios registrados, lo que corresponde en el período según la frecuencia que ella cargó, y los documentos y el estado de las incidencias que decida publicar uno por uno. Es un <strong>historial de registros y documentos</strong>: no es una certificación de seguridad, una habilitación ni una garantía de que el ascensor esté en condiciones de funcionamiento.</p>
+        <p>Si su plan lo incluye y ella no lo desactiva, la página del QR permite <strong>«Reportar un problema»</strong>: cualquier persona, sin cuenta, elige qué notó, lo describe y puede adjuntar una foto.</p>
+        <x-legal.note tone="danger" title="Reportar un problema no es un servicio de emergencias">
+            <p>Ante un atrapamiento o un peligro, usá el botón de alarma o el intercomunicador del ascensor y llamá al <strong>911</strong>. Un reporte no es una solicitud de rescate atendida. Ascento no presta asistencia, no tiene personal de guardia y no garantiza una respuesta. El reporte no reemplaza los medios de comunicación y de emergencia con que deba contar el ascensor.</p>
         </x-legal.note>
-        <p>Cuando alguien toca el botón, pueden ocurrir cosas distintas, que Ascento distingue y no presenta como equivalentes:</p>
+        <p>Cuando alguien envía un reporte, pueden ocurrir cosas distintas, que Ascento distingue y no presenta como equivalentes:</p>
         <ol>
-            <li><strong>Envío:</strong> el teléfono de la persona intenta mandar el pedido. Sin conexión, no llega.</li>
+            <li><strong>Envío:</strong> el teléfono de la persona intenta mandar el reporte. Sin conexión, o si el servicio no está disponible, no llega: la página lo indica y no muestra una confirmación.</li>
             <li><strong>Registro:</strong> si llega, Ascento lo guarda con un código, fecha y hora, y se lo muestra a la persona.</li>
-            <li><strong>Intento de aviso:</strong> Ascento intenta avisar a los destinatarios que existan en ese momento: las personas de la empresa cliente que pueden recibir estos avisos, los técnicos de guardia y, si la administración del edificio usa el portal, sus usuarios autorizados. Si no hay a quién avisar, el pedido queda registrado igual y se le informa a la persona.</li>
+            <li><strong>Intento de aviso:</strong> Ascento intenta avisar a las personas de la empresa cliente que pueden recibir estos avisos y a los técnicos asignados a ese edificio, y registra cada intento. Emitir o registrar un aviso no garantiza que alguien lo haya recibido.</li>
             <li><strong>Lectura:</strong> Ascento solo sabe que un destinatario lo vio si lo abrió dentro de la aplicación.</li>
-            <li><strong>Atención:</strong> que alguien se haga cargo y que la asistencia se preste depende exclusivamente de la empresa cliente y de las personas involucradas. Ascento no lo confirma salvo que la empresa lo registre.</li>
+            <li><strong>Gestión:</strong> la empresa cliente gestiona cada reporte según sus procedimientos y las obligaciones que le correspondan. Sus estados («Recibido», «En revisión», «Asociado a una orden de trabajo», «Resuelto», «Cerrado») describen ese seguimiento administrativo y no confirman una reparación ni la seguridad del equipo. Crear una orden de trabajo es siempre una decisión de la empresa.</li>
         </ol>
-        <p>Además, el botón deja de estar disponible si la empresa lo desactiva, si su plan no lo incluye o si su suscripción vence; puede haber límites de envíos para frenar abusos; y un aviso puede no llegar por las razones de la sección 05.</p>
-        <p><strong>Uso indebido.</strong> Está prohibido enviar pedidos falsos o hacer un uso abusivo del botón. Ascento aplica límites automáticos y puede bloquear envíos repetidos; la empresa cliente puede marcar un pedido como falsa alarma.</p>
+        <p>Además, «Reportar un problema» deja de estar disponible si la empresa lo desactiva, si su plan no lo incluye o si su suscripción vence; hay límites de envíos para frenar abusos; y un aviso puede no llegar por las razones de la sección 05.</p>
+        <p><strong>Uso indebido.</strong> Está prohibido enviar reportes falsos o abusivos, o fotos de personas sin su consentimiento. Ascento aplica límites automáticos y puede descartar envíos repetidos.</p>
+        <p><strong>Pedido de ayuda (retirado).</strong> Hasta la incorporación de «Reportar un problema», el QR podía ofrecer un botón de pedido de ayuda por atrapamiento. Esa opción se retiró: ya no registra pedidos ni envía avisos. Los pedidos registrados antes se conservan como historial de la empresa cliente.</p>
     </x-legal.section>
 
     <x-legal.section n="08" title="Portal de clientes y reclamos" id="portal">
-        <p>El portal permite a las administraciones ver solo lo que la empresa cliente comparte de los edificios autorizados, y enviarle reclamos. Un reclamo es una comunicación a la empresa cliente: su respuesta, sus plazos y su atención dependen de ella. El portal no es un canal de emergencias.</p>
+        <p>El portal permite a las administraciones ver solo lo que la empresa cliente comparte de los edificios autorizados (incluidos los reportes del QR que decida compartir y un resumen mensual armado con los registros de la empresa), y enviarle reclamos. Un reclamo es una comunicación a la empresa cliente: su respuesta, sus plazos y su atención dependen de ella. El resumen mensual no es un certificado de cumplimiento ni una evaluación técnica. El portal no es un canal de emergencias.</p>
     </x-legal.section>
 
     <x-legal.section n="09" title="Cuentas, seguridad y uso permitido" id="uso">
@@ -129,7 +132,7 @@
             <li>La prueba gratuita no requiere medio de pago. Al vencer, para seguir usando Ascento hay que contratar un plan.</li>
             <li>Los pagos se procesan a través de Mercado Pago, según sus propias condiciones. Ascento no recibe ni guarda los datos completos de tarjetas.</li>
             <li>Podemos cambiar los precios para períodos futuros avisando con anticipación razonable; el cambio no afecta períodos ya pagados.</li>
-            <li>Si el acceso vence o el pago no se acredita, el dueño de la cuenta solo ve la pantalla de suscripción para regularizarla, los técnicos dejan de operar y se interrumpen los avisos y el pedido de ayuda del QR. Los datos no se eliminan por la falta de pago (ver sección 12).</li>
+            <li>Si el acceso vence o el pago no se acredita, el dueño de la cuenta solo ve la pantalla de suscripción para regularizarla, los técnicos dejan de operar y se interrumpen los avisos y los reportes desde el QR. Los datos no se eliminan por la falta de pago (ver sección 12).</li>
         </ul>
     </x-legal.section>
 
@@ -159,7 +162,7 @@
         <ul>
             <li>el estado de los ascensores, ni los trabajos, inspecciones, pruebas o asistencias que hagan o dejen de hacer la empresa cliente, sus técnicos u otras personas;</li>
             <li>la exactitud de la información que cargan los usuarios ni las decisiones tomadas en base a ella;</li>
-            <li>que un aviso o un pedido de ayuda no sea visto o atendido por sus destinatarios;</li>
+            <li>que un aviso, un reporte o un pedido de ayuda registrado no sea visto o atendido por sus destinatarios;</li>
             <li>fallas de servicios de terceros (conectividad, correo, notificaciones del navegador, Telegram, pagos) que no estén bajo nuestro control razonable.</li>
         </ul>
         <p>Frente a empresas clientes, y en la medida en que la ley lo permita, la responsabilidad total de Ascento por reclamos vinculados al servicio se limita al monto efectivamente pagado por la empresa en los doce meses anteriores al hecho que la origina.</p>

@@ -181,7 +181,7 @@ class CompanyEraser
             return 0;
         }
 
-        $direct = collect([['building_visits', 'user_id'], ['delivery_notes', 'user_id'], ['reports', 'user_id'], ['quotes', 'created_by'], ['portal_memberships', 'user_id'], ['on_call_shifts', 'user_id'], ['on_call_members', 'user_id'], ['emergency_deliveries', 'user_id'], ['client_claims', 'created_by'], ['client_claims', 'assigned_to'], ['client_claim_events', 'user_id'], ['technician_locations', 'user_id']])
+        $direct = collect([['building_visits', 'user_id'], ['delivery_notes', 'user_id'], ['reports', 'user_id'], ['quotes', 'created_by'], ['portal_memberships', 'user_id'], ['on_call_shifts', 'user_id'], ['on_call_members', 'user_id'], ['emergency_deliveries', 'user_id'], ['client_claims', 'created_by'], ['client_claims', 'assigned_to'], ['client_claim_events', 'user_id'], ['client_claim_deliveries', 'user_id'], ['technician_locations', 'user_id']])
             ->sum(fn ($ref) => DB::table($ref[0])->whereIn($ref[1], $erased)->where('company_id', '!=', $id)->count());
 
         $viaParent = collect([
@@ -268,7 +268,7 @@ class CompanyEraser
         $n += $of('building_visit_plans')->delete();
 
         // Reclamos de clientes (referencian órdenes, edificios, clientes y usuarios).
-        foreach (['client_claim_photos', 'client_claim_events', 'client_claims'] as $table) {
+        foreach (['client_claim_deliveries', 'client_claim_photos', 'client_claim_events', 'client_claims'] as $table) {
             $n += $of($table)->delete();
         }
 

@@ -38,7 +38,7 @@
             </table>
         </div>
         <p>Son necesarias para que el servicio funcione, por eso no se pueden desactivar desde Ascento. Podés borrarlas desde tu navegador: en ese caso se cierra tu sesión.</p>
-        <p>La página pública del QR no necesita cookies para enviar un pedido de ayuda: funciona aunque las bloquees.</p>
+        <p>La página pública del QR no necesita cookies para reportar un problema: funciona aunque las bloquees.</p>
     </x-legal.section>
 
     <x-legal.section n="03" title="Datos guardados en tu navegador (no son cookies)" id="almacenamiento">

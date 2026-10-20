@@ -76,6 +76,7 @@ class Company extends Model
         'photos_work_order' => 'boolean',
         // Pedido de ayuda desde el QR: NO es asignable en masa; solo lo cambia el dueño desde «Mi empresa» (saveEmergencySetting).
         'emergency_requests_enabled' => 'boolean',
+        'qr_reports_enabled' => 'boolean',
         'whatsapp_connected' => 'boolean',
         'trial_ends_at' => 'datetime',
         // Configuración inicial guiada (CompanySetup): no asignable en masa.

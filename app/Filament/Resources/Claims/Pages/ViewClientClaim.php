@@ -11,7 +11,7 @@ class ViewClientClaim extends ViewRecord
 
     public function getTitle(): string
     {
-        return 'Reclamo '.$this->getRecord()->reference();
+        return ($this->getRecord()->isFromQr() ? 'Reporte ' : 'Reclamo ').$this->getRecord()->reference();
     }
 
     protected function getHeaderActions(): array
