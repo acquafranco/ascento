@@ -82,7 +82,7 @@ class CheckProduction extends Command
         }
         $age = $beat ? Carbon::parse($beat)->diffInMinutes(now()) : null;
         $this->check($age !== null && $age <= 5, 'schedule:run activo (última corrida hace '.(int) $age.' min)',
-            $beat ? 'El scheduler no corre hace '.(int) $age.' min: sin él no hay backups automáticos ni videos comprimidos' : 'No hay señal del scheduler. En Forge: Scheduler → "php artisan schedule:run" cada minuto (sin él no hay backups automáticos)');
+            $beat ? 'El scheduler no corre hace '.(int) $age.' min: sin él no hay backups automáticos, ni videos comprimidos, ni se extienden solas las rotaciones de guardia' : 'No hay señal del scheduler. En Forge: Scheduler → "php artisan schedule:run" cada minuto (sin él no hay backups automáticos)');
 
         $this->checkQueue();
 

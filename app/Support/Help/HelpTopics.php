@@ -37,7 +37,7 @@ class HelpTopics
         'reports_intro' => ['Reportes', null, 'reports'],
         'stock_intro' => ['Stock', 'Tus repuestos y materiales. Cargá las entradas cuando comprás; las salidas se descuentan solas cuando un técnico declara lo que usó al firmar el remito de una orden.', null],
         'emergency_intro' => ['Pedidos de ayuda', 'Pedidos por posible atrapamiento hechos desde el QR público de tus edificios. Son avisos sin confirmar: verificá cada uno y cerralo como atendido o falsa alarma. En «Avisos» ves a quién se avisó y por qué canal.', null],
-        'on_call_intro' => ['Guardias', 'Quién cubre fuera del horario habitual. Arriba, quién está de guardia ahora y quién sigue; con «Asignar guardia» y «Reemplazar técnico» resolvés lo de todos los días. El horario y la rotación automática están en «Configuración avanzada».', null],
+        'on_call_intro' => ['Guardias', 'Quién cubre fuera del horario habitual. Arriba, quién está de guardia ahora y quién sigue. Si tus técnicos se turnan siempre en el mismo orden, armá la rotación una vez y se repite sola; si alguien falta, cargás la ausencia o lo reemplazás.', null],
         'services_intro' => ['Servicios', 'Dos vistas: «Servicios contratados», lo que tiene cada cliente (cada período genera el cobro solo y muestra los mantenimientos e inspecciones hechos), y «Servicios ofrecidos», tu catálogo con precios de referencia para contratar más rápido.', null],
         'receivables_intro' => ['Cobranzas', 'Lo que te deben tus clientes: cobros de servicios, de presupuestos aprobados y manuales. Registrá los pagos (también parciales) a medida que entran.', null],
         'map_intro' => ['Mapa', null, 'map'],
