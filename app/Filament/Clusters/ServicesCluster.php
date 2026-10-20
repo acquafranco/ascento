@@ -18,7 +18,7 @@ use Filament\Pages\Enums\SubNavigationPosition;
  */
 class ServicesCluster extends Cluster
 {
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-wrench-screwdriver';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-briefcase';
 
     protected static ?string $navigationLabel = 'Servicios';
 

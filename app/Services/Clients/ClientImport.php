@@ -16,8 +16,8 @@ use OpenSpout\Reader\XLSX\Reader as XlsxReader;
 use Throwable;
 
 /**
- * Importación de clientes desde .xlsx o .csv (solo nombre, persona de
- * contacto, teléfono y correo).
+ * Importación de clientes desde .xlsx o .csv (nombre, persona de contacto,
+ * teléfono, correo y notas).
  *
  * - Lee con OpenSpout: no ejecuta macros ni fórmulas. Una celda con fórmula
  *   se rechaza (no se usa su resultado ni su texto).
@@ -25,6 +25,10 @@ use Throwable;
  *   del usuario autenticado (BelongsToCompany) y todas las consultas de
  *   duplicados se filtran por ella.
  * - No modifica clientes existentes ni crea otros registros.
+ * - Un duplicado seguro (mismo correo, o mismo nombre con el mismo teléfono o
+ *   correo, o una fila repetida del archivo) no se importa nunca, tampoco si
+ *   aparece entre la vista previa y la confirmación. Los posibles duplicados
+ *   los decide la persona.
  * - Importa todo o nada, dentro de una transacción, verificando el límite del
  *   plan antes de guardar.
  */
@@ -39,7 +43,11 @@ final class ClientImport
         'contact_person' => 'Persona de contacto',
         'phone' => 'Teléfono',
         'email' => 'Correo electrónico',
+        'notes' => 'Notas',
     ];
+
+    /** Largo máximo de cada campo (el de la base; las notas, como en el formulario). */
+    private const MAX_LENGTH = ['name' => 255, 'contact_person' => 255, 'phone' => 255, 'email' => 255, 'notes' => 5000];
 
     /** Encabezados reconocidos (ya normalizados) para cada campo. */
     private const ALIASES = [
@@ -47,10 +55,11 @@ final class ClientImport
         'contact_person' => ['persona contacto', 'persona de contacto', 'contacto', 'responsable', 'contact person'],
         'phone' => ['telefono', 'tel', 'celular', 'movil', 'phone', 'telefono contacto'],
         'email' => ['email', 'e mail', 'mail', 'correo', 'correo electronico'],
+        'notes' => ['notas', 'nota', 'observaciones', 'observacion', 'comentarios', 'notes'],
     ];
 
     /** Encabezados de la plantilla. */
-    public const TEMPLATE_HEADERS = ['nombre', 'persona_contacto', 'telefono', 'email'];
+    public const TEMPLATE_HEADERS = ['nombre', 'persona_contacto', 'telefono', 'email', 'notas'];
 
     public static function normalizeHeader(?string $value): string
     {
@@ -220,9 +229,7 @@ final class ClientImport
         // Clientes de la empresa (también desactivados): una consulta.
         $existing = Client::withoutGlobalScopes()->withTrashed()->where('company_id', $company->id)
             ->get(['id', 'name', 'phone', 'email', 'deleted_at']);
-        $byName = $existing->groupBy(fn ($c) => self::normalizeName($c->name));
-        $byEmail = $existing->filter(fn ($c) => filled($c->email))->keyBy(fn ($c) => Str::lower(trim($c->email)));
-        $byPhone = $existing->filter(fn ($c) => strlen(self::phoneDigits($c->phone)) >= 6)->keyBy(fn ($c) => self::phoneDigits($c->phone));
+        [$byName, $byEmail, $byPhone] = self::index($existing);
 
         $seenName = $seenEmail = $seenPhone = $seenNamePhone = [];
         $out = [];
@@ -234,6 +241,7 @@ final class ClientImport
                 'contact_person' => $get('contact_person'),
                 'phone' => $get('phone'),
                 'email' => Str::lower($get('email')),
+                'notes' => $get('notes'),
             ];
             $errors = [];
             foreach ($mapping as $field => $i) {
@@ -244,7 +252,7 @@ final class ClientImport
             if ($data['name'] === '') {
                 $errors[] = 'Falta el nombre.';
             }
-            foreach (['name' => 255, 'contact_person' => 255, 'phone' => 255, 'email' => 255] as $field => $max) {
+            foreach (self::MAX_LENGTH as $field => $max) {
                 if (mb_strlen($data[$field]) > $max) {
                     $errors[] = self::FIELDS[$field].': es demasiado largo.';
                 }
@@ -261,14 +269,10 @@ final class ClientImport
             if ($errors === []) {
                 // 1) Con clientes que ya tenés.
                 $sameName = $name !== '' ? ($byName[$name] ?? collect()) : collect();
-                $emailHit = $data['email'] !== '' ? $byEmail->get($data['email']) : null;
                 $phoneHit = strlen($digits) >= 6 ? $byPhone->get($digits) : null;
-                $nameAndContact = $sameName->first(fn ($c) => ($data['email'] !== '' && Str::lower(trim((string) $c->email)) === $data['email'])
-                    || (strlen($digits) >= 6 && self::phoneDigits($c->phone) === $digits));
 
-                if ($nameAndContact || $emailHit) {
-                    $hit = $nameAndContact ?? $emailHit;
-                    [$level, $match] = ['clear', 'Ya tenés a «'.$hit->name.'»'.($hit->deleted_at ? ' (desactivado)' : '').' con '.($emailHit ? 'el mismo correo' : 'los mismos datos').'.'];
+                if ($clear = self::clearMatch($data, $byName, $byEmail)) {
+                    [$level, $match] = ['clear', $clear];
                 } elseif ($sameName->isNotEmpty()) {
                     $hit = $sameName->first();
                     [$level, $match] = ['possible', 'Ya tenés un cliente con el mismo nombre'.($hit->deleted_at ? ' (desactivado)' : '').'. Puede ser otro: revisalo.'];
@@ -313,12 +317,59 @@ final class ClientImport
         return $out;
     }
 
+    /** ¿Se puede tildar esta fila? Sin errores y sin ser un duplicado seguro. */
+    public static function selectable(array $row): bool
+    {
+        return $row['errors'] === [] && ($row['matchLevel'] ?? null) !== 'clear';
+    }
+
+    /**
+     * Columnas del archivo que no se van a importar (para avisarlo: nada se
+     * pierde sin que la persona lo sepa).
+     *
+     * @param  list<string>  $headers
+     * @param  array<string, ?int>  $mapping
+     * @return list<string>
+     */
+    public static function ignoredColumns(array $headers, array $mapping): array
+    {
+        $used = array_filter($mapping, fn ($i) => $i !== null);
+
+        return array_values(array_filter(
+            array_map(fn ($h, $i) => in_array($i, $used, true) || trim($h) === '' ? null : $h, $headers, array_keys($headers)),
+        ));
+    }
+
+    /** Índices de clientes existentes por nombre normalizado, correo y teléfono. */
+    private static function index($clients): array
+    {
+        return [
+            $clients->groupBy(fn ($c) => self::normalizeName($c->name)),
+            $clients->filter(fn ($c) => filled($c->email))->keyBy(fn ($c) => Str::lower(trim($c->email))),
+            $clients->filter(fn ($c) => strlen(self::phoneDigits($c->phone)) >= 6)->keyBy(fn ($c) => self::phoneDigits($c->phone)),
+        ];
+    }
+
+    /** Motivo si la fila es un cliente que YA existe sin dudas (mismo correo, o mismo nombre y contacto). */
+    private static function clearMatch(array $data, $byName, $byEmail): ?string
+    {
+        $name = self::normalizeName($data['name']);
+        $digits = self::phoneDigits($data['phone']);
+        $sameName = $name !== '' ? ($byName[$name] ?? collect()) : collect();
+        $emailHit = $data['email'] !== '' ? $byEmail->get($data['email']) : null;
+        $nameAndContact = $sameName->first(fn ($c) => ($data['email'] !== '' && Str::lower(trim((string) $c->email)) === $data['email'])
+            || (strlen($digits) >= 6 && self::phoneDigits($c->phone) === $digits));
+        $hit = $nameAndContact ?? $emailHit;
+
+        return $hit ? 'Ya tenés a «'.$hit->name.'»'.($hit->deleted_at ? ' (desactivado)' : '').' con '.($emailHit ? 'el mismo correo' : 'los mismos datos').'.' : null;
+    }
+
     /**
      * Importa las filas elegidas, todas o ninguna. Vuelve a validar cada
      * fila y el límite del plan dentro de la transacción.
      *
-     * @param  list<array>  $rows  filas analizadas (solo se guardan las seleccionadas y sin errores)
-     * @return array{imported: int, skipped: int, rejected: int}
+     * @param  list<array>  $rows  filas analizadas (solo se guardan las seleccionadas, sin errores y que no sean duplicados seguros)
+     * @return array{imported: int, skipped: int, rejected: int, late: array<int, string>}
      */
     public function import(Company $company, array $rows, string $type): array
     {
@@ -326,13 +377,27 @@ final class ClientImport
             throw ValidationException::withMessages(['type' => 'Elegí un tipo de cliente válido.']);
         }
 
-        $chosen = array_values(array_filter($rows, fn ($r) => $r['selected'] && $r['errors'] === []));
+        $chosen = array_values(array_filter($rows, fn ($r) => $r['selected'] && self::selectable($r)));
         $rejected = count(array_filter($rows, fn ($r) => $r['errors'] !== []));
-        $skipped = count($rows) - count($chosen) - $rejected;
+        $late = [];
 
-        DB::transaction(function () use ($company, $chosen, $type) {
+        DB::transaction(function () use ($company, &$chosen, $type, &$late) {
             // Serializa importaciones de la misma empresa y verifica el cupo del plan antes de guardar.
             Company::whereKey($company->id)->lockForUpdate()->first();
+
+            // Clientes cargados entre la vista previa y la confirmación (otra
+            // persona, otra pestaña): un duplicado seguro se omite, no se crea.
+            [$byName, $byEmail] = self::index(Client::withoutGlobalScopes()->withTrashed()->where('company_id', $company->id)->get(['id', 'name', 'phone', 'email', 'deleted_at']));
+            $chosen = array_values(array_filter($chosen, function ($row) use ($byName, $byEmail, &$late) {
+                if ($reason = self::clearMatch($row['data'], $byName, $byEmail)) {
+                    $late[$row['line']] = $reason;
+
+                    return false;
+                }
+
+                return true;
+            }));
+
             $guard = PlanGuard::for($company->fresh());
             $max = $guard->limit(PlanLimit::Clients);
             $used = $guard->usage(PlanLimit::Clients);
@@ -348,12 +413,13 @@ final class ClientImport
                     'contact_person' => $d['contact_person'] !== '' ? $d['contact_person'] : null,
                     'phone' => $d['phone'] !== '' ? $d['phone'] : null,
                     'email' => $d['email'] !== '' ? $d['email'] : null,
+                    'notes' => ($d['notes'] ?? '') !== '' ? $d['notes'] : null,
                     'type' => $type,
                     'is_active' => true,
                 ]);
             }
         });
 
-        return ['imported' => count($chosen), 'skipped' => $skipped, 'rejected' => $rejected];
+        return ['imported' => count($chosen), 'skipped' => count($rows) - count($chosen) - $rejected, 'rejected' => $rejected, 'late' => $late];
     }
 }

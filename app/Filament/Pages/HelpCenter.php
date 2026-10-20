@@ -110,7 +110,7 @@ class HelpCenter extends Page
         abort_unless($this->canResumeSetup(), 403);
         app(CompanySetup::class)->resume(auth()->user()->company);
 
-        return $this->redirect(CompanySetup::dashboardUrl());
+        return $this->redirect(CompanySetup::wizardUrl());
     }
 
     public function showTopic(string $slug): void

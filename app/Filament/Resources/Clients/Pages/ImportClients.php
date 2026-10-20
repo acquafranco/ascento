@@ -82,7 +82,7 @@ class ImportClients extends Page
 
     public function getSubheading(): ?string
     {
-        return 'Cargá muchos clientes de una vez desde una planilla. Solo se importan nombre, persona de contacto, teléfono y correo; no se tocan los clientes que ya tenés.';
+        return 'Cargá muchos clientes de una vez desde una planilla. Se importan nombre, persona de contacto, teléfono, correo y notas; no se tocan los clientes que ya tenés.';
     }
 
     public function downloadTemplate(): StreamedResponse
@@ -93,7 +93,7 @@ class ImportClients extends Page
             $writer = new Writer;
             $writer->openToFile('php://output');
             $writer->addRow(new Row(array_map(fn ($h) => new StringCell($h, null), ClientImport::TEMPLATE_HEADERS)));
-            $writer->addRow(new Row(array_map(fn ($v) => new StringCell($v, null), ['Consorcio Ejemplo 123', 'María Pérez', '011 4567-8900', 'administracion@ejemplo.com'])));
+            $writer->addRow(new Row(array_map(fn ($v) => new StringCell($v, null), ['Consorcio Ejemplo 123', 'María Pérez', '011 4567-8900', 'administracion@ejemplo.com', 'Pagan por transferencia'])));
             $writer->close();
         }, 'plantilla-clientes.xlsx', ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
     }
@@ -165,19 +165,36 @@ class ImportClients extends Page
                 return;
             }
             $selected = array_map('intval', $this->selected);
-            $rows = array_map(fn ($r) => [...$r, 'selected' => $r['errors'] === [] && in_array($r['line'], $selected, true)], $payload['rows']);
+            // Un duplicado seguro no se importa aunque llegue tildado.
+            $rows = array_map(fn ($r) => [...$r, 'selected' => ClientImport::selectable($r) && in_array($r['line'], $selected, true)], $payload['rows']);
 
             $result = $import->import($company, $rows, $this->type);
             Cache::forget($this->cacheKey());
 
+            $late = $result['late'];
             $this->summary = $result + [
-                'skippedRows' => array_values(array_map(fn ($r) => ['line' => $r['line'], 'name' => $r['data']['name'], 'reason' => $r['match'] ?? 'No la elegiste.'], array_filter($rows, fn ($r) => ! $r['selected'] && $r['errors'] === []))),
+                'skippedRows' => array_values(array_map(fn ($r) => ['line' => $r['line'], 'name' => $r['data']['name'], 'reason' => $late[$r['line']] ?? $r['match'] ?? 'No la elegiste.'],
+                    array_filter($rows, fn ($r) => $r['errors'] === [] && (! $r['selected'] || isset($late[$r['line']]))))),
                 'rejectedRows' => array_values(array_map(fn ($r) => ['line' => $r['line'], 'name' => $r['data']['name'], 'reason' => implode(' ', $r['errors'])], array_filter($rows, fn ($r) => $r['errors'] !== []))),
             ];
             $this->step = 'done';
         } finally {
             $lock->release();
         }
+    }
+
+    /** Tildar todas las filas que se pueden importar (también los posibles duplicados) o ninguna. */
+    public function selectAll(bool $all = true): void
+    {
+        $rows = Cache::get($this->cacheKey())['rows'] ?? [];
+        $this->selected = $all ? array_values(array_map(fn ($r) => $r['line'], array_filter($rows, [ClientImport::class, 'selectable']))) : [];
+    }
+
+    /** Solo las filas nuevas (sin coincidencias), como al abrir la vista previa. */
+    public function selectNew(): void
+    {
+        $rows = Cache::get($this->cacheKey())['rows'] ?? [];
+        $this->selected = array_values(array_map(fn ($r) => $r['line'], array_filter($rows, fn ($r) => $r['selected'])));
     }
 
     public function restart(?string $message = null): void
@@ -201,8 +218,10 @@ class ImportClients extends Page
             'counts' => [
                 'valid' => count(array_filter($rows, fn ($r) => $r['errors'] === [] && $r['matchLevel'] === null)),
                 'errors' => count(array_filter($rows, fn ($r) => $r['errors'] !== [])),
-                'matches' => count(array_filter($rows, fn ($r) => $r['errors'] === [] && $r['matchLevel'] !== null)),
+                'matches' => count(array_filter($rows, fn ($r) => $r['errors'] === [] && $r['matchLevel'] === 'possible')),
+                'duplicates' => count(array_filter($rows, fn ($r) => $r['errors'] === [] && $r['matchLevel'] === 'clear')),
             ],
+            'ignored' => $this->step === 'preview' ? ClientImport::ignoredColumns($this->headers, $this->mapping) : [],
             'types' => Client::TYPES,
             'fields' => ClientImport::FIELDS,
             'maxRows' => ClientImport::MAX_ROWS,

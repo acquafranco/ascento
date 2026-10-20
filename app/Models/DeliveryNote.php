@@ -134,4 +134,10 @@ class DeliveryNote extends Model
         return $this->belongsTo(Company::class)->withTrashed();
     }
 
+    /** Pruebas de paracaídas que el técnico registró al firmar este remito. */
+    public function parachuteTests()
+    {
+        return $this->hasMany(ParachuteTest::class);
+    }
+
 }

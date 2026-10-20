@@ -13,7 +13,27 @@ class ClientForm
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
+            ...static::basicFields(),
 
+            Textarea::make('notes')
+                ->label('Notas')
+                ->columnSpanFull(),
+
+            Toggle::make('is_active')
+                ->label('Activo')
+                ->default(true),
+        ]);
+    }
+
+    /**
+     * Nombre, tipo y contacto: los mismos campos en el alta del panel y en la
+     * configuración inicial guiada (CompanySetupWizard).
+     *
+     * @return list<\Filament\Forms\Components\Field>
+     */
+    public static function basicFields(): array
+    {
+        return [
             TextInput::make('name')
                 ->label('Nombre')
                 ->required(),
@@ -34,14 +54,6 @@ class ClientForm
             TextInput::make('email')
                 ->label('Correo electrónico')
                 ->email(),
-
-            Textarea::make('notes')
-                ->label('Notas')
-                ->columnSpanFull(),
-
-            Toggle::make('is_active')
-                ->label('Activo')
-                ->default(true),
-        ]);
+        ];
     }
 }

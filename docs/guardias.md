@@ -7,14 +7,16 @@ No es un sistema de despacho ni de emergencias: no garantiza atención ni respon
 ## Dónde está
 
 - **Panel:** Operaciones → **Guardias** (`OnCallScheduleResource`, área de permiso «Guardias»).
-  - **Arriba**, sin abrir nada:
-    - de guardia ahora;
-    - «¿Quién está de guardia el…?» (fecha y hora);
-    - próximas franjas de 7 días, con el técnico de cada una;
-    - últimos cambios.
-  - **Lista:** cada guardia con su horario, modalidad, quién está ahora y huecos de los próximos 14 días.
+  - **Arriba**, sin abrir nada (simplificado el 19/10/2026):
+    - **De guardia ahora**, con «Reemplazar» al lado de cada técnico (o «Asignar» si no hay cobertura);
+    - **Después:** la próxima franja de cada guardia y quién la cubre;
+    - en rojo, solo si hay, las franjas sin técnico de los próximos 7 días, con «Asignar»;
+    - plegados: «Calendario de los próximos 14 días» (con «¿Quién está de guardia el…?») y «Últimos cambios».
+  - **Acciones frecuentes en la portada:** «Asignar guardia» (se elige la guardia) y «Reemplazar técnico» (se elige el turno). Usan los mismos métodos de `OnCallService` que las acciones de cada guardia (`OnCallActions::assignAny` / `replaceAny`).
+  - **Lista «Guardias configuradas»:** nombre y horario, quién está ahora y huecos de 14 días (modalidad y estado, ocultos por defecto).
   - **Ficha de una guardia:**
-    - resumen, con los huecos detallados;
+    - arriba ahora, después, huecos e indicaciones; la configuración (horario, modalidad, técnicos a la vez), plegada;
+    - «Asignar técnico» y, en «Más», editar o finalizar;
     - pestañas **Turnos** (con las acciones), **Historial de cambios** y **Trabajos durante la guardia**.
 - **App del técnico:** pestaña **Guardias** en la barra principal (`/{empresa}/guardias`). En el Inicio aparece un aviso breve cuando está de guardia en ese momento.
 

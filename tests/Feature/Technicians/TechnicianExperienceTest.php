@@ -151,7 +151,8 @@ class TechnicianExperienceTest extends TestCase
 
         $url = route('delivery-notes.building', ['company' => $slug, 'building' => $this->a['building']->id, 'month' => now()->month, 'year' => now()->year, 'assignment_type' => 'maintenance']);
         $this->get($url)->assertOk()
-            ->assertSee('data-draft="remito.'.$tech->id.'.'.$this->a['building']->id.'.maintenance"', false)
+            // Por período: un borrador viejo de otro mes no se recupera en este remito.
+            ->assertSee('data-draft="remito.'.$tech->id.'.'.$this->a['building']->id.'.maintenance.'.now()->year.'-'.now()->month.'"', false)
             ->assertDontSee('data-draft-restore="off"', false);
 
         // Volvió con un error de validación: manda lo que trae la página, no el borrador.

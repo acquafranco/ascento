@@ -18,13 +18,36 @@
         .ci-select { border-radius: .5rem; border: 1px solid rgba(148,163,184,.45); padding: .45rem 2rem .45rem .6rem; background: transparent; max-width: 100%; }
         .ci-grid { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr)); }
         .ci-grid label { display: grid; gap: .3rem; font-size: .85rem; font-weight: 600; }
+        .ci-steps { display: flex; flex-wrap: wrap; gap: .4rem; list-style: none; margin: 0; padding: 0; font-size: .8rem; }
+        .ci-steps li { display: inline-flex; align-items: center; gap: .35rem; padding: .3rem .65rem; border-radius: 999px; background: rgba(148,163,184,.14); opacity: .75; }
+        .ci-steps li[aria-current] { background: rgba(255,102,0,.14); color: #b84a00; font-weight: 700; opacity: 1; }
+        .ci-steps b { display: inline-flex; width: 1.25rem; height: 1.25rem; border-radius: 999px; align-items: center; justify-content: center; background: rgba(148,163,184,.3); font-size: .72rem; }
+        .ci-steps li[aria-current] b { background: #ff6600; color: #fff; }
+        .ci-how { margin: .5rem 0 0; padding-left: 1.1rem; font-size: .85rem; line-height: 1.55; }
+        .ci-note { margin: .6rem 0 0; padding: .55rem .75rem; border-radius: .6rem; font-size: .85rem; background: rgba(245,158,11,.12); color: #92400e; }
     </style>
+
+    @php($stepIndex = ['upload' => 1, 'map' => 2, 'preview' => 3, 'done' => 4][$step] ?? 1)
+    <ol class="ci-steps" aria-label="Pasos de la importación" data-import-steps>
+        @foreach(['Archivo', 'Columnas', 'Revisar', 'Listo'] as $i => $label)
+            <li @if($stepIndex === $i + 1) aria-current="step" @endif><b>{{ $i + 1 }}</b>{{ $label }}</li>
+        @endforeach
+    </ol>
 
     <div style="display:flex; flex-direction:column; gap:1rem" data-client-import data-step="{{ $step }}">
         @if($step === 'upload')
+            <section class="ci-card" data-import-how>
+                <p style="font-weight:700; margin:0">Cómo funciona</p>
+                <ol class="ci-how">
+                    <li>Subís tu planilla (podés usar la tuya o la plantilla de Ascento).</li>
+                    <li>Antes de guardar nada, ves cada fila: cuáles son nuevas, cuáles ya existen y cuáles tienen errores.</li>
+                    <li>Elegís qué importar y confirmás. Al final ves el resultado fila por fila.</li>
+                </ol>
+                <p class="ci-muted">Nunca se modifica ni se borra un cliente que ya tenés. Los edificios se cargan después, desde cada cliente.</p>
+            </section>
             <section class="ci-card">
                 <p style="font-weight:700; margin:0">1. Descargá la plantilla (opcional)</p>
-                <p class="ci-muted">Columnas: nombre, persona_contacto, telefono y email. Solo el nombre es obligatorio. Escribí los teléfonos como texto para no perder ceros ni prefijos.</p>
+                <p class="ci-muted">Columnas: nombre, persona_contacto, telefono, email y notas. Solo el nombre es obligatorio. Escribí los teléfonos como texto para no perder ceros ni prefijos.</p>
                 <div style="margin-top:.6rem"><x-filament::button color="gray" icon="heroicon-o-arrow-down-tray" wire:click="downloadTemplate" data-import-template>Descargar plantilla</x-filament::button></div>
             </section>
             <section class="ci-card">
@@ -62,10 +85,19 @@
                 <div class="ci-stats" data-import-counts>
                     <span class="ci-stat ok">{{ $counts['valid'] }} nuevos</span>
                     <span class="ci-stat warn">{{ $counts['matches'] }} posibles duplicados</span>
+                    <span class="ci-stat">{{ $counts['duplicates'] }} ya existen</span>
                     <span class="ci-stat bad">{{ $counts['errors'] }} con errores</span>
                     <span class="ci-stat">{{ count($selected) }} elegidos para importar</span>
                 </div>
-                <p class="ci-muted" style="margin-top:.6rem">Los posibles duplicados quedan sin tildar: revisalos y tildá solo los que sean clientes distintos. Nunca se modifica un cliente existente. Las filas con errores no se importan.</p>
+                <p class="ci-muted" style="margin-top:.6rem">Los posibles duplicados quedan sin tildar: revisalos y tildá solo los que sean clientes distintos. Los que ya existen (mismo correo, o mismo nombre y teléfono) y las filas con errores no se importan. Nunca se modifica un cliente existente.</p>
+                @if($ignored !== [])
+                    <p class="ci-note" data-import-ignored>Estas columnas del archivo no se importan: <b>{{ implode(', ', $ignored) }}</b>. Si tienen datos que necesitás, copialos en «notas» o cargalos después en cada cliente.</p>
+                @endif
+                <div class="ci-row" style="margin-top:.6rem">
+                    <x-filament::link tag="button" size="sm" wire:click="selectNew" data-import-select-new>Solo los nuevos</x-filament::link>
+                    <x-filament::link tag="button" size="sm" wire:click="selectAll" data-import-select-all>Tildar todos los que se pueden importar</x-filament::link>
+                    <x-filament::link tag="button" size="sm" color="gray" wire:click="selectAll(false)">Destildar todos</x-filament::link>
+                </div>
                 <div class="ci-row" style="margin-top:.75rem">
                     <label style="font-size:.85rem; font-weight:600">Tipo de cliente para todos
                         <select class="ci-select" wire:model="type" data-import-type style="margin-left:.4rem">
@@ -80,12 +112,12 @@
 
             <section class="ci-card ci-table-wrap">
                 <table class="ci-table" data-import-preview>
-                    <thead><tr><th scope="col">Importar</th><th scope="col">Fila</th><th scope="col">Nombre</th><th scope="col">Contacto</th><th scope="col">Teléfono</th><th scope="col">Correo</th><th scope="col">Estado</th></tr></thead>
+                    <thead><tr><th scope="col">Importar</th><th scope="col">Fila</th><th scope="col">Nombre</th><th scope="col">Contacto</th><th scope="col">Teléfono</th><th scope="col">Correo</th><th scope="col">Notas</th><th scope="col">Estado</th></tr></thead>
                     <tbody>
                         @foreach($rows as $r)
                             <tr wire:key="row-{{ $r['line'] }}" data-import-row="{{ $r['line'] }}">
                                 <td>
-                                    @if($r['errors'] === [])
+                                    @if(\App\Services\Clients\ClientImport::selectable($r))
                                         <input type="checkbox" value="{{ $r['line'] }}" wire:model.live="selected" aria-label="Importar la fila {{ $r['line'] }}">
                                     @else
                                         <span aria-label="No se puede importar">—</span>
@@ -96,11 +128,12 @@
                                 <td>{{ $r['data']['contact_person'] ?: '—' }}</td>
                                 <td>{{ $r['data']['phone'] ?: '—' }}</td>
                                 <td>{{ $r['data']['email'] ?: '—' }}</td>
+                                <td>{{ \Illuminate\Support\Str::limit($r['data']['notes'] ?? '', 60) ?: '—' }}</td>
                                 <td>
                                     @if($r['errors'] !== [])
                                         <span class="ci-err">{{ implode(' ', $r['errors']) }}</span>
                                     @elseif($r['match'])
-                                        <span class="ci-warn">{{ $r['matchLevel'] === 'clear' ? 'Duplicado: ' : 'Posible duplicado: ' }}{{ $r['match'] }}</span>
+                                        <span class="ci-warn">{{ $r['matchLevel'] === 'clear' ? 'Ya existe (no se importa): ' : 'Posible duplicado: ' }}{{ $r['match'] }}</span>
                                     @else
                                         Nuevo
                                     @endif

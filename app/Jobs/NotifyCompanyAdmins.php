@@ -85,6 +85,13 @@ class NotifyCompanyAdmins
             );
         }
 
+        // Quien firmó el remito no recibe "Trabajo terminado" de su propio
+        // trabajo (un dueño o administrativo que también sale a trabajar): le
+        // aparecía como un remito nuevo que no había generado nadie más.
+        if ($this->event === self::WORK_COMPLETED) {
+            $admins = $admins->reject(fn (User $admin) => (int) $admin->id === (int) $model->user_id);
+        }
+
         foreach ($admins as $admin) {
             try {
                 $admin->notify($notification);

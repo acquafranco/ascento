@@ -97,29 +97,9 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
                     ->columns(12)
                     ->schema([
 
-                        FileUpload::make('logo')
-                            ->label('Logo')
-                            ->image()
-                            ->imageEditor()
-                            ->avatar()
-                            ->disk('public')
-                            ->directory('companies/logos')
-                            ->visibility('public')
-                            ->maxSize(2048)
-                            ->acceptedFileTypes([
-                                'image/png',
-                                'image/jpeg',
-                                'image/webp',
-                            ])
-                            ->columnSpan(3),
+                        static::logoField()->columnSpan(3),
 
-                        TextInput::make('name')
-                            ->label('Nombre interno')
-                            ->maxLength(255)
-                            ->placeholder('Empresa Ascensores')
-                            ->prefixIcon('heroicon-o-tag')
-                            ->required()
-                            ->columnSpan(4),
+                        static::nameField()->columnSpan(4),
 
                         TextInput::make('business_name')
                             ->label('Razón social')
@@ -137,21 +117,9 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
                             ->prefixIcon('heroicon-o-identification')
                             ->columnSpan(4),
 
-                        TextInput::make('phone')
-                            ->label('Teléfono')
-                            ->maxLength(50)
-                            ->tel()
-                            ->placeholder('+54 11 1234-5678')
-                            ->prefixIcon('heroicon-o-phone')
-                            ->columnSpan(4),
+                        static::phoneField()->columnSpan(4),
 
-                        TextInput::make('email')
-                            ->label('Email')
-                            ->maxLength(255)
-                            ->email()
-                            ->placeholder('contacto@empresa.com')
-                            ->prefixIcon('heroicon-o-envelope')
-                            ->columnSpan(4),
+                        static::emailField()->columnSpan(4),
 
                         TextInput::make('address')
                             ->label('Domicilio')
@@ -257,11 +225,70 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
                     ->icon('heroicon-o-paint-brush')
                     ->columns(2)
                     ->schema([
-                        ColorPicker::make('primary_color')
-                            ->label('Color principal')
-                            ->default('#2563eb'),
+                        static::colorField(),
                     ]),
             ]);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CAMPOS COMPARTIDOS con la configuración inicial guiada (CompanySetupWizard)
+    |--------------------------------------------------------------------------
+    */
+
+    public static function logoField(): FileUpload
+    {
+        return FileUpload::make('logo')
+            ->label('Logo')
+            ->image()
+            ->imageEditor()
+            ->avatar()
+            ->disk('public')
+            ->directory('companies/logos')
+            ->visibility('public')
+            ->maxSize(2048)
+            ->acceptedFileTypes([
+                'image/png',
+                'image/jpeg',
+                'image/webp',
+            ]);
+    }
+
+    public static function nameField(): TextInput
+    {
+        return TextInput::make('name')
+            ->label('Nombre interno')
+            ->maxLength(255)
+            ->placeholder('Empresa Ascensores')
+            ->prefixIcon('heroicon-o-tag')
+            ->required();
+    }
+
+    public static function phoneField(): TextInput
+    {
+        return TextInput::make('phone')
+            ->label('Teléfono')
+            ->maxLength(50)
+            ->tel()
+            ->placeholder('+54 11 1234-5678')
+            ->prefixIcon('heroicon-o-phone');
+    }
+
+    public static function emailField(): TextInput
+    {
+        return TextInput::make('email')
+            ->label('Email')
+            ->maxLength(255)
+            ->email()
+            ->placeholder('contacto@empresa.com')
+            ->prefixIcon('heroicon-o-envelope');
+    }
+
+    public static function colorField(): ColorPicker
+    {
+        return ColorPicker::make('primary_color')
+            ->label('Color principal')
+            ->default('#2563eb');
     }
 
     private function hasEmergencyRequests(): bool

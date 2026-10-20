@@ -51,89 +51,7 @@ class WorkOrderForm
                     ->afterStateUpdated(fn (callable $set) => $set('unit', null))
                     ->required(),
 
-                Forms\Components\Select::make('unit')
-                    ->options(function (callable $get) {
-
-                        $buildingId = $get('building_id');
-
-                        if (! $buildingId) {
-                            return [];
-                        }
-
-                        $user = Auth::user();
-
-                        $companyId = $user->isSuperAdmin()
-                            ? session('selected_company_id')
-                            : $user->company_id;
-
-                        $building = Building::query()
-                            ->whereKey($buildingId)
-                            ->where('company_id', $companyId)
-                            ->first();
-
-                        if (! $building) {
-                            return [];
-                        }
-
-                        $options = [];
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | ASCENSORES
-                        |--------------------------------------------------------------------------
-                        */
-
-                        if ($building->elevator_count > 0) {
-
-                            $elevators = [];
-
-                            for (
-                                $i = 1;
-                                $i <= $building->elevator_count;
-                                $i++
-                            ) {
-                                $elevators[
-                                    "Ascensor {$i}"
-                                ] = "Ascensor {$i}";
-                            }
-
-                            $options['🏢 Ascensores'] =
-                                $elevators;
-                        }
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | MONTACARGAS
-                        |--------------------------------------------------------------------------
-                        */
-
-                        if (
-                            $building->freight_elevator_count > 0
-                        ) {
-
-                            $freight = [];
-
-                            for (
-                                $i = 1;
-                                $i <= $building->freight_elevator_count;
-                                $i++
-                            ) {
-                                $freight[
-                                    "Montacargas {$i}"
-                                ] =
-                                    "Montacargas {$i}";
-                            }
-
-                            $options['📦 Montacargas'] =
-                                $freight;
-                        }
-
-                        return $options;
-                    })
-                    ->searchable()
-                    ->placeholder('Elegí edificio primero')
-                    ->required()
-                    ->label('Unidad'),
+                static::unitField(),
 
                 Forms\Components\Select::make('component')
                     ->label('Componente afectado (opcional)')
@@ -175,38 +93,9 @@ class WorkOrderForm
                     ->disabled(fn (?WorkOrder $record) => $record?->deliveryNote()->exists() ?? false)
                     ->visible(fn () => PlanGuard::currentAllows(PlanFeature::OnCall)),
 
-                Forms\Components\Select::make(
-                    'type'
-                )
-                    ->options([
-                        'maintenance' => 'Mantenimiento',
+                static::typeField(),
 
-                        'inspection' => 'Inspección',
-
-                        'claim' => 'Reclamo',
-
-                        'installation' => 'Instalación',
-
-                        'modernization' => 'Modernización',
-                    ])
-                    ->required()
-                    ->label('Tipo'),
-
-                Forms\Components\Select::make(
-                    'priority'
-                )
-                    ->options([
-                        'low' => 'Baja',
-
-                        'medium' => 'Media',
-
-                        'high' => 'Alta',
-
-                        'urgent' => 'Urgente',
-                    ])
-                    ->default('medium')
-                    ->required()
-                    ->label('Prioridad'),
+                static::priorityField(),
 
                 Forms\Components\Select::make(
                     'status'
@@ -223,11 +112,7 @@ class WorkOrderForm
                     ->default('pending')
                     ->required(),
 
-                Forms\Components\Textarea::make(
-                    'notes'
-                )
-                    ->columnSpanFull()
-                    ->label('Detalle'),
+                static::notesField(),
 
                 // Fotos de antes y después de ESTA orden (solo lectura; las
                 // carga el técnico desde la orden en su celular).
@@ -246,5 +131,147 @@ class WorkOrderForm
                             ->visible(fn (?WorkOrder $record) => ! JobDetail::hasPlan($record)),
                     ]),
             ]);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CAMPOS COMPARTIDOS con la configuración inicial guiada (CompanySetupWizard)
+    |--------------------------------------------------------------------------
+    */
+
+    /** Ascensor o montacargas del edificio elegido (building_id). */
+    public static function unitField(): Forms\Components\Select
+    {
+        return Forms\Components\Select::make('unit')
+            ->options(function (callable $get) {
+
+                $buildingId = $get('building_id');
+
+                if (! $buildingId) {
+                    return [];
+                }
+
+                $user = Auth::user();
+
+                $companyId = $user->isSuperAdmin()
+                    ? session('selected_company_id')
+                    : $user->company_id;
+
+                $building = Building::query()
+                    ->whereKey($buildingId)
+                    ->where('company_id', $companyId)
+                    ->first();
+
+                if (! $building) {
+                    return [];
+                }
+
+                $options = [];
+
+                /*
+                |--------------------------------------------------------------------------
+                | ASCENSORES
+                |--------------------------------------------------------------------------
+                */
+
+                if ($building->elevator_count > 0) {
+
+                    $elevators = [];
+
+                    for (
+                        $i = 1;
+                        $i <= $building->elevator_count;
+                        $i++
+                    ) {
+                        $elevators[
+                            "Ascensor {$i}"
+                        ] = "Ascensor {$i}";
+                    }
+
+                    $options['🏢 Ascensores'] =
+                        $elevators;
+                }
+
+                /*
+                |--------------------------------------------------------------------------
+                | MONTACARGAS
+                |--------------------------------------------------------------------------
+                */
+
+                if (
+                    $building->freight_elevator_count > 0
+                ) {
+
+                    $freight = [];
+
+                    for (
+                        $i = 1;
+                        $i <= $building->freight_elevator_count;
+                        $i++
+                    ) {
+                        $freight[
+                            "Montacargas {$i}"
+                        ] =
+                            "Montacargas {$i}";
+                    }
+
+                    $options['📦 Montacargas'] =
+                        $freight;
+                }
+
+                return $options;
+            })
+            ->searchable()
+            ->placeholder('Elegí edificio primero')
+            ->required()
+            ->label('Unidad');
+    }
+
+    public static function typeField(): Forms\Components\Select
+    {
+        return Forms\Components\Select::make(
+            'type'
+        )
+            ->options([
+                'maintenance' => 'Mantenimiento',
+
+                'inspection' => 'Inspección',
+
+                'claim' => 'Reclamo',
+
+                'installation' => 'Instalación',
+
+                'modernization' => 'Modernización',
+            ])
+            ->required()
+            ->label('Tipo');
+    }
+
+    public static function priorityField(): Forms\Components\Select
+    {
+        return Forms\Components\Select::make(
+            'priority'
+        )
+            ->options([
+                'low' => 'Baja',
+
+                'medium' => 'Media',
+
+                'high' => 'Alta',
+
+                'urgent' => 'Urgente',
+            ])
+            ->default('medium')
+            ->required()
+            ->label('Prioridad');
+    }
+
+    public static function notesField(): Forms\Components\Textarea
+    {
+        return Forms\Components\Textarea::make(
+            'notes'
+        )
+            ->columnSpanFull()
+            ->label('Detalle');
     }
 }

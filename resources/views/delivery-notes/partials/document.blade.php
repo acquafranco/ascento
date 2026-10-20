@@ -98,6 +98,17 @@
         </section>
     @endif
 
+    @if ($doc['parachute'] ?? [])
+        <section class="rm-card" data-remito-parachute>
+            <div class="rm-label">Prueba de paracaídas</div>
+            <ul class="rm-list">
+                @foreach ($doc['parachute'] as $test)
+                    <li><span>{{ $test['elevator'] }}</span><strong style="white-space: nowrap; color: {{ $test['ok'] ? '#166534' : '#991B1B' }}">{{ $test['result'] }}</strong></li>
+                @endforeach
+            </ul>
+        </section>
+    @endif
+
     @if ($doc['participants'])
         <section class="rm-card">
             <div class="rm-label">Técnicos participantes</div>

@@ -399,10 +399,10 @@ class CompanyDataExporter
             fn ($p) => [$p->elevator_id, $this->name('buildings', $this->names['elevator_building'][$p->elevator_id] ?? null), $this->name('elevators', $p->elevator_id),
                 $p->interval_months, $p->notice_days, $this->name('users', $p->inspector_id), $this->name('users', $p->responsible_id)]);
 
-        $this->sheet('Pruebas de paracaídas', ['ID', 'Fecha', 'Ascensor ID', 'Edificio', 'Equipo', 'Resultado', 'La realizó', 'Inspector o profesional', 'Matrícula', 'Observaciones', 'Registró'],
+        $this->sheet('Pruebas de paracaídas', ['ID', 'Fecha', 'Ascensor ID', 'Edificio', 'Equipo', 'Resultado', 'La realizó', 'Inspector o profesional', 'Matrícula', 'Observaciones', 'Registró', 'Remito ID'],
             $this->scoped(ParachuteTest::class),
             fn ($t) => [$t->id, $t->performed_on, $t->elevator_id, $this->name('buildings', $t->building_id), $this->name('elevators', $t->elevator_id), ParachuteTest::RESULTS[$t->result] ?? $t->result,
-                $t->performed_by_id ? $this->name('users', $t->performed_by_id) : $t->performed_by_name, $t->inspector_name, $t->inspector_registration, $t->observations, $this->name('users', $t->recorded_by)]);
+                $t->performed_by_id ? $this->name('users', $t->performed_by_id) : $t->performed_by_name, $t->inspector_name, $t->inspector_registration, $t->observations, $this->name('users', $t->recorded_by), $t->delivery_note_id]);
 
         $this->scoped(ParachuteTestFile::class)->orderBy('parachute_test_id')->chunkById(self::CHUNK, function ($files) {
             foreach ($files as $file) {

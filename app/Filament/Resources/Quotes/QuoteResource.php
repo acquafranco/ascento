@@ -39,7 +39,7 @@ class QuoteResource extends Resource
 
     // 📌 Icono del menú
     protected static string|BackedEnum|null $navigationIcon =
-        Heroicon::OutlinedDocumentText;
+        Heroicon::OutlinedCalculator;
 
     // 📌 nombres UI
     protected static ?string $navigationLabel = 'Presupuestos';

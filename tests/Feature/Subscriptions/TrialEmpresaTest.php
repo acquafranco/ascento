@@ -62,6 +62,9 @@ class TrialEmpresaTest extends TestCase
 
         $this->admin = User::where('email', 'duena@prueba.test')->sole();
         $this->company = $this->admin->company;
+        // Esta prueba es sobre el plan de prueba, no sobre la configuración inicial
+        // (que se abre sola en una empresa nueva): la dueña la omitió.
+        $this->company->forceFill(['setup_status' => \App\Services\Onboarding\CompanySetup::SKIPPED])->save();
         $this->admin->forceFill(['email_verified_at' => now()])->save();
         $this->actingAs($this->admin);
         $this->technician = User::factory()->technician()->create(['company_id' => $this->company->id]);

@@ -11,8 +11,10 @@ use App\Support\Access\Access;
 use App\Support\Auth\PasswordPolicy;
 use App\Support\PhoneNumber;
 use BackedEnum;
+use Filament\Forms\Components\Field;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -56,55 +58,7 @@ class UserResource extends Resource
     {
         return $form
             ->schema([
-                TextInput::make('name')
-                    ->label('Nombre')
-                    ->required()
-                    ->maxLength(255),
-
-                TextInput::make('email')
-                    ->label('Email')
-                    ->email()
-                    ->required()
-                    ->unique(ignoreRecord: true)
-                    ->maxLength(255),
-
-                TextInput::make('phone')
-                    ->label('Número de teléfono')
-                    ->tel()
-                    ->required()
-                    ->maxLength(30)
-                    ->placeholder('11 2345-6789')
-                    ->helperText('Celular con código de área. Se aceptan formatos como 11 2345-6789, 0351 15 123-4567 o +54 9 11 2345-6789.')
-                    ->formatStateUsing(fn (?string $state) => PhoneNumber::format($state))
-                    ->rule(fn () => function (string $attribute, $value, \Closure $fail) {
-                        if (! PhoneNumber::isValid($value)) {
-                            $fail('Ingresá un celular argentino válido, con código de área (por ejemplo 11 2345-6789).');
-                        }
-                    })
-                    ->dehydrateStateUsing(fn (?string $state) => PhoneNumber::normalize($state)),
-
-                // Misma política que el resto de Ascento (PasswordPolicy). En la
-                // edición es opcional: vacío = no se cambia.
-                TextInput::make('password')
-                    ->label(fn (string $operation) => $operation === 'create' ? 'Contraseña' : 'Contraseña nueva')
-                    ->password()
-                    ->revealable()
-                    ->autocomplete('new-password')
-                    ->required(fn (string $operation) => $operation === 'create')
-                    ->rule(fn () => Password::defaults())
-                    ->rule(fn (Get $get) => new NotCommonPassword([$get('name'), $get('email')]))
-                    ->confirmed()
-                    ->helperText(fn (string $operation) => PasswordPolicy::HINT.($operation === 'edit' ? ' Dejala vacía para no cambiarla.' : ''))
-                    ->dehydrated(fn ($state) => filled($state))
-                    ->dehydrateStateUsing(fn ($state) => Hash::make($state)),
-
-                TextInput::make('password_confirmation')
-                    ->label('Repetir contraseña')
-                    ->password()
-                    ->revealable()
-                    ->autocomplete('new-password')
-                    ->required(fn (string $operation, Get $get) => $operation === 'create' || filled($get('password')))
-                    ->dehydrated(false),
+                ...static::technicianFields(),
 
                 // Quien edita SU propio usuario confirma con su contraseña actual para
                 // cambiar el correo o la contraseña (con una sesión robada alcanzaba
@@ -121,6 +75,67 @@ class UserResource extends Resource
                     ->rule('current_password')
                     ->dehydrated(false),
             ]);
+    }
+
+    /**
+     * Datos y acceso de un técnico: los mismos campos (y reglas) en el alta del
+     * panel y en la configuración inicial guiada (CompanySetupWizard).
+     *
+     * @return array<int, Component|Field>
+     */
+    public static function technicianFields(): array
+    {
+        return [
+            TextInput::make('name')
+                ->label('Nombre')
+                ->required()
+                ->maxLength(255),
+
+            TextInput::make('email')
+                ->label('Email')
+                ->email()
+                ->required()
+                ->unique(ignoreRecord: true)
+                ->maxLength(255),
+
+            TextInput::make('phone')
+                ->label('Número de teléfono')
+                ->tel()
+                ->required()
+                ->maxLength(30)
+                ->placeholder('11 2345-6789')
+                ->helperText('Celular con código de área. Se aceptan formatos como 11 2345-6789, 0351 15 123-4567 o +54 9 11 2345-6789.')
+                ->formatStateUsing(fn (?string $state) => PhoneNumber::format($state))
+                ->rule(fn () => function (string $attribute, $value, \Closure $fail) {
+                    if (! PhoneNumber::isValid($value)) {
+                        $fail('Ingresá un celular argentino válido, con código de área (por ejemplo 11 2345-6789).');
+                    }
+                })
+                ->dehydrateStateUsing(fn (?string $state) => PhoneNumber::normalize($state)),
+
+            // Misma política que el resto de Ascento (PasswordPolicy). En la
+            // edición es opcional: vacío = no se cambia.
+            TextInput::make('password')
+                ->label(fn (string $operation) => $operation === 'create' ? 'Contraseña' : 'Contraseña nueva')
+                ->password()
+                ->revealable()
+                ->autocomplete('new-password')
+                ->required(fn (string $operation) => $operation === 'create')
+                ->rule(fn () => Password::defaults())
+                ->rule(fn (Get $get) => new NotCommonPassword([$get('name'), $get('email')]))
+                ->confirmed()
+                ->helperText(fn (string $operation) => PasswordPolicy::HINT.($operation === 'edit' ? ' Dejala vacía para no cambiarla.' : ''))
+                ->dehydrated(fn ($state) => filled($state))
+                ->dehydrateStateUsing(fn ($state) => Hash::make($state)),
+
+            TextInput::make('password_confirmation')
+                ->label('Repetir contraseña')
+                ->password()
+                ->revealable()
+                ->autocomplete('new-password')
+                ->required(fn (string $operation, Get $get) => $operation === 'create' || filled($get('password')))
+                ->dehydrated(false),
+        ];
     }
 
     public static function table(Table $table): Table

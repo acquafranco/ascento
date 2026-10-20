@@ -32,7 +32,7 @@ class WorkOrderResource extends Resource
     protected static ?string $model = WorkOrder::class;
 
     protected static string|BackedEnum|null $navigationIcon =
-        Heroicon::OutlinedRectangleStack;
+        Heroicon::OutlinedClipboardDocumentList;
 
     protected static ?string $recordTitleAttribute = 'status';
 

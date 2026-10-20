@@ -8,11 +8,13 @@ use App\Filament\Pages\ParachuteTestsPage;
 use App\Models\Building;
 use App\Models\Client;
 use App\Models\Company;
+use App\Models\DeliveryNote;
 use App\Models\Elevator;
 use App\Models\ParachuteSchedule;
 use App\Models\ParachuteTest;
 use App\Models\ParachuteTestFile;
 use App\Models\User;
+use App\Models\WorkOrder;
 use App\Notifications\App\ParachuteReminderNotification;
 use App\Services\Notifications\Notifier;
 use App\Support\Access\Access;
@@ -39,8 +41,10 @@ use Illuminate\Validation\ValidationException;
  *   prueba satisfactoria posterior.
  * - Un recordatorio nunca cuenta como prueba realizada: solo los registros.
  *
- * Toda escritura exige «Inspecciones y reportes: gestionar» (o ser el dueño)
- * y que el ascensor sea de la empresa actual.
+ * Toda escritura desde el panel exige «Inspecciones y reportes: gestionar»
+ * (o ser el dueño) y que el ascensor sea de la empresa actual. El técnico
+ * solo puede registrarla al firmar el remito de un trabajo de ese edificio
+ * (recordFromDeliveryNote): queda vinculada a ese remito.
  */
 class ParachuteService
 {
@@ -182,6 +186,107 @@ class ParachuteService
             'interval' => $interval, 'interval_source' => $source, 'notice_days' => $notice,
             'last' => $last, 'last_ok' => $lastOk, 'next_due' => $next, 'status' => $status,
         ];
+    }
+
+    /**
+     * Lo que sigue un técnico, sin tener que entrar a cada edificio: los
+     * ascensores de los edificios donde hace la inspección y aquellos donde
+     * es el inspector o el responsable asignado. Mismo cálculo que el panel.
+     *
+     * @return Collection<int, array>
+     */
+    public function forTechnician(User $user): Collection
+    {
+        $companyId = (int) $user->company_id;
+
+        if (! $companyId || $user->trashed() || ! PlanGuard::companyAllows($companyId, PlanFeature::ParachuteTests)) {
+            return collect();
+        }
+
+        $buildingIds = DB::table('building_user')->where('user_id', $user->id)->where('type', 'inspection')->pluck('building_id')->map(fn ($id) => (int) $id);
+        $elevatorIds = ParachuteSchedule::withoutGlobalScopes()->where('company_id', $companyId)
+            ->where(fn ($q) => $q->where('inspector_id', $user->id)->orWhere('responsible_id', $user->id))
+            ->pluck('elevator_id')->map(fn ($id) => (int) $id);
+
+        if ($buildingIds->isEmpty() && $elevatorIds->isEmpty()) {
+            return collect();
+        }
+
+        return $this->overview($companyId)
+            ->filter(fn (array $row) => $buildingIds->contains((int) $row['building']->id) || $elevatorIds->contains((int) $row['elevator']->id))
+            ->values();
+    }
+
+    /**
+     * Ascensores del edificio en los que quien firma el remito puede dejar
+     * registrada la prueba: todos en una inspección (periódica u orden de
+     * tipo inspección) o para quien gestiona inspecciones; en otro trabajo,
+     * solo los equipos donde es el inspector o el responsable asignado.
+     *
+     * @return Collection<int, array>
+     */
+    public function registrableInDeliveryNote(User $user, Building $building, ?WorkOrder $order, string $assignmentType): Collection
+    {
+        if (! PlanGuard::companyAllows((int) $building->company_id, PlanFeature::ParachuteTests) || (int) $user->company_id !== (int) $building->company_id) {
+            return collect();
+        }
+
+        $rows = $this->overview((int) $building->company_id, (int) $building->id);
+        $inspection = $order ? $order->type === 'inspection' : $assignmentType === 'inspection';
+
+        if ($inspection || Access::can($user, PermissionArea::Inspections, PermissionArea::MANAGE)) {
+            return $rows;
+        }
+
+        return $rows->filter(fn (array $row) => in_array($user->id, [(int) $row['schedule']?->inspector_id, (int) $row['schedule']?->responsible_id], true))->values();
+    }
+
+    /**
+     * Pruebas que el técnico declara al firmar el remito (dentro de la misma
+     * transacción). Solo las que eligió explícitamente: «no se hizo» no crea
+     * nada. Fecha: la del remito; quién: quien firma; vinculadas al remito.
+     *
+     * @param  array<int|string, string|null>  $results  ascensor => satisfactory | unsatisfactory | (vacío: no se hizo)
+     * @return Collection<int, ParachuteTest>
+     */
+    public function recordFromDeliveryNote(User $user, DeliveryNote $note, Building $building, ?WorkOrder $order, array $results): Collection
+    {
+        $results = array_filter($results, fn ($value) => filled($value));
+
+        if ($results === []) {
+            return collect();
+        }
+
+        if (! $note->performed) {
+            throw ValidationException::withMessages(['parachute' => 'Si el trabajo no se realizó, no se puede registrar la prueba de paracaídas.']);
+        }
+
+        $allowed = $this->registrableInDeliveryNote($user, $building, $order, (string) $note->assignment_type)
+            ->keyBy(fn (array $row) => (int) $row['elevator']->id);
+
+        $created = collect();
+        foreach ($results as $elevatorId => $result) {
+            $row = $allowed->get((int) $elevatorId);
+            if (! $row || ! array_key_exists((string) $result, ParachuteTest::RESULTS)) {
+                throw ValidationException::withMessages(['parachute' => 'Revisá la prueba de paracaídas: uno de los ascensores o resultados no es válido.']);
+            }
+
+            $test = new ParachuteTest;
+            $test->forceFill([
+                'company_id' => $building->company_id,
+                'elevator_id' => $row['elevator']->id,
+                'building_id' => $building->id,
+                'delivery_note_id' => $note->id,
+                'performed_on' => ($note->created_at ?? now())->toDateString(),
+                'result' => $result,
+                'performed_by_id' => $user->id,
+                'recorded_by' => $user->id,
+            ])->save();
+
+            $created->push($test);
+        }
+
+        return $created;
     }
 
     /* ------------------------------------------------------ CONFIGURACIÓN */
@@ -394,7 +499,7 @@ class ParachuteService
 
             $owners = User::where('company_id', $company->id)->where('role', 'admin')->where('is_super_admin', false)->get();
             $panelPath = parse_url(ParachuteTestsPage::getUrl(panel: 'ascensores_app'), PHP_URL_PATH);
-            $technicianPath = route('buildings.index', ['company' => $company->slug], false);
+            $technicianPath = route('parachute.index', ['company' => $company->slug], false);
 
             $this->notifier->batch(function (Notifier $notifier) use ($due, $owners, $company, $panelPath, $technicianPath, &$sent) {
                 foreach ($due as $row) {

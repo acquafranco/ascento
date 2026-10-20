@@ -2,7 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DeliveryNote;
+use App\Models\User;
+use App\Notifications\WorkCompletedNotification;
 use App\Support\Access\Access;
+use App\Support\Portal\PortalAccess;
 use App\Support\Realtime;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\DatabaseNotification;
@@ -53,6 +57,17 @@ class NotificationInboxController extends Controller
     {
         $data = (array) $row->data;
         $candidates = [$data['path'] ?? null, ...array_column((array) ($data['actions'] ?? []), 'url')];
+
+        // "Trabajo terminado" guardados antes de la corrección: el botón apuntaba
+        // a /admin/delivery-notes/{id} (se resolvía como número de remito). Se
+        // lleva al remito real por su id, solo si es de la empresa del admin.
+        if ($row->type === WorkCompletedNotification::class && ! isset($data['delivery_note_id'])
+            && preg_match('#/admin/delivery-notes/(\d+)$#', (string) ($data['actions'][0]['url'] ?? ''), $legacy)) {
+            $note = DeliveryNote::withoutGlobalScopes()->whereKey((int) $legacy[1])
+                ->where('company_id', User::withoutGlobalScopes()->whereKey($row->notifiable_id)->value('company_id'))
+                ->first(['id', 'number']);
+            array_unshift($candidates, $note ? route('filament.ascensores_app.resources.delivery-notes.view', ['record' => $note], false) : null);
+        }
 
         if (isset($data['report_id']) && is_numeric($data['report_id'])) {
             $candidates[] = route('filament.ascensores_app.resources.reports.view', ['record' => (int) $data['report_id']], false);
@@ -112,6 +127,14 @@ class NotificationInboxController extends Controller
 
         /** @var DatabaseNotification $row */
         $row = $user->notifications()->whereKey($notification)->firstOrFail();
+
+        // Cliente con acceso a varias empresas: el aviso es de UNA empresa y su
+        // destino se busca dentro de la empresa activa del portal (los remitos
+        // se numeran por empresa). Sin esto, "compartió el remito 00000003" de
+        // la empresa B abría el remito 00000003 de la empresa A.
+        if ($portal && $row->company_id) {
+            PortalAccess::switchTo($user, (int) $row->company_id);
+        }
 
         if ($row->read_at === null) { // repetir el enlace no vuelve a avisar
             $row->markAsRead();
