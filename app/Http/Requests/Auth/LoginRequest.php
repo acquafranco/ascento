@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Auth;
 
 use App\Services\Auth\AccountAttackGuard;
+use App\Support\Auth\UserEmail;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -26,6 +27,14 @@ class LoginRequest extends FormRequest
      *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
+    /** Mismo correo con otras mayúsculas o espacios = la misma cuenta. */
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('email')) {
+            $this->merge(['email' => UserEmail::normalize((string) $this->input('email'))]);
+        }
+    }
+
     public function rules(): array
     {
         return [

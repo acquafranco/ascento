@@ -5,11 +5,13 @@ namespace App\Filament\Resources\Users\Pages;
 use App\Filament\Resources\Users\UserResource;
 use App\Services\Auth\PendingEmailChange;
 use App\Services\Technicians\TechnicianPhotoService;
+use App\Support\Auth\UserEmail;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\FileUpload;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\ValidationException;
 
 class EditUser extends EditRecord
@@ -36,6 +38,11 @@ class EditUser extends EditRecord
         }
 
         return $data;
+    }
+
+    protected function handleRecordUpdate(Model $record, array $data): Model
+    {
+        return UserEmail::guard(fn () => parent::handleRecordUpdate($record, $data), 'data.email');
     }
 
     protected function afterSave(): void

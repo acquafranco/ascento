@@ -11,6 +11,7 @@ use App\Notifications\App\PortalAccountActivatedNotification;
 use App\Notifications\PortalAccessGrantedNotification;
 use App\Notifications\PortalInvitationNotification;
 use App\Services\Notifications\Notifier;
+use App\Support\Auth\UserEmail;
 use App\Support\VerifiedSender;
 use Illuminate\Auth\Passwords\PasswordBroker;
 use Illuminate\Support\Facades\DB;
@@ -56,13 +57,17 @@ class PortalInvitations
      *
      * @throws ValidationException
      */
-    /** Motivo por el que este email no se puede invitar a este cliente (null = se puede). */
+    /**
+     * Motivo por el que este email no se puede invitar a este cliente (null = se puede).
+     * El correo de una cuenta del personal (dueño, administrativo, técnico) de
+     * cualquier empresa no se usa para el portal: el mensaje no dice de quién es.
+     */
     public static function emailProblem(Client $client, string $email): ?string
     {
-        $existing = User::withTrashed()->whereRaw('lower(email) = ?', [Str::lower(trim($email))])->first();
+        $existing = UserEmail::owner($email);
 
         return match (true) {
-            $existing && ! $existing->isClientUser() => 'Este email no se puede usar para el portal. Usá otra dirección.',
+            $existing && ! $existing->isClientUser() => UserEmail::TAKEN_MESSAGE,
             $existing && PortalMembership::where('user_id', $existing->id)->where('client_id', $client->id)->exists() => 'Esta persona ya tiene acceso al portal de este cliente (si está desactivada, reactivala).',
             default => null,
         };
@@ -70,16 +75,18 @@ class PortalInvitations
 
     public function invite(Client $client, string $name, string $email, array $buildingIds, ?User $actor = null): array
     {
-        $email = Str::lower(trim($email));
+        $email = UserEmail::normalize($email);
         VerifiedSender::ensure($actor);
 
         if ($problem = static::emailProblem($client, $email)) {
             throw ValidationException::withMessages(['email' => $problem]);
         }
 
-        $existing = User::withTrashed()->whereRaw('lower(email) = ?', [$email])->first();
+        $existing = UserEmail::owner($email);
 
-        [$membership, $isNew] = DB::transaction(function () use ($client, $name, $email, $buildingIds, $actor, $existing) {
+        // Si otro pedido crea la misma cuenta al mismo tiempo, el índice único lo
+        // frena y se informa como correo ya registrado (no queda una segunda cuenta).
+        [$membership, $isNew] = UserEmail::guard(fn () => DB::transaction(function () use ($client, $name, $email, $buildingIds, $actor, $existing) {
             $user = $existing;
 
             if (! $user) {
@@ -97,7 +104,7 @@ class PortalInvitations
             static::syncBuildings($membership, $buildingIds);
 
             return [$membership, $existing === null];
-        });
+        }));
 
         return ['membership' => $membership, 'mailed' => $this->send($membership), 'existing' => ! $isNew];
     }

@@ -7,9 +7,11 @@ use App\Models\Company;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Rules\Cuit;
+use App\Rules\UniqueUserEmail;
 use App\Services\Onboarding\CompanySetup;
 use App\Support\Auth\PasswordPolicy;
 use App\Support\Auth\RegistrationChallenge;
+use App\Support\Auth\UserEmail;
 use App\Support\Provinces;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -42,6 +44,9 @@ class RegisteredUserController extends Controller
     {
         // Campo trampa y tiempo mínimo (ver RegistrationChallenge).
         RegistrationChallenge::ensureHuman($request);
+
+        // Mismo correo con otras mayúsculas o espacios = la misma cuenta.
+        $request->merge(['email' => UserEmail::normalize((string) $request->input('email'))]);
 
         $request->validate([
 
@@ -101,10 +106,9 @@ class RegisteredUserController extends Controller
             'email' => [
                 'required',
                 'string',
-                'lowercase',
                 'email',
                 'max:255',
-                'unique:'.User::class,
+                new UniqueUserEmail,
             ],
 
             'password' => PasswordPolicy::rules([$request->input('name'), $request->input('email'), $request->input('company_name')]),
@@ -190,7 +194,7 @@ class RegisteredUserController extends Controller
 
             return back()
                 ->withInput($request->except('password', 'password_confirmation'))
-                ->withErrors([$field => $field === 'cuit' ? static::cuitTakenMessage() : 'Ese email ya tiene una cuenta. Ingresá o recuperá tu contraseña.']);
+                ->withErrors([$field => $field === 'cuit' ? static::cuitTakenMessage() : UserEmail::TAKEN_MESSAGE]);
         }
 
         RegistrationChallenge::complete($request); // un solo uso

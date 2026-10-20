@@ -8,6 +8,7 @@ use App\Models\Company;
 use App\Models\User;
 use App\Services\Activity\ActivityLogger;
 use App\Support\Access\Access;
+use App\Support\Auth\UserEmail;
 use App\Support\Plans\PlanGuard;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -65,7 +66,11 @@ class StaffManager
     {
         $company = $this->ownerCompany($owner);
 
-        return DB::transaction(function () use ($company, $data, $levels) {
+        if (UserEmail::taken($data['email'] ?? null)) {
+            throw ValidationException::withMessages(['email' => UserEmail::TAKEN_MESSAGE]);
+        }
+
+        return UserEmail::guard(fn () => DB::transaction(function () use ($company, $data, $levels) {
             Company::whereKey($company->id)->lockForUpdate()->first();
             PlanGuard::for($company)->ensureCanAdd(PlanLimit::AdminUsers);
 
@@ -86,13 +91,16 @@ class StaffManager
             ], $user->name);
 
             return $user;
-        });
+        }));
     }
 
     /** Nombre, correo y teléfono (la contraseña la cambia la persona desde su perfil). */
     public function update(User $owner, User $staff, array $data): User
     {
         $this->guardTarget($owner, $staff);
+        if (UserEmail::taken($data['email'] ?? null, (int) $staff->id)) {
+            throw ValidationException::withMessages(['email' => UserEmail::TAKEN_MESSAGE]);
+        }
 
         $staff->forceFill([
             'name' => trim($data['name']),
@@ -101,7 +109,7 @@ class StaffManager
         ]);
 
         $changed = array_keys($staff->getDirty());
-        $staff->save();
+        UserEmail::guard(fn () => $staff->save());
 
         if ($changed !== []) {
             ActivityLogger::record('staff.updated', $staff, ['fields' => array_values(array_intersect($changed, ['name', 'email', 'phone']))], $staff->name);

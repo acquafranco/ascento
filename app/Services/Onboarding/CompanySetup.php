@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Models\WorkOrder;
 use App\Services\WorkOrderAssignmentNotifier;
 use App\Support\Access\Access;
+use App\Support\Auth\UserEmail;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -149,7 +150,11 @@ final class CompanySetup
             return $existing; // un reenvío no crea otro
         }
 
-        $user = User::create(array_intersect_key($data, array_flip(['name', 'email', 'phone', 'password'])) + ['role' => 'technician']);
+        if (UserEmail::taken($data['email'] ?? null)) {
+            throw ValidationException::withMessages(['email' => UserEmail::TAKEN_MESSAGE]);
+        }
+
+        $user = UserEmail::guard(fn () => User::create(array_intersect_key($data, array_flip(['name', 'email', 'phone', 'password'])) + ['role' => 'technician']));
         $user->sendVerificationSafely();
 
         return $user;

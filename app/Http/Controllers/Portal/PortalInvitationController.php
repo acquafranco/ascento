@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\Portal\PortalInvitations;
 use App\Support\Auth\PasswordPolicy;
+use App\Support\Auth\UserEmail;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -32,6 +33,9 @@ class PortalInvitationController extends Controller
 
     public function store(Request $request)
     {
+        // Mismo correo con otras mayúsculas o espacios = la misma cuenta.
+        $request->merge(['email' => UserEmail::normalize((string) $request->input('email'))]);
+
         $request->validate([
             'token' => ['required', 'string'],
             'email' => ['required', 'email'],

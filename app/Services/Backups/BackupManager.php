@@ -541,9 +541,13 @@ class BackupManager
                 continue;
             }
             fwrite($out, $object->sql.";\n");
+            // Las columnas generadas (p. ej. users.email_key) no se insertan: se recalculan solas.
+            $generated = collect(DB::select('PRAGMA table_xinfo("'.str_replace('"', '""', $object->name).'")'))
+                ->filter(fn ($c) => (int) $c->hidden >= 2)->pluck('name')->all();
             foreach (DB::table($object->name)->cursor() as $row) {
-                $values = array_map(fn ($v) => $v === null ? 'NULL' : (is_int($v) || is_float($v) ? (string) $v : $pdo->quote((string) $v)), (array) $row);
-                fwrite($out, 'INSERT INTO "'.$object->name.'" ("'.implode('","', array_keys((array) $row)).'") VALUES ('.implode(',', $values).");\n");
+                $row = array_diff_key((array) $row, array_flip($generated));
+                $values = array_map(fn ($v) => $v === null ? 'NULL' : (is_int($v) || is_float($v) ? (string) $v : $pdo->quote((string) $v)), $row);
+                fwrite($out, 'INSERT INTO "'.$object->name.'" ("'.implode('","', array_keys($row)).'") VALUES ('.implode(',', $values).");\n");
             }
         }
 

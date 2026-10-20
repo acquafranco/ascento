@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Support\Auth\PasswordPolicy;
+use App\Support\Auth\UserEmail;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -31,6 +32,9 @@ class NewPasswordController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        // Mismo correo con otras mayúsculas o espacios = la misma cuenta.
+        $request->merge(['email' => UserEmail::normalize((string) $request->input('email'))]);
+
         $request->validate([
             'token' => ['required'],
             'email' => ['required', 'email'],
