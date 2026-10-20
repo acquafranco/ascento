@@ -88,7 +88,7 @@ final class NavigationGuide
             QuoteResource::class => ['Presupuestos con tu logo, para enviar por correo o WhatsApp.', 'quotes'],
             ServicesCluster::class => ['Lo que ofrecés (catálogo) y lo que tiene contratado cada cliente, que genera los cobros.', 'services_overview'],
             ReceivableResource::class => ['Lo que te deben tus clientes y los pagos que vas registrando.', 'receivables'],
-            CompanySettings::class => ['Los datos y el logo de tu empresa, las fotos de los trabajos y los pedidos de ayuda desde el QR.', 'company_data'],
+            CompanySettings::class => ['Los datos y el logo de tu empresa, las fotos de los trabajos y los reportes de problemas desde el QR.', 'company_data'],
             UserResource::class => ['Las personas que trabajan en la calle. Cada una entra desde el celular.', 'technicians'],
             StaffUserResource::class => ['El personal de oficina y qué puede ver o gestionar cada uno.', 'staff'],
             Subscription::class => ['Tu plan, cuánto usaste de cada límite y cómo cambiarlo.', 'subscription'],

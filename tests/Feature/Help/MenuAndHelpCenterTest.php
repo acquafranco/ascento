@@ -333,7 +333,7 @@ class MenuAndHelpCenterTest extends TestCase
         $super = User::factory()->superAdmin()->create();
         $this->inPanel($this->a['admin']);
         $owner = array_column(HelpGuides::for($this->a['admin']->fresh(), HelpGuides::PANEL), 'key');
-        $this->assertContains('emergency_setup', $owner);
+        $this->assertContains('qr_reports_setup', $owner);
         $this->assertContains('staff_permissions', $owner);
         $this->assertNotContains('sa_companies', $owner);
 
@@ -343,7 +343,7 @@ class MenuAndHelpCenterTest extends TestCase
         $ana = $this->staff(['tasks' => 'manage']);
         $this->inPanel($ana);
         $staffKeys = array_column(HelpGuides::for($ana->fresh(), HelpGuides::PANEL), 'key');
-        foreach (['emergency_setup', 'staff_permissions', 'export', 'sa_companies', 'receivables', 'on_call_replace'] as $key) {
+        foreach (['qr_reports_setup', 'staff_permissions', 'export', 'sa_companies', 'receivables', 'on_call_replace'] as $key) {
             $this->assertNotContains($key, $staffKeys, $key);
         }
         // Las preguntas frecuentes siguen las mismas reglas.

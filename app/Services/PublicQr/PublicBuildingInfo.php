@@ -5,16 +5,21 @@ namespace App\Services\PublicQr;
 use App\Enums\PlanFeature;
 use App\Models\Building;
 use App\Models\BuildingPublicPage;
+use App\Models\BuildingVisitPlan;
+use App\Models\ClientClaim;
 use App\Models\Company;
 use App\Models\DeliveryNote;
 use App\Models\Elevator;
+use App\Models\ElevatorDocument;
 use App\Models\RepairComponent;
 use App\Models\WorkOrder;
 use App\Services\Parachute\ParachuteService;
+use App\Services\Visits\VisitSchedule;
 use App\Support\Plans\PlanGuard;
 use App\Support\WorkOrderLabels;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -134,6 +139,8 @@ class PublicBuildingInfo
         })->all() : [];
 
         $logo = $company?->logo && Storage::disk('public')->exists($company->logo) ? Storage::disk('public')->url($company->logo) : null;
+        $passport = $this->passport($page, $companyId, $elevators);
+        $dates->push(...collect($passport['history'])->pluck('date'));
 
         return [
             'company' => [
@@ -158,7 +165,15 @@ class PublicBuildingInfo
                 'pending' => (bool) $page->show_pending_work,
                 'repairs' => $showRepairs,
                 'contact' => (bool) $page->show_contact,
+                'history' => (bool) $page->show_service_history,
+                'next_visit' => (bool) $page->show_next_visit,
+                'documents' => (bool) $page->show_documents,
+                'incidents' => (bool) $page->show_incidents,
             ],
+            'history' => $passport['history'],
+            'next_visits' => $passport['next_visits'],
+            'documents' => $passport['documents'],
+            'incidents' => $passport['incidents'],
             'elevators' => $items,
             'last_maintenance' => $maintenance ? Carbon::parse($maintenance) : null,
             'last_inspection' => $inspection ? Carbon::parse($inspection) : null,
@@ -167,5 +182,88 @@ class PublicBuildingInfo
             'building_repairs' => $repairs->reject(fn ($r) => $r['elevator_id'] && $shownElevators->contains($r['elevator_id']))->map($public)->values()->all(),
             'updated_at' => $dates->filter()->map(fn ($d) => $d instanceof CarbonInterface ? $d : Carbon::parse($d))->max(),
         ];
+    }
+
+    /**
+     * Pasaporte del ascensor (Ascento Conecta): bloques que la empresa elige.
+     *
+     * - Historial: visitas de mantenimiento e inspección con remito (fecha,
+     *   tipo, número y si se realizó). Nunca técnicos, firmas, descripción ni
+     *   un enlace al remito (tiene datos personales).
+     * - Este período: solo con una frecuencia de visitas cargada para el
+     *   edificio; dice si la visita del período ya se registró. Nunca da por
+     *   hecho un trabajo que no tiene registro.
+     * - Documentación: solo la publicada una por una (public_on_qr).
+     * - Incidencias: solo las publicadas una por una, con categoría, fecha y
+     *   estado administrativo (sin descripción, fotos ni quién la presentó).
+     *
+     * @return array{history: list<array>, next_visits: list<array>, documents: list<array>, incidents: list<array>}
+     */
+    private function passport(BuildingPublicPage $page, int $companyId, Collection $elevators): array
+    {
+        $buildingId = (int) $page->building_id;
+        $out = ['history' => [], 'next_visits' => [], 'documents' => [], 'incidents' => []];
+
+        if ($page->show_service_history) {
+            $out['history'] = DeliveryNote::withoutGlobalScopes()->where('company_id', $companyId)->where('building_id', $buildingId)
+                ->whereIn('assignment_type', ['maintenance', 'inspection'])
+                ->latest('created_at')->limit(12)->get(['number', 'assignment_type', 'performed', 'created_at'])
+                ->map(fn (DeliveryNote $n) => [
+                    'date' => $n->created_at,
+                    'type' => $n->assignment_type === 'inspection' ? 'Inspección' : 'Mantenimiento',
+                    'number' => str_pad((string) $n->number, 6, '0', STR_PAD_LEFT),
+                    'performed' => (bool) $n->performed,
+                ])->all();
+        }
+
+        if ($page->show_next_visit) {
+            $planned = BuildingVisitPlan::withoutGlobalScopes()->where('company_id', $companyId)->where('building_id', $buildingId)
+                ->where('starts_on', '<=', now()->endOfMonth())->distinct()->pluck('type');
+            if ($planned->isNotEmpty()) {
+                $schedule = VisitSchedule::load([$buildingId], now()->month, now()->year, $companyId);
+                foreach ($planned->intersect(['maintenance', 'inspection']) as $type) {
+                    $e = $schedule->evaluate($buildingId, $type, now()->month, now()->year);
+                    if ($e['expected'] === 0) {
+                        continue;
+                    }
+                    $out['next_visits'][] = [
+                        'type' => $type === 'inspection' ? 'Inspección' : 'Mantenimiento',
+                        'period' => ucfirst($e['period']->label()),
+                        'frequency' => $e['period']->frequencyLabel(),
+                        'registered' => $e['done'],
+                        'expected' => $e['expected'],
+                    ];
+                }
+            }
+        }
+
+        if ($page->show_documents) {
+            $labels = $elevators->pluck('label', 'id');
+            $out['documents'] = ElevatorDocument::withoutGlobalScopes()->where('company_id', $companyId)->where('public_on_qr', true)
+                ->whereIn('elevator_id', Elevator::withoutGlobalScopes()->where('company_id', $companyId)->where('building_id', $buildingId)->select('id'))
+                ->orderBy('elevator_id')->orderBy('title')->get(['id', 'elevator_id', 'type', 'title', 'expires_at'])
+                ->map(fn ($d) => [
+                    'id' => $d->id,
+                    'title' => $d->title ?: (ElevatorDocument::TYPES[$d->type] ?? 'Documento'),
+                    'type' => ElevatorDocument::TYPES[$d->type] ?? 'Documento',
+                    'elevator' => $labels[$d->elevator_id] ?? null,
+                    'expires_at' => $d->expires_at,
+                    'expired' => $d->isExpired(),
+                    'url' => route('public-qr.document', ['token' => $page->token, 'document' => $d->id]),
+                ])->all();
+        }
+
+        if ($page->show_incidents) {
+            $out['incidents'] = ClientClaim::withoutGlobalScopes()->where('company_id', $companyId)->where('building_id', $buildingId)
+                ->where('public_on_qr', true)->latest('created_at')->limit(10)->get(['id', 'category', 'status', 'created_at', 'updated_at'])
+                ->map(fn ($c) => [
+                    'category' => ClientClaim::QR_CATEGORIES[$c->category] ?? (ClientClaim::CATEGORIES[$c->category] ?? 'Incidencia'),
+                    'date' => $c->created_at,
+                    'status' => $c->statusLabel(),
+                    'open' => $c->isOpen(),
+                ])->all();
+        }
+
+        return $out;
     }
 }

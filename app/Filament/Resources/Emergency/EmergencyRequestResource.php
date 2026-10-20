@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\Emergency;
 
 use App\Enums\PermissionArea;
-use App\Enums\PlanFeature;
 use App\Filament\Concerns\GuardedByPermission;
 use App\Filament\Concerns\ScopedToCurrentCompany;
 use App\Filament\Resources\Emergency\Pages\ListEmergencyRequests;
@@ -12,7 +11,6 @@ use App\Filament\Resources\Emergency\RelationManagers\DeliveriesRelationManager;
 use App\Models\EmergencyRequest;
 use App\Services\Emergency\EmergencyRequestService;
 use App\Support\CompanyContext;
-use App\Support\Plans\PlanGuard;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
@@ -47,7 +45,7 @@ class EmergencyRequestResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-exclamation-triangle';
 
-    protected static ?string $navigationLabel = 'Pedidos de ayuda';
+    protected static ?string $navigationLabel = 'Pedidos de ayuda (historial)';
 
     protected static ?string $modelLabel = 'pedido de ayuda';
 
@@ -68,8 +66,9 @@ class EmergencyRequestResource extends Resource
     {
         $companyId = CompanyContext::currentId();
 
+        // Retirados (Ascento Conecta): en el menú solo si la empresa tiene pedidos registrados antes.
         return parent::shouldRegisterNavigation() && $companyId
-            && (PlanGuard::companyAllows($companyId, PlanFeature::EmergencyRequests) || EmergencyRequest::where('company_id', $companyId)->exists());
+            && EmergencyRequest::where('company_id', $companyId)->exists();
     }
 
     public static function getNavigationBadge(): ?string

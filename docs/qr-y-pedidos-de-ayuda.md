@@ -1,5 +1,7 @@
 # QR público, pedido de ayuda por atrapamiento y sección «Conecta a todos»
 
+> **Retirado.** El pedido de ayuda por atrapamiento se retiró con **Ascento Conecta** (ver `docs/ascento-conecta.md`). Este documento queda como referencia de cómo funcionaba y de lo que se conserva como historial.
+
 ## Hoja imprimible del QR
 
 - **Dónde:** en el panel, «QR públicos» → edificio → «Hoja para imprimir (A4)» o «Versión compacta» (A6). Ruta `GET /qr-codes/{edificio}/hoja/{a4|compacta}`, con las mismas reglas que la descarga: área «QR y datos públicos» y el plan con QR.

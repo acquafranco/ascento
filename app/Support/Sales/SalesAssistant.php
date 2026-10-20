@@ -96,11 +96,11 @@ final class SalesAssistant
             }
             if ($available = self::availability($plans, PlanFeature::PublicQr)) {
                 $topics[] = $t('qr', 'QR público del edificio', [
-                    'Quien escanea el QR del edificio ve, sin cuenta, solo lo que la empresa publica: estado informado de cada ascensor, último mantenimiento e inspección, pruebas de paracaídas y componentes en reparación.',
+                    'Quien escanea el QR del edificio ve, sin cuenta, solo lo que la empresa publica: estado informado de cada ascensor, último mantenimiento e inspección, historial de servicios, pruebas de paracaídas, componentes en reparación y la documentación que decida publicar.',
                     'No muestra datos del cliente ni montos. Es información administrativa, no una certificación de seguridad.',
                     $available,
                     ...(($help = self::availability($plans, PlanFeature::PublicQr, PlanFeature::EmergencyRequests))
-                        ? ['Si la empresa lo activa, el QR también muestra «Estoy atrapado en el ascensor»: avisa a la empresa y a la administración del edificio. Es un aviso, no un servicio de emergencias. '.$help]
+                        ? ['El QR también permite «Reportar un problema»: quien usa el ascensor cuenta qué notó y se registra en Ascento para que la empresa haga el seguimiento. No es un servicio de emergencias ni un pedido de rescate. '.$help]
                         : []),
                 ], ['trial']);
             }

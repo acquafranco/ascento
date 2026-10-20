@@ -1,6 +1,6 @@
-<x-portal-layout title="Pedidos de ayuda">
-    <h1 class="p-h1">Pedidos de ayuda</h1>
-    <p class="p-sub">Pedidos por posible atrapamiento hechos desde el QR de tus edificios. Son avisos sin confirmar: la empresa de mantenimiento los verifica y los cierra.</p>
+<x-portal-layout title="Pedidos de ayuda (historial)">
+    <h1 class="p-h1">Pedidos de ayuda (historial)</h1>
+    <p class="p-sub">Pedidos por posible atrapamiento hechos desde el QR de tus edificios cuando esa opción existía. Ya no se reciben pedidos nuevos: hoy el QR permite reportar problemas. Son avisos sin confirmar: la empresa de mantenimiento los verificó o los cierra.</p>
 
     @if($requests->isEmpty())
         <div class="p-empty" data-portal-emergencies-empty>No hay pedidos de ayuda registrados en tus edificios.</div>

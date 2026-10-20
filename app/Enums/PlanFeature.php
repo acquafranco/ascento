@@ -55,7 +55,11 @@ enum PlanFeature: string
     // Guardias técnicas (cobertura fuera de horario): en los tres planes.
     case OnCall = 'on_call';
     // Solicitud de ayuda por posible atrapamiento desde el QR público: Profesional y Empresa.
+    // Antes «pedido de ayuda por atrapamiento»; desde Ascento Conecta, los reportes de
+    // problemas desde el QR (misma clave en los planes: Profesional y Empresa).
     case EmergencyRequests = 'emergency_requests';
+
+    public const QrReports = self::EmergencyRequests;
 
     public function label(): string
     {
@@ -90,7 +94,7 @@ enum PlanFeature: string
             self::ParachuteTests => 'Pruebas de paracaídas',
             self::Repairs => 'Componentes enviados a reparación',
             self::OnCall => 'Gestión de guardias técnicas',
-            self::EmergencyRequests => 'Solicitud de ayuda por atrapamiento desde el QR',
+            self::EmergencyRequests => 'Reportes de problemas desde el QR',
         };
     }
 
@@ -110,7 +114,7 @@ enum PlanFeature: string
             self::ReportVideos => 'un video por reporte para mostrar la falla',
             self::WorkPhotos => 'fotos de antes y después de mantenimientos y órdenes, y reportes de inspección con fotos',
             self::ClientContacts => 'historial de contactos con cada cliente y seguimiento de los que llevan tiempo sin contacto',
-            self::EmergencyRequests => 'botón en el QR del edificio para que quien quedó atrapado en el ascensor pida ayuda: avisa a tu empresa y a la administración del edificio',
+            self::EmergencyRequests => 'reportes de problemas desde el QR del edificio: quien usa el ascensor cuenta qué observó y tu empresa lo recibe en Ascento para hacer el seguimiento',
             self::OnCall => 'gestión de guardias técnicas: quién cubre noches, fines de semana y feriados, con turnos, rotaciones y cambios con historial',
             default => mb_strtolower($this->label()),
         };

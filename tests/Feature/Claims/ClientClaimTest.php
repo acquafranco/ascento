@@ -207,7 +207,10 @@ class ClientClaimTest extends TestCase
         $claim->refresh();
         $this->assertSame($order->id, $claim->work_order_id);
         $this->assertSame((int) $this->a['admin']->id, (int) $claim->assigned_to);
-        $this->assertSame(['created', 'status', 'assigned', 'work_order'], ClientClaimEvent::where('client_claim_id', $claim->id)->orderBy('id')->pluck('type')->all());
+        // Crear la orden lo deja «Asociado a una orden de trabajo», con su registro (Ascento Conecta).
+        $this->assertSame(['created', 'status', 'assigned', 'work_order', 'status'], ClientClaimEvent::where('client_claim_id', $claim->id)->orderBy('id')->pluck('type')->all());
+        $this->assertSame(ClientClaim::LINKED, $claim->status);
+        $this->assertSame(['reviewing', 'linked'], [ClientClaimEvent::where('client_claim_id', $claim->id)->where('type', 'status')->orderByDesc('id')->value('from'), ClientClaimEvent::where('client_claim_id', $claim->id)->where('type', 'status')->orderByDesc('id')->value('to')]);
 
         // No se asigna a alguien de otra empresa ni se gestiona desde otra empresa.
         try {
@@ -224,7 +227,7 @@ class ClientClaimTest extends TestCase
         } catch (HttpException $e) {
             $this->assertSame(403, $e->getStatusCode());
         }
-        $this->assertSame('reviewing', $claim->fresh()->status);
+        $this->assertSame(ClientClaim::LINKED, $claim->fresh()->status); // sin cambios desde otra empresa
     }
 
     public function test_staff_permissions_view_versus_manage(): void

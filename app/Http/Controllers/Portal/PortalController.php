@@ -18,9 +18,11 @@ use App\Models\ReportPhoto;
 use App\Models\User;
 use App\Services\Reports\ReportPhotoService;
 use App\Support\DeliveryNotes\DeliveryNoteDocument;
+use App\Support\Portal\BuildingTransparency;
 use App\Support\Portal\PortalAccess;
 use App\Support\Portal\PortalDocuments;
 use App\Support\Portal\PortalResponsibles;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -180,6 +182,8 @@ class PortalController extends Controller
         $elevators = Elevator::where('building_id', $building->id)->where('is_active', true)->orderBy('kind')->orderBy('id')->get();
 
         return view('portal.building', [
+            'period' => BuildingTransparency::period((int) $companyId, $building, now()->month, now()->year),
+            'incidents' => BuildingTransparency::incidents($request, (int) $companyId, $building)->take(5),
             'building' => $building,
             'elevators' => $elevators,
             'recent' => PortalDocuments::paginate($companyId, [(int) $building->id], [], 8),
@@ -190,6 +194,29 @@ class PortalController extends Controller
             'buildingNames' => [$building->id => $building->name],
             'responsibles' => PortalResponsibles::for($user, [(int) $building->id]),
             'newKeys' => $this->newKeys($request),
+        ]);
+    }
+
+    /**
+     * Resumen mensual de un edificio autorizado (Ascento Conecta): se calcula al
+     * pedirlo, con los registros reales de la empresa activa. ?mes=AAAA-MM
+     * (por defecto, el mes en curso; nada anterior a 2000 ni posterior al próximo mes).
+     */
+    public function summary(Request $request, Building $building)
+    {
+        $user = $request->user();
+        PortalAccess::ensureBuilding($user, $building);
+        $companyId = (int) PortalAccess::currentCompanyId($user);
+
+        $data = $request->validate(['mes' => ['nullable', 'date_format:Y-m']]);
+        $month = isset($data['mes']) ? CarbonImmutable::createFromFormat('!Y-m', $data['mes']) : now()->toImmutable()->startOfMonth();
+        abort_unless($month->year >= 2000 && $month->lte(now()->startOfMonth()->addMonth()), 404);
+
+        return view('portal.building-summary', [
+            'building' => $building,
+            'summary' => BuildingTransparency::summary($request, $companyId, $building, $month->month, $month->year),
+            'prev' => $month->subMonth()->format('Y-m'),
+            'next' => $month->addMonth()->lte(now()->startOfMonth()) ? $month->addMonth()->format('Y-m') : null,
         ]);
     }
 

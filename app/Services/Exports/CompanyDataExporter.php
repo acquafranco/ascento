@@ -324,9 +324,11 @@ class CompanyDataExporter
 
         // Reclamos de clientes desde el portal, con su historial (las notas internas son de la empresa).
         // La ubicación de los técnicos no se exporta: es efímera y no se guarda historial.
-        $this->sheet('Reclamos', ['ID', 'Número', 'Fecha', 'Cliente ID', 'Edificio ID', 'Edificio', 'Ascensor ID', 'Categoría', 'Descripción', 'Cuándo pasó', 'Estado', 'Presentado por ID', 'Responsable ID', 'Orden de trabajo ID', 'Resuelto', 'Cerrado'],
+        // También los reportes del QR (Ascento Conecta), sin la IP cifrada ni la clave de idempotencia.
+        $this->sheet('Reclamos', ['ID', 'Número', 'Fecha', 'Cliente ID', 'Edificio ID', 'Edificio', 'Ascensor ID', 'Categoría', 'Descripción', 'Cuándo pasó', 'Estado', 'Presentado por ID', 'Responsable ID', 'Orden de trabajo ID', 'Resuelto', 'Cerrado', 'Origen', 'Compartido con la administración', 'Estado publicado en el QR'],
             $this->scoped(ClientClaim::class), fn ($c) => [$c->id, $c->reference(), $c->created_at, $c->client_id, $c->building_id, $this->name('buildings', $c->building_id), $c->elevator_id,
-                $c->categoryLabel(), $c->description, $c->occurred_at, $c->statusLabel(), $c->created_by, $c->assigned_to, $c->work_order_id, $c->resolved_at, $c->closed_at]);
+                $c->categoryLabel(), $c->description, $c->occurred_at, $c->statusLabel(), $c->created_by, $c->assigned_to, $c->work_order_id, $c->resolved_at, $c->closed_at,
+                $c->originLabel(), (bool) $c->shared_with_client, (bool) $c->public_on_qr]);
 
         $this->sheet('Historial de reclamos', ['ID', 'Reclamo ID', 'Fecha', 'Tipo', 'Desde', 'Hasta', 'Texto', 'Visible para el cliente', 'Usuario ID'],
             $this->scoped(ClientClaimEvent::class), fn ($e) => [$e->id, $e->client_claim_id, $e->created_at, $e->type, $e->from, $e->to, $e->body, (bool) $e->public, $e->user_id]);

@@ -70,21 +70,16 @@ class EmergencyRequestService
     |--------------------------------------------------------------------------
     */
 
-    /** ¿Este QR puede recibir solicitudes AHORA? (QR activo, edificio activo, empresa con acceso, plan e interruptor). */
+    /**
+     * Pedidos de ayuda RETIRADOS (Ascento Conecta): ningún QR los recibe. La
+     * página pública ya no muestra el botón, la hoja impresa ya no lo menciona
+     * y la dirección de envío no registra nada (PublicEmergencyController). Lo
+     * demás de este servicio queda para el historial: cerrar los abiertos y
+     * reintentar los correos de los ya registrados.
+     */
     public function availableFor(?BuildingPublicPage $page): bool
     {
-        if (! $page || ! $page->is_active) {
-            return false;
-        }
-
-        $company = Company::find($page->company_id);
-        $building = Building::withoutGlobalScopes()->where('company_id', $page->company_id)->whereNull('deleted_at')->find($page->building_id);
-
-        return $company && $building
-            && $company->hasActiveAccess()
-            && (bool) $company->emergency_requests_enabled
-            && PlanGuard::for($company)->allows(PlanFeature::PublicQr)
-            && PlanGuard::for($company)->allows(PlanFeature::EmergencyRequests);
+        return false;
     }
 
     /** Ascensores que la persona puede elegir (solo si el QR publica los equipos). */
