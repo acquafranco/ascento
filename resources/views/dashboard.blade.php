@@ -177,7 +177,7 @@
             <svg class="h-5 w-5 text-ink-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{!! TechNav::icon('document') !!}</svg>Remitos
         </a>
         <a href="{{ route('templates.index', ['company' => $slug]) }}" class="t-btn-secondary justify-start">
-            <svg class="h-5 w-5 text-ink-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{!! TechNav::icon('table') !!}</svg>Planilla
+            <svg class="h-5 w-5 text-ink-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{!! TechNav::icon('table') !!}</svg>Mi planilla
         </a>
     </div>
 

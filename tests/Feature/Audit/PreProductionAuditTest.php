@@ -378,9 +378,9 @@ class PreProductionAuditTest extends TestCase
         $this->actingAs($a['t2'])->get("/{$a['slug']}/my-templates")->assertOk()->assertDontSee($a['b1']->name);
         $this->actingAs($a['t1'])->get("/{$a['slug']}/my-templates")->assertOk()->assertSee($a['b1']->name);
 
-        // Planilla de un técnico: solo admins de la misma empresa.
+        // Planilla de un técnico: solo admins de la misma empresa (ahora en el panel).
         $this->actingAs($a['t1'])->get("/{$a['slug']}/users/{$a['t2']->id}/template")->assertNotFound();
-        $this->actingAs($a['admin'])->get("/{$a['slug']}/users/{$a['t1']->id}/template")->assertOk();
+        $this->actingAs($a['admin'])->get("/{$a['slug']}/users/{$a['t1']->id}/template")->assertRedirect(\App\Filament\Resources\Users\Pages\TechnicianSheetPage::getUrl(['record' => $a['t1'], 'month' => now()->month, 'year' => now()->year]));
         $this->actingAs($a['admin'])->get("/{$a['slug']}/users/{$this->b['t1']->id}/template")->assertNotFound();
     }
 

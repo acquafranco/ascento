@@ -80,10 +80,13 @@ class TechnicianScreensTest extends TestCase
 
         $this->actingAs($a['admin'])->get("/{$slug}/dashboard")->assertRedirect('/admin');
         $this->actingAs($a['admin'])->get("/{$slug}/clients")->assertOk();
-        $this->actingAs($a['admin'])->get("/{$slug}/users/{$a['technician']->id}/template")->assertOk();
+        // La planilla de un técnico ahora está en el panel: las direcciones viejas llevan ahí.
+        $this->actingAs($a['admin'])->get("/{$slug}/users/{$a['technician']->id}/template")->assertRedirect();
         $this->actingAs($a['admin'])
             ->get("/{$slug}/users/{$a['technician']->id}/template/day/".now()->format('Y-m-d'))
-            ->assertOk();
+            ->assertRedirect();
+        \Filament\Facades\Filament::setCurrentPanel(\Filament\Facades\Filament::getPanel('ascensores_app'));
+        $this->actingAs($a['admin'])->get(\App\Filament\Resources\Users\Pages\TechnicianSheetPage::getUrl(['record' => $a['technician']]))->assertOk();
     }
 
     public function test_invalid_dates_and_periods_do_not_crash(): void
