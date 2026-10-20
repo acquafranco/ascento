@@ -38,11 +38,14 @@ class TechNav
                 $item('Reportes', 'reports.index', ['reports.*'], 'report'),
                 // Guardias técnicas: en los planes que las incluyen (hoy, los tres).
                 ...($user?->company_id && PlanGuard::companyAllows((int) $user->company_id, PlanFeature::OnCall)
-                    ? [$item('Guardias', 'on-call.index', ['on-call.*'], 'shield')] : []),
+                    ? [$item('Guardias', 'on-call.index', ['on-call.*'], 'phone')] : []),
             ],
             'more' => [
                 $item('Remitos', 'delivery-notes.index', ['delivery-notes.index', 'delivery-notes.show'], 'document'),
                 $item('Planilla del mes', 'templates.index', ['templates.*'], 'table'),
+                // Pruebas de paracaídas de sus equipos (en los planes que las incluyen).
+                ...($user?->company_id && PlanGuard::companyAllows((int) $user->company_id, PlanFeature::ParachuteTests)
+                    ? [$item('Paracaídas', 'parachute.index', ['parachute.*'], 'shield')] : []),
                 $item('Todos los edificios', 'buildings.all', ['buildings.all'], 'building'),
                 $item('Ayuda', 'help.technician', ['help.technician'], 'help'),
             ],
@@ -76,6 +79,7 @@ class TechNav
             'check' => '<path d="m5 12 4.5 4.5L19 7"/>',
             'clock' => '<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>',
             'shield' => '<path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/>',
+            'phone' => '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z"/>',
             'camera' => '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
             default => '',
         };

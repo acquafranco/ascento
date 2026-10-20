@@ -53,6 +53,12 @@ class ParachuteTest extends Model
         return $this->belongsTo(User::class, 'recorded_by');
     }
 
+    /** Remito en el que el técnico la registró (null: cargada desde el panel). */
+    public function deliveryNote(): BelongsTo
+    {
+        return $this->belongsTo(DeliveryNote::class)->withoutGlobalScopes();
+    }
+
     public function files(): HasMany
     {
         return $this->hasMany(ParachuteTestFile::class);

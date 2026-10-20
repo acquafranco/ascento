@@ -56,7 +56,7 @@ final class HelpGuides
             'presupuestos' => $c(self::PANEL, 'Presupuestos, reparaciones y repuestos', 'Presupuestos, componentes en taller y stock.', 'calculator'),
             'servicios' => $c(self::PANEL, 'Servicios contratados y cobranzas', 'Contratos, cobros por período y pagos.', 'banknotes'),
             'mapa-qr' => $c(self::PANEL, 'Mapa, QR y pedidos de ayuda', 'El mapa de la cartera, el QR público y los pedidos por atrapamiento.', 'qr-code'),
-            'guardias' => $c(self::PANEL, 'Guardias técnicas', 'Turnos fuera de horario, rotaciones y reemplazos.', 'shield-check'),
+            'guardias' => $c(self::PANEL, 'Guardias técnicas', 'Turnos fuera de horario, rotaciones y reemplazos.', 'phone'),
             'portal' => $c(self::PANEL, 'Portal de clientes', 'Accesos por edificio y qué ve cada cliente.', 'user-group'),
             'seguimiento' => $c(self::PANEL, 'Indicadores, tareas y seguimiento', 'Qué necesita atención, tendencias y pendientes de la oficina.', 'chart-bar'),
             'usuarios' => $c(self::PANEL, 'Usuarios, permisos y seguridad', 'Técnicos, administrativos, permisos y contraseñas.', 'identification'),
@@ -66,7 +66,7 @@ final class HelpGuides
 
             't-dia' => $c(self::TECHNICIAN, 'Tu día de trabajo', 'Visitas, remitos y fotos.', 'calendar-days'),
             't-ordenes' => $c(self::TECHNICIAN, 'Trabajos y reportes', 'Órdenes de la oficina y fallas que detectás.', 'wrench'),
-            't-guardias' => $c(self::TECHNICIAN, 'Guardias', 'Cuándo te toca cubrir y los cambios.', 'shield-check'),
+            't-guardias' => $c(self::TECHNICIAN, 'Guardias', 'Cuándo te toca cubrir y los cambios.', 'phone'),
             't-cuenta' => $c(self::TECHNICIAN, 'Tu cuenta y avisos', 'Perfil, foto y avisos en el celular.', 'user-circle'),
             't-problemas' => $c(self::TECHNICIAN, self::TROUBLESHOOTING, 'Lo que más se consulta.', 'lifebuoy'),
 

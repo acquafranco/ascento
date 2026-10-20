@@ -4,6 +4,7 @@ namespace App\Support\DeliveryNotes;
 
 use App\Models\Company;
 use App\Models\DeliveryNote;
+use App\Models\ParachuteTest;
 use App\Support\CompanyLogo;
 use App\Support\WorkOrderLabels;
 use Carbon\Carbon;
@@ -16,6 +17,7 @@ use Carbon\Carbon;
  * significado) y es todo lo que puede ver el cliente:
  * - SÍ: empresa, número, tipo, cliente, edificio, fecha, período, equipos,
  *   técnico, estado, trabajo realizado, materiales (solo cantidades),
+ *   pruebas de paracaídas registradas en este remito (equipo y resultado),
  *   técnicos participantes y firmas.
  * - NUNCA: las observaciones internas de la orden de trabajo (notes), costos
  *   de materiales, datos de contacto del técnico ni acciones de la empresa.
@@ -72,6 +74,14 @@ final class DeliveryNoteDocument
                 'name' => $m->stockItem?->name ?? 'Material',
                 'quantity' => $m->stockItem?->formatQuantity($m->quantity) ?? (string) $m->quantity,
             ])->values()->all() ?? [],
+            // Solo las que se registraron EN este remito (nunca una prevista).
+            'parachute' => ParachuteTest::withoutGlobalScopes()->where('company_id', $note->company_id)->where('delivery_note_id', $note->id)
+                ->with(['elevator' => fn ($q) => $q->withoutGlobalScopes()->select('id', 'label')])->orderBy('id')->get()
+                ->map(fn (ParachuteTest $test) => [
+                    'elevator' => $test->elevator?->label ?? 'Ascensor',
+                    'result' => ParachuteTest::RESULTS[$test->result] ?? $test->result,
+                    'ok' => $test->isSatisfactory(),
+                ])->all(),
             'participants' => $participants->map(fn ($p) => [
                 'name' => $p->name,
                 'responsible' => $p->pivot?->role === 'creator',

@@ -36,7 +36,7 @@ class ClientResource extends Resource
     protected static ?string $model = Client::class;
 
     protected static string|BackedEnum|null $navigationIcon =
-        Heroicon::OutlinedRectangleStack;
+        Heroicon::OutlinedUserGroup;
 
     protected static ?int $navigationSort = 1;
 

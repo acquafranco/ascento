@@ -93,7 +93,7 @@ class AdminOnboarding extends Component
         abort_unless($user->canUseOnboarding() && CompanySetup::appliesTo($user), 403);
         app(CompanySetup::class)->resume($user->company);
 
-        return $this->redirect(url()->previous() ?: CompanySetup::dashboardUrl());
+        return $this->redirect(CompanySetup::wizardUrl());
     }
 
     /** Guarda el paso en el que está (valor acotado: nunca uno inexistente). */

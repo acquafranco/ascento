@@ -118,14 +118,12 @@ class AscensoresAppPanelProvider extends PanelProvider
                     : '',
             )
 
-            // Configuración inicial guiada de empresas nuevas (solo el dueño; ver CompanySetup).
+            // Configuración inicial pendiente (empresa nueva, solo el dueño): aviso
+            // en el inicio para retomar el asistente donde quedó (CompanySetupWizard).
             ->renderHook(
-                PanelsRenderHook::BODY_END,
-                fn (): string => \App\Services\Onboarding\CompanySetup::isActiveFor(auth()->user())
-                    ? Blade::render('@livewire(\App\Livewire\CompanySetupCoach::class, [\'routeName\' => $routeName])', [
-                        'routeName' => HelpTopics::currentRouteName(),
-                    ])
-                    : '',
+                PanelsRenderHook::PAGE_START,
+                fn (): string => view('filament.partials.setup-resume')->render(),
+                scopes: Dashboard::class,
             )
 
             // Ayuda contextual de cada pantalla: aparece hasta que el admin la
@@ -233,6 +231,8 @@ class AscensoresAppPanelProvider extends PanelProvider
                 AuthenticatePanel::class,
                 // El panel no pasa por el grupo «web»: segundo factor del SuperAdmin acá también (Etapa 11).
                 \App\Http\Middleware\EnsureSuperAdminTwoFactor::class,
+                // Empresa nueva: el asistente de configuración inicial se abre solo (CompanySetupWizard).
+                \App\Http\Middleware\OpenCompanySetup::class,
             ], isPersistent: true);
     }
 }

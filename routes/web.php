@@ -13,6 +13,7 @@ use App\Http\Controllers\HelpController;
 use App\Http\Controllers\InspectionReportController;
 use App\Http\Controllers\NotificationInboxController;
 use App\Http\Controllers\OnCallController;
+use App\Http\Controllers\ParachuteController;
 use App\Http\Controllers\ParachuteTestFileController;
 use App\Http\Controllers\Portal\PortalController;
 use App\Http\Controllers\Portal\PortalInvitationController;
@@ -267,6 +268,7 @@ Route::prefix('{company:slug}')
         */
 
         Route::get('/guardias', [OnCallController::class, 'index'])->name('on-call.index');
+        Route::get('/paracaidas', [ParachuteController::class, 'index'])->name('parachute.index');
 
         /*
         |--------------------------------------------------------------------------

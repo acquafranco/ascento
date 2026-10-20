@@ -33,7 +33,7 @@ class BuildingResource extends Resource
     protected static ?string $model = Building::class;
 
     protected static string|BackedEnum|null $navigationIcon =
-        Heroicon::OutlinedRectangleStack;
+        Heroicon::OutlinedBuildingOffice2;
 
     protected static ?int $navigationSort = 2;
 

@@ -60,57 +60,7 @@ class BuildingForm
             // Buscador: completa la dirección y deja el edificio ubicado en el
             // mapa al guardar (las coordenadas las pone el servidor, ver
             // AddressAutocomplete). Los campos de abajo siguen editables.
-            Select::make('address_search')
-                ->label('Buscar dirección')
-                ->placeholder('Escribí calle y altura. Ej: Cabildo 2040')
-                ->helperText('Elegí una opción y se completan los datos de abajo. Así el edificio aparece solo en el mapa.')
-                ->searchable()
-                ->searchDebounce(400)
-                ->searchPrompt('Escribí al menos 4 letras de la calle y la altura')
-                ->searchingMessage('Buscando…')
-                ->noSearchResultsMessage('No encontramos esa dirección. Podés cargarla a mano abajo.')
-                ->getSearchResultsUsing(fn (string $search): array => app(AddressAutocomplete::class)->search($search, CompanyContext::currentId()))
-                ->getOptionLabelUsing(fn ($value): ?string => app(AddressAutocomplete::class)->pick($value)['label'] ?? null)
-                ->live()
-                ->afterStateUpdated(function (?string $state, Set $set) {
-                    $pick = app(AddressAutocomplete::class)->pick($state);
-
-                    if (! $pick) {
-                        return;
-                    }
-
-                    foreach ($pick['fields'] as $field => $value) {
-                        $set($field, $value);
-                    }
-                })
-                ->dehydrated(false)
-                ->visible(fn (): bool => app(AddressAutocomplete::class)->isAvailable())
-                ->columnSpanFull(),
-
-            Grid::make(4)
-            ->columnSpanFull()
-            ->schema([
-
-                TextInput::make('name')
-                    ->label('Calle')
-                    ->required()
-                    ->columnSpan(2),
-
-
-                TextInput::make('address')
-                    ->label('Número')
-                    ->required()
-                    ->integer()
-                    ->inputMode('numeric')
-                    ->columnSpan(1),
-
-
-                TextInput::make('locality')
-                    ->label('Localidad')
-                    ->placeholder('Ej: Benavídez')
-                    ->columnSpan(1),
-
-            ]),
+            ...static::addressFields(),
 
 
             Grid::make(3)
@@ -199,76 +149,7 @@ class BuildingForm
             | borra: queda inactivo con su historial (se pide confirmación).
             */
 
-            Section::make('Ascensores y montacargas')
-                ->description('Indicá cuántos hay y elegí la tracción de cada uno. Sin al menos un equipo no se programan mantenimientos ni inspecciones.')
-                ->icon('heroicon-o-arrows-up-down')
-                ->columnSpanFull()
-                ->schema([
-                    Grid::make(2)->schema([
-                        TextInput::make('equipment_elevators')
-                            ->label('Ascensores')
-                            ->numeric()->integer()->minValue(0)->maxValue(50)
-                            ->inputMode('numeric')
-                            ->dehydrated(false)
-                            ->live(onBlur: true)
-                            ->afterStateHydrated(fn (Set $set, Get $get) => $set('equipment_elevators', self::countKind($get('equipment'), 'elevator')))
-                            ->afterStateUpdated(fn ($state, Get $get, Set $set) => self::resize($get, $set, 'elevator', (int) $state)),
-                        TextInput::make('equipment_freight')
-                            ->label('Montacargas')
-                            ->numeric()->integer()->minValue(0)->maxValue(50)
-                            ->inputMode('numeric')
-                            ->dehydrated(false)
-                            ->live(onBlur: true)
-                            ->afterStateHydrated(fn (Set $set, Get $get) => $set('equipment_freight', self::countKind($get('equipment'), 'freight')))
-                            ->afterStateUpdated(fn ($state, Get $get, Set $set) => self::resize($get, $set, 'freight', (int) $state)),
-                    ]),
-
-                    Repeater::make('equipment')
-                        ->label('Equipos')
-                        ->hiddenLabel()
-                        ->schema([
-                            Hidden::make('id'),
-                            Hidden::make('label'),
-                            Select::make('kind')
-                                ->label('Tipo de equipo')
-                                ->options(Elevator::KINDS)
-                                ->default('elevator')
-                                ->required()
-                                ->native(false)
-                                // El tipo de un equipo ya registrado no cambia: su nombre es historial.
-                                ->disabled(fn (Get $get) => filled($get('id')))
-                                ->dehydrated()
-                                ->live(),
-                            Select::make('machine_type')
-                                ->label('Tracción')
-                                ->options(Elevator::MACHINE_TYPES)
-                                ->placeholder('Sin especificar')
-                                ->native(false)
-                                // Obligatoria en equipos nuevos; los existentes pueden seguir sin dato.
-                                ->required(fn (Get $get) => blank($get('id')))
-                                ->validationMessages(['required' => 'Elegí la tracción del equipo.'])
-                                ->in(array_keys(Elevator::MACHINE_TYPES)),
-                        ])
-                        ->columns(2)
-                        ->itemLabel(fn (array $state) => filled($state['label'] ?? null)
-                            ? $state['label'].(blank($state['machine_type'] ?? null) ? ' · tracción sin especificar' : '')
-                            : 'Nuevo '.mb_strtolower(Elevator::KINDS[$state['kind'] ?? 'elevator'] ?? 'equipo'))
-                        ->addActionLabel('Agregar equipo')
-                        ->reorderable(false)
-                        ->defaultItems(0)
-                        ->minItems(fn (?Building $record) => $record === null || $record->hasEquipment() ? 1 : 0)
-                        ->validationMessages(['min' => 'Registrá al menos un ascensor o montacargas.'])
-                        ->deleteAction(fn (Action $action) => $action
-                            ->requiresConfirmation()
-                            ->modalHeading('¿Quitar este equipo?')
-                            ->modalDescription('Si ya estaba registrado, no se borra: queda inactivo con su historial (reportes, órdenes, documentos). Se aplica al guardar el edificio.')
-                            ->modalSubmitActionLabel('Quitar'))
-                        ->live()
-                        ->afterStateUpdated(function (Get $get, Set $set) {
-                            $set('equipment_elevators', self::countKind($get('equipment'), 'elevator'));
-                            $set('equipment_freight', self::countKind($get('equipment'), 'freight'));
-                        }),
-                ]),
+            static::equipmentSection(),
 
             // Zona / sector (texto libre del admin): filtro del mapa.
             TextInput::make('map_zone')
@@ -309,6 +190,162 @@ class BuildingForm
     }
 
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | PIEZAS COMPARTIDAS con la configuración inicial guiada (CompanySetupWizard)
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Buscador de dirección, calle, número y localidad.
+     *
+     * @return list<\Filament\Schemas\Components\Component|\Filament\Forms\Components\Field>
+     */
+    public static function addressFields(): array
+    {
+        return [
+            Select::make('address_search')
+                ->label('Buscar dirección')
+                ->placeholder('Escribí calle y altura. Ej: Cabildo 2040')
+                ->helperText('Elegí una opción y se completan los datos de abajo. Así el edificio aparece solo en el mapa.')
+                ->searchable()
+                ->searchDebounce(400)
+                ->searchPrompt('Escribí al menos 4 letras de la calle y la altura')
+                ->searchingMessage('Buscando…')
+                ->noSearchResultsMessage('No encontramos esa dirección. Podés cargarla a mano abajo.')
+                ->getSearchResultsUsing(fn (string $search): array => app(AddressAutocomplete::class)->search($search, CompanyContext::currentId()))
+                ->getOptionLabelUsing(fn ($value): ?string => app(AddressAutocomplete::class)->pick($value)['label'] ?? null)
+                ->live()
+                ->afterStateUpdated(function (?string $state, Set $set) {
+                    $pick = app(AddressAutocomplete::class)->pick($state);
+
+                    if (! $pick) {
+                        return;
+                    }
+
+                    foreach ($pick['fields'] as $field => $value) {
+                        $set($field, $value);
+                    }
+                })
+                ->dehydrated(false)
+                ->visible(fn (): bool => app(AddressAutocomplete::class)->isAvailable())
+                ->columnSpanFull(),
+
+            Grid::make(4)
+            ->columnSpanFull()
+            ->schema([
+
+                TextInput::make('name')
+                    ->label('Calle')
+                    ->required()
+                    ->columnSpan(2),
+
+
+                TextInput::make('address')
+                    ->label('Número')
+                    ->required()
+                    ->integer()
+                    ->inputMode('numeric')
+                    ->columnSpan(1),
+
+
+                TextInput::make('locality')
+                    ->label('Localidad')
+                    ->placeholder('Ej: Benavídez')
+                    ->columnSpan(1),
+
+            ]),
+        ];
+    }
+
+    /** Ascensores y montacargas: cantidad y tracción de cada uno. */
+    public static function equipmentSection(): Section
+    {
+        return Section::make('Ascensores y montacargas')
+        ->description('Indicá cuántos hay y elegí la tracción de cada uno. Sin al menos un equipo no se programan mantenimientos ni inspecciones.')
+        ->icon('heroicon-o-arrows-up-down')
+        ->columnSpanFull()
+        ->schema([
+            Grid::make(2)->schema([
+                TextInput::make('equipment_elevators')
+                    ->label('Ascensores')
+                    ->numeric()->integer()->minValue(0)->maxValue(50)
+                    ->inputMode('numeric')
+                    ->dehydrated(false)
+                    ->live(onBlur: true)
+                    ->afterStateHydrated(fn (Set $set, Get $get) => $set('equipment_elevators', self::countKind($get('equipment'), 'elevator')))
+                    ->afterStateUpdated(fn ($state, Get $get, Set $set) => self::resize($get, $set, 'elevator', (int) $state)),
+                TextInput::make('equipment_freight')
+                    ->label('Montacargas')
+                    ->numeric()->integer()->minValue(0)->maxValue(50)
+                    ->inputMode('numeric')
+                    ->dehydrated(false)
+                    ->live(onBlur: true)
+                    ->afterStateHydrated(fn (Set $set, Get $get) => $set('equipment_freight', self::countKind($get('equipment'), 'freight')))
+                    ->afterStateUpdated(fn ($state, Get $get, Set $set) => self::resize($get, $set, 'freight', (int) $state)),
+            ]),
+
+            Repeater::make('equipment')
+                ->label('Equipos')
+                ->hiddenLabel()
+                ->schema([
+                    Hidden::make('id'),
+                    Hidden::make('label'),
+                    Select::make('kind')
+                        ->label('Tipo de equipo')
+                        ->options(Elevator::KINDS)
+                        ->default('elevator')
+                        ->required()
+                        ->native(false)
+                        // El tipo de un equipo ya registrado no cambia: su nombre es historial.
+                        ->disabled(fn (Get $get) => filled($get('id')))
+                        ->dehydrated()
+                        ->live(),
+                    Select::make('machine_type')
+                        ->label('Tracción')
+                        ->options(Elevator::MACHINE_TYPES)
+                        ->placeholder('Sin especificar')
+                        ->native(false)
+                        // Obligatoria en equipos nuevos; los existentes pueden seguir sin dato.
+                        ->required(fn (Get $get) => blank($get('id')))
+                        ->validationMessages(['required' => 'Elegí la tracción del equipo.'])
+                        ->in(array_keys(Elevator::MACHINE_TYPES)),
+                ])
+                ->columns(2)
+                ->itemLabel(fn (array $state) => filled($state['label'] ?? null)
+                    ? $state['label'].(blank($state['machine_type'] ?? null) ? ' · tracción sin especificar' : '')
+                    : 'Nuevo '.mb_strtolower(Elevator::KINDS[$state['kind'] ?? 'elevator'] ?? 'equipo'))
+                ->addActionLabel('Agregar equipo')
+                ->reorderable(false)
+                ->defaultItems(0)
+                ->minItems(fn (?Building $record) => $record === null || $record->hasEquipment() ? 1 : 0)
+                ->validationMessages(['min' => 'Registrá al menos un ascensor o montacargas.'])
+                ->deleteAction(fn (Action $action) => $action
+                    ->requiresConfirmation()
+                    ->modalHeading('¿Quitar este equipo?')
+                    ->modalDescription('Si ya estaba registrado, no se borra: queda inactivo con su historial (reportes, órdenes, documentos). Se aplica al guardar el edificio.')
+                    ->modalSubmitActionLabel('Quitar'))
+                ->live()
+                ->afterStateUpdated(function (Get $get, Set $set) {
+                    $set('equipment_elevators', self::countKind($get('equipment'), 'elevator'));
+                    $set('equipment_freight', self::countKind($get('equipment'), 'freight'));
+                }),
+        ]);
+    }
+
+    /**
+     * Después de crear el edificio: sus equipos (con su tracción) y la
+     * ubicación elegida en el buscador. Lo usan el alta del panel y la
+     * configuración inicial guiada.
+     */
+    public static function afterCreate(Building $building, array $equipment, ?string $addressSearch): void
+    {
+        Elevator::syncFromForm($building, array_values($equipment));
+        $building->refresh();
+
+        app(AddressAutocomplete::class)->applyToBuilding($building, $addressSearch);
+    }
 
     private static function countKind(?array $items, string $kind): int
     {

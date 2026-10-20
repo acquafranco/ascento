@@ -8,9 +8,11 @@ use App\Models\Building;
 use App\Models\BuildingVisit;
 use App\Models\Company;
 use App\Models\DeliveryNote;
+use App\Models\ParachuteTest;
 use App\Models\StockItem;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderMaterial;
+use App\Services\Parachute\ParachuteService;
 use App\Services\Visits\VisitPhotoService;
 use App\Services\Visits\VisitSchedule;
 use App\Services\Visits\VisitService;
@@ -209,6 +211,8 @@ class DeliveryNoteController extends Controller
                 ],
                 // Identidad del formulario (se conserva si vuelve con errores).
                 'submissionToken' => Str::isUuid((string) old('submission_token')) ? (string) old('submission_token') : (string) Str::uuid(),
+                // Prueba de paracaídas que se puede dejar registrada en este remito (opcional).
+                'parachuteRows' => app(ParachuteService::class)->registrableInDeliveryNote(auth()->user(), $building, null, $type),
             ]
         );
     }
@@ -257,6 +261,7 @@ class DeliveryNoteController extends Controller
                 'assignmentType' => $workOrder->type === 'inspection'
                     ? 'inspection'
                     : 'maintenance',
+                'parachuteRows' => app(ParachuteService::class)->registrableInDeliveryNote($user, $workOrder->building, $workOrder, 'work_order'),
             ]
         );
     }
@@ -302,6 +307,10 @@ class DeliveryNoteController extends Controller
                 'materials.*.quantity' => 'required|numeric|gt:0|max:99999|decimal:0,2',
                 // Identidad del formulario: un reenvío del mismo remito no crea otra visita.
                 'submission_token' => 'nullable|uuid',
+                // Prueba de paracaídas (opcional): ascensor => resultado; vacío = no se hizo.
+                // Qué ascensores puede registrar quien firma lo decide ParachuteService.
+                'parachute' => 'nullable|array|max:100',
+                'parachute.*' => ['nullable', Rule::in(array_keys(ParachuteTest::RESULTS))],
                 'participants' => 'nullable|array|max:20',
                 // Los participantes tienen que ser de la MISMA empresa.
                 'participants.*' => [
@@ -516,6 +525,10 @@ class DeliveryNoteController extends Controller
                 'client_signature' => $request->client_signature,
                 'client_signature_name' => $request->client_signature_name,
             ]);
+
+            // Prueba de paracaídas que el técnico declaró (si la hizo): queda
+            // registrada con este remito. Un error deshace todo el remito.
+            app(ParachuteService::class)->recordFromDeliveryNote(auth()->user(), $deliveryNote, $building, $workOrder, (array) $request->input('parachute', []));
 
             // Fotos de la visita (cargadas desde Visitas): quedan también de este remito.
             if ($visit) {

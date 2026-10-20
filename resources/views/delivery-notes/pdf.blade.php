@@ -97,6 +97,20 @@
         </div>
     @endif
 
+    @if ($doc['parachute'] ?? [])
+        <div class="box">
+            <div class="label" style="margin-bottom: 4px;">Prueba de paracaídas</div>
+            <table>
+                @foreach ($doc['parachute'] as $test)
+                    <tr class="keep" style="border-top: 1px solid #F1F2F5;">
+                        <td style="padding: 4px 0;">{{ $test['elevator'] }}</td>
+                        <td style="padding: 4px 0; text-align: right; font-weight: bold; white-space: nowrap;">{{ $test['result'] }}</td>
+                    </tr>
+                @endforeach
+            </table>
+        </div>
+    @endif
+
     @if ($doc['participants'])
         <div class="box keep">
             <div class="label" style="margin-bottom: 4px;">Técnicos participantes</div>

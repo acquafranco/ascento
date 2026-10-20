@@ -107,7 +107,7 @@ class ClientImportTest extends TestCase
         $this->assertSame('1145678900', Client::withoutGlobalScopes()->where('name', 'Cliente Bueno')->sole()->phone);
     }
 
-    public function test_the_template_has_the_four_columns_and_is_readable(): void
+    public function test_the_template_has_the_five_columns_and_is_readable(): void
     {
         $response = $this->page()->call('downloadTemplate');
         $response->assertFileDownloaded('plantilla-clientes.xlsx');
@@ -115,8 +115,8 @@ class ClientImportTest extends TestCase
         $path = tempnam(sys_get_temp_dir(), 'tpl');
         file_put_contents($path, $content);
         $read = app(ClientImport::class)->read($path, 'plantilla.xlsx');
-        $this->assertSame(['nombre', 'persona_contacto', 'telefono', 'email'], $read['headers']);
-        $this->assertSame(['name' => 0, 'contact_person' => 1, 'phone' => 2, 'email' => 3], app(ClientImport::class)->guessMapping($read['headers']));
+        $this->assertSame(['nombre', 'persona_contacto', 'telefono', 'email', 'notas'], $read['headers']);
+        $this->assertSame(['name' => 0, 'contact_person' => 1, 'phone' => 2, 'email' => 3, 'notes' => 4], app(ClientImport::class)->guessMapping($read['headers']));
     }
 
     public function test_empty_invalid_or_oversized_files_are_refused(): void
@@ -242,5 +242,57 @@ class ClientImportTest extends TestCase
         $again = $this->page()->set('file', $this->csv("nombre\nCliente Único\n"))->call('analyzeFile');
         $this->assertSame([], $again->get('selected'));
         $this->assertNotSame($token, $again->get('token'));
+    }
+    private function cachedRows($page)
+    {
+        return collect(\Illuminate\Support\Facades\Cache::get('client-import:'.$this->a['company']->id.':'.$this->a['admin']->id.':'.$page->get('token'))['rows'])->keyBy('line');
+    }
+
+    public function test_a_client_that_already_exists_is_never_imported_even_if_it_arrives_ticked(): void
+    {
+        $this->actingAs($this->a['admin']);
+        Client::create(['name' => 'Consorcio Avenida', 'email' => 'avenida@test.com', 'type' => 'consorcio']);
+        $before = $this->clientCount();
+
+        $page = $this->page()->set('file', $this->csv("nombre,email\nOtro Nombre,avenida@test.com\nCliente Nuevo,nuevo@test.com\nCliente Nuevo,nuevo@test.com\n"))->call('analyzeFile')
+            ->assertSee('Ya existe (no se importa)')
+            // Sin casilla para los que ya existen.
+            ->assertDontSeeHtml('aria-label="Importar la fila 2"')->assertDontSeeHtml('aria-label="Importar la fila 4"')
+            ->call('selectAll')->assertSet('selected', [3]);
+
+        // Aunque el navegador mande las filas tildadas, no se importan.
+        $page->set('selected', [2, 3, 4])->call('confirm')->assertSee('1 importados');
+        $this->assertSame($before + 1, $this->clientCount());
+        $this->assertSame(1, Client::withoutGlobalScopes()->where('company_id', $this->a['company']->id)->where('email', 'avenida@test.com')->count());
+        $this->assertSame(1, Client::withoutGlobalScopes()->where('company_id', $this->a['company']->id)->where('email', 'nuevo@test.com')->count());
+    }
+
+    public function test_a_client_created_between_the_preview_and_the_confirmation_is_skipped_not_duplicated(): void
+    {
+        $page = $this->page()->set('file', $this->csv("nombre,email\nConsorcio Tardío,tardio@test.com\nCliente Nuevo,\n"))->call('analyzeFile')
+            ->assertSet('selected', [2, 3]);
+
+        // Otra persona de la empresa lo carga a mano mientras tanto.
+        $this->actingAs($this->a['admin']);
+        Client::create(['name' => 'Consorcio Tardío', 'email' => 'tardio@test.com', 'type' => 'consorcio']);
+        $this->actingInPanel($this->a['admin']->fresh());
+
+        $page->call('confirm')->assertSee('1 importados')->assertSee('1 omitidos')->assertSee('Ya tenés a «Consorcio Tardío»');
+        $this->assertSame(1, Client::withoutGlobalScopes()->where('company_id', $this->a['company']->id)->where('email', 'tardio@test.com')->count());
+    }
+
+    public function test_notes_are_imported_and_columns_that_are_not_imported_are_announced(): void
+    {
+        $page = $this->page()->set('file', $this->csv("nombre;observaciones;direccion;cuit\nConsorcio Notas;Paga por transferencia;Av. Siempre Viva 742;30-12345678-9\n"))->call('analyzeFile')
+            ->assertSet('step', 'preview')
+            ->assertSee('Estas columnas del archivo no se importan')->assertSee('direccion, cuit');
+        $this->assertSame('Paga por transferencia', $this->cachedRows($page)[2]['data']['notes']);
+
+        $page->call('confirm');
+        $this->assertSame('Paga por transferencia', Client::withoutGlobalScopes()->where('name', 'Consorcio Notas')->sole()->notes);
+
+        // Notas demasiado largas: error en la fila, no se corta el texto.
+        $page = $this->page()->set('file', $this->csv("nombre,notas\nLargo,".str_repeat('a', 5001)."\n"))->call('analyzeFile');
+        $this->assertSame(['Notas: es demasiado largo.'], $this->cachedRows($page)[2]['errors']);
     }
 }

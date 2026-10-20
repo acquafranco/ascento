@@ -72,15 +72,15 @@ final class PanelGuides
             ]),
 
             $a('primeros-pasos', 'setup', 'La configuración inicial guiada', 'Para empresas nuevas: de los datos de tu empresa a tu primera orden de trabajo, paso a paso.', [
-                'Al registrarte se abre sola una bienvenida. Tocá «Empezar».',
-                'Un panel abajo a la derecha te indica el paso actual y te lleva al formulario de siempre: tus datos, un técnico, un cliente, un edificio con sus ascensores y una orden asignada al técnico.',
-                'Cada paso se marca solo cuando guardás el registro real.',
-                'Al final ves cómo le aparece la orden al técnico y te felicitamos.',
+                'Al registrarte se abre sola, en una pantalla propia. Tocá «Empezar».',
+                'Completás cada paso ahí mismo, con pocos datos por pantalla: tu empresa (datos, logo y color), tu primer técnico, tu primer cliente, un edificio con sus ascensores y tu primera orden, asignada a ese técnico.',
+                'Cada paso se guarda al tocar «Continuar». Con «Volver» revisás el anterior sin perder nada.',
+                'Al final ves el resumen y vas al inicio.',
             ], [
                 'after' => 'Después sigue la ayuda de inicio con los próximos pasos (agenda, servicios, portal, QR y guardias, según tu plan).',
-                'notes' => ['Con «Pausar» la cerrás hasta tu próxima sesión, sin perder lo hecho. Si la omitiste, la retomás desde «Ayuda» o el botón «?».', 'Se guarda por empresa y solo la usa el dueño de la cuenta.'],
+                'notes' => ['Con «Seguir después» salís cuando quieras: en el inicio queda el aviso «Terminá de configurar tu empresa» para seguir donde la dejaste. Si la omitiste, la retomás desde «Ayuda» o el botón «?».', 'Si ya cargaste un técnico, un cliente o un edificio desde el menú, el paso queda hecho y no se repite.', 'Se guarda por empresa y solo la usa el dueño de la cuenta.'],
                 'related' => ['start', 'nav'],
-                'keywords' => ['configuracion inicial', 'onboarding', 'primeros pasos', 'empezar', 'guia', 'tutorial'],
+                'keywords' => ['configuracion inicial', 'onboarding', 'primeros pasos', 'empezar', 'guia', 'tutorial', 'asistente'],
                 'owner' => true,
             ]),
 
@@ -641,7 +641,7 @@ final class PanelGuides
                 'Indicá cuántos «Técnicos a la vez» cubren y la «Modalidad»: manual o rotativa.',
                 'Si querés, escribí «Indicaciones para los técnicos».',
             ], [
-                'after' => 'La guardia queda creada sin técnicos: asignalos con «Asignar técnico» o configurá la rotación.',
+                'after' => 'La guardia queda creada sin técnicos: asignalos con «Asignar guardia» (arriba, en Guardias) o configurá la rotación.',
                 'notes' => ['Una vez que la guardia tuvo turnos, el horario no se cambia (el historial depende de él). Para otro horario, finalizala y creá una nueva.', 'Las guardias organizan la cobertura: no despachan trabajos solas ni liquidan horas.'],
                 'related' => ['on_call_assign', 'on_call_replace', 'on_call_query'],
                 'keywords' => ['guardia', 'turno', 'fuera de horario', 'noche', 'fin de semana', 'cobertura'],
@@ -651,8 +651,8 @@ final class PanelGuides
             ]),
 
             $a('guardias', 'on_call_assign', 'Cómo asignar técnicos a una guardia', 'Por período, de forma permanente o en rotación.', [
-                'Abrí la guardia y, en «Turnos», tocá «Asignar técnico».',
-                'Por período: elegí el técnico, «Desde» y «Hasta» (una semana, un feriado, unas vacaciones).',
+                'En «Operaciones → Guardias», tocá «Asignar guardia» (o «Asignar» al lado de una franja sin técnico).',
+                'Elegí la guardia y el técnico. Por período: indicá «Desde» y «Hasta» (una semana, un feriado, unas vacaciones).',
                 'Permanente: dejá «Hasta» vacío. Se termina con «Finalizar».',
                 'Rotativa: en la guardia, cargá los «Técnicos de la rotación (en orden)», la «Duración de cada turno (días)» y «La rotación empieza el». Ascento genera los turnos de las próximas semanas.',
             ], [
@@ -665,9 +665,9 @@ final class PanelGuides
             ]),
 
             $a('guardias', 'on_call_replace', 'Cómo reemplazar a un técnico durante una guardia', 'Cuando alguien no puede cubrir todo o parte de su turno.', [
-                'Abrí la guardia y, en «Turnos», buscá el turno del técnico.',
-                'Tocá «Cambiar técnico».',
+                'En «Operaciones → Guardias», tocá «Reemplazar» al lado del técnico (en «De guardia ahora» o «Después»), o «Reemplazar técnico» arriba y elegí el turno.',
                 'Elegí quién «Lo cubre», desde cuándo y hasta cuándo (vacío = hasta el fin del turno), y el «Motivo».',
+                'También podés hacerlo desde la guardia, en «Turnos», con «Cambiar técnico».',
             ], [
                 'after' => 'El turno original queda como modificado y se crean el reemplazo y, si corresponde, los tramos de antes y después. Los dos técnicos reciben el aviso y el cambio queda en «Historial de cambios».',
                 'notes' => ['Lo que ya pasó no se modifica: un cambio empieza ahora o más adelante.', 'Para un turno que todavía no empezó también podés usar «Cancelar»: ese período queda sin técnico y se ve como hueco.'],
@@ -678,9 +678,9 @@ final class PanelGuides
             ]),
 
             $a('guardias', 'on_call_query', 'Cómo saber quién está de guardia', 'Ahora, en una fecha puntual y los huecos sin cobertura.', [
-                'Entrá a «Operaciones → Guardias». Arriba ves quién está de guardia ahora.',
-                'Usá «¿Quién está de guardia el…?» para consultar cualquier fecha y hora.',
-                'En la lista, la columna de huecos muestra los períodos sin cobertura de los próximos 14 días.',
+                'Entrá a «Operaciones → Guardias». Arriba ves quién está de guardia ahora y quién sigue después.',
+                'Si alguna franja de los próximos 7 días no tiene técnico, aparece en rojo con «Asignar».',
+                'Para otra fecha, abrí «Calendario de los próximos 14 días»: ahí está «¿Quién está de guardia el…?».',
             ], [
                 'notes' => ['Un técnico está de guardia cuando tiene un turno vigente y el horario de la guardia cubre ese momento. Las horas son las de Argentina.'],
                 'related' => ['on_call', 'on_call_work', 'fix_on_call_none'],
@@ -897,7 +897,7 @@ final class PanelGuides
 
             $a('problemas', 'fix_on_call_none', 'Nadie figura de guardia', 'Hay un hueco en la cobertura.', [
                 'Abrí la guardia y revisá los «Turnos»: puede que el turno haya terminado, se haya cancelado o que la rotación no tenga técnicos disponibles.',
-                'Asigná a alguien con «Asignar técnico» para ese período.',
+                'Asigná a alguien con «Asignar guardia» (o «Asignar» al lado de la franja sin técnico) para ese período.',
             ], ['related' => ['on_call_query', 'on_call_assign'], 'keywords' => ['guardia', 'nadie', 'hueco', 'sin cobertura'], 'feature' => Feature::OnCall, 'area' => Area::OnCall]),
 
             /* ======================= SUPERADMIN ======================= */

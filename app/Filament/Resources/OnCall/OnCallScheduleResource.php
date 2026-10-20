@@ -53,7 +53,7 @@ class OnCallScheduleResource extends Resource
 
     protected static ?string $model = OnCallSchedule::class;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-shield-check';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-phone';
 
     protected static ?string $navigationLabel = 'Guardias';
 
@@ -133,11 +133,10 @@ class OnCallScheduleResource extends Resource
     {
         $service = fn () => app(OnCallService::class);
 
+        // Arriba lo que se consulta siempre (ahora, después, lo que falta);
+        // la configuración de la guardia, plegada.
         return $schema->components([
-            Section::make('Cobertura')->columnSpanFull()->columns(['default' => 1, 'md' => 3])->schema([
-                TextEntry::make('coverage')->label('Horario')->state(fn (OnCallSchedule $r) => $r->coverageLabel()),
-                TextEntry::make('mode')->label('Modalidad')->state(fn (OnCallSchedule $r) => $r->modeLabel()),
-                TextEntry::make('technicians_needed')->label('Técnicos a la vez'),
+            Section::make('Cobertura')->columnSpanFull()->columns(['default' => 1, 'md' => 2])->schema([
                 TextEntry::make('now')->label('De guardia ahora')
                     ->state(function (OnCallSchedule $r) use ($service) {
                         if (! $r->covers(now())) {
@@ -147,19 +146,18 @@ class OnCallScheduleResource extends Resource
 
                         return $names->isEmpty() ? 'Sin cobertura' : $names->implode(', ');
                     })
-                    ->color(fn ($state) => $state === 'Sin cobertura' ? 'danger' : null)->weight('bold'),
-                TextEntry::make('next')->label('Próxima franja')
+                    ->color(fn ($state) => $state === 'Sin cobertura' ? 'danger' : null)->weight('bold')->size('lg'),
+                TextEntry::make('next')->label('Después')
                     ->state(function (OnCallSchedule $r) use ($service) {
-                        $window = $r->is_active ? $r->nextWindow(now()) : null;
+                        $window = $r->is_active ? $r->nextWindow($r->currentWindow(now())[1] ?? now()) : null;
                         if (! $window) {
                             return '—';
                         }
                         $names = $service()->shiftsAt($r, $window[0])->map(fn (OnCallShift $s) => $s->user->name);
 
-                        return $window[0]->translatedFormat('D d/m H:i').' a '.$window[1]->translatedFormat('D d/m H:i').' · '.($names->isEmpty() ? 'sin técnico' : $names->implode(', '));
-                    }),
-                TextEntry::make('is_active')->label('Estado')->state(fn (OnCallSchedule $r) => $r->is_active ? 'Activa' : 'Finalizada')
-                    ->badge()->color(fn ($state) => $state === 'Activa' ? 'success' : 'gray'),
+                        return ($names->isEmpty() ? 'Sin técnico' : $names->implode(', ')).' · '.$window[0]->translatedFormat('D d/m H:i').' a '.$window[1]->translatedFormat('D d/m H:i');
+                    })
+                    ->color(fn ($state) => str_starts_with((string) $state, 'Sin técnico') ? 'danger' : null),
                 TextEntry::make('gaps')->label('Sin cobertura en los próximos 14 días')->columnSpanFull()
                     ->state(function (OnCallSchedule $r) use ($service) {
                         $gaps = $service()->gaps($r, now(), now()->addDays(14));
@@ -169,8 +167,17 @@ class OnCallScheduleResource extends Resource
                             ->implode(' · ').(count($gaps) > 8 ? ' · y '.(count($gaps) - 8).' más' : '');
                     })
                     ->color(fn ($state) => str_starts_with((string) $state, 'Ninguno') ? 'success' : 'danger'),
-                TextEntry::make('notes')->label('Indicaciones')->columnSpanFull()->placeholder('—'),
+                TextEntry::make('notes')->label('Indicaciones para los técnicos')->columnSpanFull()->placeholder('—'),
             ]),
+            Section::make('Configuración')->columnSpanFull()->columns(['default' => 1, 'md' => 4])->collapsible()->collapsed()
+                ->description('Horario, modalidad y cuántos técnicos cubren a la vez. Para cambiarla, «Editar».')
+                ->schema([
+                    TextEntry::make('coverage')->label('Horario')->state(fn (OnCallSchedule $r) => $r->coverageLabel()),
+                    TextEntry::make('mode')->label('Modalidad')->state(fn (OnCallSchedule $r) => $r->modeLabel()),
+                    TextEntry::make('technicians_needed')->label('Técnicos a la vez'),
+                    TextEntry::make('is_active')->label('Estado')->state(fn (OnCallSchedule $r) => $r->is_active ? 'Activa' : 'Finalizada')
+                        ->badge()->color(fn ($state) => $state === 'Activa' ? 'success' : 'gray'),
+                ]),
         ]);
     }
 
@@ -179,11 +186,13 @@ class OnCallScheduleResource extends Resource
         $service = fn () => app(OnCallService::class);
 
         return $table
+            ->heading('Guardias configuradas')
+            ->description('Abrí una guardia para ver sus turnos, el historial de cambios y los trabajos, o para cambiar su horario.')
             ->defaultSort('name')
             ->columns([
                 TextColumn::make('name')->label('Guardia')->searchable()->sortable()->weight('bold')
                     ->description(fn (OnCallSchedule $r) => $r->coverageLabel())->wrap(),
-                TextColumn::make('mode')->label('Modalidad')->state(fn (OnCallSchedule $r) => $r->modeLabel())->toggleable(),
+                TextColumn::make('mode')->label('Modalidad')->state(fn (OnCallSchedule $r) => $r->modeLabel())->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('on_duty')->label('De guardia ahora')
                     ->state(function (OnCallSchedule $r) use ($service) {
                         if (! $r->covers(now())) {
@@ -199,7 +208,7 @@ class OnCallScheduleResource extends Resource
                 TextColumn::make('gaps_count')->label('Huecos (14 días)')->alignCenter()
                     ->state(fn (OnCallSchedule $r) => count($service()->gaps($r, now(), now()->addDays(14))))
                     ->color(fn ($state) => $state ? 'danger' : 'success'),
-                IconColumn::make('is_active')->label('Activa')->boolean(),
+                IconColumn::make('is_active')->label('Activa')->boolean()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 TernaryFilter::make('is_active')->label('Activa')->default(true),

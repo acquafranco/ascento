@@ -112,7 +112,7 @@ class ParachuteTestResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['elevator:id,label', 'building:id,name', 'performedBy:id,name'])->withCount('files'))
+            ->modifyQueryUsing(fn ($query) => $query->with(['elevator:id,label', 'building:id,name', 'performedBy:id,name', 'deliveryNote:id,number,company_id'])->withCount('files'))
             ->defaultSort('performed_on', 'desc')
             ->columns([
                 TextColumn::make('performed_on')->label('Fecha')->date('d/m/Y')->sortable(),
@@ -122,6 +122,7 @@ class ParachuteTestResource extends Resource
                     ->color(fn ($state) => $state === ParachuteTest::SATISFACTORY ? 'success' : 'danger'),
                 TextColumn::make('performer')->label('La realizó')->state(fn (ParachuteTest $record) => $record->performerName())->placeholder('—'),
                 TextColumn::make('inspector_name')->label('Inspector')->placeholder('—')->toggleable(),
+                TextColumn::make('deliveryNote.number')->label('Remito')->placeholder('Panel')->toggleable(),
                 TextColumn::make('files_count')->label('Archivos')->toggleable(),
             ])
             ->filters([

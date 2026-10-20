@@ -33,11 +33,24 @@
     @if($onCallNow)
         <a href="{{ route('on-call.index', ['company' => $slug]) }}" data-on-call-banner
            class="mb-4 flex items-center gap-3 rounded-2xl border-2 border-brand bg-brand-50 px-4 py-3">
-            <svg class="h-6 w-6 shrink-0 text-brand-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{!! TechNav::icon('shield') !!}</svg>
+            <svg class="h-6 w-6 shrink-0 text-brand-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{!! TechNav::icon('phone') !!}</svg>
             <span class="min-w-0 flex-1">
                 <span class="block font-semibold text-ink">Estás de guardia: {{ $onCallNow['schedule']->name }}</span>
                 <span class="block text-sm text-ink-700">Hasta {{ ucfirst($onCallNow['until']->translatedFormat('D d/m H:i')) }}</span>
             </span>
+        </a>
+    @endif
+
+    {{-- Pruebas de paracaídas que corresponde hacer (vencidas, no satisfactorias o próximas). --}}
+    @if($parachuteDue['total'] > 0)
+        <a href="{{ route('parachute.index', ['company' => $slug]) }}" data-parachute-banner
+           class="mb-4 flex items-center gap-3 rounded-2xl border {{ $parachuteDue['urgent'] ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50' }} px-4 py-3">
+            <svg class="h-6 w-6 shrink-0 {{ $parachuteDue['urgent'] ? 'text-red-700' : 'text-amber-700' }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{!! TechNav::icon('shield') !!}</svg>
+            <span class="min-w-0 flex-1">
+                <span class="block font-semibold text-ink">Pruebas de paracaídas: {{ $parachuteDue['total'] }} para hacer</span>
+                <span class="block text-sm text-ink-700">{{ collect([$parachuteDue['overdue'] ? $parachuteDue['overdue'].' vencidas' : null, $parachuteDue['failed'] ? $parachuteDue['failed'].' no satisfactorias' : null, $parachuteDue['upcoming'] ? $parachuteDue['upcoming'].' próximas' : null])->filter()->implode(' · ') }}</span>
+            </span>
+            <svg class="h-5 w-5 shrink-0 text-ink-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">{!! TechNav::icon('chevron') !!}</svg>
         </a>
     @endif
 

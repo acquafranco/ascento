@@ -31,7 +31,7 @@ class DeliveryNoteResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon =
 
-        Heroicon::OutlinedRectangleStack;
+        Heroicon::OutlinedDocumentCheck;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Operaciones';
 

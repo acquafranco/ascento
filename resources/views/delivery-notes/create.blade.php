@@ -60,8 +60,9 @@
             @endif
         </section>
     @endif
+    {{-- Borrador por trabajo: una orden, o un tipo de visita de UN período (un borrador viejo de otro mes no se recupera en este remito). --}}
     <form method="POST" action="{{ route('delivery-notes.store', ['company' => auth()->user()->company->slug]) }}" id="remito-form" class="space-y-4"
-          data-draft="remito.{{ auth()->id() }}.{{ $building->id }}.{{ $workOrder ? 'ot'.$workOrder->id : $assignmentType }}" @if($errors->any()) data-draft-restore="off" @endif>
+          data-draft="remito.{{ auth()->id() }}.{{ $building->id }}.{{ $workOrder ? 'ot'.$workOrder->id : $assignmentType.'.'.$year.'-'.$month }}" @if($errors->any()) data-draft-restore="off" @endif>
         @csrf
         @include('partials.draft-notice', ['media' => 'Las firmas y los materiales se vuelven a cargar.'])
         @if($workOrder)
@@ -208,6 +209,43 @@
             </section>
         @endif
 
+
+        {{-- Prueba de paracaídas (opcional): solo se registra la que el técnico elige; «No se hizo» no crea nada. --}}
+        @if(($parachuteRows ?? collect())->isNotEmpty())
+            @php
+                $parachuteStatus = fn (array $row) => match ($row['status']) {
+                    \App\Services\Parachute\ParachuteService::OVERDUE => ['Vencida desde el '.$row['next_due']->format('d/m/Y'), 'text-red-700'],
+                    \App\Services\Parachute\ParachuteService::UPCOMING => ['Prevista para el '.$row['next_due']->format('d/m/Y'), 'text-amber-700'],
+                    \App\Services\Parachute\ParachuteService::FAILED => ['La última no fue satisfactoria', 'text-red-700'],
+                    \App\Services\Parachute\ParachuteService::NO_RECORD => ['Sin pruebas registradas', 'text-ink-500'],
+                    \App\Services\Parachute\ParachuteService::UNCONFIGURED => ['Sin periodicidad definida por la oficina', 'text-ink-500'],
+                    default => ['Al día'.($row['next_due'] ? ' · próxima: '.$row['next_due']->format('d/m/Y') : ''), 'text-emerald-700'],
+                };
+            @endphp
+            <section class="t-card space-y-3 p-4" data-remito-parachute-form>
+                <div>
+                    <h2 class="font-semibold text-ink">Prueba de paracaídas</h2>
+                    <p class="text-xs text-ink-500">Completalo solo si hiciste la prueba en esta visita. Queda registrada con la fecha de hoy, a tu nombre y en este remito.</p>
+                </div>
+                @foreach($parachuteRows as $row)
+                    @php([$label, $tone] = $parachuteStatus($row))
+                    <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-ink-100 bg-ink-50/60 px-4 py-3">
+                        <div class="min-w-0">
+                            <p class="font-semibold text-ink">{{ $row['elevator']->label }}</p>
+                            <p class="text-xs font-semibold {{ $tone }}">{{ $label }}</p>
+                        </div>
+                        <label class="sr-only" for="parachute-{{ $row['elevator']->id }}">Resultado de la prueba de {{ $row['elevator']->label }}</label>
+                        <select id="parachute-{{ $row['elevator']->id }}" name="parachute[{{ $row['elevator']->id }}]" class="t-input w-full py-2 sm:w-auto sm:min-w-[14rem]">
+                            <option value="">No se hizo en esta visita</option>
+                            @foreach(\App\Models\ParachuteTest::RESULTS as $value => $resultLabel)
+                                <option value="{{ $value }}" @selected(old('parachute.'.$row['elevator']->id) === $value)>{{ $resultLabel }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endforeach
+                @error('parachute')<p class="text-sm font-semibold text-red-600">{{ $message }}</p>@enderror
+            </section>
+        @endif
 
         {{-- 3. Firmas --}}
         <section class="t-card p-4">

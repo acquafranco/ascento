@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Parachute\ParachuteService;
 use App\Services\Technicians\TechnicianWorkload;
 use Illuminate\Http\Request;
 
@@ -12,7 +13,7 @@ use Illuminate\Http\Request;
  */
 class DashboardController extends Controller
 {
-    public function index(Request $request, TechnicianWorkload $workload)
+    public function index(Request $request, TechnicianWorkload $workload, ParachuteService $parachute)
     {
         $user = $request->user();
 
@@ -26,6 +27,20 @@ class DashboardController extends Controller
             'month' => $workload->monthVisits($user),
             'visitsToday' => $workload->visitsToday($user),
             'recentNotes' => $workload->recentDeliveryNotes($user),
+            'parachuteDue' => $this->parachuteDue($parachute, $user),
         ]);
+    }
+
+    /** Pruebas de paracaídas que le corresponde hacer (las mismas que su pestaña «Paracaídas»). */
+    private function parachuteDue(ParachuteService $parachute, $user): array
+    {
+        $counts = $parachute->forTechnician($user)->countBy('status');
+        $due = [
+            'overdue' => (int) $counts->get(ParachuteService::OVERDUE, 0),
+            'failed' => (int) $counts->get(ParachuteService::FAILED, 0),
+            'upcoming' => (int) $counts->get(ParachuteService::UPCOMING, 0),
+        ];
+
+        return $due + ['total' => array_sum($due), 'urgent' => $due['overdue'] + $due['failed'] > 0];
     }
 }

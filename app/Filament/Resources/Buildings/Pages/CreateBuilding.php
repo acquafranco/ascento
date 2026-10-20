@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\Buildings\Pages;
 
 use App\Filament\Resources\Buildings\BuildingResource;
-use App\Services\Geocoding\AddressAutocomplete;
+use App\Filament\Resources\Buildings\Schemas\BuildingForm;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateBuilding extends CreateRecord
@@ -27,11 +27,8 @@ class CreateBuilding extends CreateRecord
 
     protected function afterCreate(): void
     {
-        // Cada ascensor / montacargas con su tracción; las cantidades salen de ellos.
-        \App\Models\Elevator::syncFromForm($this->record, $this->equipment);
-        $this->record->refresh();
-
-        // Dirección elegida del buscador: queda ubicado en el mapa ya mismo.
-        app(AddressAutocomplete::class)->applyToBuilding($this->record, $this->data['address_search'] ?? null);
+        // Cada ascensor / montacargas con su tracción (las cantidades salen de
+        // ellos) y la dirección elegida del buscador (queda ubicado en el mapa).
+        BuildingForm::afterCreate($this->record, $this->equipment, $this->data['address_search'] ?? null);
     }
 }

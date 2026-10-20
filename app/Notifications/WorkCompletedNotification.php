@@ -21,9 +21,14 @@ class WorkCompletedNotification extends Notification
 
     public function __construct(public DeliveryNote $deliveryNote) {}
 
+    /**
+     * El remito se abre por su NÚMERO (getRouteKeyName), no por el id: con el
+     * id, /admin/delivery-notes/{id} buscaba el remito número {id} y daba 404
+     * o abría otro remito de la empresa.
+     */
     private function url(): string
     {
-        return DeliveryNoteResource::getUrl('view', ['record' => $this->deliveryNote->id], panel: 'ascensores_app');
+        return DeliveryNoteResource::getUrl('view', ['record' => $this->deliveryNote], panel: 'ascensores_app');
     }
 
     /** Remito firmado como "no realizado": requiere seguimiento del admin. */
@@ -70,7 +75,7 @@ class WorkCompletedNotification extends Notification
             ->actions([
                 Action::make('view')->label('Ver remito')->url($this->url())->markAsRead(),
             ])
-            ->getDatabaseMessage();
+            ->getDatabaseMessage() + ['delivery_note_id' => $this->deliveryNote->id];
     }
 
     public function toWebPush(object $notifiable, Notification $notification): WebPushMessage
