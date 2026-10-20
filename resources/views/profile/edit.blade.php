@@ -36,6 +36,8 @@
         <section class="t-card p-4 sm:p-6">
             @include('profile.partials.account-status')
         </section>
+
+        @include('partials.legal-links', ['style' => 'color:#6B7280; padding:4px 0 12px;'])
     </div>
 </div>
 </x-app-layout>

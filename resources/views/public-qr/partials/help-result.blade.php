@@ -5,7 +5,7 @@
         @case('registered')
             <h2>{{ $repeat ? 'Tu pedido se sumó al que ya estaba registrado' : 'Registramos tu pedido de ayuda' }}</h2>
             <p>Código <strong>{{ $reference }}</strong>{{ $repeat ? ', registrado el '.$date.' a las '.$at : ' · '.$date.' '.$at }}.</p>
-            <p>Avisamos por Ascento a la empresa de mantenimiento y a la administración del edificio. Ascento no puede confirmar que ya lo hayan visto.</p>
+            <p>Intentamos avisar por Ascento a la empresa de mantenimiento y, si usa Ascento, a la administración del edificio. Ascento no puede confirmar que ya lo hayan visto ni que alguien esté en camino.</p>
             @break
         @case('registered_unnotified')
             <h2>Registramos tu pedido, pero no pudimos avisar a nadie</h2>

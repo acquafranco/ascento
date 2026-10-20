@@ -71,7 +71,7 @@
         @endif
 
         @if($help)
-            <p class="help" data-sheet="help"><strong>¿Quedaste atrapado?</strong> Escaneá el código y tocá «Estoy atrapado en el ascensor» para avisar a la empresa de mantenimiento y a la administración.</p>
+            <p class="help" data-sheet="help"><strong>¿Quedaste atrapado?</strong> Escaneá el código y tocá «Estoy atrapado en el ascensor» para enviar un aviso a la empresa de mantenimiento (y a la administración, si usa Ascento). No es un servicio de emergencias.</p>
         @endif
         <p class="safety">En una emergencia, usá el botón de alarma o el intercomunicador del ascensor. Si hay peligro inmediato, llamá al 911.</p>
 

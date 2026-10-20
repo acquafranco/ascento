@@ -118,7 +118,13 @@
                     >
                         términos y condiciones
                     </a>
-                    de uso.
+                    de uso y leí la
+                    <a
+                        href="{{ route('legal.privacy') }}"
+                        target="_blank"
+                        class="font-medium text-ink underline underline-offset-2 hover:text-amber-600 transition-colors"
+                    >
+                        política de privacidad</a>.
                 </span>
             </label>
 

@@ -185,6 +185,7 @@
         @include('partials.verify-email-notice')
         {{ $slot }}
         <p class="p-foot">Información compartida por {{ $company?->name }} mediante Ascento.</p>
+        @include('partials.legal-links', ['style' => 'color:#9A9DA6; margin-top:8px;'])
     </main>
     @if($showBell)
         @include('partials.realtime-inbox', ['countUrl' => route('portal.notifications.count'), 'inboxUrl' => route('portal.notifications')])

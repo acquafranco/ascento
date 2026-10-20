@@ -10,7 +10,7 @@
         Estoy atrapado en el ascensor
     </summary>
     <div class="qr-help-body">
-        <p><strong>¿Confirmás que necesitás ayuda?</strong> Se avisa a la empresa de mantenimiento y a la administración del edificio. No hace falta cuenta ni datos personales.</p>
+        <p><strong>¿Confirmás que necesitás ayuda?</strong> Se registra el pedido y se intenta avisar por Ascento a la empresa de mantenimiento y, si usa Ascento, a la administración del edificio. No es un servicio de emergencias. No hace falta cuenta ni datos personales.</p>
         <form method="POST" action="{{ $help['action'] }}" data-help-form>
             <input type="hidden" name="k" value="{{ $help['nonce'] }}">
             @if($help['elevators']->count() > 1)
