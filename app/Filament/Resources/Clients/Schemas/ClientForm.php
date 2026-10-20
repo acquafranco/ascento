@@ -2,10 +2,11 @@
 
 namespace App\Filament\Resources\Clients\Schemas;
 
+use App\Models\Client;
+use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
 
 class ClientForm
@@ -15,13 +16,11 @@ class ClientForm
         return $schema->components([
             ...static::basicFields(),
 
+            // (Sin interruptor «Activo»: no cambiaba nada. Para que deje de
+            // aparecer y se cierre su portal, se desactiva el cliente.)
             Textarea::make('notes')
                 ->label('Notas')
                 ->columnSpanFull(),
-
-            Toggle::make('is_active')
-                ->label('Activo')
-                ->default(true),
         ]);
     }
 
@@ -29,7 +28,7 @@ class ClientForm
      * Nombre, tipo y contacto: los mismos campos en el alta del panel y en la
      * configuración inicial guiada (CompanySetupWizard).
      *
-     * @return list<\Filament\Forms\Components\Field>
+     * @return list<Field>
      */
     public static function basicFields(): array
     {
@@ -40,8 +39,8 @@ class ClientForm
 
             Select::make('type')
                 ->label('Tipo de cliente')
-                ->options(\App\Models\Client::TYPES)
-                ->default(\App\Models\Client::DEFAULT_TYPE)
+                ->options(Client::TYPES)
+                ->default(Client::DEFAULT_TYPE)
                 ->required(),
 
             TextInput::make('contact_person')

@@ -14,6 +14,9 @@ class HomeRedirect
 {
     public const NO_ACCESS_MESSAGE = 'Tu cuenta no tiene una empresa activa en Ascento. Consultá con el administrador de tu empresa.';
 
+    /** Portal: la empresa desactivó a la persona o al cliente (solo se ve con la contraseña correcta). */
+    public const PORTAL_DISABLED_MESSAGE = 'Tu acceso al portal fue desactivado por la empresa de mantenimiento, por eso no podés ingresar. Si creés que es un error, comunicate con ellos.';
+
     /**
      * URL de inicio del usuario actual. Si su cuenta no tiene ningún destino
      * válido, cierra la sesión y devuelve la URL del login.
@@ -27,6 +30,12 @@ class HomeRedirect
         }
 
         static::logout();
+
+        if ($user?->isClientUser()) {
+            session()->flash('status', static::PORTAL_DISABLED_MESSAGE);
+
+            return route('portal.login');
+        }
 
         if ($user) {
             session()->flash('status', static::NO_ACCESS_MESSAGE);
