@@ -36,9 +36,18 @@ class PortalMembership extends Model
         return $this->belongsTo(Client::class)->withoutGlobalScopes()->withTrashed();
     }
 
+    /**
+     * Accesos que hoy dejan entrar: no desactivados y de un cliente activo (un
+     * cliente desactivado cierra el portal a todas sus personas; al
+     * reactivarlo, vuelven a entrar).
+     */
     public function scopeActive(Builder $query): Builder
     {
-        return $query->whereNull('deactivated_at');
+        $table = $query->getModel()->getTable();
+
+        return $query->whereNull($table.'.deactivated_at')
+            ->whereExists(fn ($q) => $q->selectRaw('1')->from('clients')
+                ->whereColumn('clients.id', $table.'.client_id')->whereNull('clients.deleted_at'));
     }
 
     public function isActive(): bool

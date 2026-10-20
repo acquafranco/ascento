@@ -14,7 +14,7 @@ use Illuminate\Support\Collection;
  *
  * 1. Una persona puede tener acceso en varias empresas de mantenimiento, una
  *    membresía (PortalMembership) por cada cliente que la autorizó. Solo
- *    cuentan las membresías activas.
+ *    cuentan las membresías activas de clientes activos (no desactivados).
  * 2. Un edificio se ve si está autorizado explícitamente para la persona y
  *    pertenece al cliente y a la empresa de una membresía activa.
  * 3. En el portal se trabaja con UNA empresa a la vez (la elegida, guardada
@@ -101,7 +101,9 @@ class PortalAccess
             ->whereIn('buildings.id', fn ($q) => $q->select('building_id')->from('client_portal_buildings')->where('user_id', $user->id))
             ->whereExists(fn ($q) => $q->selectRaw('1')->from('portal_memberships as m')
                 ->where('m.user_id', $user->id)->whereNull('m.deactivated_at')
-                ->whereColumn('m.company_id', 'buildings.company_id')->whereColumn('m.client_id', 'buildings.client_id'))
+                ->whereColumn('m.company_id', 'buildings.company_id')->whereColumn('m.client_id', 'buildings.client_id')
+                // Cliente desactivado: sus edificios dejan de verse.
+                ->whereExists(fn ($c) => $c->selectRaw('1')->from('clients')->whereColumn('clients.id', 'm.client_id')->whereNull('clients.deleted_at')))
             ->when($companyId !== null, fn ($q) => $q->where('buildings.company_id', $companyId))
             ->pluck('buildings.id');
     }

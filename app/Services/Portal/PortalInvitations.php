@@ -139,7 +139,7 @@ class PortalInvitations
 
         $user = User::withTrashed()->find($membership->user_id);
 
-        if (! $user || ! $user->isClientUser() || $user->trashed() || ! $membership->isActive()) {
+        if (! $user || ! $user->isClientUser() || $user->trashed() || ! $membership->isActive() || ! $membership->client || $membership->client->trashed()) {
             return false;
         }
 
