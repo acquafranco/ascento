@@ -7,6 +7,7 @@ use App\Models\Concerns\ConsumesPlanLimit;
 use App\Notifications\ResetPasswordNotification;
 use App\Services\Auth\TwoFactorAuthentication;
 use App\Support\Access\Access;
+use App\Support\Auth\UserEmail;
 use App\Support\PhoneNumber;
 use App\Support\Portal\PortalAccess;
 use Filament\Models\Contracts\FilamentUser;
@@ -48,6 +49,8 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
         'pending_email_token',
         'two_factor_secret',
         'two_factor_recovery_codes',
+        // Columna generada (correo normalizado) solo para el índice único.
+        'email_key',
     ];
 
     protected $casts = [
@@ -83,6 +86,18 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     */
     protected static function booted(): void
     {
+        // Un correo = una cuenta: se guarda siempre igual (sin espacios
+        // alrededor, en minúsculas), venga del formulario que venga.
+        // Solo cuando cambia: no reescribe correos guardados antes.
+        static::saving(function (User $user) {
+            if ($user->isDirty('email') && $user->email !== null) {
+                $user->email = UserEmail::normalize($user->email);
+            }
+            if ($user->isDirty('pending_email') && $user->pending_email !== null) {
+                $user->pending_email = UserEmail::normalize($user->pending_email);
+            }
+        });
+
         // Usuario del portal con empresa y cliente "de origen": ese es su
         // primer acceso (membresía). Los demás accesos los suma cada empresa.
         static::saved(function (User $user) {

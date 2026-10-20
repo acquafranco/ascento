@@ -7,8 +7,10 @@ use App\Filament\Concerns\GuardedByPermission;
 use App\Filament\Resources\Users\Tables\UsersTable;
 use App\Models\User;
 use App\Rules\NotCommonPassword;
+use App\Rules\UniqueUserEmail;
 use App\Support\Access\Access;
 use App\Support\Auth\PasswordPolicy;
+use App\Support\Auth\UserEmail;
 use App\Support\PhoneNumber;
 use BackedEnum;
 use Filament\Forms\Components\Field;
@@ -95,7 +97,10 @@ class UserResource extends Resource
                 ->label('Email')
                 ->email()
                 ->required()
-                ->unique(ignoreRecord: true)
+                // Un correo = una cuenta en todo Ascento (cualquier rol o empresa).
+                ->rule(fn (?User $record) => new UniqueUserEmail($record?->id))
+                // Sin espacios alrededor ni mayúsculas, antes de validar y al guardar.
+                ->mutateStateForValidationUsing(fn ($state) => UserEmail::normalize($state))->dehydrateStateUsing(fn ($state) => UserEmail::normalize($state))
                 ->maxLength(255),
 
             TextInput::make('phone')

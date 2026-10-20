@@ -12,6 +12,7 @@ use App\Models\Company;
 use App\Models\PortalMembership;
 use App\Services\Portal\PortalInvitations;
 use App\Support\Access\Access;
+use App\Support\Auth\UserEmail;
 use App\Support\Plans\PlanGuard;
 use App\Support\Plans\PlanUpsell;
 use App\Support\VerifiedSender;
@@ -164,6 +165,8 @@ class PortalUsersRelationManager extends RelationManager
                     ->schema([
                         TextInput::make('name')->label('Nombre de la persona')->required()->maxLength(255),
                         TextInput::make('email')->label('Email')->email()->required()->maxLength(255)
+                            // Sin espacios alrededor ni mayúsculas, antes de validar y al guardar.
+                            ->mutateStateForValidationUsing(fn ($state) => UserEmail::normalize($state))->dehydrateStateUsing(fn ($state) => UserEmail::normalize($state))
                             ->rule(fn () => function (string $attribute, mixed $value, \Closure $fail) {
                                 if ($problem = PortalInvitations::emailProblem($this->getOwnerRecord(), (string) $value)) {
                                     $fail($problem);

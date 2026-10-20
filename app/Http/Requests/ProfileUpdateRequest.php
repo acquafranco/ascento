@@ -2,7 +2,8 @@
 
 namespace App\Http\Requests;
 
-use App\Models\User;
+use App\Rules\UniqueUserEmail;
+use App\Support\Auth\UserEmail;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -28,6 +29,14 @@ class ProfileUpdateRequest extends FormRequest
         ];
     }
 
+    /** Mismo correo con otras mayúsculas o espacios = la misma cuenta. */
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('email')) {
+            $this->merge(['email' => UserEmail::normalize((string) $this->input('email'))]);
+        }
+    }
+
     public function rules(): array
     {
         return [
@@ -35,10 +44,9 @@ class ProfileUpdateRequest extends FormRequest
             'email' => [
                 'required',
                 'string',
-                'lowercase',
                 'email',
                 'max:255',
-                Rule::unique(User::class)->ignore($this->user()->id),
+                new UniqueUserEmail($this->user()->id),
             ],
             // Cambiar el correo cambia a dónde llega «Olvidé mi contraseña»:
             // con una sesión robada alcanzaba para tomar la cuenta. Se pide la

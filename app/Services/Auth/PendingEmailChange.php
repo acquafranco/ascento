@@ -5,6 +5,7 @@ namespace App\Services\Auth;
 use App\Models\User;
 use App\Notifications\ConfirmEmailChangeNotification;
 use App\Notifications\EmailChangeRequestedNotification;
+use App\Support\Auth\UserEmail;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -50,9 +51,9 @@ class PendingEmailChange
     /** Pide el cambio. Mismo correo que el actual: cancela lo pendiente. */
     public function request(User $user, string $email): void
     {
-        $email = mb_strtolower(trim($email));
+        $email = UserEmail::normalize($email);
 
-        if ($email === mb_strtolower((string) $user->email)) {
+        if ($email === UserEmail::normalize($user->email)) {
             $this->cancel($user);
 
             return;
@@ -66,7 +67,7 @@ class PendingEmailChange
         }
 
         if (static::emailTaken($email, $user->id)) {
-            throw ValidationException::withMessages(['email' => 'Ese correo ya lo usa otra cuenta.']);
+            throw ValidationException::withMessages(['email' => UserEmail::TAKEN_MESSAGE]);
         }
 
         $key = 'email-change|'.$user->id;
@@ -160,9 +161,6 @@ class PendingEmailChange
 
     public static function emailTaken(string $email, int $exceptUserId): bool
     {
-        return User::withTrashed()
-            ->whereRaw('LOWER(email) = ?', [mb_strtolower(trim($email))])
-            ->whereKeyNot($exceptUserId)
-            ->exists();
+        return UserEmail::taken($email, $exceptUserId);
     }
 }

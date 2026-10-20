@@ -6,6 +6,7 @@ use App\Models\Backup;
 use App\Notifications\MailOnlyNotification;
 use App\Services\Backups\BackupManager;
 use App\Services\Reports\ReportVideoService;
+use App\Support\Auth\UserEmailConflicts;
 use App\Support\Diagnostics\ReverbProbe;
 use App\Support\Diagnostics\ServerLimits;
 use Illuminate\Console\Command;
@@ -106,6 +107,12 @@ class CheckProduction extends Command
             $this->check($pending->isEmpty(), 'Migraciones al día', 'Migraciones pendientes: '.$pending->implode(', '));
         } catch (Throwable $e) {
             $this->check(false, '', 'No se pudo leer el estado de las migraciones ('.$e::class.')');
+        }
+        try {
+            $this->check(UserEmailConflicts::enforced(), 'Un correo = una cuenta: índice único de correos activo',
+                'El índice único de correos no está activo (hay cuentas con el mismo correo). Revisalas con php artisan users:email-conflicts');
+        } catch (Throwable $e) {
+            $this->check(false, '', 'No se pudo revisar el índice de correos ('.$e::class.')');
         }
 
         if ($to = $this->option('mail-to')) {

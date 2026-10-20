@@ -6,6 +6,7 @@ use App\Filament\Resources\StaffUsers\StaffUserResource;
 use App\Services\Staff\StaffManager;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Validation\ValidationException;
 
 class EditStaffUser extends EditRecord
 {
@@ -24,9 +25,23 @@ class EditStaffUser extends EditRecord
     protected function handleRecordUpdate(Model $record, array $data): Model
     {
         $manager = app(StaffManager::class);
-        $manager->update(auth()->user(), $record, $data);
+        $this->onEmailField(fn () => $manager->update(auth()->user(), $record, $data));
 
         return $manager->setPermissions(auth()->user(), $record->fresh(), $data['levels'] ?? []);
+    }
+
+    /** El error de correo del servicio se muestra en el campo del formulario. */
+    private function onEmailField(callable $callback): mixed
+    {
+        try {
+            return $callback();
+        } catch (ValidationException $e) {
+            if (isset($e->errors()['email'])) {
+                throw ValidationException::withMessages(['data.email' => $e->errors()['email']]);
+            }
+
+            throw $e;
+        }
     }
 
     protected function getRedirectUrl(): string

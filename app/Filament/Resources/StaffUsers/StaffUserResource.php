@@ -9,9 +9,11 @@ use App\Filament\Resources\StaffUsers\Pages\EditStaffUser;
 use App\Filament\Resources\StaffUsers\Pages\ListStaffUsers;
 use App\Models\Company;
 use App\Models\User;
+use App\Rules\UniqueUserEmail;
 use App\Services\Staff\StaffManager;
 use App\Support\Access\Access;
 use App\Support\Auth\PasswordPolicy;
+use App\Support\Auth\UserEmail;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
@@ -27,7 +29,6 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Validation\Rule;
 
 /**
  * Administrativos de la empresa (Etapa 6, PR 2): solo el dueño. Alta,
@@ -104,7 +105,9 @@ class StaffUserResource extends Resource
             Section::make('Datos')->columns(['default' => 1, 'md' => 3])->columnSpanFull()->schema([
                 TextInput::make('name')->label('Nombre')->required()->maxLength(120),
                 TextInput::make('email')->label('Correo')->email()->required()->maxLength(190)
-                    ->rule(fn (?User $record) => Rule::unique('users', 'email')->ignore($record?->id)),
+                    ->rule(fn (?User $record) => new UniqueUserEmail($record?->id))
+                    // Sin espacios alrededor ni mayúsculas, antes de validar y al guardar.
+                    ->mutateStateForValidationUsing(fn ($state) => UserEmail::normalize($state))->dehydrateStateUsing(fn ($state) => UserEmail::normalize($state)),
                 TextInput::make('phone')->label('Teléfono')->tel()->maxLength(40),
                 TextInput::make('password')->label('Contraseña inicial')->password()->revealable()
                     ->rule(PasswordPolicy::defaults())->required()

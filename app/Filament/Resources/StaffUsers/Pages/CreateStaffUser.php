@@ -8,6 +8,7 @@ use App\Filament\Resources\StaffUsers\StaffUserResource;
 use App\Services\Staff\StaffManager;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Validation\ValidationException;
 
 class CreateStaffUser extends CreateRecord
 {
@@ -19,7 +20,21 @@ class CreateStaffUser extends CreateRecord
 
     protected function handleRecordCreation(array $data): Model
     {
-        return app(StaffManager::class)->create(auth()->user(), $data, $data['levels'] ?? []);
+        return $this->onEmailField(fn () => app(StaffManager::class)->create(auth()->user(), $data, $data['levels'] ?? []));
+    }
+
+    /** El error de correo del servicio se muestra en el campo del formulario. */
+    private function onEmailField(callable $callback): mixed
+    {
+        try {
+            return $callback();
+        } catch (ValidationException $e) {
+            if (isset($e->errors()['email'])) {
+                throw ValidationException::withMessages(['data.email' => $e->errors()['email']]);
+            }
+
+            throw $e;
+        }
     }
 
     protected function afterCreate(): void
