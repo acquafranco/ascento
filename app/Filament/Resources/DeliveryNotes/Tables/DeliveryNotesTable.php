@@ -9,6 +9,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Table;
+use App\Support\DeliveryNotes\DeliveryNoteShare;
 use App\Support\WorkOrderLabels;
 
 class DeliveryNotesTable
@@ -17,7 +18,7 @@ class DeliveryNotesTable
     {
         return $table
             // Eager loading de lo que usan las columnas/acciones (evita N+1).
-            ->modifyQueryUsing(fn (\Illuminate\Database\Eloquent\Builder $query) => $query->with(['building', 'user', 'workOrder', 'buildingVisit', 'company']))
+            ->modifyQueryUsing(fn (\Illuminate\Database\Eloquent\Builder $query) => $query->with(['building.client', 'user', 'workOrder', 'buildingVisit', 'company']))
             ->columns([
             TextColumn::make('number')
                 ->label('Remito')
@@ -125,24 +126,27 @@ class DeliveryNotesTable
             ])
 
             ->defaultSort('number', 'desc')
-          ->recordActions([
-                ViewAction::make(),
+            ->recordActions([
+                ViewAction::make()->label('Ver remito'),
 
-                  \Filament\Actions\Action::make('pdf')
-
-                    ->label('PDF')
-
-                    ->icon('heroicon-o-document-arrow-down')
-
-                    // El remito siempre pertenece a la empresa en la que se
-                    // está operando: alcanza con su propia relación (ya
-                    // cargada), sin un Company::find() por fila.
+                \Filament\Actions\ActionGroup::make([
                     // Remito digital: en todos los planes.
-                    ->url(fn ($record) => route('delivery-notes.pdf', [
-                        'company' => $record->company?->slug,
-                        'deliveryNote' => $record,
-                    ]))
-                    ->openUrlInNewTab(),
+                    \Filament\Actions\Action::make('pdf')
+                        ->label('Descargar PDF')
+                        ->icon('heroicon-o-document-arrow-down')
+                        ->url(fn ($record) => DeliveryNoteShare::pdfUrl($record, download: true)),
+                    \Filament\Actions\Action::make('whatsapp')
+                        ->label('Enviar por WhatsApp')
+                        ->icon('heroicon-o-chat-bubble-left-right')
+                        ->url(fn ($record) => DeliveryNoteShare::whatsappUrl($record))
+                        ->openUrlInNewTab()
+                        ->visible(fn ($record) => DeliveryNoteShare::canShare($record)),
+                    \Filament\Actions\Action::make('mail')
+                        ->label('Enviar por correo')
+                        ->icon('heroicon-o-envelope')
+                        ->url(fn ($record) => DeliveryNoteShare::mailUrl($record))
+                        ->visible(fn ($record) => DeliveryNoteShare::canShare($record)),
+                ])->label('Descargar y compartir')->icon('heroicon-o-share')->tooltip('Descargar y compartir'),
             ])
             // Compartir con el portal del cliente (privado por defecto).
             ->pushColumns([\App\Filament\Support\ClientSharing::column()])

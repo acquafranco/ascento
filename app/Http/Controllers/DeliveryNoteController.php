@@ -152,7 +152,7 @@ class DeliveryNoteController extends Controller
     ];
 
     /** PDF real del remito (antes la ruta devolvía la página HTML para imprimir). */
-    public static function pdfResponse(DeliveryNote $deliveryNote): Response
+    public static function pdfResponse(DeliveryNote $deliveryNote, bool $download = false): Response
     {
         $content = Pdf::loadView('delivery-notes.pdf', ['doc' => DeliveryNoteDocument::for($deliveryNote, pdf: true)])
             ->setPaper('a4')
@@ -162,7 +162,8 @@ class DeliveryNoteController extends Controller
 
         return response($content, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="remito-'.str_pad((string) $deliveryNote->number, 6, '0', STR_PAD_LEFT).'.pdf"',
+            // ?descargar=1: se guarda como archivo (el panel); si no, se abre en el navegador.
+            'Content-Disposition' => ($download ? 'attachment' : 'inline').'; filename="remito-'.str_pad((string) $deliveryNote->number, 6, '0', STR_PAD_LEFT).'.pdf"',
             'Cache-Control' => 'private, no-store',
             'X-Content-Type-Options' => 'nosniff',
         ]);
@@ -723,7 +724,7 @@ class DeliveryNoteController extends Controller
 
         $deliveryNote->load(static::RELATIONS);
 
-        return static::pdfResponse($deliveryNote);
+        return static::pdfResponse($deliveryNote, request()->boolean('descargar'));
     }
 
     public function showPublic(
