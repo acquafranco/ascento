@@ -81,7 +81,7 @@ final class NavigationGuide
             ReportResource::class => ['Las fallas que detectan los técnicos, con foto y prioridad. Las vas marcando en revisión o resueltas.', 'reports'],
             ClientClaimResource::class => ['Lo que tus clientes reportan desde el portal. Cambiás el estado, respondés y, si hace falta, creás la orden.', 'claims'],
             EmergencyRequestResource::class => ['Los pedidos por posible atrapamiento hechos desde el QR. Un número rojo indica los abiertos.', 'emergency'],
-            OnCallScheduleResource::class => ['Quién cubre fuera de horario: turnos, rotaciones, reemplazos y quién está de guardia ahora.', 'on_call'],
+            OnCallScheduleResource::class => ['Quién cubre fuera de horario: quién está de guardia ahora, asignar guardias y reemplazar técnicos.', 'on_call'],
             ParachuteTestsPage::class => ['La periodicidad y el registro de las pruebas de paracaídas, con aviso de las próximas.', 'parachute'],
             RepairComponentResource::class => ['Los componentes que mandaste a un taller y en qué estado están.', 'repairs'],
             StockItemResource::class => ['Tus repuestos y materiales: entradas, salidas y lo que se usó en cada orden.', 'stock'],

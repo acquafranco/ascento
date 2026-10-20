@@ -8,6 +8,7 @@ use App\Filament\Resources\OnCall\OnCallScheduleResource;
 use App\Models\OnCallSchedule;
 use App\Services\OnCall\OnCallService;
 use App\Services\OnCall\RotationService;
+use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 
@@ -31,13 +32,24 @@ class CreateOnCallSchedule extends CreateRecord
         }
     }
 
+    protected static ?string $title = 'Configurar un horario de guardia';
+
+    protected static bool $canCreateAnother = false;
+
+    protected function getCreateFormAction(): Action
+    {
+        return parent::getCreateFormAction()->label('Guardar horario');
+    }
+
+    /** De vuelta a la portada, donde se ve quién cubre y qué falta asignar. */
     protected function getRedirectUrl(): string
     {
-        return OnCallScheduleResource::getUrl('view', ['record' => $this->record]);
+        return OnCallScheduleResource::getUrl('index');
     }
 
     protected function getCreatedNotification(): ?Notification
     {
-        return Notification::make()->title('Guardia creada')->body($this->record->isRotation() ? null : 'Ahora asigná los técnicos desde «Asignar técnico».')->success();
+        return Notification::make()->title('Horario de guardia guardado')
+            ->body($this->record->isRotation() ? null : 'Ahora asigná quién cubre cada turno con «Asignar guardia».')->success();
     }
 }

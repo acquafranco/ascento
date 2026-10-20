@@ -34,7 +34,7 @@ class OnCallSchedule extends Model
 
     protected $fillable = [
         'name', 'days', 'starts_time', 'ends_time', 'technicians_needed', 'mode',
-        'rotation_days', 'rotation_starts_on', 'is_active', 'notes',
+        'rotation_days', 'rotation_starts_on', 'rotation_ends_on', 'is_active', 'notes',
     ];
 
     protected $casts = [
@@ -42,6 +42,7 @@ class OnCallSchedule extends Model
         'technicians_needed' => 'integer',
         'rotation_days' => 'integer',
         'rotation_starts_on' => 'date',
+        'rotation_ends_on' => 'date',
         'is_active' => 'boolean',
     ];
 
@@ -192,10 +193,35 @@ class OnCallSchedule extends Model
         return $label.' · '.$hours;
     }
 
+    /** «De lunes a viernes, de 18:00 a 08:00 del día siguiente.» */
+    public function coverageSentence(): string
+    {
+        $days = array_map('intval', (array) $this->days);
+        $names = array_map(fn ($d) => mb_strtolower(self::DAYS[$d]), $days);
+        $label = match (true) {
+            $days === [] => 'Ningún día',
+            $days === [1, 2, 3, 4, 5, 6, 7] => 'Todos los días',
+            $days === [1, 2, 3, 4, 5] => 'De lunes a viernes',
+            $days === [6, 7] => 'Sábados y domingos',
+            count($names) === 1 => 'Los '.(in_array($days[0], [6, 7], true) ? $names[0].'s' : $names[0]),
+            default => ucfirst(implode(', ', array_slice($names, 0, -1)).' y '.end($names)),
+        };
+        $start = substr($this->starts_time, 0, 5);
+        $end = substr($this->ends_time, 0, 5);
+        $hours = match (true) {
+            $start === $end => '24 horas desde las '.$start,
+            $end === '00:00' => "de {$start} a medianoche",
+            $this->crossesMidnight() => "de {$start} a {$end} del día siguiente",
+            default => "de {$start} a {$end}",
+        };
+
+        return $label.', '.$hours.'.';
+    }
+
     public function modeLabel(): string
     {
         return $this->isRotation()
-            ? 'Rotativa (turnos de '.($this->rotation_days ?? 7).' '.(($this->rotation_days ?? 7) === 1 ? 'día' : 'días').')'
+            ? 'Rotación automática (turnos de '.($this->rotation_days ?? 7).' '.(($this->rotation_days ?? 7) === 1 ? 'día' : 'días').')'
             : 'Asignación manual';
     }
 
