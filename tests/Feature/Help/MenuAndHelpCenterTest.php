@@ -375,7 +375,7 @@ class MenuAndHelpCenterTest extends TestCase
 
         // «?» en Guardias ofrece las guías de esa pantalla, con vuelta a la pantalla.
         $guides = array_column(HelpTopics::screenGuides('filament.ascensores_app.resources.guardias.index', $this->a['admin']->fresh()), 'key');
-        $this->assertSame(['on_call', 'on_call_assign', 'on_call_replace', 'on_call_query'], $guides);
+        $this->assertSame(['on_call_assign', 'on_call_replace', 'on_call_query', 'on_call', 'on_call_rotation'], $guides);
         $this->get('/admin/guardias')->assertOk()->assertSee('data-guide-link="on_call_replace"', false);
     }
 }

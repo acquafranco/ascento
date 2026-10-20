@@ -13,7 +13,7 @@ final class OnCallRotationFeedback
 
         if ($result['uncovered']) {
             Notification::make()->title('Rotación actualizada, con turnos sin técnico')
-                ->body($body.' '.count($result['uncovered']).' turnos no tienen técnico disponible (por exclusiones o falta de participantes): revisá «Huecos».')
+                ->body($body.' '.count($result['uncovered']).' turnos no tienen técnico disponible (por exclusiones o falta de participantes): aparecen en «Para revisar», en Guardias.')
                 ->warning()->persistent()->send();
 
             return;

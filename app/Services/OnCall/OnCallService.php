@@ -47,8 +47,8 @@ class OnCallService
     /** Asignación manual: un técnico durante un período ($to null = permanente). */
     public function assign(OnCallSchedule $schedule, User $user, CarbonInterface $from, ?CarbonInterface $to, ?User $actor = null, ?string $reason = null): OnCallShift
     {
-        $from = Carbon::parse($from)->seconds(0);
-        $to = $to ? Carbon::parse($to)->seconds(0) : null;
+        $from = Carbon::parse($from)->startOfMinute();
+        $to = $to ? Carbon::parse($to)->startOfMinute() : null;
 
         PlanGuard::ensureCurrent(PlanFeature::OnCall);
 
@@ -74,6 +74,34 @@ class OnCallService
     }
 
     /**
+     * Varios técnicos que cubren juntos el mismo período: se asignan todos o
+     * ninguno (si uno no entra, no queda una asignación a medias).
+     *
+     * @param  list<User>  $users
+     * @return list<OnCallShift>
+     */
+    public function assignMany(OnCallSchedule $schedule, array $users, CarbonInterface $from, ?CarbonInterface $to, ?User $actor = null, ?string $reason = null): array
+    {
+        $ids = array_map(fn (User $u) => (int) $u->id, $users);
+        if ($users === [] || count($ids) !== count(array_unique($ids))) {
+            throw ValidationException::withMessages(['user_id' => 'Elegí técnicos distintos.']);
+        }
+        $needed = (int) $schedule->technicians_needed;
+        if (count($users) > $needed) {
+            throw ValidationException::withMessages(['user_id' => self::capacityMessage($needed, count($users))]);
+        }
+
+        return DB::transaction(fn () => array_map(fn (User $user) => $this->assign($schedule, $user, $from, $to, $actor, $reason), $users));
+    }
+
+    /** «Esta guardia es de 1 técnico a la vez…» con la forma de cambiarlo. */
+    public static function capacityMessage(int $needed, int $chosen): string
+    {
+        return 'Esta guardia es de '.$needed.' '.($needed === 1 ? 'técnico' : 'técnicos').' a la vez y elegiste '.$chosen.'. '
+            .'Para que cubran más juntos, cambiá «¿Cuántos técnicos cubren a la vez?» en el horario de la guardia (Configuración avanzada).';
+    }
+
+    /**
      * Cambio de guardia sobre [$from, $to) de un turno: lo cubre $newUser, o
      * nadie si es null (cancelación de esa parte). $to null = hasta el fin del turno.
      *
@@ -81,8 +109,8 @@ class OnCallService
      */
     public function replace(OnCallShift $shift, CarbonInterface $from, ?CarbonInterface $to, ?User $newUser, ?User $actor = null, ?string $reason = null): array
     {
-        $from = Carbon::parse($from)->seconds(0);
-        $to = $to ? Carbon::parse($to)->seconds(0) : null;
+        $from = Carbon::parse($from)->startOfMinute();
+        $to = $to ? Carbon::parse($to)->startOfMinute() : null;
 
         PlanGuard::ensureCurrent(PlanFeature::OnCall);
 
@@ -96,7 +124,7 @@ class OnCallService
 
             $end = $shift->ends_at;
             $to ??= $end;
-            $now = now()->seconds(0);
+            $now = now()->startOfMinute();
 
             if ($from->lt($shift->starts_at) || ($end && $from->gte($end))) {
                 throw ValidationException::withMessages(['from' => 'El cambio tiene que estar dentro del turno ('.$shift->periodLabel().').']);
@@ -157,7 +185,7 @@ class OnCallService
     /** Finalizar un turno (por ejemplo, uno permanente) a partir de $at (ahora o después). */
     public function endAt(OnCallShift $shift, CarbonInterface $at, ?User $actor = null, ?string $reason = null): void
     {
-        $at = Carbon::parse($at)->seconds(0)->max(now()->seconds(0));
+        $at = Carbon::parse($at)->startOfMinute()->max(now()->startOfMinute());
         if ($shift->ends_at && $at->gte($shift->ends_at)) {
             throw ValidationException::withMessages(['at' => 'El turno ya termina antes de esa fecha.']);
         }
@@ -172,7 +200,7 @@ class OnCallService
 
         DB::transaction(function () use ($schedule, $actor, $reason) {
             $schedule = $this->lockSchedule($schedule);
-            $now = now()->seconds(0);
+            $now = now()->startOfMinute();
 
             $shifts = OnCallShift::withoutGlobalScopes()->where('on_call_schedule_id', $schedule->id)->active()
                 ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>', $now))->get();
@@ -234,26 +262,26 @@ class OnCallService
     }
 
     /**
-     * Huecos de cobertura entre $from y $to: tramos de las ventanas con menos técnicos
-     * de los necesarios (0 = sin cobertura). Un técnico desactivado no cubre.
+     * Cobertura real entre $from y $to: cada ventana de la guardia partida en
+     * tramos donde cubren los mismos técnicos (un reemplazo de 02:00 a 08:00
+     * deja dos tramos). Un técnico desactivado no cubre.
      *
-     * @return list<array{start: Carbon, end: Carbon, assigned: int, needed: int}>
+     * @return list<array{start: Carbon, end: Carbon, shifts: Collection<int, OnCallShift>, needed: int}>
      */
-    public function gaps(OnCallSchedule $schedule, CarbonInterface $from, CarbonInterface $to): array
+    public function segments(OnCallSchedule $schedule, CarbonInterface $from, CarbonInterface $to): array
     {
-        if (! $schedule->is_active) {
-            return [];
-        }
-
         $needed = (int) $schedule->technicians_needed;
         $shifts = OnCallShift::withoutGlobalScopes()->where('on_call_schedule_id', $schedule->id)->active()
-            ->overlapping($from, $to)->with(['user' => fn ($q) => $q->withoutGlobalScopes()])->get()
-            ->filter(fn (OnCallShift $s) => $s->user && ! $s->user->trashed());
-        $gaps = [];
+            ->overlapping($from, $to)->with(['user' => fn ($q) => $q->withoutGlobalScopes()])->orderBy('starts_at')->get()
+            ->filter(fn (OnCallShift $s) => $s->user && ! $s->user->trashed())->values();
+        $segments = [];
 
         foreach ($schedule->windowsBetween($from, $to) as [$wStart, $wEnd]) {
             $wStart = $wStart->max($from);
             $wEnd = $wEnd->min($to);
+            if ($wEnd->lte($wStart)) {
+                continue;
+            }
             $points = collect([$wStart, $wEnd]);
             foreach ($shifts as $s) {
                 foreach ([$s->starts_at, $s->ends_at] as $p) {
@@ -266,16 +294,43 @@ class OnCallService
 
             for ($i = 0; $i < $points->count() - 1; $i++) {
                 [$a, $b] = [$points[$i], $points[$i + 1]];
-                $count = $shifts->filter(fn (OnCallShift $s) => $s->includes($a))->count();
-                if ($count >= $needed) {
-                    continue;
-                }
-                $last = end($gaps);
-                if ($last && $last['end']->eq($a) && $last['assigned'] === $count) {
-                    $gaps[array_key_last($gaps)]['end'] = $b->copy();
+                $covering = $shifts->filter(fn (OnCallShift $s) => $s->includes($a))->values();
+                $last = end($segments);
+                // Tramos seguidos con los mismos turnos (por ejemplo, un turno que empieza justo al inicio de la ventana) se unen.
+                if ($last && $last['end']->eq($a) && $last['shifts']->pluck('id')->all() === $covering->pluck('id')->all()) {
+                    $segments[array_key_last($segments)]['end'] = $b->copy();
                 } else {
-                    $gaps[] = ['start' => $a->copy(), 'end' => $b->copy(), 'assigned' => $count, 'needed' => $needed];
+                    $segments[] = ['start' => $a->copy(), 'end' => $b->copy(), 'shifts' => $covering, 'needed' => $needed];
                 }
+            }
+        }
+
+        return $segments;
+    }
+
+    /**
+     * Huecos de cobertura entre $from y $to: tramos de las ventanas con menos técnicos
+     * de los necesarios (0 = sin cobertura). Un técnico desactivado no cubre.
+     *
+     * @return list<array{start: Carbon, end: Carbon, assigned: int, needed: int}>
+     */
+    public function gaps(OnCallSchedule $schedule, CarbonInterface $from, CarbonInterface $to): array
+    {
+        if (! $schedule->is_active) {
+            return [];
+        }
+
+        $gaps = [];
+        foreach ($this->segments($schedule, $from, $to) as $segment) {
+            $count = $segment['shifts']->count();
+            if ($count >= $segment['needed']) {
+                continue;
+            }
+            $last = end($gaps);
+            if ($last && $last['end']->eq($segment['start']) && $last['assigned'] === $count) {
+                $gaps[array_key_last($gaps)]['end'] = $segment['end']->copy();
+            } else {
+                $gaps[] = ['start' => $segment['start']->copy(), 'end' => $segment['end']->copy(), 'assigned' => $count, 'needed' => $segment['needed']];
             }
         }
 
@@ -311,26 +366,38 @@ class OnCallService
      * No más técnicos a la vez de los que la guardia admite, ni el mismo técnico dos veces.
      *
      * @param  list<int>  $ignore  turnos que se están reemplazando
+     * @param  int  $extra  otros técnicos que se suman en el mismo pedido (revisión previa)
      */
-    public function assertCapacity(OnCallSchedule $schedule, int $userId, CarbonInterface $from, ?CarbonInterface $to, array $ignore = []): void
+    public function assertCapacity(OnCallSchedule $schedule, int $userId, CarbonInterface $from, ?CarbonInterface $to, array $ignore = [], int $extra = 0): void
     {
         $overlapping = OnCallShift::withoutGlobalScopes()->where('on_call_schedule_id', $schedule->id)->active()
             ->whereNotIn('id', $ignore ?: [0])->overlapping($from, $to)->get();
 
-        if ($overlapping->contains('user_id', $userId)) {
-            throw ValidationException::withMessages(['user_id' => 'Ese técnico ya está asignado a esta guardia en parte de ese período.']);
+        $period = fn (OnCallShift $s) => OnCallText::short($s->starts_at).' a '.($s->ends_at ? OnCallText::short($s->ends_at) : 'sin fecha de fin');
+
+        if ($same = $overlapping->firstWhere('user_id', $userId)) {
+            throw ValidationException::withMessages(['user_id' => 'Ese técnico ya tiene esta guardia en parte de ese período ('.$period($same).'). Elegí otras fechas o modificá ese turno.']);
         }
 
         // Máximo de turnos simultáneos dentro de [$from, $to).
         $max = 0;
+        $busiest = collect();
         $points = collect([$from])->merge($overlapping->pluck('starts_at')->filter(fn ($p) => $p->gt($from) && (! $to || $p->lt($to))));
         foreach ($points as $p) {
-            $max = max($max, $overlapping->filter(fn (OnCallShift $s) => $s->includes($p))->count());
+            $at = $overlapping->filter(fn (OnCallShift $s) => $s->includes($p));
+            if ($at->count() > $max) {
+                [$max, $busiest] = [$at->count(), $at];
+            }
         }
 
-        if ($max + 1 > (int) $schedule->technicians_needed) {
+        if ($max + 1 + $extra > (int) $schedule->technicians_needed) {
             $n = (int) $schedule->technicians_needed;
-            throw ValidationException::withMessages(['user_id' => "Esta guardia admite {$n} ".($n === 1 ? 'técnico' : 'técnicos').' a la vez y ese período ya está cubierto. Para cambiar al técnico, usá «Cambiar técnico» sobre su turno.']);
+            if ($busiest->isEmpty()) {
+                throw ValidationException::withMessages(['user_id' => self::capacityMessage($n, 1 + $extra)]);
+            }
+            $who = $busiest->map(fn (OnCallShift $s) => (User::withoutGlobalScopes()->find($s->user_id)?->name ?? 'Otro técnico').' ('.$period($s).')')->implode(', ');
+            throw ValidationException::withMessages(['user_id' => "Esta guardia es de {$n} ".($n === 1 ? 'técnico' : 'técnicos').' a la vez y en parte de ese período ya la cubre '.$who.'. '
+                .'Si tiene que cubrirla otra persona, usá «Reemplazar técnico». Si no, elegí otras fechas.']);
         }
     }
 

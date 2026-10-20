@@ -8,6 +8,7 @@ use App\Filament\Resources\OnCall\OnCallScheduleResource;
 use App\Models\OnCallSchedule;
 use App\Services\OnCall\OnCallService;
 use App\Services\OnCall\RotationService;
+use Filament\Actions\Action;
 use Filament\Resources\Pages\EditRecord;
 
 class EditOnCallSchedule extends EditRecord
@@ -19,6 +20,27 @@ class EditOnCallSchedule extends EditRecord
     protected static string $resource = OnCallScheduleResource::class;
 
     protected ?string $subheading = 'Los cambios valen desde ahora: los turnos pasados y en curso no se recalculan.';
+
+    protected static ?string $title = 'Cambiar horario o rotación';
+
+    /**
+     * Con rotación, guardar puede recalcular turnos ya generados: se pide
+     * confirmación, con lo que va a pasar (la vista previa lo detalla).
+     */
+    protected function getSaveFormAction(): Action
+    {
+        if (! $this->getRecord()->isRotation()) {
+            return parent::getSaveFormAction();
+        }
+
+        return parent::getSaveFormAction()
+            ->submit(null)
+            ->requiresConfirmation()
+            ->modalHeading('¿Guardar los cambios de la rotación?')
+            ->modalDescription('Se recalculan solo los turnos futuros que generó la rotación, como muestra la vista previa, y se avisa a los técnicos afectados. Los turnos pasados, el que está en curso y los cambios hechos a mano no se tocan.')
+            ->modalSubmitActionLabel('Sí, guardar')
+            ->action(fn () => $this->save());
+    }
 
     protected function afterSave(): void
     {

@@ -635,59 +635,73 @@ final class PanelGuides
             ]),
 
             /* ============================ GUARDIAS ============================ */
-            $a('guardias', 'on_call', 'Cómo crear una guardia técnica', 'Organizar quién cubre fuera del horario habitual.', [
-                'En «Operaciones → Guardias», tocá «Nueva guardia».',
-                'Poné un «Nombre» y elegí los «Días en que empieza la franja» y el horario «Desde» y «Hasta» (por ejemplo, de 18:00 a 08:00: termina al día siguiente).',
-                'Indicá cuántos «Técnicos a la vez» cubren y la «Modalidad»: manual o rotativa.',
+            $a('guardias', 'on_call', 'Cómo configurar el horario de guardia', 'Decir cuándo hace falta alguien de guardia (una sola vez).', [
+                'En «Operaciones → Guardias», tocá «Configurar el horario de guardia» (si ya tenés uno: «Configuración avanzada» → «Agregar otro horario de guardia»).',
+                'Poné un «Nombre», elegí «¿Qué días empieza la guardia?» y el horario «¿Desde qué hora?» y «¿Hasta qué hora?». Abajo ves cómo queda, por ejemplo: «De lunes a viernes, de 18:00 a 08:00 del día siguiente».',
+                'Dejá «¿Cuántos técnicos cubren a la vez?» en 1, salvo que siempre cubran de a dos.',
                 'Si querés, escribí «Indicaciones para los técnicos».',
             ], [
-                'after' => 'La guardia queda creada sin técnicos: asignalos con «Asignar guardia» (arriba, en Guardias) o configurá la rotación.',
-                'notes' => ['Una vez que la guardia tuvo turnos, el horario no se cambia (el historial depende de él). Para otro horario, finalizala y creá una nueva.', 'Las guardias organizan la cobertura: no despachan trabajos solas ni liquidan horas.'],
+                'after' => 'Volvés a «Guardias»: ahí asignás quién cubre cada turno con «Asignar guardia».',
+                'notes' => ['Un técnico asignado solo está de guardia dentro de este horario.', 'Una vez que la guardia tuvo turnos, el horario no se cambia (el historial depende de él). Para otro horario, dejá de usarla y creá una nueva.', 'Las guardias organizan la cobertura: no despachan trabajos solas ni liquidan horas.'],
                 'related' => ['on_call_assign', 'on_call_replace', 'on_call_query'],
-                'keywords' => ['guardia', 'turno', 'fuera de horario', 'noche', 'fin de semana', 'cobertura'],
+                'keywords' => ['guardia', 'horario de guardia', 'fuera de horario', 'noche', 'fin de semana', 'cobertura', 'configurar guardia'],
                 'feature' => Feature::OnCall,
                 'area' => Area::OnCall,
                 'open' => OnCallScheduleResource::class,
             ]),
 
-            $a('guardias', 'on_call_assign', 'Cómo asignar técnicos a una guardia', 'Por período, de forma permanente o en rotación.', [
-                'En «Operaciones → Guardias», tocá «Asignar guardia» (o «Asignar» al lado de una franja sin técnico).',
-                'Elegí la guardia y el técnico. Por período: indicá «Desde» y «Hasta» (una semana, un feriado, unas vacaciones).',
-                'Permanente: dejá «Hasta» vacío. Se termina con «Finalizar».',
-                'Rotativa: en la guardia, cargá los «Técnicos de la rotación (en orden)», la «Duración de cada turno (días)» y «La rotación empieza el». Ascento genera los turnos de las próximas semanas.',
+            $a('guardias', 'on_call_assign', 'Cómo asignar una guardia', 'Quién cubre, desde cuándo y hasta cuándo.', [
+                'En «Operaciones → Guardias», tocá «Asignar guardia» (o «Asignar» al lado de un turno sin técnico: viene con ese turno ya elegido).',
+                'Elegí «¿A quién asignamos?», el día y la hora en que comienza, y hasta qué día y hora cubre. Si es de noche (18:00 a 08:00), el fin es el día siguiente.',
+                'Si queda asignado hasta que lo cambies, marcá «Sin fecha de fin».',
+                'Tocá «Siguiente»: vas a ver un resumen («Juan Pérez cubrirá la guardia desde el lunes 18:00 hasta el martes 08:00»). Si está bien, «Confirmar asignación».',
             ], [
-                'after' => 'Al técnico le llega un aviso de su nueva guardia y la ve en su pestaña «Guardias». Un recordatorio le avisa antes de que empiece.',
-                'notes' => ['Nunca se asignan más técnicos que «Técnicos a la vez», ni el mismo técnico dos veces en el mismo período de una guardia.'],
-                'related' => ['on_call', 'on_call_replace'],
-                'keywords' => ['asignar guardia', 'rotacion', 'rotativa', 'turnos', 'permanente', 'periodo'],
+                'after' => 'Al técnico le llega un aviso y la ve en su pestaña «Guardias». Un recordatorio le avisa antes de que empiece.',
+                'notes' => ['Si algo no cierra (fin antes del inicio, fuera del horario de la guardia, otro técnico ya asignado), el resumen no avanza y te dice cómo corregirlo.', 'Ascento no sabe si el técnico está disponible: confirmalo con él.', 'Rotación automática: es opcional y está en el horario de guardia, en «Configuración avanzada».'],
+                'related' => ['on_call', 'on_call_replace', 'on_call_rotation'],
+                'keywords' => ['asignar guardia', 'turnos', 'permanente', 'periodo', 'guardia nocturna'],
                 'feature' => Feature::OnCall,
                 'area' => Area::OnCall,
             ]),
 
-            $a('guardias', 'on_call_replace', 'Cómo reemplazar a un técnico durante una guardia', 'Cuando alguien no puede cubrir todo o parte de su turno.', [
-                'En «Operaciones → Guardias», tocá «Reemplazar» al lado del técnico (en «De guardia ahora» o «Después»), o «Reemplazar técnico» arriba y elegí el turno.',
-                'Elegí quién «Lo cubre», desde cuándo y hasta cuándo (vacío = hasta el fin del turno), y el «Motivo».',
-                'También podés hacerlo desde la guardia, en «Turnos», con «Cambiar técnico».',
+            $a('guardias', 'on_call_replace', 'Cómo reemplazar a un técnico de guardia', 'Cuando alguien no puede cubrir todo o parte de su turno.', [
+                'En «Operaciones → Guardias», tocá «Reemplazar» al lado del turno (en «De guardia ahora», «Próxima guardia» o «Próximos turnos»), o «Reemplazar técnico» arriba y elegí el turno.',
+                'Elegí «¿Quién lo reemplaza?» y «¿Por cuánto tiempo?»: solo esa franja, todo lo que queda del turno, o las fechas que elijas.',
+                'Tocá «Siguiente»: el resumen dice quién cubría, quién lo reemplaza y durante qué período, y qué pasa antes y después. Si está bien, «Confirmar reemplazo».',
             ], [
-                'after' => 'El turno original queda como modificado y se crean el reemplazo y, si corresponde, los tramos de antes y después. Los dos técnicos reciben el aviso y el cambio queda en «Historial de cambios».',
-                'notes' => ['Lo que ya pasó no se modifica: un cambio empieza ahora o más adelante.', 'Para un turno que todavía no empezó también podés usar «Cancelar»: ese período queda sin técnico y se ve como hueco.'],
+                'after' => 'El turno original queda en el historial y se crean el reemplazo y, si corresponde, los tramos de antes y después. Los dos técnicos reciben el aviso. Los trabajos vinculados siguen vinculados al turno original.',
+                'notes' => ['Lo que ya pasó no se modifica: un reemplazo empieza ahora o más adelante.', 'Los demás turnos no cambian.'],
                 'related' => ['on_call_assign', 'on_call_query'],
-                'keywords' => ['reemplazo', 'cambio de guardia', 'cubrir', 'suplente', 'cambiar tecnico'],
+                'keywords' => ['reemplazo', 'cambio de guardia', 'cubrir', 'suplente', 'cambiar tecnico', 'reemplazar'],
                 'feature' => Feature::OnCall,
                 'area' => Area::OnCall,
             ]),
 
-            $a('guardias', 'on_call_query', 'Cómo saber quién está de guardia', 'Ahora, en una fecha puntual y los huecos sin cobertura.', [
-                'Entrá a «Operaciones → Guardias». Arriba ves quién está de guardia ahora y quién sigue después.',
-                'Si alguna franja de los próximos 7 días no tiene técnico, aparece en rojo con «Asignar».',
-                'Para otra fecha, abrí «Calendario de los próximos 14 días»: ahí está «¿Quién está de guardia el…?».',
+            $a('guardias', 'on_call_query', 'Cómo saber quién está de guardia', 'Ahora, después, en una fecha puntual y lo que falta cubrir.', [
+                'Entrá a «Operaciones → Guardias». Arriba ves quién está de guardia ahora y hasta cuándo, y la próxima guardia.',
+                'En «Para revisar» aparecen los turnos sin técnico de los próximos 7 días (con «Asignar») y si un técnico quedó en dos guardias a la vez.',
+                'Para otra fecha, abrí «Calendario completo»: ahí está «¿Quién está de guardia el…?».',
             ], [
-                'notes' => ['Un técnico está de guardia cuando tiene un turno vigente y el horario de la guardia cubre ese momento. Las horas son las de Argentina.'],
+                'notes' => ['Un técnico está de guardia cuando tiene un turno vigente y el horario de la guardia cubre ese momento. Las horas son las de Argentina.', 'El historial de cambios y los turnos anteriores están plegados al final de la pantalla.'],
                 'related' => ['on_call', 'on_call_work', 'fix_on_call_none'],
-                'keywords' => ['quien esta de guardia', 'de guardia ahora', 'huecos', 'cobertura', 'consultar guardia'],
+                'keywords' => ['quien esta de guardia', 'de guardia ahora', 'huecos', 'sin tecnico', 'cobertura', 'consultar guardia'],
                 'feature' => Feature::OnCall,
                 'area' => Area::OnCall,
                 'image' => ['src' => 'images/help/guardias.webp', 'alt' => 'Pantalla de Guardias con el técnico de guardia ahora y la consulta por fecha', 'caption' => 'Guardias: quién está ahora y consulta por fecha. Captura con datos de ejemplo.'],
+            ]),
+
+            $a('guardias', 'on_call_rotation', 'Cómo armar una rotación automática (opcional)', 'Que los técnicos se turnen solos, siempre en el mismo orden.', [
+                'En «Guardias» → «Configuración avanzada», abrí el horario de guardia y tocá «Más» → «Cambiar horario o rotación».',
+                'En «Configuración avanzada: rotación automática», elegí «Sí, alternar técnicos automáticamente».',
+                'Agregá los técnicos en el orden en que se turnan, cuántos días dura cada turno, cuándo empieza y, si querés, hasta cuándo generar turnos.',
+                'Mirá la vista previa (por ejemplo: «Juan del lun 3/11 al lun 10/11; después, Ana…») y guardá.',
+            ], [
+                'after' => 'Ascento crea los turnos de las próximas semanas y avisa a cada técnico. Si alguien no está disponible en unas fechas, se saltea y toma el turno el siguiente.',
+                'notes' => ['No se crean turnos en el pasado, ni se tocan el turno en curso ni los cambios hechos a mano.', 'Para una guardia puntual no hace falta rotación: usá «Asignar guardia».'],
+                'related' => ['on_call', 'on_call_assign'],
+                'keywords' => ['rotacion', 'rotativa', 'turnarse', 'alternar', 'automatico'],
+                'feature' => Feature::OnCall,
+                'area' => Area::OnCall,
             ]),
 
             $a('guardias', 'on_call_work', 'Cómo vincular una orden de trabajo a una guardia', 'Para saber qué trabajos surgieron durante una guardia.', [
@@ -896,8 +910,8 @@ final class PanelGuides
             ], ['related' => ['emergency_setup', 'public_qr'], 'keywords' => ['boton', 'emergencia', 'no aparece', 'qr', 'atrapado'], 'feature' => Feature::PublicQr]),
 
             $a('problemas', 'fix_on_call_none', 'Nadie figura de guardia', 'Hay un hueco en la cobertura.', [
-                'Abrí la guardia y revisá los «Turnos»: puede que el turno haya terminado, se haya cancelado o que la rotación no tenga técnicos disponibles.',
-                'Asigná a alguien con «Asignar guardia» (o «Asignar» al lado de la franja sin técnico) para ese período.',
+                'En «Guardias», mirá «Para revisar»: ahí aparece el turno sin técnico y, si es una rotación, si le faltan participantes o dejó de generar turnos.',
+                'Tocá «Asignar» al lado de ese turno: el asistente viene con ese período ya elegido.',
             ], ['related' => ['on_call_query', 'on_call_assign'], 'keywords' => ['guardia', 'nadie', 'hueco', 'sin cobertura'], 'feature' => Feature::OnCall, 'area' => Area::OnCall]),
 
             /* ======================= SUPERADMIN ======================= */

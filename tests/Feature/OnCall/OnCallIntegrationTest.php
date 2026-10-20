@@ -7,9 +7,9 @@ use App\Filament\Resources\OnCall\OnCallScheduleResource;
 use App\Filament\Resources\OnCall\Pages\CreateOnCallSchedule;
 use App\Filament\Resources\OnCall\Pages\EditOnCallSchedule;
 use App\Filament\Resources\OnCall\Pages\ListOnCallSchedules;
+use App\Filament\Resources\OnCall\Pages\OnCallHome;
 use App\Filament\Resources\OnCall\Pages\ViewOnCallSchedule;
 use App\Filament\Resources\OnCall\RelationManagers\ShiftsRelationManager;
-use App\Filament\Resources\OnCall\Widgets\OnCallOverview;
 use App\Filament\Resources\WorkOrders\Pages\CreateWorkOrder;
 use App\Filament\Resources\WorkOrders\Pages\EditWorkOrder;
 use App\Models\BuildingVisit;
@@ -91,13 +91,13 @@ class OnCallIntegrationTest extends TestCase
         $this->assertSame([$this->a['company']->id, [1, 2, 3, 4, 5], '18:00:00', '08:00:00'], [$schedule->company_id, $schedule->days, $schedule->starts_time, $schedule->ends_time]);
 
         Livewire::test(ViewOnCallSchedule::class, ['record' => $schedule->getRouteKey()])
-            ->callAction('assign', data: ['user_id' => $this->a['technician']->id, 'starts_at' => '2026-10-14 18:00', 'ends_at' => null, 'reason' => null])
+            ->callAction('assign', data: ['user_id' => $this->a['technician']->id, 'start_date' => '2026-10-14', 'start_time' => '18:00', 'open_ended' => true, 'reason' => null])
             ->assertHasNoActionErrors();
         $this->assertNull(OnCallShift::sole()->ends_at); // permanente
 
         $this->travelTo(Carbon::parse('2026-10-14 23:00'));
-        Livewire::test(OnCallOverview::class)->assertSeeHtml('data-on-call-now')->assertSee($this->a['technician']->name);
-        Livewire::test(OnCallOverview::class)->set('at', '2026-10-17T22:00')->assertSee('ninguna guardia cubre ese horario'); // sábado
+        Livewire::test(OnCallHome::class)->assertSeeHtml('data-on-call-now')->assertSee($this->a['technician']->name);
+        Livewire::test(OnCallHome::class)->set('at', '2026-10-17T22:00')->assertSee('ninguna guardia cubre ese horario'); // sábado
         Livewire::test(ListOnCallSchedules::class)->assertTableColumnStateSet('on_duty', $this->a['technician']->name, $schedule);
         $this->get(OnCallScheduleResource::getUrl('index'))->assertOk()->assertSee('De guardia ahora');
     }
@@ -108,7 +108,7 @@ class OnCallIntegrationTest extends TestCase
         $shift = $this->assign($schedule, $this->a['technician'], '2026-10-19 18:00', '2026-10-26 18:00');
         $rm = fn () => Livewire::test(ShiftsRelationManager::class, ['ownerRecord' => $schedule, 'pageClass' => ViewOnCallSchedule::class]);
 
-        $rm()->callTableAction('replace', $shift, data: ['user_id' => $this->ana->id, 'from' => '2026-10-24 18:00', 'to' => '2026-10-25 18:00', 'reason' => 'Enfermedad'])
+        $rm()->callTableAction('replace', $shift, data: ['user_id' => $this->ana->id, 'scope' => 'custom', 'from_date' => '2026-10-24', 'from_time' => '18:00', 'to_date' => '2026-10-25', 'to_time' => '18:00', 'reason' => 'Enfermedad'])
             ->assertHasNoTableActionErrors();
         $this->assertSame(['Enfermedad', $this->a['admin']->id], [OnCallChange::where('action', 'replaced')->sole()->reason, OnCallChange::where('action', 'replaced')->sole()->user_id]);
 
@@ -118,7 +118,7 @@ class OnCallIntegrationTest extends TestCase
 
         // Un cambio inválido no se guarda y lo explica.
         $ana = OnCallShift::active()->where('user_id', $this->ana->id)->sole();
-        $rm()->callTableAction('replace', $ana, data: ['user_id' => $this->a['technician']->id, 'from' => '2026-10-01 18:00', 'to' => null, 'reason' => null])
+        $rm()->callTableAction('replace', $ana, data: ['user_id' => $this->a['technician']->id, 'scope' => 'custom', 'from_date' => '2026-10-01', 'from_time' => '18:00', 'to_date' => '2026-10-02', 'to_time' => '08:00', 'reason' => null])
             ->assertNotified('No se guardó el cambio');
         $this->assertSame(OnCallShift::ACTIVE, $ana->fresh()->status);
     }

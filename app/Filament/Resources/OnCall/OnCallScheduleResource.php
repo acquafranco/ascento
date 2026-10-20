@@ -8,14 +8,21 @@ use App\Filament\Concerns\ScopedToCurrentCompany;
 use App\Filament\Resources\OnCall\Pages\CreateOnCallSchedule;
 use App\Filament\Resources\OnCall\Pages\EditOnCallSchedule;
 use App\Filament\Resources\OnCall\Pages\ListOnCallSchedules;
+use App\Filament\Resources\OnCall\Pages\OnCallHome;
 use App\Filament\Resources\OnCall\Pages\ViewOnCallSchedule;
 use App\Filament\Resources\OnCall\RelationManagers\ChangesRelationManager;
 use App\Filament\Resources\OnCall\RelationManagers\ShiftsRelationManager;
 use App\Filament\Resources\OnCall\RelationManagers\WorkOrdersRelationManager;
+use App\Models\OnCallMember;
 use App\Models\OnCallSchedule;
 use App\Models\OnCallShift;
+use App\Models\User;
 use App\Services\OnCall\OnCallService;
+use App\Services\OnCall\OnCallText;
+use App\Services\OnCall\RotationService;
+use App\Support\CompanyContext;
 use BackedEnum;
+use Carbon\Carbon;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Radio;
@@ -28,7 +35,9 @@ use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -75,58 +84,171 @@ class OnCallScheduleResource extends Resource
     {
         // Con turnos ya vigentes, el horario no se cambia: el historial depende de él.
         $locked = fn (?OnCallSchedule $record) => $record?->hasStartedShifts() ?? false;
+        $rotation = fn (Get $get) => $get('mode') === OnCallSchedule::ROTATION;
 
         return $schema->components([
-            Section::make('Guardia')->columnSpanFull()->schema([
-                TextInput::make('name')->label('Nombre')->required()->maxLength(120)->placeholder('Ej: Guardia nocturna, Fines de semana'),
-                Textarea::make('notes')->label('Indicaciones para los técnicos (opcional)')->rows(2)->maxLength(2000)
-                    ->helperText('Por ejemplo: a qué teléfono llamar o qué edificios priorizar. Lo ven los técnicos asignados.'),
-            ]),
-
-            Section::make('Horario cubierto')->columnSpanFull()
+            Section::make('Horario de guardia')->columnSpanFull()
                 ->description(fn (?OnCallSchedule $record) => $locked($record)
-                    ? 'Esta guardia ya tuvo turnos: su horario no se cambia (el historial depende de él). Para otro horario, finalizala y creá una nueva.'
-                    : 'Cada franja empieza los días elegidos a la hora de inicio. Si la hora de fin es menor o igual a la de inicio, termina al día siguiente (por ejemplo, 18:00 a 08:00).')
+                    ? 'Esta guardia ya tuvo turnos: su horario no se cambia (el historial depende de él). Para otro horario, dejá de usarla y creá una nueva.'
+                    : 'Cuándo hace falta alguien de guardia. Después asignás quién cubre cada turno.')
                 ->schema([
-                    CheckboxList::make('days')->label('Días en que empieza la franja')->options(OnCallSchedule::DAYS)
-                        ->columns(['default' => 2, 'sm' => 4, 'lg' => 7])->required()->bulkToggleable()
+                    TextInput::make('name')->label('Nombre')->required()->maxLength(120)->placeholder('Ej: Guardia nocturna, Fines de semana'),
+                    CheckboxList::make('days')->label('¿Qué días empieza la guardia?')->options(OnCallSchedule::DAYS)
+                        ->columns(['default' => 2, 'sm' => 4, 'lg' => 7])->required()->bulkToggleable()->live()
                         ->default([1, 2, 3, 4, 5])->disabled($locked),
                     Grid::make(['default' => 1, 'sm' => 3])->schema([
-                        TimePicker::make('starts_time')->label('Desde')->seconds(false)->required()->default('18:00')->disabled($locked),
-                        TimePicker::make('ends_time')->label('Hasta')->seconds(false)->required()->default('08:00')->disabled($locked)
-                            ->helperText('Igual a «Desde» = 24 horas.'),
-                        TextInput::make('technicians_needed')->label('Técnicos a la vez')->numeric()->minValue(1)->maxValue(10)->default(1)->required()
-                            ->disabled($locked)->helperText('Cuántos técnicos cubren al mismo tiempo.'),
+                        TimePicker::make('starts_time')->label('¿Desde qué hora?')->seconds(false)->required()->default('18:00')->disabled($locked)->live(onBlur: true),
+                        TimePicker::make('ends_time')->label('¿Hasta qué hora?')->seconds(false)->required()->default('08:00')->disabled($locked)->live(onBlur: true)
+                            ->helperText('Si es más temprano que el inicio, termina al día siguiente. Igual al inicio = 24 horas.'),
+                        TextInput::make('technicians_needed')->label('¿Cuántos técnicos cubren a la vez?')->numeric()->minValue(1)->maxValue(10)->default(1)->required()
+                            ->disabled($locked)->helperText('Casi siempre, 1.'),
                     ]),
+                    Text::make(fn (Get $get) => 'Así queda: '.self::draft($get, null)->coverageSentence())
+                        ->weight('bold')->visible(fn (Get $get) => filled($get('days')) && filled($get('starts_time')) && filled($get('ends_time'))),
+                    Textarea::make('notes')->label('Indicaciones para los técnicos (opcional)')->rows(2)->maxLength(2000)
+                        ->helperText('Por ejemplo: a qué teléfono llamar o qué edificios priorizar. Lo ven los técnicos asignados.'),
                 ]),
 
-            Section::make('Cómo se asigna')->columnSpanFull()->schema([
-                Radio::make('mode')->label('Modalidad')->required()->live()->default(OnCallSchedule::MANUAL)
-                    ->options([
-                        OnCallSchedule::MANUAL => 'Manual: asignás técnicos por período (o de forma permanente) desde la guardia.',
-                        OnCallSchedule::ROTATION => 'Rotativa: los técnicos se alternan en orden, en turnos de la duración que elijas.',
+            Section::make('Configuración avanzada: rotación automática')->columnSpanFull()
+                ->description('Opcional. Solo si los técnicos se turnan siempre en el mismo orden: Ascento arma los turnos por vos. Para asignar guardias a mano no hace falta.')
+                ->collapsible()->collapsed(fn (?OnCallSchedule $record) => ! $record?->isRotation())
+                ->schema([
+                    Radio::make('mode')->label('¿Querés que los técnicos se alternen automáticamente?')->required()->live()->default(OnCallSchedule::MANUAL)
+                        ->options([
+                            OnCallSchedule::MANUAL => 'No, asigno las guardias a mano',
+                            OnCallSchedule::ROTATION => 'Sí, alternar técnicos automáticamente',
+                        ]),
+                    Repeater::make('members')->label('¿Qué técnicos participan y en qué orden?')->relationship()
+                        ->visible($rotation)->live()
+                        ->orderColumn('position')->reorderable()->addActionLabel('Agregar técnico')->defaultItems(0)
+                        ->minItems(fn (Get $get) => $rotation($get) ? 1 : 0)
+                        ->columns(['default' => 1, 'sm' => 3])
+                        ->schema([
+                            Select::make('user_id')->label('Técnico')->required()->distinct()
+                                ->options(fn () => OnCallService::technicians()->pluck('name', 'id')),
+                            DatePicker::make('excluded_from')->label('No disponible desde (opcional)'),
+                            DatePicker::make('excluded_until')->label('Hasta')->afterOrEqual('excluded_from'),
+                        ])
+                        ->helperText('El primero cubre el primer turno, después el segundo, y así. Si alguien no está disponible (vacaciones, licencia), se saltea y toma el turno el siguiente.'),
+                    Grid::make(['default' => 1, 'sm' => 3])->visible($rotation)->schema([
+                        TextInput::make('rotation_days')->label('¿Cuántos días dura cada turno?')->numeric()->minValue(1)->maxValue(31)->default(7)->live(onBlur: true)
+                            ->required($rotation)->helperText('Ej: 7 = una semana cada uno.'),
+                        DatePicker::make('rotation_starts_on')->label('¿Cuándo empieza la rotación?')->default(today())->live(onBlur: true)
+                            ->required($rotation)->helperText('Cada turno empieza a la hora de inicio de la guardia.'),
+                        DatePicker::make('rotation_ends_on')->label('¿Hasta cuándo generar turnos? (opcional)')->live(onBlur: true)
+                            ->afterOrEqual('rotation_starts_on')->helperText('Vacío: siempre las próximas 8 semanas.'),
                     ]),
-                Grid::make(['default' => 1, 'sm' => 2])->visible(fn (Get $get) => $get('mode') === OnCallSchedule::ROTATION)->schema([
-                    TextInput::make('rotation_days')->label('Duración de cada turno (días)')->numeric()->minValue(1)->maxValue(31)->default(7)
-                        ->required(fn (Get $get) => $get('mode') === OnCallSchedule::ROTATION),
-                    DatePicker::make('rotation_starts_on')->label('La rotación empieza el')->native(false)->displayFormat('d/m/Y')->default(today())
-                        ->required(fn (Get $get) => $get('mode') === OnCallSchedule::ROTATION)
-                        ->helperText('Cada turno empieza a la hora «Desde». Solo se generan turnos futuros.'),
+                    View::make('filament.on-call.rotation-preview')->visible($rotation)
+                        ->viewData(fn (Get $get, ?OnCallSchedule $record) => ['preview' => self::rotationPreview($get, $record)]),
                 ]),
-                Repeater::make('members')->label('Técnicos de la rotación (en orden)')->relationship()
-                    ->visible(fn (Get $get) => $get('mode') === OnCallSchedule::ROTATION)
-                    ->orderColumn('position')->reorderable()->addActionLabel('Agregar técnico')->defaultItems(0)
-                    ->minItems(fn (Get $get) => $get('mode') === OnCallSchedule::ROTATION ? 1 : 0)
-                    ->columns(['default' => 1, 'sm' => 3])
-                    ->schema([
-                        Select::make('user_id')->label('Técnico')->required()->distinct()
-                            ->options(fn () => OnCallService::technicians()->pluck('name', 'id')),
-                        DatePicker::make('excluded_from')->label('No disponible desde')->native(false)->displayFormat('d/m/Y'),
-                        DatePicker::make('excluded_until')->label('Hasta')->native(false)->displayFormat('d/m/Y')->afterOrEqual('excluded_from'),
-                    ])
-                    ->helperText('Un técnico no disponible se saltea y toma el turno el siguiente. Cambiar el orden o los participantes recalcula solo los turnos futuros de la rotación.'),
-            ]),
         ]);
+    }
+
+    /** La guardia como quedaría con los datos del formulario (sin guardar). */
+    public static function draft(Get $get, ?OnCallSchedule $record): OnCallSchedule
+    {
+        $draft = $record ? clone $record : new OnCallSchedule;
+        $draft->forceFill([
+            'company_id' => $record?->company_id ?? CompanyContext::currentId(),
+            'name' => $get('name') ?: ($record?->name ?? 'Guardia'),
+            'days' => array_values(array_map('intval', (array) ($get('days') ?? $record?->days ?? []))),
+            'starts_time' => OnCallSchedule::normalizeTime($get('starts_time') ?? $record?->starts_time),
+            'ends_time' => OnCallSchedule::normalizeTime($get('ends_time') ?? $record?->ends_time),
+            'technicians_needed' => max(1, (int) ($get('technicians_needed') ?: 1)),
+            'mode' => $get('mode') ?? OnCallSchedule::MANUAL,
+            'rotation_days' => filled($get('rotation_days')) ? max(1, (int) $get('rotation_days')) : null,
+            'rotation_starts_on' => $get('rotation_starts_on') ?: null,
+            'rotation_ends_on' => $get('rotation_ends_on') ?: null,
+            'is_active' => $record?->is_active ?? true,
+        ]);
+        $days = $draft->days;
+        sort($days);
+        $draft->days = $days;
+
+        return $draft;
+    }
+
+    /**
+     * Vista previa de la rotación con los datos del formulario: qué falta para
+     * poder generarla, los próximos turnos y qué cambia en los ya generados.
+     *
+     * @return array{missing: list<string>, rows: list<array>, example: ?string, warnings: list<string>, changes: int}
+     */
+    public static function rotationPreview(Get $get, ?OnCallSchedule $record): array
+    {
+        $result = ['missing' => [], 'rows' => [], 'example' => null, 'warnings' => [], 'changes' => 0];
+        $schedule = self::draft($get, $record);
+        $technicians = OnCallService::technicians()->keyBy('id');
+        $members = collect($get('members') ?? [])->values()
+            ->filter(fn ($m) => filled($m['user_id'] ?? null) && $technicians->has((int) $m['user_id']))
+            ->map(function ($m, $i) {
+                $member = new OnCallMember;
+                $member->forceFill(['user_id' => (int) $m['user_id'], 'position' => $i, 'excluded_from' => $m['excluded_from'] ?? null, 'excluded_until' => $m['excluded_until'] ?? null]);
+                $user = User::withoutGlobalScopes()->find((int) $m['user_id']);
+
+                return $member->setRelation('user', $user);
+            })->values();
+
+        if ($technicians->isEmpty()) {
+            $result['missing'][] = 'No hay técnicos cargados: primero cargalos en «Técnicos».';
+        }
+        if ($members->isEmpty()) {
+            $result['missing'][] = 'Agregá al menos un técnico a la rotación.';
+        }
+        if (! $schedule->rotation_days) {
+            $result['missing'][] = 'Indicá cuántos días dura cada turno.';
+        }
+        if (! $schedule->rotation_starts_on) {
+            $result['missing'][] = 'Indicá cuándo empieza la rotación.';
+        }
+        if ($schedule->days === []) {
+            $result['missing'][] = 'Elegí al menos un día de guardia.';
+        }
+        if ($members->isNotEmpty() && $members->count() < (int) $schedule->technicians_needed) {
+            $result['missing'][] = 'La guardia es de '.$schedule->technicians_needed.' técnicos a la vez y la rotación tiene '.$members->count().': agregá más participantes o bajá «¿Cuántos técnicos cubren a la vez?».';
+        }
+        if ($schedule->rotation_ends_on && $schedule->rotation_starts_on && $schedule->rotation_ends_on->lt($schedule->rotation_starts_on)) {
+            $result['missing'][] = 'La fecha hasta la que se generan turnos es anterior al inicio de la rotación.';
+        }
+        if ($result['missing']) {
+            return $result;
+        }
+
+        $now = now()->startOfMinute();
+        $plan = app(RotationService::class)->plan($schedule, $members, $now);
+        $name = fn (array $ids) => collect($ids)->map(fn ($id) => $members->firstWhere('user_id', $id)?->user?->name ?? $technicians[$id]->name ?? User::withoutGlobalScopes()->find($id)?->name ?? 'Técnico')->implode(' y ');
+
+        $result['rows'] = collect($plan)->take(8)->map(fn ($p) => [
+            'start' => $p['start'], 'end' => $p['end'], 'who' => $p['users'] === [] ? null : $name($p['users']), 'status' => $p['status'],
+        ])->all();
+        $result['changes'] = collect($plan)->where('status', 'change')->count();
+
+        $anchor = Carbon::parse($schedule->rotation_starts_on->format('Y-m-d').' '.$schedule->starts_time);
+        if ($plan === []) {
+            $result['missing'][] = $schedule->rotation_ends_on && $schedule->rotation_ends_on->lt(today())
+                ? 'La fecha hasta la que se generan turnos ya pasó: no se crearía ningún turno.'
+                : 'Con estos datos no se genera ningún turno en las próximas semanas.';
+
+            return $result;
+        }
+        if ($anchor->lt($now)) {
+            $result['warnings'][] = 'La rotación empieza el '.$anchor->format('d/m').', que ya pasó: no se crean turnos hacia atrás. El primero que se genera es el que empieza '.OnCallText::short($plan[0]['start']).'.';
+        }
+        if ($uncovered = collect($plan)->where('status', 'uncovered')->count()) {
+            $result['warnings'][] = $uncovered.' '.($uncovered === 1 ? 'turno queda' : 'turnos quedan').' sin técnico disponible (por las fechas en que no están disponibles). Vas a verlos en «Para revisar».';
+        }
+        if ($manual = collect($plan)->where('status', 'manual')->count()) {
+            $result['warnings'][] = $manual.' '.($manual === 1 ? 'turno tiene' : 'turnos tienen').' un cambio hecho a mano (un reemplazo o una asignación): se respeta y no se recalcula.';
+        }
+        if ($result['changes']) {
+            $result['warnings'][] = 'Al guardar, '.$result['changes'].' '.($result['changes'] === 1 ? 'turno ya generado cambia' : 'turnos ya generados cambian').' de técnico y se avisa a los afectados. Los turnos pasados y el que está en curso no cambian.';
+        }
+
+        $first = collect($plan)->take(min(4, max(2, $members->count() + 1)))
+            ->map(fn ($p) => ($p['users'] === [] ? 'sin técnico' : $name($p['users'])).' '.OnCallText::short($p['start']).' a '.OnCallText::short($p['end']))->values();
+        $result['example'] = 'Así se alternan: '.$first->implode('; después, ').($members->count() > 1 ? '; y vuelve a empezar.' : '.');
+
+        return $result;
     }
 
     public static function infolist(Schema $schema): Schema
@@ -140,14 +262,14 @@ class OnCallScheduleResource extends Resource
                 TextEntry::make('now')->label('De guardia ahora')
                     ->state(function (OnCallSchedule $r) use ($service) {
                         if (! $r->covers(now())) {
-                            return 'Fuera del horario de guardia';
+                            return 'Ahora no es horario de guardia';
                         }
                         $names = $service()->shiftsAt($r, now())->map(fn (OnCallShift $s) => $s->user->name);
 
-                        return $names->isEmpty() ? 'Sin cobertura' : $names->implode(', ');
+                        return $names->isEmpty() ? 'Sin técnico' : $names->implode(', ').' · hasta '.OnCallText::short($r->currentWindow(now())[1]);
                     })
-                    ->color(fn ($state) => $state === 'Sin cobertura' ? 'danger' : null)->weight('bold')->size('lg'),
-                TextEntry::make('next')->label('Después')
+                    ->color(fn ($state) => $state === 'Sin técnico' ? 'danger' : null)->weight('bold')->size('lg'),
+                TextEntry::make('next')->label('Próxima guardia')
                     ->state(function (OnCallSchedule $r) use ($service) {
                         $window = $r->is_active ? $r->nextWindow($r->currentWindow(now())[1] ?? now()) : null;
                         if (! $window) {
@@ -155,28 +277,29 @@ class OnCallScheduleResource extends Resource
                         }
                         $names = $service()->shiftsAt($r, $window[0])->map(fn (OnCallShift $s) => $s->user->name);
 
-                        return ($names->isEmpty() ? 'Sin técnico' : $names->implode(', ')).' · '.$window[0]->translatedFormat('D d/m H:i').' a '.$window[1]->translatedFormat('D d/m H:i');
+                        return ($names->isEmpty() ? 'Sin técnico' : $names->implode(', ')).' · '.OnCallText::span($window[0], $window[1]);
                     })
                     ->color(fn ($state) => str_starts_with((string) $state, 'Sin técnico') ? 'danger' : null),
-                TextEntry::make('gaps')->label('Sin cobertura en los próximos 14 días')->columnSpanFull()
+                TextEntry::make('gaps')->label('Turnos sin técnico (próximos 14 días)')->columnSpanFull()
                     ->state(function (OnCallSchedule $r) use ($service) {
                         $gaps = $service()->gaps($r, now(), now()->addDays(14));
 
                         return $gaps === [] ? 'Ninguno: todas las franjas tienen técnico.' : collect($gaps)->take(8)
-                            ->map(fn ($g) => $g['start']->translatedFormat('D d/m H:i').' a '.$g['end']->translatedFormat('D d/m H:i').($g['assigned'] ? " ({$g['assigned']} de {$g['needed']})" : ''))
+                            ->map(fn ($g) => OnCallText::span($g['start'], $g['end']).($g['assigned'] ? " ({$g['assigned']} de {$g['needed']})" : ''))
                             ->implode(' · ').(count($gaps) > 8 ? ' · y '.(count($gaps) - 8).' más' : '');
                     })
                     ->color(fn ($state) => str_starts_with((string) $state, 'Ninguno') ? 'success' : 'danger'),
                 TextEntry::make('notes')->label('Indicaciones para los técnicos')->columnSpanFull()->placeholder('—'),
             ]),
-            Section::make('Configuración')->columnSpanFull()->columns(['default' => 1, 'md' => 4])->collapsible()->collapsed()
-                ->description('Horario, modalidad y cuántos técnicos cubren a la vez. Para cambiarla, «Editar».')
+            Section::make('Horario y configuración')->columnSpanFull()->columns(['default' => 1, 'md' => 4])->collapsible()->collapsed()
+                ->description('Cuándo hace falta alguien de guardia y cómo se asigna. Para cambiarlo: «Más» → «Cambiar horario o rotación».')
                 ->schema([
-                    TextEntry::make('coverage')->label('Horario')->state(fn (OnCallSchedule $r) => $r->coverageLabel()),
-                    TextEntry::make('mode')->label('Modalidad')->state(fn (OnCallSchedule $r) => $r->modeLabel()),
+                    TextEntry::make('coverage')->label('Horario')->state(fn (OnCallSchedule $r) => $r->coverageSentence())->columnSpan(['md' => 2]),
+                    TextEntry::make('mode')->label('Cómo se asigna')
+                        ->state(fn (OnCallSchedule $r) => $r->modeLabel().($r->isRotation() && $r->rotation_ends_on ? ', hasta el '.$r->rotation_ends_on->format('d/m/Y') : '')),
                     TextEntry::make('technicians_needed')->label('Técnicos a la vez'),
-                    TextEntry::make('is_active')->label('Estado')->state(fn (OnCallSchedule $r) => $r->is_active ? 'Activa' : 'Finalizada')
-                        ->badge()->color(fn ($state) => $state === 'Activa' ? 'success' : 'gray'),
+                    TextEntry::make('is_active')->label('Estado')->state(fn (OnCallSchedule $r) => $r->is_active ? 'En uso' : 'Ya no se usa')
+                        ->badge()->color(fn ($state) => $state === 'En uso' ? 'success' : 'gray'),
                 ]),
         ]);
     }
@@ -186,13 +309,13 @@ class OnCallScheduleResource extends Resource
         $service = fn () => app(OnCallService::class);
 
         return $table
-            ->heading('Guardias configuradas')
-            ->description('Abrí una guardia para ver sus turnos, el historial de cambios y los trabajos, o para cambiar su horario.')
+            ->heading('Horarios de guardia')
+            ->description('Cuándo hace falta alguien de guardia. Abrí uno para ver sus turnos, el historial de cambios y los trabajos, o para cambiarlo.')
             ->defaultSort('name')
             ->columns([
                 TextColumn::make('name')->label('Guardia')->searchable()->sortable()->weight('bold')
-                    ->description(fn (OnCallSchedule $r) => $r->coverageLabel())->wrap(),
-                TextColumn::make('mode')->label('Modalidad')->state(fn (OnCallSchedule $r) => $r->modeLabel())->toggleable(isToggledHiddenByDefault: true),
+                    ->description(fn (OnCallSchedule $r) => $r->coverageSentence())->wrap(),
+                TextColumn::make('mode')->label('Cómo se asigna')->state(fn (OnCallSchedule $r) => $r->modeLabel())->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('on_duty')->label('De guardia ahora')
                     ->state(function (OnCallSchedule $r) use ($service) {
                         if (! $r->covers(now())) {
@@ -200,22 +323,22 @@ class OnCallScheduleResource extends Resource
                         }
                         $names = $service()->shiftsAt($r, now())->map(fn (OnCallShift $s) => $s->user->name);
 
-                        return $names->isEmpty() ? 'Sin cobertura' : $names->implode(', ');
+                        return $names->isEmpty() ? 'Sin técnico' : $names->implode(', ');
                     })
                     ->color(fn ($state) => match ($state) {
-                        'Sin cobertura' => 'danger', 'Fuera de horario' => 'gray', default => null
+                        'Sin técnico' => 'danger', 'Fuera de horario' => 'gray', default => null
                     })->wrap(),
-                TextColumn::make('gaps_count')->label('Huecos (14 días)')->alignCenter()
+                TextColumn::make('gaps_count')->label('Turnos sin técnico (14 días)')->alignCenter()
                     ->state(fn (OnCallSchedule $r) => count($service()->gaps($r, now(), now()->addDays(14))))
                     ->color(fn ($state) => $state ? 'danger' : 'success'),
-                IconColumn::make('is_active')->label('Activa')->boolean()->toggleable(isToggledHiddenByDefault: true),
+                IconColumn::make('is_active')->label('En uso')->boolean()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                TernaryFilter::make('is_active')->label('Activa')->default(true),
+                TernaryFilter::make('is_active')->label('En uso')->default(true),
             ])
             ->recordUrl(fn (OnCallSchedule $r) => static::getUrl('view', ['record' => $r]))
-            ->emptyStateHeading('Todavía no hay guardias')
-            ->emptyStateDescription('Creá una guardia (por ejemplo, «Guardia nocturna»), elegí días y horario, y asigná técnicos o armá una rotación.');
+            ->emptyStateHeading('Todavía no hay horarios de guardia')
+            ->emptyStateDescription('Agregá uno (por ejemplo, «Guardia nocturna», de lunes a viernes de 18:00 a 08:00) y después asigná quién cubre cada turno desde «Guardias».');
     }
 
     public static function getRelations(): array
@@ -230,7 +353,8 @@ class OnCallScheduleResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => ListOnCallSchedules::route('/'),
+            'index' => OnCallHome::route('/'),
+            'schedules' => ListOnCallSchedules::route('/horarios'),
             'create' => CreateOnCallSchedule::route('/create'),
             'view' => ViewOnCallSchedule::route('/{record}'),
             'edit' => EditOnCallSchedule::route('/{record}/edit'),

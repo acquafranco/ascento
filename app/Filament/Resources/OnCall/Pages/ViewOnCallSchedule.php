@@ -18,12 +18,17 @@ class ViewOnCallSchedule extends ViewRecord
 
     protected static string $resource = OnCallScheduleResource::class;
 
+    public function getBreadcrumbs(): array
+    {
+        return [OnCallScheduleResource::getUrl('index') => 'Guardias', OnCallScheduleResource::getUrl('schedules') => 'Horarios', $this->getRecordTitle()];
+    }
+
     protected function getHeaderActions(): array
     {
-        // Lo frecuente primero; editar y finalizar, agrupados.
+        // Lo frecuente primero; cambiar el horario y dejar de usarla, agrupados.
         return [
-            OnCallActions::assign(),
-            ActionGroup::make([EditAction::make()->label('Editar horario o técnicos'), OnCallActions::finishSchedule()])
+            OnCallActions::assign()->color('primary'),
+            ActionGroup::make([EditAction::make()->label('Cambiar horario o rotación'), OnCallActions::finishSchedule()])
                 ->label('Más')->icon('heroicon-m-ellipsis-vertical')->color('gray')->button(),
         ];
     }

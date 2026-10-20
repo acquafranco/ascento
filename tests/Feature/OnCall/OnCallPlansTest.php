@@ -61,13 +61,13 @@ class OnCallPlansTest extends TestCase
         $this->assertTrue($this->a['company']->plan()->allows(PlanFeature::OnCall));
 
         // Panel: entra, crea la guardia y asigna un técnico.
-        $this->get(OnCallScheduleResource::getUrl('index'))->assertOk()->assertSee('De guardia ahora');
+        $this->get(OnCallScheduleResource::getUrl('index'))->assertOk()->assertSee('Configurar el horario de guardia');
         Livewire::test(CreateOnCallSchedule::class)
             ->fillForm(['name' => 'Guardia nocturna', 'days' => [1, 2, 3, 4, 5], 'starts_time' => '18:00', 'ends_time' => '08:00', 'technicians_needed' => 1, 'mode' => 'manual'])
             ->call('create')->assertHasNoFormErrors();
         $schedule = OnCallSchedule::sole();
         Livewire::test(ViewOnCallSchedule::class, ['record' => $schedule->getRouteKey()])
-            ->callAction('assign', data: ['user_id' => $this->a['technician']->id, 'starts_at' => '2026-10-14 18:00', 'ends_at' => '2026-10-21 18:00', 'reason' => null])
+            ->callAction('assign', data: ['user_id' => $this->a['technician']->id, 'start_date' => '2026-10-14', 'start_time' => '18:00', 'end_date' => '2026-10-21', 'end_time' => '18:00', 'reason' => null])
             ->assertHasNoActionErrors();
         $this->assertSame(1, OnCallShift::count());
 
