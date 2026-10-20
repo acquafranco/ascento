@@ -26,7 +26,7 @@ class PublicAssetsTest extends TestCase
         }
 
         // Y los estilos vienen del build propio.
-        foreach (['welcome', 'layouts/guest', 'legal/terms'] as $view) {
+        foreach (['welcome', 'layouts/guest', 'legal/layout'] as $view) {
             $this->assertStringContainsString('resources/css/public.css', (string) file_get_contents(resource_path("views/{$view}.blade.php")));
         }
         $this->assertStringContainsString('resources/css/public.css', (string) file_get_contents(base_path('vite.config.js')));

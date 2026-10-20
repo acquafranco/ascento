@@ -194,5 +194,6 @@
         @endif
 
         <p class="hc-small">¿No encontrás lo que buscás? Escribinos a {{ config('app.support_email') }}.</p>
+        @include('partials.legal-links', ['style' => 'opacity:.7; justify-content:flex-start;'])
     </div>
 </x-filament-panels::page>

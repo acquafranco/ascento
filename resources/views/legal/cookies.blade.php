@@ -1,81 +1,70 @@
 {{--
     Política de cookies: describe SOLO lo que Ascento usa hoy (auditado en el
-    código). Borrador: pendiente de revisión legal antes de darlo por final.
+    código el 19/10/2026: cookies de Laravel, claves de localStorage /
+    sessionStorage de resources/js y de Filament, y los servicios que cargan
+    algunas páginas). Si se agrega una categoría opcional (config/cookies.php),
+    el aviso pide consentimiento y esta página debe actualizarse.
 --}}
+@extends('legal.layout')
+
 @php
     $session = config('session.cookie');
     $minutes = (int) config('session.lifetime');
 @endphp
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Política de cookies · Ascento</title>
-    @include('partials.brand-head')
-    <style>
-        * { box-sizing: border-box; }
-        body { margin: 0; background: #F7F7F4; color: #11161D; font: 16px/1.6 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
-        main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
-        a { color: #B84A00; }
-        .top { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; font-weight: 700; }
-        .top img { width: 32px; height: 32px; border-radius: 8px; }
-        h1 { font-size: 30px; line-height: 1.2; margin: 28px 0 6px; }
-        h2 { font-size: 19px; margin: 32px 0 8px; }
-        .draft { margin: 16px 0 0; padding: 12px 14px; border-radius: 12px; background: #FFF4EC; border: 1px solid #FFC9A3; color: #7A3300; font-size: 14px; }
-        .table-wrap { overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; font-size: 14px; background: #fff; border-radius: 12px; overflow: hidden; }
-        th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #E6E8EC; vertical-align: top; }
-        th { background: #11161D; color: #fff; font-weight: 600; }
-        code { font-size: 13px; background: #F4F5F7; padding: 1px 5px; border-radius: 5px; }
-        button.link { background: none; border: 0; padding: 0; color: #B84A00; font: inherit; text-decoration: underline; cursor: pointer; }
-    </style>
-</head>
-<body>
-<main>
-    <a href="/" class="top"><img src="{{ asset('images/brand/logo-128.png') }}" alt="">Ascento</a>
 
-    <h1>Política de cookies</h1>
-    <p style="margin:0;color:#5B6472">Última actualización: {{ \Carbon\Carbon::parse('2026-10-11')->translatedFormat('j \d\e F \d\e Y') }}</p>
-    <p class="draft"><strong>Borrador pendiente de revisión legal.</strong> Describe lo que Ascento usa hoy, verificado en el sistema.</p>
+@section('title', 'Política de Cookies')
+@section('description', 'Qué cookies y datos del navegador usa Ascento, para qué y cómo controlarlos.')
+@section('active', 'cookies')
+@section('kicker', 'Cookies')
+@section('heading', 'Política de Cookies')
+@section('lead', 'Qué cookies y qué datos del navegador usa Ascento, para qué sirven y cómo podés controlarlos.')
 
-    <h2>Resumen</h2>
-    <p>Ascento usa <strong>solo cookies estrictamente necesarias</strong> para iniciar sesión, mantenerla y proteger los formularios. <strong>No usamos cookies de publicidad ni de analítica</strong> y no hacemos seguimiento entre sitios.</p>
+@section('content')
+    <x-legal.section n="01" title="Resumen" id="resumen">
+        <p>Ascento usa <strong>solo cookies estrictamente necesarias</strong> para iniciar sesión, mantenerla y proteger los formularios. <strong>No usamos cookies de publicidad ni de analítica</strong> y no hacemos seguimiento entre sitios.</p>
+    </x-legal.section>
 
-    <h2>Cookies que usamos</h2>
-    <div class="table-wrap">
-        <table>
-            <thead><tr><th>Nombre</th><th>Para qué</th><th>Duración</th></tr></thead>
-            <tbody>
-                <tr><td><code>{{ $session }}</code></td><td>Mantener tu sesión iniciada. No es accesible desde JavaScript.</td><td>{{ $minutes }} minutos sin actividad</td></tr>
-                <tr><td><code>XSRF-TOKEN</code></td><td>Proteger los formularios contra envíos falsificados (CSRF).</td><td>Igual que la sesión</td></tr>
-                <tr><td><code>remember_web_…</code></td><td>Solo si tildás "Recordarme": seguir conectado en este dispositivo.</td><td>Hasta cerrar sesión</td></tr>
-            </tbody>
-        </table>
-    </div>
-    <p>Son necesarias para que el servicio funcione, por eso no se pueden desactivar desde Ascento. Podés borrarlas desde tu navegador: en ese caso se cierra tu sesión.</p>
+    <x-legal.section n="02" title="Cookies que usamos" id="cookies">
+        <div class="overflow-x-auto rounded-2xl border border-[#14171C]/10 bg-white">
+            <table class="w-full text-sm leading-6">
+                <thead class="bg-[#12151C] text-white text-left">
+                    <tr><th class="px-4 py-3 font-semibold">Nombre</th><th class="px-4 py-3 font-semibold">Para qué</th><th class="px-4 py-3 font-semibold">Duración</th></tr>
+                </thead>
+                <tbody class="divide-y divide-[#14171C]/10 align-top">
+                    <tr><td class="px-4 py-3"><code>{{ $session }}</code></td><td class="px-4 py-3">Mantener tu sesión iniciada. No es accesible desde JavaScript.</td><td class="px-4 py-3">{{ $minutes }} minutos sin actividad</td></tr>
+                    <tr><td class="px-4 py-3"><code>XSRF-TOKEN</code></td><td class="px-4 py-3">Proteger los formularios contra envíos falsificados (CSRF).</td><td class="px-4 py-3">Igual que la sesión</td></tr>
+                    <tr><td class="px-4 py-3"><code>remember_web_…</code></td><td class="px-4 py-3">Solo si tildás «Recordarme»: seguir conectado en este dispositivo.</td><td class="px-4 py-3">Hasta que cierres sesión (como máximo, 400 días)</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <p>Son necesarias para que el servicio funcione, por eso no se pueden desactivar desde Ascento. Podés borrarlas desde tu navegador: en ese caso se cierra tu sesión.</p>
+        <p>La página pública del QR no necesita cookies para enviar un pedido de ayuda: funciona aunque las bloquees.</p>
+    </x-legal.section>
 
-    <h2>Datos guardados en tu navegador (no son cookies)</h2>
-    <p>Para recordar preferencias, Ascento guarda pocos datos en el almacenamiento local de tu navegador. No se envían a ningún servidor de terceros.</p>
-    <ul>
-        <li><code>ascento.cookies</code>: que ya viste este aviso.</li>
-        <li><code>ascento-push-*</code>: el estado de las notificaciones de este dispositivo, si las activaste o elegiste "Ahora no".</li>
-        <li><code>ascento.mapHelpClosed</code>: si cerraste la ayuda del mapa.</li>
-    </ul>
+    <x-legal.section n="03" title="Datos guardados en tu navegador (no son cookies)" id="almacenamiento">
+        <p>Para recordar preferencias y no perder lo que estás escribiendo, Ascento guarda algunos datos en el almacenamiento de tu navegador. No se envían a terceros.</p>
+        <ul>
+            <li><code>ascento.cookies</code>: que ya viste el aviso de cookies.</li>
+            <li><code>ascento.draft.…</code>: borradores del remito y del reporte del técnico (solo el texto; no fotos ni firmas), para no perderlos si se corta la señal. Se borran al enviarlos, al cerrar sesión o a los 7 días.</li>
+            <li><code>ascento-push-…</code> y <code>ascento.portal.push-later</code>: el estado de las notificaciones de este dispositivo, si las activaste o elegiste «Ahora no».</li>
+            <li><code>ascento.mapHelpClosed</code>: si cerraste la ayuda del mapa.</li>
+            <li><code>theme</code>, <code>isOpen</code>, <code>isOpenDesktop</code> y <code>collapsedGroups</code>: en el panel, el tema claro u oscuro y cómo dejaste el menú.</li>
+            <li>Solo mientras la pestaña está abierta: <code>ascento-seen-pending</code>, para actualizar el contador de avisos, y <code>ascento.location.reported</code>, en la app del técnico, si diste o negaste el permiso de ubicación (cuando la empresa usa esa función).</li>
+        </ul>
+        <p>Podés borrarlos desde la configuración de tu navegador («Borrar datos de navegación» o «Datos de sitios»).</p>
+    </x-legal.section>
 
-    <h2>Servicios de terceros que cargan algunas páginas</h2>
-    <p>Las tipografías, estilos y scripts de Ascento se sirven desde nuestro propio servidor. Algunas funciones usan estos proveedores. No ponen cookies de Ascento, pero tu navegador se conecta con ellos (como con cualquier sitio):</p>
-    <ul>
-        <li>Mapas de OpenStreetMap (solo en el panel de la empresa).</li>
-        <li>Notificaciones push del navegador, solo si las activás: las entrega el servicio de tu navegador (por ejemplo Google o Apple).</li>
-    </ul>
+    <x-legal.section n="04" title="Servicios de terceros que cargan algunas páginas" id="terceros">
+        <p>Las tipografías, estilos y scripts de Ascento se sirven desde nuestro propio servidor. Algunas funciones conectan tu navegador con otros servicios; no ponen cookies de Ascento, pero esos servicios reciben tu dirección IP, como cualquier sitio que visitás:</p>
+        <ul>
+            <li><strong>Mapa del panel de la empresa:</strong> las imágenes del mapa vienen de Geoapify o de OpenStreetMap, según la configuración.</li>
+            <li><strong>Notificaciones del navegador,</strong> solo si las activás: las entrega el servicio de tu navegador (por ejemplo, de Google, Apple o Mozilla).</li>
+            <li><strong>Enlaces externos,</strong> solo si los tocás: por ejemplo, «Cómo llegar» abre Google Maps y «Compartir por WhatsApp» abre WhatsApp.</li>
+        </ul>
+    </x-legal.section>
 
-    <h2>Si cambiamos algo</h2>
-    <p>Si en el futuro sumamos alguna herramienta opcional (por ejemplo, de analítica), te lo vamos a pedir antes de usarla y vas a poder rechazarla sin dejar de usar Ascento. Podés revisar tu elección en cualquier momento: <button type="button" class="link" data-cookie-preferences>Preferencias de cookies</button>.</p>
-
-    <h2>Contacto</h2>
-    <p>Consultas: <a href="mailto:{{ config('app.support_email') }}">{{ config('app.support_email') }}</a>. Ver también la <a href="{{ route('legal.privacy') }}">Política de privacidad</a>.</p>
-</main>
-@include('partials.cookie-notice')
-</body>
-</html>
+    <x-legal.section n="05" title="Si cambiamos algo" id="cambios">
+        <p>Si en el futuro sumamos alguna herramienta opcional (por ejemplo, de analítica), te la vamos a pedir antes de usarla y vas a poder rechazarla sin dejar de usar Ascento. Podés revisar tu elección en cualquier momento: <button type="button" class="font-semibold text-[#C24800] underline underline-offset-2" data-cookie-preferences>Preferencias de cookies</button>.</p>
+        <p>Más información sobre cómo tratamos tus datos en la <a href="{{ route('legal.privacy') }}">Política de Privacidad</a>.</p>
+    </x-legal.section>
+@endsection

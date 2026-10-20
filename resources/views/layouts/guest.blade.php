@@ -88,6 +88,8 @@
         </a>
 
         {{-- Contacto con Ascento: no en las pantallas del portal (el cliente habla con su empresa de ascensores). --}}
+        @include('partials.legal-links', ['style' => 'color:rgba(20,23,28,.45); margin-top:6px;'])
+
         @unless(request()->routeIs('portal.*'))
             <button type="button" data-whatsapp-open class="py-1.5 text-xs font-medium text-ink/40 hover:text-ink/70 transition-colors">¿Necesitás ayuda? Escribinos por WhatsApp</button>
         @endunless

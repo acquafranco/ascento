@@ -18,6 +18,12 @@
         .ci-select { border-radius: .5rem; border: 1px solid rgba(148,163,184,.45); padding: .45rem 2rem .45rem .6rem; background: transparent; max-width: 100%; }
         .ci-grid { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr)); }
         .ci-grid label { display: grid; gap: .3rem; font-size: .85rem; font-weight: 600; }
+        .ci-file { position: relative; display: inline-flex; flex-wrap: wrap; align-items: center; gap: .6rem; cursor: pointer; max-width: 100%; }
+        .ci-file-input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+        .ci-file-btn { display: inline-flex; align-items: center; gap: .4rem; padding: .5rem .9rem; border-radius: .5rem; font-size: .875rem; font-weight: 600; border: 1px solid rgba(148,163,184,.5); background: rgba(148,163,184,.12); }
+        .ci-file:hover .ci-file-btn { background: rgba(148,163,184,.22); }
+        .ci-file:focus-within .ci-file-btn { outline: 2px solid #ff6600; outline-offset: 2px; }
+        .ci-file-name { font-size: .85rem; opacity: .75; overflow-wrap: anywhere; }
         .ci-steps { display: flex; flex-wrap: wrap; gap: .4rem; list-style: none; margin: 0; padding: 0; font-size: .8rem; }
         .ci-steps li { display: inline-flex; align-items: center; gap: .35rem; padding: .3rem .65rem; border-radius: 999px; background: rgba(148,163,184,.14); opacity: .75; }
         .ci-steps li[aria-current] { background: rgba(255,102,0,.14); color: #b84a00; font-weight: 700; opacity: 1; }
@@ -54,7 +60,16 @@
                 <p style="font-weight:700; margin:0">2. Subí tu archivo</p>
                 <p class="ci-muted">.xlsx o .csv, hasta 2 MB y {{ $maxRows }} filas. Se lee solo la primera hoja; las fórmulas no se usan.</p>
                 <form wire:submit="analyzeFile" class="ci-row" style="margin-top:.6rem">
-                    <input type="file" wire:model="file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" aria-label="Archivo de clientes" data-import-file>
+                    {{-- Botón propio: los estilos base del panel borran el botón nativo del input (solo quedaba el texto). --}}
+                    <label class="ci-file" x-data="{ name: '' }">
+                        <input type="file" class="ci-file-input" wire:model="file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" aria-label="Archivo de clientes" data-import-file
+                               x-on:change="name = $event.target.files[0]?.name || ''">
+                        <span class="ci-file-btn" aria-hidden="true">
+                            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path d="M9.25 13.25a.75.75 0 0 0 1.5 0V4.636l2.955 3.129a.75.75 0 0 0 1.09-1.03l-4.25-4.5a.75.75 0 0 0-1.09 0l-4.25 4.5a.75.75 0 1 0 1.09 1.03L9.25 4.636v8.614Z"/><path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z"/></svg>
+                            Elegir archivo
+                        </span>
+                        <span class="ci-file-name" x-text="name || 'Ningún archivo elegido'">Ningún archivo elegido</span>
+                    </label>
                     <x-filament::button type="submit" wire:loading.attr="disabled" wire:target="file,analyzeFile">Ver vista previa</x-filament::button>
                     <span wire:loading wire:target="file,analyzeFile" class="ci-muted">Leyendo el archivo…</span>
                 </form>
