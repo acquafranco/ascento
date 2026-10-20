@@ -3,40 +3,33 @@
 namespace App\Filament\Resources\Users\Pages;
 
 use App\Filament\Resources\Users\UserResource;
-use Filament\Resources\Pages\ViewRecord;
+use App\Filament\Resources\Users\Widgets\UserOrdersWidget;
+use App\Filament\Resources\Users\Widgets\UserStatsWidget;
+use App\Services\Technicians\TechnicianSheet;
 use Filament\Actions\Action;
+use Filament\Resources\Pages\ViewRecord;
 
 class ViewUser extends ViewRecord
 {
-        protected static string $resource = UserResource::class;
+    protected static string $resource = UserResource::class;
 
     protected function getHeaderWidgets(): array
     {
         return [
-            \App\Filament\Resources\Users\Widgets\UserStatsWidget::class,
-            \App\Filament\Resources\Users\Widgets\UserOrdersWidget::class,
+            UserStatsWidget::class,
+            UserOrdersWidget::class,
         ];
     }
 
-   protected function getHeaderActions(): array
-{
-    return [
-        \Filament\Actions\Action::make('ver_template')
-            ->label('📅 Ver plantilla')
-            ->url(function ($record) {
-                $user = auth()->user();
-
-                $companySlug = $user->isSuperAdmin()
-                    ? \App\Models\Company::find(session('selected_company_id'))?->slug
-                    : $user->company?->slug;
-
-                return route('users.template', [
-                    'company' => $companySlug,
-                    'user' => $record,
-                ]);
-            })
-            ->openUrlInNewTab(),
-    ];
-}
-
+    /** La planilla del técnico, en el panel (solo el dueño: TechnicianSheet::canView). */
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('sheet')
+                ->label('Ver planilla')
+                ->icon('heroicon-o-table-cells')
+                ->url(fn ($record) => TechnicianSheetPage::getUrl(['record' => $record]))
+                ->visible(fn ($record) => TechnicianSheet::canView(auth()->user(), $record)),
+        ];
+    }
 }

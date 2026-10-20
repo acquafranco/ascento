@@ -135,7 +135,7 @@ class TechnicianExperienceTest extends TestCase
             ->assertOk()
             ->assertSee('aria-label="Principal"', false)
             ->assertSee('aria-label="Secciones"', false)
-            ->assertSee('Planilla del mes')
+            ->assertSee('Mi planilla')
             ->assertSee('data-unread-count', false);
     }
 

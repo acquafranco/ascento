@@ -42,7 +42,7 @@ class TechNav
             ],
             'more' => [
                 $item('Remitos', 'delivery-notes.index', ['delivery-notes.index', 'delivery-notes.show'], 'document'),
-                $item('Planilla del mes', 'templates.index', ['templates.*'], 'table'),
+                $item('Mi planilla', 'templates.index', ['templates.*'], 'table'),
                 // Pruebas de paracaídas de sus equipos (en los planes que las incluyen).
                 ...($user?->company_id && PlanGuard::companyAllows((int) $user->company_id, PlanFeature::ParachuteTests)
                     ? [$item('Paracaídas', 'parachute.index', ['parachute.*'], 'shield')] : []),

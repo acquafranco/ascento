@@ -166,6 +166,9 @@ class UserResource extends Resource
             'view' => Pages\ViewUser::route('/{record}'),
 
             'edit' => Pages\EditUser::route('/{record}/edit'),
+
+            // Planilla del técnico (solo el dueño de la empresa: ver TechnicianSheet).
+            'sheet' => Pages\TechnicianSheetPage::route('/{record}/planilla'),
         ];
     }
 
