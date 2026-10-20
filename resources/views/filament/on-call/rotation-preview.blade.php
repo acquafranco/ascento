@@ -43,6 +43,7 @@
             <p style="margin:0; color:#92400e" class="dark:text-amber-300">⚠ {{ $warning }}</p>
         @endforeach
 
+        <p style="margin:0; opacity:.7">Arriba, los primeros turnos: el ciclo sigue igual para siempre{{ ($endsOn ?? null) ? ' (hasta el '.$endsOn.')' : '' }}. Ascento deja anotadas las próximas semanas y cada noche suma un día más, así cada técnico sabe con tiempo cuándo le toca.</p>
         <p style="margin:0; opacity:.7">Solo se generan turnos que todavía no empezaron. Los cambios que hagas a mano en un turno (un reemplazo, por ejemplo) se respetan.</p>
     @endif
 </div>

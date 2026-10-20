@@ -1,6 +1,7 @@
 {{--
     Portada de «Guardias» (OnCallHome + OnCallBoard): ahora, después, lo que
-    falta y los próximos turnos; lo secundario, plegado abajo. Los botones abren
+    falta, cómo se turnan (la rotación, que se repite siempre) y los próximos
+    turnos; lo secundario, plegado abajo. Los botones abren
     los asistentes de la página (asignar y reemplazar, OnCallActions), con la
     franja ya elegida.
 --}}
@@ -50,6 +51,14 @@
         .oc-plain li { min-width: 0; overflow-wrap: anywhere; }
         .oc-group { margin: .25rem 0 0; font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; opacity: .55; }
         .oc-example { border-left: 3px solid #ff6600; padding: .35rem .75rem; margin: 0; }
+        .oc-cycle { margin: .6rem 0 .4rem; padding: 0; list-style: none; display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
+        .oc-cycle > li { display: flex; align-items: flex-start; gap: .45rem; padding: .4rem .7rem; border-radius: .7rem; border: 1px solid rgba(148,163,184,.35); min-width: 0; overflow-wrap: anywhere; }
+        .oc-cycle > li:not(:last-child)::after { content: '→'; margin-left: .35rem; opacity: .5; }
+        .oc-cycle > li.is-absent { border-style: dashed; opacity: .85; }
+        .oc-cycle-n { flex: none; width: 1.4rem; height: 1.4rem; border-radius: 999px; background: #ff6600; color: #fff; font-size: .75rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+        .oc-cycle-note { display: block; font-size: .8rem; opacity: .75; }
+        .oc-cycle-back { border-style: dashed !important; font-size: .85rem; opacity: .75; }
+        .oc-link { background: none; border: 0; padding: 0; font-size: .8rem; text-decoration: underline; cursor: pointer; color: inherit; opacity: .85; }
     </style>
 
     <div class="oc" data-on-call-home>
@@ -58,7 +67,7 @@
             <div class="oc-card" data-on-call-setup>
                 <p class="oc-kicker">Primer paso</p>
                 <p class="oc-who" style="font-size:1.15rem">{{ $hasAnySchedule ? 'No hay guardias en uso' : 'Contanos en qué horario necesitás guardia' }}</p>
-                <p class="oc-muted" style="opacity:.85">Por ejemplo: de lunes a viernes de 18:00 a 08:00 del día siguiente, o sábados y domingos las 24 horas. Después asignás quién cubre cada turno.</p>
+                <p class="oc-muted" style="opacity:.85">Por ejemplo: de lunes a viernes de 18:00 a 08:00 del día siguiente, o sábados y domingos las 24 horas. En el mismo paso elegís qué técnicos se turnan y en qué orden: Ascento repite el ciclo solo.</p>
                 @if($canCreate)
                     <div class="oc-btns"><x-filament::button tag="a" :href="$createUrl" icon="heroicon-m-clock">Configurar el horario de guardia</x-filament::button></div>
                 @else
@@ -159,6 +168,74 @@
                     @endif
                 </section>
             </div>
+
+            {{-- Así se turnan: el ciclo de cada rotación, que se repite siempre. --}}
+            @foreach($rotations as $rotation)
+                @php
+                    $members = $rotation->members->filter(fn ($m) => $m->user && ! $m->user->trashed())->values();
+                    $days = (int) $rotation->rotation_days;
+                @endphp
+                <section class="oc-card" data-on-call-rotation="{{ $rotation->id }}" aria-label="Así se turnan">
+                    <p class="oc-kicker">Así se turnan{{ $several ? ' · '.$rotation->name : '' }}</p>
+                    @if($members->isEmpty())
+                        <p class="oc-who oc-bad" style="font-size:1.1rem">Todavía no hay técnicos en la rotación</p>
+                    @else
+                        <ol class="oc-cycle">
+                            @foreach($members as $i => $member)
+                                @php
+                                    $from = $member->excluded_from;
+                                    $until = $member->excluded_until;
+                                    $absent = ($from || $until) && (! $until || $until->gte(today()));
+                                    $absentText = match (true) {
+                                        ! $absent => null,
+                                        ! $until => 'Ausente desde el '.$from->format('d/m').', sin fecha de vuelta',
+                                        $from && $from->gt(today()) => 'Ausente del '.$from->format('d/m').' al '.$until->format('d/m'),
+                                        default => 'Ausente hasta el '.$until->format('d/m'),
+                                    };
+                                @endphp
+                                <li class="{{ $absent ? 'is-absent' : '' }}">
+                                    <span class="oc-cycle-n">{{ $i + 1 }}</span>
+                                    <span>
+                                        <strong>{{ $member->user->name }}</strong>
+                                        @if($absent)
+                                            <span class="oc-cycle-note">{{ $absentText }}: lo cubre el siguiente</span>
+                                            @if($canManage($rotation))
+                                                <button type="button" class="oc-link" wire:click="mountAction('clearAbsence', { member: {{ $member->id }} })">Quitar ausencia</button>
+                                            @endif
+                                        @endif
+                                    </span>
+                                </li>
+                            @endforeach
+                            <li class="oc-cycle-back" aria-label="y vuelve a empezar">↺ vuelve a {{ $members->first()->user->name }}</li>
+                        </ol>
+                        <p class="oc-muted" style="opacity:.85">
+                            Cambia cada {{ $days === 1 ? 'día' : $days.' días' }}, a las {{ substr((string) $rotation->starts_time, 0, 5) }}.
+                            {{ $rotation->rotation_ends_on ? 'Se repite hasta el '.$rotation->rotation_ends_on->format('d/m/Y').'.' : 'Se repite siempre, sin fecha de fin.' }}
+                            Si alguien falta, cargá la ausencia o reemplazalo: el orden no cambia.
+                        </p>
+                    @endif
+                    @if($canManage($rotation))
+                        <div class="oc-btns">
+                            @if($members->isNotEmpty())
+                                <x-filament::button size="sm" color="gray" icon="heroicon-m-calendar-days" wire:click="mountAction('markAbsence')">Cargar una ausencia</x-filament::button>
+                            @endif
+                            <x-filament::button size="sm" color="gray" tag="a" :href="$editUrl($rotation)" icon="heroicon-m-arrows-up-down">{{ $members->isEmpty() ? 'Agregar técnicos' : 'Cambiar técnicos u orden' }}</x-filament::button>
+                        </div>
+                    @endif
+                </section>
+            @endforeach
+
+            {{-- Sin rotación: la invitación a armarla (lo más simple si se turnan siempre igual). --}}
+            @php $manual = $schedules->reject(fn ($s) => $s->isRotation())->filter(fn ($s) => $canManage($s)); @endphp
+            @if($rotations->isEmpty() && $manual->isNotEmpty())
+                <section class="oc-card" data-on-call-rotation-invite>
+                    <p class="oc-kicker">¿Se turnan siempre en el mismo orden?</p>
+                    <p class="oc-muted" style="opacity:.85">Por ejemplo: Juan esta semana, Ana la próxima, Luis la siguiente y vuelve a empezar. Armá la rotación una vez y Ascento la repite sola, para siempre; vos solo cargás ausencias o reemplazos.</p>
+                    <div class="oc-btns">
+                        <x-filament::button size="sm" tag="a" :href="$editUrl($manual->first())" icon="heroicon-m-arrow-path">Armar la rotación</x-filament::button>
+                    </div>
+                </section>
+            @endif
 
             {{-- 3. Próximos turnos --}}
             <section class="oc-card" data-on-call-upcoming-list aria-label="Próximos turnos">
@@ -283,11 +360,10 @@
                 </div>
             </details>
 
-            {{-- 5. Configuración avanzada: horarios y rotaciones --}}
+            {{-- 5. Plegado: los horarios de guardia (cuándo hace falta alguien). --}}
             <details class="oc-more" data-on-call-advanced>
-                <summary>Configuración avanzada: horarios y rotaciones</summary>
+                <summary>Horarios de guardia</summary>
                 <div class="oc-more-body">
-                    <p class="oc-group">Horarios de guardia</p>
                     <p class="oc-muted" style="opacity:.85">El horario dice cuándo hace falta alguien de guardia. Un técnico asignado solo está de guardia dentro de ese horario.</p>
                     <ul class="oc-plain">
                         @foreach($schedules as $schedule)
@@ -295,7 +371,7 @@
                                 <a href="{{ $url($schedule) }}" style="font-weight:600; text-decoration:underline">{{ $schedule->name }}</a>:
                                 {{ $schedule->coverageSentence() }}
                                 {{ (int) $schedule->technicians_needed > 1 ? $schedule->technicians_needed.' técnicos a la vez.' : '' }}
-                                {{ $schedule->isRotation() ? $schedule->modeLabel().'.' : '' }}
+                                {{ $schedule->isRotation() ? 'Se turnan en orden, cada '.((int) $schedule->rotation_days === 1 ? 'día' : $schedule->rotation_days.' días').'.' : 'Se asigna a mano.' }}
                             </li>
                         @endforeach
                     </ul>
@@ -305,11 +381,6 @@
                         @endif
                         <x-filament::button size="sm" color="gray" tag="a" :href="$listUrl">Ver todos los horarios (también los que ya no se usan)</x-filament::button>
                     </div>
-
-                    <p class="oc-group" style="margin-top:.5rem">Rotaciones automáticas</p>
-                    <p class="oc-muted" style="opacity:.85">Opcional. Si tus técnicos se turnan siempre en el mismo orden, Ascento puede armar los turnos por vos. Para asignar una guardia puntual no hace falta.</p>
-                    <p class="oc-example">Ejemplo: Juan, Ana y Luis, turnos de 7 días desde el lunes 3/11 a las 18:00 → Juan del lun 3/11 al lun 10/11, Ana del 10/11 al 17/11, Luis del 17/11 al 24/11, y vuelve a empezar Juan.</p>
-                    <p class="oc-muted" style="opacity:.85">Se activa en el horario de guardia, en «Configuración avanzada: rotación automática». Antes de guardar ves la vista previa de los turnos.</p>
                 </div>
             </details>
         @endif

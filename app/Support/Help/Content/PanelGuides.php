@@ -636,12 +636,13 @@ final class PanelGuides
 
             /* ============================ GUARDIAS ============================ */
             $a('guardias', 'on_call', 'Cómo configurar el horario de guardia', 'Decir cuándo hace falta alguien de guardia (una sola vez).', [
-                'En «Operaciones → Guardias», tocá «Configurar el horario de guardia» (si ya tenés uno: «Configuración avanzada» → «Agregar otro horario de guardia»).',
+                'En «Operaciones → Guardias», tocá «Configurar el horario de guardia» (si ya tenés uno: «Horarios de guardia» → «Agregar otro horario de guardia»).',
                 'Poné un «Nombre», elegí «¿Qué días empieza la guardia?» y el horario «¿Desde qué hora?» y «¿Hasta qué hora?». Abajo ves cómo queda, por ejemplo: «De lunes a viernes, de 18:00 a 08:00 del día siguiente».',
                 'Dejá «¿Cuántos técnicos cubren a la vez?» en 1, salvo que siempre cubran de a dos.',
                 'Si querés, escribí «Indicaciones para los técnicos».',
+                'En «¿Quiénes se turnan?», dejá «Se turnan siempre en el mismo orden» y agregá los técnicos en orden (ver «Cómo armar la rotación»). Si no tienen un orden fijo, elegí «Las asigno a mano cada vez».',
             ], [
-                'after' => 'Volvés a «Guardias»: ahí asignás quién cubre cada turno con «Asignar guardia».',
+                'after' => 'Volvés a «Guardias»: con rotación, los turnos ya están armados; si asignás a mano, usá «Asignar guardia».',
                 'notes' => ['Un técnico asignado solo está de guardia dentro de este horario.', 'Una vez que la guardia tuvo turnos, el horario no se cambia (el historial depende de él). Para otro horario, dejá de usarla y creá una nueva.', 'Las guardias organizan la cobertura: no despachan trabajos solas ni liquidan horas.'],
                 'related' => ['on_call_assign', 'on_call_replace', 'on_call_query'],
                 'keywords' => ['guardia', 'horario de guardia', 'fuera de horario', 'noche', 'fin de semana', 'cobertura', 'configurar guardia'],
@@ -657,7 +658,7 @@ final class PanelGuides
                 'Tocá «Siguiente»: vas a ver un resumen («Juan Pérez cubrirá la guardia desde el lunes 18:00 hasta el martes 08:00»). Si está bien, «Confirmar asignación».',
             ], [
                 'after' => 'Al técnico le llega un aviso y la ve en su pestaña «Guardias». Un recordatorio le avisa antes de que empiece.',
-                'notes' => ['Si algo no cierra (fin antes del inicio, fuera del horario de la guardia, otro técnico ya asignado), el resumen no avanza y te dice cómo corregirlo.', 'Ascento no sabe si el técnico está disponible: confirmalo con él.', 'Rotación automática: es opcional y está en el horario de guardia, en «Configuración avanzada».'],
+                'notes' => ['Si algo no cierra (fin antes del inicio, fuera del horario de la guardia, otro técnico ya asignado), el resumen no avanza y te dice cómo corregirlo.', 'Ascento no sabe si el técnico está disponible: confirmalo con él.', 'Si los técnicos se turnan siempre en el mismo orden, armá la rotación: no hace falta asignar cada turno.'],
                 'related' => ['on_call', 'on_call_replace', 'on_call_rotation'],
                 'keywords' => ['asignar guardia', 'turnos', 'permanente', 'periodo', 'guardia nocturna'],
                 'feature' => Feature::OnCall,
@@ -690,16 +691,16 @@ final class PanelGuides
                 'image' => ['src' => 'images/help/guardias.webp', 'alt' => 'Pantalla de Guardias con el técnico de guardia ahora y la consulta por fecha', 'caption' => 'Guardias: quién está ahora y consulta por fecha. Captura con datos de ejemplo.'],
             ]),
 
-            $a('guardias', 'on_call_rotation', 'Cómo armar una rotación automática (opcional)', 'Que los técnicos se turnen solos, siempre en el mismo orden.', [
-                'En «Guardias» → «Configuración avanzada», abrí el horario de guardia y tocá «Más» → «Cambiar horario o rotación».',
-                'En «Configuración avanzada: rotación automática», elegí «Sí, alternar técnicos automáticamente».',
-                'Agregá los técnicos en el orden en que se turnan, cuántos días dura cada turno, cuándo empieza y, si querés, hasta cuándo generar turnos.',
+            $a('guardias', 'on_call_rotation', 'Cómo armar la rotación', 'Juan esta semana, Ana la próxima, Luis la siguiente… y vuelve a empezar, para siempre.', [
+                'Al configurar el horario de guardia (o en «Guardias» → «Armar la rotación» / «Cambiar técnicos u orden»), en «¿Quiénes se turnan?» elegí «Se turnan siempre en el mismo orden».',
+                'Agregá los técnicos en el orden en que se turnan (arrastralos para cambiarlo), cada cuántos días cambia el técnico (7 = una semana) y desde qué día.',
+                'Dejá vacío «¿Termina en alguna fecha?»: así se repite siempre.',
                 'Mirá la vista previa (por ejemplo: «Juan del lun 3/11 al lun 10/11; después, Ana…») y guardá.',
             ], [
-                'after' => 'Ascento crea los turnos de las próximas semanas y avisa a cada técnico. Si alguien no está disponible en unas fechas, se saltea y toma el turno el siguiente.',
-                'notes' => ['No se crean turnos en el pasado, ni se tocan el turno en curso ni los cambios hechos a mano.', 'Para una guardia puntual no hace falta rotación: usá «Asignar guardia».'],
+                'after' => 'En «Guardias», la tarjeta «Así se turnan» muestra el orden. Ascento deja anotadas las próximas semanas, suma un día más cada noche y avisa a cada técnico cuándo le toca.',
+                'notes' => ['Si alguien falta unos días (vacaciones, licencia), tocá «Cargar una ausencia»: se saltea y cubre el siguiente, sin cambiar el orden.', 'Si alguien no puede un turno puntual, usá «Reemplazar técnico».', 'No se crean turnos en el pasado, ni se tocan el turno en curso ni los cambios hechos a mano.'],
                 'related' => ['on_call', 'on_call_assign'],
-                'keywords' => ['rotacion', 'rotativa', 'turnarse', 'alternar', 'automatico'],
+                'keywords' => ['rotacion', 'rotativa', 'turnarse', 'alternar', 'automatico', 'ausencia', 'vacaciones', 'licencia', 'semana', 'ciclo'],
                 'feature' => Feature::OnCall,
                 'area' => Area::OnCall,
             ]),

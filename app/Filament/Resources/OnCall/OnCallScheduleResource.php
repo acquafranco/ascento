@@ -90,7 +90,7 @@ class OnCallScheduleResource extends Resource
             Section::make('Horario de guardia')->columnSpanFull()
                 ->description(fn (?OnCallSchedule $record) => $locked($record)
                     ? 'Esta guardia ya tuvo turnos: su horario no se cambia (el historial depende de él). Para otro horario, dejá de usarla y creá una nueva.'
-                    : 'Cuándo hace falta alguien de guardia. Después asignás quién cubre cada turno.')
+                    : 'Cuándo hace falta alguien de guardia. Abajo elegís quiénes se turnan.')
                 ->schema([
                     TextInput::make('name')->label('Nombre')->required()->maxLength(120)->placeholder('Ej: Guardia nocturna, Fines de semana'),
                     CheckboxList::make('days')->label('¿Qué días empieza la guardia?')->options(OnCallSchedule::DAYS)
@@ -109,16 +109,22 @@ class OnCallScheduleResource extends Resource
                         ->helperText('Por ejemplo: a qué teléfono llamar o qué edificios priorizar. Lo ven los técnicos asignados.'),
                 ]),
 
-            Section::make('Configuración avanzada: rotación automática')->columnSpanFull()
-                ->description('Opcional. Solo si los técnicos se turnan siempre en el mismo orden: Ascento arma los turnos por vos. Para asignar guardias a mano no hace falta.')
-                ->collapsible()->collapsed(fn (?OnCallSchedule $record) => ! $record?->isRotation())
+            // Lo normal: los técnicos se turnan siempre en el mismo orden y el ciclo
+            // se repite solo. Asignar a mano queda para quien no tiene un orden fijo.
+            Section::make('¿Quiénes se turnan?')->columnSpanFull()
+                ->description('Elegís los técnicos y el orden una sola vez: Ascento repite el ciclo para siempre (Juan → Ana → Luis → Juan…). Las ausencias y los reemplazos se manejan aparte, sin romper el orden.')
                 ->schema([
-                    Radio::make('mode')->label('¿Querés que los técnicos se alternen automáticamente?')->required()->live()->default(OnCallSchedule::MANUAL)
+                    Radio::make('mode')->label('¿Cómo se reparten las guardias?')->required()->live()
+                        ->default(fn () => OnCallService::technicians()->isNotEmpty() ? OnCallSchedule::ROTATION : OnCallSchedule::MANUAL)
                         ->options([
-                            OnCallSchedule::MANUAL => 'No, asigno las guardias a mano',
-                            OnCallSchedule::ROTATION => 'Sí, alternar técnicos automáticamente',
+                            OnCallSchedule::ROTATION => 'Se turnan siempre en el mismo orden (recomendado)',
+                            OnCallSchedule::MANUAL => 'Las asigno a mano cada vez',
+                        ])
+                        ->descriptions([
+                            OnCallSchedule::ROTATION => 'Ascento arma los turnos solo y avisa a cada técnico cuándo le toca.',
+                            OnCallSchedule::MANUAL => 'Para quien no tiene un orden fijo: asignás cada turno desde «Guardias».',
                         ]),
-                    Repeater::make('members')->label('¿Qué técnicos participan y en qué orden?')->relationship()
+                    Repeater::make('members')->label('Técnicos, en el orden en que se turnan')->relationship()
                         ->visible($rotation)->live()
                         ->orderColumn('position')->reorderable()->addActionLabel('Agregar técnico')->defaultItems(0)
                         ->minItems(fn (Get $get) => $rotation($get) ? 1 : 0)
@@ -126,20 +132,20 @@ class OnCallScheduleResource extends Resource
                         ->schema([
                             Select::make('user_id')->label('Técnico')->required()->distinct()
                                 ->options(fn () => OnCallService::technicians()->pluck('name', 'id')),
-                            DatePicker::make('excluded_from')->label('No disponible desde (opcional)'),
+                            DatePicker::make('excluded_from')->label('Ausente desde (opcional)'),
                             DatePicker::make('excluded_until')->label('Hasta')->afterOrEqual('excluded_from'),
                         ])
-                        ->helperText('El primero cubre el primer turno, después el segundo, y así. Si alguien no está disponible (vacaciones, licencia), se saltea y toma el turno el siguiente.'),
+                        ->helperText('El primero cubre el primer turno, después el segundo, y así; al terminar la lista vuelve a empezar. Si alguien está ausente (vacaciones, licencia), se saltea y cubre el siguiente. Arrastrá para cambiar el orden.'),
                     Grid::make(['default' => 1, 'sm' => 3])->visible($rotation)->schema([
-                        TextInput::make('rotation_days')->label('¿Cuántos días dura cada turno?')->numeric()->minValue(1)->maxValue(31)->default(7)->live(onBlur: true)
-                            ->required($rotation)->helperText('Ej: 7 = una semana cada uno.'),
-                        DatePicker::make('rotation_starts_on')->label('¿Cuándo empieza la rotación?')->default(today())->live(onBlur: true)
-                            ->required($rotation)->helperText('Cada turno empieza a la hora de inicio de la guardia.'),
-                        DatePicker::make('rotation_ends_on')->label('¿Hasta cuándo generar turnos? (opcional)')->live(onBlur: true)
-                            ->afterOrEqual('rotation_starts_on')->helperText('Vacío: siempre las próximas 8 semanas.'),
+                        TextInput::make('rotation_days')->label('¿Cada cuántos días cambia el técnico?')->numeric()->minValue(1)->maxValue(31)->default(7)->live(onBlur: true)
+                            ->required($rotation)->helperText('7 = una semana cada uno.'),
+                        DatePicker::make('rotation_starts_on')->label('¿Desde qué día?')->default(today())->live(onBlur: true)
+                            ->required($rotation)->helperText('El primero de la lista arranca ese día, a la hora de inicio de la guardia.'),
+                        DatePicker::make('rotation_ends_on')->label('¿Termina en alguna fecha? (casi nunca)')->live(onBlur: true)
+                            ->afterOrEqual('rotation_starts_on')->helperText('Vacío = se repite siempre.'),
                     ]),
                     View::make('filament.on-call.rotation-preview')->visible($rotation)
-                        ->viewData(fn (Get $get, ?OnCallSchedule $record) => ['preview' => self::rotationPreview($get, $record)]),
+                        ->viewData(fn (Get $get, ?OnCallSchedule $record) => ['preview' => self::rotationPreview($get, $record), 'endsOn' => filled($get('rotation_ends_on')) ? Carbon::parse($get('rotation_ends_on'))->format('d/m/Y') : null]),
                 ]),
         ]);
     }
