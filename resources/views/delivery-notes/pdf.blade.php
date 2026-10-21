@@ -40,10 +40,9 @@
     <table class="keep" style="background: {{ $doc['company']['color'] }}; color: {{ $doc['company']['on_color'] }};">
         <tr>
             @if ($doc['company']['logo'])
-                <td style="width: 74px; padding: 12px 0 12px 14px; vertical-align: middle;">
-                    <div style="background: #FFFFFF; border-radius: 8px; padding: 5px; text-align: center;">
-                        <img src="{{ $doc['company']['logo'] }}" style="max-width: 52px; max-height: 52px;" alt="">
-                    </div>
+                {{-- El logo va directo sobre el color de la empresa, sin recuadro blanco ni bordes. --}}
+                <td style="width: 1%; padding: 12px 0 12px 14px; vertical-align: middle; white-space: nowrap;">
+                    <img src="{{ $doc['company']['logo'] }}" style="max-width: 110px; max-height: 56px;" alt="">
                 </td>
             @endif
             <td style="padding: 12px 14px; vertical-align: middle;">

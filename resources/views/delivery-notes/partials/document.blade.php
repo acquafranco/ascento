@@ -10,8 +10,9 @@
     .rm { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; color: #11161D; line-height: 1.45; }
     .rm * { box-sizing: border-box; }
     .rm-head { border-radius: 20px; padding: 18px; display: flex; gap: 14px; align-items: center; box-shadow: 0 10px 30px -18px rgba(17,22,29,.5); }
-    .rm-logo { width: 64px; height: 64px; flex: none; border-radius: 14px; background: #fff; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-    .rm-logo img { max-width: 56px; max-height: 56px; object-fit: contain; }
+    /* El logo va directo sobre el color de la empresa: sin recuadro ni bordes (cada empresa elige su logo y su color). */
+    .rm-logo { flex: none; display: flex; align-items: center; justify-content: flex-start; max-width: 120px; height: 64px; }
+    .rm-logo img { display: block; max-width: 120px; max-height: 64px; width: auto; height: auto; object-fit: contain; }
     .rm-head-main { min-width: 0; flex: 1; }
     .rm-company { font-size: 13px; font-weight: 600; opacity: .85; overflow-wrap: anywhere; }
     .rm-title { font-size: 24px; font-weight: 800; letter-spacing: -.01em; margin: 2px 0 8px; }
@@ -44,7 +45,7 @@
     .rm-foot { text-align: center; color: #9CA3AF; font-size: 12px; margin: 14px 0 4px; }
     @media (min-width: 640px) {
         .rm-head { padding: 22px 24px; }
-        .rm-logo { width: 80px; height: 80px; } .rm-logo img { max-width: 70px; max-height: 70px; }
+        .rm-logo { max-width: 160px; height: 76px; } .rm-logo img { max-width: 160px; max-height: 76px; }
         .rm-title { font-size: 28px; }
         .rm-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         .rm-card { padding: 20px 22px; }
