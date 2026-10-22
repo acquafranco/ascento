@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Marketplace;
 use App\Models\Marketplace\MarketplaceReport;
 use App\Models\Marketplace\Supplier;
 use App\Models\Marketplace\SupplierProduct;
+use App\Notifications\Marketplace\SupplierAccountUpdate;
 use App\Services\Activity\PlatformAudit;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -43,6 +44,7 @@ final class MarketplaceModeration
                 'approved_at' => $to === Supplier::APPROVED ? ($record->approved_at ?? now()) : $record->approved_at,
             ])->save();
             PlatformAudit::record('marketplace.supplier.'.$to, $record, ['from' => $from, 'to' => $to, 'reason' => $reason]);
+            SupplierAccountUpdate::deliver($record, $to, $reason);
             Notification::make()->title($title)->success()->send();
         };
 

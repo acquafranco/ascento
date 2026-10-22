@@ -64,3 +64,15 @@ El marketplace de **trabajos** (publicar reparaciones y recibir propuestas) **no
 - **SuperAdmin** (Plataforma): proveedores (aprobar, rechazar, suspender, reactivar), publicaciones (ocultar, volver a mostrar, destacar hasta una fecha) y reportes (resolver, con opción de ocultar, o descartar). Todo queda en `platform_audit_logs`.
 - **Reputación:** solo cuenta operaciones que el comprador confirmó como completadas. Sin reseñas.
 - Términos (secciones 17 y 18) y política de privacidad actualizados (versión 22/10/2026).
+
+## Revisión final antes de integrar (22/10/2026)
+
+Correcciones hechas en la revisión:
+- **Cotización cambiada mientras el comprador la miraba:** el comprador aceptaba solo por estado, así que si el proveedor corregía el precio en ese momento, se aceptaba un importe que nunca vio. Ahora «Aceptar» lleva la versión de la cotización que se mostró (`MarketplaceRequest::quoteVersion()`), y el servidor la compara con el pedido bloqueado; si cambió, pide revisarla.
+- **Cotizar sin bloqueo:** `MarketplaceRequests::quote()` ahora bloquea el pedido y vuelve a validar el estado dentro de la transacción. Un proveedor ya no puede reescribir una cotización que el comprador aceptó o canceló en el mismo instante.
+- **Aviso de aprobación al proveedor:** aprobar, rechazar, suspender o reactivar una cuenta no le avisaba nada al proveedor. Ahora recibe el aviso en su área y por correo, con el motivo cuando lo hay (`SupplierAccountUpdate`). Usa el correo que ya tiene la app.
+- Texto: «Agregamos 1 producto» (antes decía «1 productos»).
+
+Sin cambios (decisión consciente):
+- Una cotización vencida no genera aviso, porque no hay tareas programadas nuevas. El comprador la ve como vencida y no puede aceptarla.
+- Si un proveedor es suspendido, sus pedidos abiertos quedan como están. El comprador puede cancelarlos o confirmarlos como recibidos, pero no aceptar una cotización nueva.

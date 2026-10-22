@@ -151,11 +151,12 @@ class PartsRequests extends Page
         return MarketplaceRequest::forCompany((int) auth()->user()->company_id)->with(['items', 'events', 'supplier'])->findOrFail((int) $this->pedido);
     }
 
-    public function move(string $to): void
+    /** @param  ?int  $seenQuote  la versión de la cotización que se mostró (para aceptar) */
+    public function move(string $to, ?int $seenQuote = null): void
     {
         $this->resetErrorBag();
         $request = $this->current();
-        app(MarketplaceRequests::class)->buyerMove(auth()->user(), $request, $to, $this->note);
+        app(MarketplaceRequests::class)->buyerMove(auth()->user(), $request, $to, $this->note, $seenQuote);
         $this->note = '';
 
         Notification::make()->title(match ($to) {
@@ -184,7 +185,7 @@ class PartsRequests extends Page
         if ($visible === []) {
             $notice->title('Ninguno de esos productos sigue disponible')->warning();
         } else {
-            $notice->title('Agregamos '.count($visible).' productos a tu pedido')->body($missing > 0 ? $missing.' ya no están disponibles.' : null)->success();
+            $notice->title('Agregamos '.count($visible).(count($visible) === 1 ? ' producto' : ' productos').' a tu pedido')->body($missing > 0 ? $missing.($missing === 1 ? ' ya no está disponible.' : ' ya no están disponibles.') : null)->success();
         }
         $notice->send();
         $this->pedido = null;

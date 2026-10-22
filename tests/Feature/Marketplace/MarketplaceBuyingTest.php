@@ -154,7 +154,8 @@ class MarketplaceBuyingTest extends TestCase
         $this->actingInPanel($a['admin']->fresh());
         Livewire::test(PartsRequests::class, ['pedido' => $request->id])->assertSee('Total cotizado')->assertSee('no un cobro')
             ->call('move', 'completed')->assertHasErrors('estado') // primero hay que aceptar
-            ->call('move', 'accepted')->assertHasNoErrors()->call('move', 'completed')->assertHasNoErrors();
+            ->call('move', 'accepted')->assertHasErrors('estado') // sin la cotización que vio, no se acepta
+            ->call('move', 'accepted', $request->quoteVersion())->assertHasNoErrors()->call('move', 'completed')->assertHasNoErrors();
         $this->assertSame(MarketplaceRequest::COMPLETED, $request->fresh()->status);
         $this->assertSame(1, $supplier->completedOperations());
         $this->assertSame(['sent', 'quoted', 'accepted', 'completed'], $request->events()->pluck('to')->all());
@@ -178,7 +179,7 @@ class MarketplaceBuyingTest extends TestCase
 
         $this->travel(3)->days();
         try {
-            $service->buyerMove($a['admin'], $request->fresh(), MarketplaceRequest::ACCEPTED);
+            $service->buyerMove($a['admin'], $request->fresh(), MarketplaceRequest::ACCEPTED, null, $request->fresh()->quoteVersion());
             $this->fail('Aceptó una cotización vencida');
         } catch (ValidationException $e) {
             $this->assertStringContainsString('venció', $e->getMessage());
@@ -187,7 +188,42 @@ class MarketplaceBuyingTest extends TestCase
         $service->quote($supplierUser, $request->fresh(), [$request->items()->value('id') => 10], 10, null);
         $supplier->forceFill(['status' => Supplier::SUSPENDED])->save();
         $this->expectException(ValidationException::class);
-        $service->buyerMove($a['admin'], $request->fresh(), MarketplaceRequest::ACCEPTED);
+        $service->buyerMove($a['admin'], $request->fresh(), MarketplaceRequest::ACCEPTED, null, $request->fresh()->quoteVersion());
+    }
+
+    public function test_a_quote_changed_after_the_buyer_saw_it_is_not_accepted_and_an_accepted_quote_cannot_be_rewritten(): void
+    {
+        [$supplier, $supplierUser] = $this->makeSupplier();
+        $product = $this->makeProduct($supplier);
+        $a = $this->makeTenant();
+        $service = app(MarketplaceRequests::class);
+        $request = $service->create($a['admin'], $supplier->id, [$product->id => 2], ['contact_name' => 'Ana', 'contact_email' => 'ana@e.test'], 'k');
+        $item = $request->items()->value('id');
+        $service->quote($supplierUser, $request->fresh(), [$item => 100], 7, null);
+        $seen = $request->fresh()->quoteVersion();
+
+        // El proveedor corrige el precio mientras el comprador tiene la pantalla abierta.
+        $this->travel(5)->seconds();
+        $service->quote($supplierUser, $request->fresh(), [$item => 900], 7, null);
+        try {
+            $service->buyerMove($a['admin'], $request->fresh(), MarketplaceRequest::ACCEPTED, null, $seen);
+            $this->fail('Aceptó una cotización que no vio');
+        } catch (ValidationException $e) {
+            $this->assertStringContainsString('cambió la cotización', $e->getMessage());
+        }
+        $this->assertSame(MarketplaceRequest::QUOTED, $request->fresh()->status);
+
+        // Aceptada la que vio, el proveedor ya no la puede reescribir (aunque tenga el pedido viejo en memoria).
+        $stale = $request->fresh();
+        $service->buyerMove($a['admin'], $request->fresh(), MarketplaceRequest::ACCEPTED, null, $request->fresh()->quoteVersion());
+        try {
+            $service->quote($supplierUser, $stale, [$item => 1], 7, null);
+            $this->fail('Reescribió una cotización aceptada');
+        } catch (ValidationException) {
+        }
+        $fresh = $request->fresh();
+        $this->assertSame([MarketplaceRequest::ACCEPTED, '1800.00'], [$fresh->status, $fresh->quoted_total]);
+        $this->assertSame('900.00', $fresh->items()->value('quoted_unit_price'));
     }
 
     public function test_favorites_and_repeat_orders_belong_to_the_company(): void
@@ -203,7 +239,7 @@ class MarketplaceBuyingTest extends TestCase
         Livewire::test(PartsCatalog::class)->call('toggleFavorite', $product->id)->set('favoritos', true)->assertSee($product->name);
         $this->assertSame(1, MarketplaceFavorite::where('company_id', $a['company']->id)->count());
         // Repetir: vuelve lo que sigue disponible, con sus cantidades.
-        Livewire::test(PartsRequests::class, ['pedido' => $request->id])->call('repeat')->assertNotified('Agregamos 1 productos a tu pedido');
+        Livewire::test(PartsRequests::class, ['pedido' => $request->id])->call('repeat')->assertNotified('Agregamos 1 producto a tu pedido');
         $this->assertSame([$product->id => 2], session('marketplace.cart.'.$a['company']->id));
 
         auth()->logout();

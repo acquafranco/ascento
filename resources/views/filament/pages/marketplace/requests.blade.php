@@ -50,7 +50,7 @@
                     <label for="mk-note" style="font-size:.8rem; font-weight:600">Nota para el proveedor (opcional)</label>
                     <textarea id="mk-note" wire:model="note" maxlength="2000" rows="2" class="mk-input"></textarea>
                     <div class="mk-actions">
-                        @if($row->canMove('buyer', 'accepted') && ! $row->quoteExpired())<button type="button" class="mk-btn" wire:click="move('accepted')" wire:confirm="¿Aceptar la cotización de {{ $row->supplier->name }} por {{ $row->money((float) $row->quoted_total) }}? Después coordinás el pago y la entrega con el proveedor." data-mk-accept>Aceptar cotización</button>@endif
+                        @if($row->canMove('buyer', 'accepted') && ! $row->quoteExpired())<button type="button" class="mk-btn" wire:click="move('accepted', {{ $row->quoteVersion() }})" wire:confirm="¿Aceptar la cotización de {{ $row->supplier->name }} por {{ $row->money((float) $row->quoted_total) }}? Después coordinás el pago y la entrega con el proveedor." data-mk-accept>Aceptar cotización</button>@endif
                         @if($row->canMove('buyer', 'completed'))<button type="button" class="mk-btn" wire:click="move('completed')" wire:confirm="¿Confirmás que recibiste este pedido?" data-mk-complete>Recibí el pedido</button>@endif
                         @if($row->canMove('buyer', 'rejected'))<button type="button" class="mk-btn secondary" wire:click="move('rejected')" wire:confirm="¿Rechazar esta cotización?">Rechazar cotización</button>@endif
                         @if($row->canMove('buyer', 'cancelled'))<button type="button" class="mk-btn danger" wire:click="move('cancelled')" wire:confirm="¿Cancelar el pedido {{ $row->reference }}?">Cancelar pedido</button>@endif

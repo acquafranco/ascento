@@ -140,8 +140,13 @@ class MarketplaceRequests
             throw ValidationException::withMessages(['validez' => 'La validez va de 1 a 90 días.']);
         }
 
-        $from = $request->status;
-        DB::transaction(function () use ($items, $request, $total, $validDays, $note, $supplierUser, $from) {
+        $from = DB::transaction(function () use ($items, $request, $total, $validDays, $note, $supplierUser) {
+            // Bloqueo: si el comprador aceptó o canceló mientras tanto, la cotización no se pisa.
+            $fresh = MarketplaceRequest::whereKey($request->id)->lockForUpdate()->first();
+            if (! $fresh->canMove('supplier', MarketplaceRequest::QUOTED)) {
+                throw ValidationException::withMessages(['estado' => 'Este pedido ya cambió. Actualizá la pantalla.']);
+            }
+            $from = $fresh->status;
             $items->each->save();
             $request->forceFill([
                 'status' => MarketplaceRequest::QUOTED,
@@ -151,6 +156,8 @@ class MarketplaceRequests
                 'quoted_at' => now(),
             ])->save();
             $this->event($request, $supplierUser, 'supplier', $from, MarketplaceRequest::QUOTED, $note);
+
+            return $from;
         });
 
         $this->notifyBuyer($request, $from === MarketplaceRequest::QUOTED ? 'Cotización actualizada' : 'Te cotizaron un pedido', $request->supplier->name.' cotizó el pedido '.$request->reference.'.', 'quoted-'.$request->quoted_at->timestamp);
@@ -167,8 +174,13 @@ class MarketplaceRequests
         return $request;
     }
 
-    /** Aceptar, rechazar, cancelar o confirmar la recepción (comprador). */
-    public function buyerMove(User $buyer, MarketplaceRequest $request, string $to, ?string $note = null): MarketplaceRequest
+    /**
+     * Aceptar, rechazar, cancelar o confirmar la recepción (comprador).
+     *
+     * @param  ?int  $seenQuote  al aceptar: la versión de la cotización que vio el comprador
+     *                           (quoteVersion()). Si el proveedor la cambió después, no se acepta.
+     */
+    public function buyerMove(User $buyer, MarketplaceRequest $request, string $to, ?string $note = null, ?int $seenQuote = null): MarketplaceRequest
     {
         abort_unless(BuyerAccess::canOrder($buyer) && (int) $request->company_id === (int) $buyer->company_id, 404);
 
@@ -182,7 +194,16 @@ class MarketplaceRequests
             throw ValidationException::withMessages(['estado' => 'Este proveedor no está disponible en este momento.']);
         }
 
-        $this->move($request, $buyer, 'buyer', $to, $note);
+        $this->move($request, $buyer, 'buyer', $to, $note, $to === MarketplaceRequest::ACCEPTED
+            ? function (MarketplaceRequest $fresh) use ($seenQuote) {
+                if ($seenQuote === null || $fresh->quoteVersion() !== $seenQuote) {
+                    throw ValidationException::withMessages(['estado' => 'El proveedor cambió la cotización. Revisala antes de aceptarla.']);
+                }
+                if ($fresh->quoteExpired()) {
+                    throw ValidationException::withMessages(['estado' => 'La cotización venció. Pedile al proveedor que la actualice.']);
+                }
+            }
+            : null);
 
         $texts = [
             MarketplaceRequest::ACCEPTED => ['Aceptaron tu cotización', 'aceptó la cotización del pedido '.$request->reference.'. Coordiná el pago y la entrega con el comprador.'],
@@ -208,13 +229,17 @@ class MarketplaceRequests
         }
     }
 
-    private function move(MarketplaceRequest $request, User $user, string $actor, string $to, ?string $note): void
+    /** @param  ?callable(MarketplaceRequest): void  $check  validación extra con el pedido bloqueado */
+    private function move(MarketplaceRequest $request, User $user, string $actor, string $to, ?string $note, ?callable $check = null): void
     {
-        DB::transaction(function () use ($request, $user, $actor, $to, $note) {
+        DB::transaction(function () use ($request, $user, $actor, $to, $note, $check) {
             // Bloqueo: dos clics (o dos personas) a la vez no cambian el estado dos veces.
             $fresh = MarketplaceRequest::whereKey($request->id)->lockForUpdate()->first();
             if (! $fresh->canMove($actor, $to)) {
                 throw ValidationException::withMessages(['estado' => 'Este pedido ya cambió. Actualizá la pantalla.']);
+            }
+            if ($check) {
+                $check($fresh);
             }
             $from = $fresh->status;
             $request->forceFill(array_filter([

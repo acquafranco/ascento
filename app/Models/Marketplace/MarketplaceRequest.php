@@ -120,6 +120,15 @@ class MarketplaceRequest extends Model
         return $this->status === self::QUOTED && ($expires = $this->quoteExpiresAt()) !== null && $expires->isPast();
     }
 
+    /**
+     * Versión de la cotización (cambia cada vez que el proveedor la corrige):
+     * el comprador acepta la versión que vio, no la última que haya.
+     */
+    public function quoteVersion(): ?int
+    {
+        return $this->quoted_at ? crc32($this->quoted_at->timestamp.'|'.$this->quoted_total) : null;
+    }
+
     public function statusLabel(): string
     {
         return self::STATUSES[$this->status] ?? $this->status;

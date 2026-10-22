@@ -14,7 +14,9 @@ use App\Models\Marketplace\Supplier;
 use App\Models\PlatformAuditLog;
 use App\Models\User;
 use App\Notifications\Marketplace\MarketplaceAdminNotice;
+use App\Notifications\Marketplace\SupplierAccountUpdate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\Feature\Marketplace\Concerns\MakesMarketplace;
@@ -40,10 +42,11 @@ class MarketplaceModerationTest extends TestCase
 
     public function test_approving_and_suspending_a_supplier_controls_its_catalog_and_is_logged(): void
     {
-        [$supplier] = $this->makeSupplier(Supplier::PENDING);
+        [$supplier, $supplierUser] = $this->makeSupplier(Supplier::PENDING);
         $product = $this->makeProduct($supplier, ['name' => 'Limitador de velocidad']);
         $super = User::factory()->superAdmin()->create();
         $this->actingInPanel($super);
+        Notification::fake();
 
         Livewire::test(ListSuppliers::class)->callTableAction('approve', $supplier)->assertNotified('Proveedor aprobado');
         $this->assertSame(Supplier::APPROVED, $supplier->fresh()->status);
@@ -56,6 +59,14 @@ class MarketplaceModerationTest extends TestCase
 
         $this->assertSame(['marketplace.supplier.approved', 'marketplace.supplier.suspended'], PlatformAuditLog::orderBy('id')->pluck('action')->all());
         $this->assertSame($super->id, PlatformAuditLog::first()->user_id);
+
+        // El proveedor se entera en su área y por correo (con el motivo, si lo hay).
+        foreach ([Supplier::APPROVED, Supplier::SUSPENDED] as $status) {
+            foreach (['database', 'mail'] as $channel) {
+                Notification::assertSentTo($supplierUser, SupplierAccountUpdate::class, fn ($n, $channels) => $n->status === $status && $channels === [$channel]);
+            }
+        }
+        Notification::assertSentTo($supplierUser, SupplierAccountUpdate::class, fn ($n) => $n->status === Supplier::SUSPENDED && str_contains($n->body(), 'Datos fiscales inconsistentes'));
     }
 
     public function test_hiding_and_featuring_products(): void
