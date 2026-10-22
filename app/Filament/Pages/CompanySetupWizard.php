@@ -14,6 +14,7 @@ use App\Models\Company;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Services\Onboarding\CompanySetup;
+use App\Support\Auth\EmailGate;
 use App\Support\Plans\PlanGuard;
 use App\Support\Plans\PlanUpsell;
 use Filament\Forms\Components\Hidden;
@@ -23,6 +24,7 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
 
@@ -278,8 +280,47 @@ class CompanySetupWizard extends Page
         $this->redirect(CompanySetup::dashboardUrl());
     }
 
+    /**
+     * El dueño de una empresa nueva confirma su correo antes de usar el servicio
+     * (EmailGate): hasta entonces no sale de esta pantalla.
+     */
+    private function mustVerify(): bool
+    {
+        $user = auth()->user()->fresh();
+
+        return EmailGate::appliesTo($user) && ! $user->hasVerifiedEmail();
+    }
+
+    /** Reenviar el enlace de confirmación (3 cada 10 minutos, como en «Verificá tu email»). */
+    public function resendVerification(): void
+    {
+        $user = auth()->user()->fresh();
+        if ($user->hasVerifiedEmail()) {
+            return;
+        }
+
+        $key = 'verification-send:'.$user->id;
+        if (RateLimiter::tooManyAttempts($key, 3)) {
+            Notification::make()->title('Ya te mandamos varios enlaces hace poco')->body('Esperá unos minutos y volvé a pedirlo. Revisá también la carpeta de spam.')->warning()->send();
+
+            return;
+        }
+        RateLimiter::hit($key, 600);
+        $user->sendEmailVerificationNotification();
+
+        Notification::make()->title('Te mandamos un enlace nuevo')->body('Revisá '.$user->email.' (y la carpeta de spam).')->success()->send();
+    }
+
     public function finish(): void
     {
+        if ($this->mustVerify()) {
+            Notification::make()->title('Todavía no confirmaste tu correo')
+                ->body('Abrí el enlace que te mandamos a '.auth()->user()->email.' y después tocá «Ya confirmé mi correo».')
+                ->warning()->send();
+
+            return;
+        }
+
         abort_unless($this->setup()->complete($this->company()), 422);
 
         // Sigue la ayuda de inicio: el recorrido corto del menú y los próximos pasos.
@@ -300,6 +341,7 @@ class CompanySetupWizard extends Page
             'color' => preg_match('/^#[0-9a-fA-F]{6}$/', (string) $company->primary_color) ? $company->primary_color : '#FF6600',
             'logo' => $company->logo ? asset('storage/'.$company->logo) : null,
             'canGoBack' => array_search($this->screen, CompanySetup::SCREENS, true) > 1 && $this->screen !== 'done',
+            'verifyEmail' => EmailGate::appliesTo(auth()->user()) ? ['email' => auth()->user()->email, 'verified' => auth()->user()->fresh()->hasVerifiedEmail()] : null,
         ];
     }
 }

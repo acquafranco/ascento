@@ -137,4 +137,19 @@ return [
 
     'verified_sender_since' => env('ASCENTO_VERIFIED_SENDER_SINCE', '2026-10-12'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Correo confirmado para usar el panel (dueños de empresas nuevas)
+    |--------------------------------------------------------------------------
+    |
+    | El dueño de una empresa registrada desde esta fecha tiene que confirmar
+    | su correo para entrar al panel. La configuración inicial guiada se hace
+    | antes; al terminarla queda en «Verificá tu email» hasta confirmar
+    | (App\Support\Auth\EmailGate). Las empresas anteriores no se bloquean.
+    | Vacío = desactivado.
+    |
+    */
+
+    'verified_owner_since' => env('ASCENTO_VERIFIED_OWNER_SINCE', '2026-10-21'),
+
 ];

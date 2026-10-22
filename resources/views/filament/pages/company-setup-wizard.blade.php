@@ -48,6 +48,10 @@
         .sw-lead { margin: .5rem 0 1.25rem; opacity: .75; line-height: 1.5; }
         .sw-actions { display: flex; flex-wrap: wrap-reverse; gap: .6rem; justify-content: space-between; align-items: center; margin-top: 1.5rem; }
         .sw-actions .sw-primary { margin-left: auto; }
+        .sw-verify { margin-top: 1.25rem; border: 2px solid var(--sw-brand); border-radius: .9rem; padding: 1rem 1.1rem; }
+        .sw-verify.is-ok { border-color: #16a34a; }
+        .sw-verify-title { margin: 0; font-weight: 800; font-size: 1.05rem; }
+        .sw-verify-text { margin: .35rem 0 0; line-height: 1.5; opacity: .85; }
         @media (max-width: 480px) { .sw-actions > * { width: 100%; } .sw-actions .sw-primary { margin-left: 0; } }
         .sw-saved { display: flex; gap: .75rem; align-items: flex-start; padding: .9rem 1rem; border-radius: .9rem; background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.3); }
         .sw-check { flex: none; width: 1.6rem; height: 1.6rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: #16a34a; color: #fff; font-weight: 800; font-size: .9rem; }
@@ -139,6 +143,24 @@
                             @if($order)<li>{!! $saved('Orden #'.$order->id, \App\Support\WorkOrderLabels::type((string) $order->type).' · '.($order->unit ?? '').' · asignada a '.($tech?->name ?? 'tu técnico')) !!}</li>@endif
                         </ul>
                         <p class="sw-lead" style="margin:1rem 0 0">{{ $tech?->name ?? 'Tu técnico' }} ya ve la orden en su celular y le llega el aviso si activó las notificaciones.</p>
+
+                        {{-- Último paso para las empresas nuevas: confirmar el correo (EmailGate). --}}
+                        @if($verifyEmail)
+                            <div class="sw-verify {{ $verifyEmail['verified'] ? 'is-ok' : '' }}" data-setup-verify="{{ $verifyEmail['verified'] ? 'ok' : 'pending' }}">
+                                @if($verifyEmail['verified'])
+                                    <p class="sw-verify-title">✓ Correo confirmado</p>
+                                    <p class="sw-verify-text">Ya podés empezar a usar Ascento.</p>
+                                @else
+                                    <p class="sw-verify-title">Último paso: confirmá tu correo</p>
+                                    <p class="sw-verify-text">Te mandamos un correo a <strong>{{ $verifyEmail['email'] }}</strong> para verificar tu cuenta. Abrí el enlace y volvé acá: hasta confirmarlo no vas a poder entrar al inicio.</p>
+                                    <p class="sw-verify-text" style="margin-top:.5rem">
+                                        ¿No te llegó? Revisá la carpeta de spam o
+                                        <button type="button" class="sw-link" wire:click="resendVerification" wire:loading.attr="disabled" data-setup-resend>pedí otro enlace</button>.
+                                        ¿Lo escribiste mal? <a class="sw-link" href="{{ route('verification.notice') }}">Corregí tu correo</a>.
+                                    </p>
+                                @endif
+                            </div>
+                        @endif
                         @break
                 @endswitch
             </form>
@@ -149,7 +171,7 @@
                 @endif
 
                 @if($screen === 'done')
-                    <x-filament::button class="sw-primary" size="lg" wire:click="finish" icon="heroicon-m-check" data-setup-finish>Ir al inicio</x-filament::button>
+                    <x-filament::button class="sw-primary" size="lg" wire:click="finish" icon="heroicon-m-check" data-setup-finish>{{ $verifyEmail && ! $verifyEmail['verified'] ? 'Ya confirmé mi correo' : 'Ir al inicio' }}</x-filament::button>
                 @else
                     @php
                         $recordDone = ['technician' => $tech, 'client' => $client, 'building' => $building, 'work_order' => $order][$screen] ?? null;
