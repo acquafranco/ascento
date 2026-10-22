@@ -8,6 +8,7 @@ use App\Models\ClientClaim;
 use App\Models\Company;
 use App\Services\Claims\ClientClaimService;
 use App\Services\PublicQr\PublicQrService;
+use App\Support\Countries;
 use App\Support\PublicQr\QrReportNonce;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -164,6 +165,7 @@ class PublicQrReportController extends Controller
             'companyName' => $company?->name,
             'buildingName' => $building?->name,
             'buildingAddress' => trim(collect([$building?->address, $building?->locality])->filter()->implode(', ')),
+            'country' => Countries::normalize($building?->country ?: $company?->country),
         ];
     }
 

@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Enums\PlanFeature;
 use App\Rules\Cuit;
+use App\Rules\TaxId;
+use App\Support\Countries;
 use App\Support\RequestMemo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -87,18 +89,37 @@ class Company extends Model
     ];
 
     /**
-     * CUIT siempre con el mismo formato (30-71234567-1), venga de donde venga
+     * Identificación fiscal siempre con el mismo formato, venga de donde venga
      * (registro, Mi empresa, panel del SuperAdmin), para que la unicidad
-     * funcione. Vacío → null. Lo que no tiene 11 dígitos (dato viejo) se guarda tal
-     * cual. El dígito verificador lo validan el registro y "Mi empresa".
+     * funcione. Vacío → null. Se formatea al guardar, con el país final de la
+     * empresa (ver booted): en Argentina el CUIT con guiones (lo que no tiene 11
+     * dígitos, un dato viejo, se guarda tal cual); en otro país, en mayúsculas,
+     * sin convertirlo en CUIT aunque tenga 11 dígitos (por ejemplo, un RUC de Perú).
      */
+    /** Lo que se escribió en la identificación fiscal antes de formatearla (ver booted). */
+    private ?string $typedCuit = null;
+
+    protected static function booted(): void
+    {
+        static::saving(function (Company $company) {
+            if ($company->cuit !== null && ($company->isDirty('cuit') || $company->isDirty('country'))) {
+                // Desde lo que se escribió (si se cargó ahora), con el país final.
+                $company->attributes['cuit'] = TaxId::format($company->country, $company->typedCuit ?? $company->cuit);
+            }
+            $company->typedCuit = null;
+        });
+    }
+
     public function setCuitAttribute(?string $value): void
     {
         $value = trim((string) $value);
+        $this->typedCuit = $value === '' ? null : $value;
 
-        $this->attributes['cuit'] = $value === ''
-            ? null
-            : (strlen(Cuit::normalize($value)) === 11 ? Cuit::format($value) : $value);
+        // Con el país ya conocido (empresa existente o país cargado antes), se
+        // formatea ahora (también sirve para saveQuietly). Si todavía no hay país
+        // (alta con los campos en otro orden), lo formatea el guardado (booted).
+        $this->attributes['cuit'] = $value === '' ? null
+            : (array_key_exists('country', $this->attributes) ? TaxId::format($this->attributes['country'], $value) : $value);
     }
 
     public function users()
@@ -317,5 +338,11 @@ class Company extends Model
     {
         return $this->trial_ends_at !== null
             && $this->trial_ends_at->isFuture();
+    }
+
+    /** Cómo se llama su identificación fiscal: CUIT, RUT, RFC, NIT, RUC… (según su país). */
+    public function taxIdLabel(): string
+    {
+        return Countries::taxIdLabel($this->country);
     }
 }

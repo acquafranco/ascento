@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Subscriptions;
 use App\Filament\Resources\Subscriptions\Pages\ListSubscriptions;
 use App\Filament\Resources\Subscriptions\Pages\ViewSubscription;
 use App\Filament\Resources\Subscriptions\RelationManagers\PaymentsRelationManager;
+use App\Models\Company;
 use App\Models\Subscription;
 use App\Support\SubscriptionStatus;
 use BackedEnum;
@@ -96,8 +97,8 @@ class SubscriptionResource extends Resource
 
                 TextColumn::make('plan_name')
                     ->label('Plan')
-                    ->state(fn ($record) => ($record instanceof \App\Models\Company ? $record : $record->company)?->plan()->shortName())
-                    ->description(fn ($record) => (($record instanceof \App\Models\Company ? $record->latestSubscription : $record)?->legacy_plan) ? 'Precio anterior conservado' : null),
+                    ->state(fn ($record) => ($record instanceof Company ? $record : $record->company)?->plan()->shortName())
+                    ->description(fn ($record) => (($record instanceof Company ? $record->latestSubscription : $record)?->legacy_plan) ? 'Precio anterior conservado' : null),
 
                 TextColumn::make('amount')
                     ->label('Importe')
@@ -183,7 +184,7 @@ class SubscriptionResource extends Resource
                     TextEntry::make('company.trial_ends_at')->label('Prueba gratis hasta')->date('d/m/Y')->placeholder('—'),
                     TextEntry::make('payer_email')->label('Email del pagador')->placeholder('—'),
                     TextEntry::make('company.email')->label('Email de la empresa')->placeholder('—'),
-                    TextEntry::make('company.cuit')->label('CUIT')->placeholder('—'),
+                    TextEntry::make('company.cuit')->label(fn ($record) => $record?->company?->taxIdLabel() ?? 'Identificación fiscal')->placeholder('—'),
                 ]),
 
             Section::make('Período y cobros')

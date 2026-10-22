@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Building;
 use App\Models\BuildingPublicPage;
 use App\Services\PublicQr\PublicQrService;
+use App\Support\Countries;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -32,7 +34,8 @@ class PublicEmergencyController extends Controller
             'X-Content-Type-Options' => 'nosniff',
             'X-Frame-Options' => 'DENY',
         ];
-        $data = ['back' => $page?->publicUrl()];
+        $building = $page ? Building::withoutGlobalScopes()->with('company')->find($page->building_id) : null;
+        $data = ['back' => $page?->publicUrl(), 'country' => Countries::normalize($building?->country ?: $building?->company?->country)];
 
         if ($request->expectsJson()) {
             return response()->json(['state' => 'discontinued', 'html' => view('public-qr.partials.help-result', $data)->render()], 410, $headers);

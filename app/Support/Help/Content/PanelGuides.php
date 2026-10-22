@@ -142,7 +142,7 @@ final class PanelGuides
             $a('empresa', 'company_data', 'Cómo completar los datos y el logo de tu empresa', 'Los datos que aparecen en remitos, presupuestos, el portal y el QR público.', [
                 'Abrí «Mi empresa» (arriba del menú).',
                 'En «Empresa», completá el nombre, el correo, el teléfono y el domicilio.',
-                'Si querés, completá «Datos fiscales (opcional)» (razón social, CUIT, condición frente al IVA) y «Datos bancarios (opcional)».',
+                'Si querés, completá «Datos fiscales (opcional)» (razón social, identificación fiscal y, en Argentina, condición frente al IVA) y «Datos bancarios (opcional)».',
                 'En «Apariencia», subí el «Logo» y elegí el «Color principal».',
                 'Tocá «Guardar cambios».',
             ], [

@@ -82,7 +82,7 @@
     </x-legal.section>
 
     <x-legal.section n="07" title="Plazos" id="plazos">
-        <p>Respondemos dentro de los plazos que fija la Ley 25.326. Si para verificar tu identidad o consultar a una empresa necesitamos más información, te lo decimos y el plazo corre desde que la recibimos.</p>
+        <p>Respondemos dentro de los plazos que fija la Ley 25.326 y, si usás Ascento desde otro país, procuramos cumplir también los que fije la normativa de ese país. Si para verificar tu identidad o consultar a una empresa necesitamos más información, te lo decimos y el plazo corre desde que la recibimos.</p>
         <p>Ascento no tiene hoy una integración con WhatsApp ni con otros servicios de Meta: no guardamos datos de esas plataformas. Lo que hayas enviado por WhatsApp desde tu propio teléfono queda en esa aplicación.</p>
         <p class="no-print"><a href="{{ $mailto }}" class="inline-flex items-center rounded-full bg-[#12151C] px-5 py-3 text-sm font-semibold !text-white hover:!no-underline">Solicitar eliminación por correo</a></p>
     </x-legal.section>

@@ -50,7 +50,8 @@
             <div class="asc-row"><span class="asc-muted">Responsable</span><strong>{{ $h['owner']?->name ?? '—' }}</strong></div>
             <div class="asc-row"><span class="asc-muted">Correo de registro</span><span>{{ $h['owner']?->email ?? '—' }}</span></div>
             <div class="asc-row"><span class="asc-muted">Teléfono de la empresa</span><span>{{ $company->phone ?: '—' }}</span></div>
-            <div class="asc-row"><span class="asc-muted">CUIT</span><span>{{ $company->cuit ?: '—' }}</span></div>
+            <div class="asc-row"><span class="asc-muted">{{ $company->taxIdLabel() }}</span><span>{{ $company->cuit ?: '—' }}</span></div>
+            <div class="asc-row"><span class="asc-muted">País</span><span>{{ \App\Support\Countries::name($company->country) }}</span></div>
             <div class="asc-row"><span class="asc-muted">Ubicación</span><span>{{ collect([$company->city, $company->province])->filter()->implode(', ') ?: '—' }}</span></div>
         </div>
     </section>

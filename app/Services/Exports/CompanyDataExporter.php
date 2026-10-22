@@ -272,7 +272,7 @@ class CompanyDataExporter
         $this->firstSheet = false;
         $this->writer->addRow(new Row([new StringCell('Dato', $this->header), new StringCell('Valor', $this->header)]));
         foreach ([
-            'Nombre' => $company->name, 'Razón social' => $company->business_name, 'CUIT' => $company->cuit,
+            'Nombre' => $company->name, 'Razón social' => $company->business_name, $company->taxIdLabel() => $company->cuit,
             'Condición frente al IVA' => $company->tax_condition, 'Actividad' => $company->activity,
             'Ingresos Brutos' => $company->gross_income_number, 'Inicio de actividades' => $company->activity_started_at,
             'Email' => $company->email, 'Teléfono' => $company->phone, 'Domicilio' => $company->address,

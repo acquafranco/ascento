@@ -41,10 +41,26 @@
                     <x-input-error :messages="$errors->get('company_name')" class="mt-1.5" />
                 </div>
 
+                {{-- País (Latinoamérica): define cómo se llama la identificación fiscal y la división principal. --}}
+                @php
+                    $country = \App\Support\Countries::normalize(old('country', 'AR'));
+                    $countryInfo = collect(\App\Support\Countries::LATAM)->map(fn ($c) => ['tax' => $c[2], 'example' => $c[3], 'region' => $c[1]]);
+                @endphp
+                <div>
+                    <x-input-label for="country" value="País" />
+                    <select id="country" name="country" required data-register-country
+                        class="w-full rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink shadow-sm outline-none transition focus:border-rail-500 focus:ring-4 focus:ring-rail-100">
+                        @foreach(\App\Support\Countries::options() as $code => $name)
+                            <option value="{{ $code }}" @selected($country === $code)>{{ $name }}</option>
+                        @endforeach
+                    </select>
+                    <x-input-error :messages="$errors->get('country')" class="mt-1.5" />
+                </div>
+
                 <div class="grid sm:grid-cols-2 gap-4">
                     <div>
-                        <x-input-label for="cuit" value="CUIT" />
-                        <x-text-input id="cuit" type="text" name="cuit" :value="old('cuit')" required inputmode="numeric" placeholder="30-12345678-9" />
+                        <x-input-label for="cuit" :value="\App\Support\Countries::taxIdLabel($country)" data-register-tax-label />
+                        <x-text-input id="cuit" type="text" name="cuit" :value="old('cuit')" required :inputmode="$country === 'AR' ? 'numeric' : 'text'" :placeholder="\App\Support\Countries::taxIdExample($country)" />
                         <x-input-error :messages="$errors->get('cuit')" class="mt-1.5" />
                     </div>
                     <div>
@@ -56,14 +72,17 @@
 
                 <div class="grid sm:grid-cols-2 gap-4">
                     <div>
-                        <x-input-label for="province" value="Provincia" />
-                        <select id="province" name="province" required
+                        <x-input-label for="province" :value="\App\Support\Countries::regionLabel($country)" data-register-region-label />
+                        {{-- Argentina: la lista de provincias. Otros países: texto libre. Solo se envía el que corresponde. --}}
+                        <select id="province" name="province" required data-register-province-select @if($country !== 'AR') hidden disabled @endif
                             class="w-full rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink shadow-sm outline-none transition focus:border-rail-500 focus:ring-4 focus:ring-rail-100">
                             <option value="">Elegí la provincia</option>
                             @foreach(\App\Support\Provinces::LIST as $province)
                                 <option value="{{ $province }}" @selected(old('province') === $province)>{{ $province }}</option>
                             @endforeach
                         </select>
+                        <input id="province_text" type="text" name="province" value="{{ $country !== 'AR' ? old('province') : '' }}" required maxlength="255" data-register-province-text @if($country === 'AR') hidden disabled @endif
+                            class="w-full rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink shadow-sm outline-none transition focus:border-rail-500 focus:ring-4 focus:ring-rail-100">
                         <x-input-error :messages="$errors->get('province')" class="mt-1.5" />
                     </div>
                     <div>
@@ -74,6 +93,28 @@
                 </div>
 
                 <p class="text-xs text-ink/40">Razón social, domicilio y demás datos los completás después en "Mi empresa".</p>
+                <script>
+                    (function () {
+                        var info = @json($countryInfo);
+                        var country = document.querySelector('[data-register-country]');
+                        if (!country) return;
+                        var taxLabel = document.querySelector('[data-register-tax-label]');
+                        var regionLabel = document.querySelector('[data-register-region-label]');
+                        var tax = document.getElementById('cuit');
+                        var select = document.querySelector('[data-register-province-select]');
+                        var text = document.querySelector('[data-register-province-text]');
+                        country.addEventListener('change', function () {
+                            var c = info[country.value] || info.AR;
+                            var ar = country.value === 'AR';
+                            taxLabel.textContent = c.tax;
+                            regionLabel.textContent = c.region;
+                            tax.placeholder = c.example;
+                            tax.inputMode = ar ? 'numeric' : 'text';
+                            select.hidden = select.disabled = !ar;
+                            text.hidden = text.disabled = ar;
+                        });
+                    })();
+                </script>
             </div>
         </div>
 

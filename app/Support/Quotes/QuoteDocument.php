@@ -4,6 +4,7 @@ namespace App\Support\Quotes;
 
 use App\Models\Quote;
 use App\Support\CompanyLogo;
+use App\Support\Countries;
 
 /**
  * Datos del presupuesto como documento, compartidos por el PDF
@@ -35,7 +36,7 @@ final class QuoteDocument
             'logo' => $logo,
             'issuer' => array_values(array_filter([
                 $company?->business_name && $company->business_name !== $company->name ? $company->business_name : null,
-                $company?->cuit ? 'CUIT '.$company->cuit : null,
+                $company?->cuit ? $company->taxIdLabel().' '.$company->cuit : null,
                 $company?->tax_condition,
                 trim(implode(', ', array_filter([$company?->address, $company?->city, $company?->province])), ', ') ?: null,
                 $company?->phone ? 'Tel. '.$company->phone : null,
@@ -43,7 +44,7 @@ final class QuoteDocument
             ])),
             'building' => $quote->building,
             'bank' => filled($company?->bank_cbu) || filled($company?->bank_alias)
-                ? implode(' · ', array_filter([$company->bank_name, $company->bank_cbu ? 'CBU '.$company->bank_cbu : null, $company->bank_alias ? 'Alias '.$company->bank_alias : null]))
+                ? implode(' · ', array_filter([$company->bank_name, $company->bank_cbu ? (Countries::isArgentina($company->country) ? 'CBU ' : 'Cuenta ').$company->bank_cbu : null, $company->bank_alias ? 'Alias '.$company->bank_alias : null]))
                 : null,
         ];
     }
