@@ -15,13 +15,13 @@
     @endif
 
     <section class="s-card" style="margin-top:18px">
-        <div class="s-row"><h2 class="s-h2" style="margin:0">Avisos</h2></div>
+        <div class="s-row"><h2 class="s-h2" style="margin:0">Avisos</h2><a class="s-link" href="{{ route('suppliers.notifications.index') }}">Ver todos</a></div>
         @forelse($notifications as $n)
             <div style="border-top:1px solid #F0EEE7; padding:10px 0; display:flex; justify-content:space-between; gap:10px">
                 <span><strong style="font-size:14px">{{ $n->data['title'] ?? '' }}</strong><br><span class="s-muted">{{ $n->data['body'] ?? '' }}</span></span>
                 <span style="text-align:right; flex-shrink:0">
                     <span class="s-muted">{{ $n->created_at->format('d/m H:i') }}</span>
-                    @if(! empty($n->data['path']) && str_starts_with($n->data['path'], '/proveedores/'))<br><a class="s-link" href="{{ url($n->data['path']) }}">Ver</a>@endif
+                    <br><a class="s-link" href="{{ route('suppliers.notifications.open', $n->id) }}">{{ $n->read_at ? 'Ver' : 'Ver (nuevo)' }}</a>
                 </span>
             </div>
         @empty
@@ -34,9 +34,9 @@
         <ol class="s-muted" style="margin:0; padding-left:18px; font-size:14px; line-height:1.7">
             <li>Cargás tus productos con fotos, precio (o «a cotizar») y la compatibilidad que declarás.</li>
             <li>Las empresas de mantenimiento te piden cotizaciones; vos respondés con precios y validez.</li>
-            <li>Si aceptan, coordinan entre ustedes el pago y la entrega. Ascento no cobra ni intermedia el pago.</li>
+            <li>Si aceptan, coordinan directamente el pago, el envío y la entrega. Ascento no cobra comisiones ni procesa esos pagos.</li>
             <li>Cuando el comprador confirma que recibió el pedido, suma a tus operaciones completadas.</li>
         </ol>
-        <p class="s-muted" style="margin-top:10px">Planes para proveedores y publicaciones destacadas pagas: próximamente. Hoy publicar es sin costo.</p>
+        <p class="s-muted" style="margin-top:10px">Tu estado comercial (prueba, suscripción) está en <a class="s-link" href="{{ route('suppliers.billing') }}">Suscripción</a>; la visibilidad adicional para un producto, en <a class="s-link" href="{{ route('suppliers.featured') }}">Destacados</a>.</p>
     </section>
 </x-supplier-layout>

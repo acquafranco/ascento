@@ -28,14 +28,14 @@ class SupplierRequestController extends Controller
         $status = $request->query('estado');
         $rows = MarketplaceRequest::forSupplier((int) $request->user()->supplier_id)
             ->when(isset(MarketplaceRequest::STATUSES[$status]), fn ($q) => $q->where('status', $status))
-            ->with('company:id,name')->withCount('items')->latest()->paginate(25)->withQueryString();
+            ->withCount('items')->latest()->paginate(25)->withQueryString();
 
         return view('suppliers.requests.index', ['rows' => $rows, 'status' => $status]);
     }
 
     public function show(Request $request, string $reference): View
     {
-        return view('suppliers.requests.show', ['row' => $this->find($request, $reference)->load(['items', 'events', 'company:id,name'])]);
+        return view('suppliers.requests.show', ['row' => $this->find($request, $reference)->load(['items', 'events'])]);
     }
 
     public function quote(Request $request, string $reference): RedirectResponse
@@ -48,6 +48,22 @@ class SupplierRequestController extends Controller
         $this->requests->quote($request->user(), $this->find($request, $reference), $data['precios'], isset($data['validez']) ? (int) $data['validez'] : null, $data['nota'] ?? null);
 
         return back()->with('status', 'Cotización enviada. Te avisamos cuando el comprador responda.');
+    }
+
+    public function comment(Request $request, string $reference): RedirectResponse
+    {
+        $data = $request->validate(['comentario' => ['required', 'string', 'max:2000']]);
+        $this->requests->comment($request->user(), $this->find($request, $reference), $data['comentario']);
+
+        return back()->with('status', 'Comentario enviado: le avisamos al comprador.');
+    }
+
+    public function incident(Request $request, string $reference): RedirectResponse
+    {
+        $data = $request->validate(['incidencia' => ['required', 'string', 'max:2000']]);
+        $this->requests->reportIncident($request->user(), $this->find($request, $reference), $data['incidencia']);
+
+        return back()->with('status', 'Le avisamos al equipo de Ascento. Te respondemos por este pedido y por correo.');
     }
 
     public function decline(Request $request, string $reference): RedirectResponse

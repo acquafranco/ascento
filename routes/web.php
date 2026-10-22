@@ -35,6 +35,9 @@ use App\Http\Controllers\ReportPhotoController;
 use App\Http\Controllers\ReportVideoController;
 use App\Http\Controllers\SalesCalculatorController;
 use App\Http\Controllers\Supplier\SupplierAreaController;
+use App\Http\Controllers\Supplier\SupplierBillingController;
+use App\Http\Controllers\Supplier\SupplierFeaturedController;
+use App\Http\Controllers\Supplier\SupplierNotificationController;
 use App\Http\Controllers\Supplier\SupplierProductController;
 use App\Http\Controllers\Supplier\SupplierRegistrationController;
 use App\Http\Controllers\Supplier\SupplierRequestController;
@@ -133,7 +136,28 @@ Route::middleware(['auth', 'supplier'])->prefix('proveedores')->name('suppliers.
         Route::get('/{reference}', 'show')->name('show');
         Route::post('/{reference}/cotizar', 'quote')->middleware('throttle:30,1,suppliers.requests.quote')->name('quote');
         Route::post('/{reference}/rechazar', 'decline')->middleware('throttle:30,1,suppliers.requests.decline')->name('decline');
+        Route::post('/{reference}/comentar', 'comment')->middleware('throttle:20,1,suppliers.requests.comment')->name('comment');
+        Route::post('/{reference}/incidencia', 'incident')->middleware('throttle:5,10,suppliers.requests.incident')->name('incident');
     });
+
+    // Suscripción al marketplace y destacados (cobros de Ascento al proveedor; nunca pagos de repuestos).
+    Route::get('/suscripcion', [SupplierBillingController::class, 'show'])->name('billing');
+    Route::post('/suscripcion', [SupplierBillingController::class, 'subscribe'])->middleware('throttle:6,1,suppliers.billing.subscribe')->name('billing.subscribe');
+    Route::post('/suscripcion/cancelar', [SupplierBillingController::class, 'cancel'])->middleware('throttle:6,1,suppliers.billing.cancel')->name('billing.cancel');
+    Route::get('/destacados', [SupplierFeaturedController::class, 'index'])->name('featured');
+    Route::post('/destacados', [SupplierFeaturedController::class, 'purchase'])->middleware('throttle:10,1,suppliers.featured.purchase')->name('featured.purchase');
+
+    // Avisos (misma lógica que las bandejas de técnicos y clientes) y push en este dispositivo.
+    Route::controller(SupplierNotificationController::class)->prefix('avisos')->name('notifications.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/contador', 'count')->middleware('throttle:60,1,suppliers.notifications.count')->name('count');
+        Route::get('/{notification}', 'open')->whereUuid('notification')->name('open');
+        Route::post('/leidas', 'readAll')->name('read-all');
+        Route::post('/vistas', 'seen')->middleware('throttle:30,1,suppliers.notifications.seen')->name('seen');
+    });
+    Route::post('/push-subscriptions', [PushSubscriptionController::class, 'store'])->middleware('throttle:20,1,suppliers.push.store')->name('push.store');
+    Route::delete('/push-subscriptions', [PushSubscriptionController::class, 'destroy'])->middleware('throttle:20,1,suppliers.push.destroy')->name('push.destroy');
+    Route::post('/push-subscriptions/test', [PushSubscriptionController::class, 'test'])->middleware('throttle:3,1,suppliers.push.test')->name('push.test');
 });
 // Fotos de productos (proveedor dueño, compradores habilitados y SuperAdmin).
 Route::get('/marketplace/fotos/{photo}', SupplierPhotoController::class)

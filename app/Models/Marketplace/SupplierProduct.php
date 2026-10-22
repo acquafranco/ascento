@@ -3,6 +3,7 @@
 namespace App\Models\Marketplace;
 
 use App\Support\Marketplace\Catalog;
+use App\Support\Marketplace\Money;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,7 +13,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * Producto del catálogo de un proveedor. La compatibilidad es la que DECLARA
  * el proveedor: Ascento no la verifica y así se muestra. Lo ve un comprador
  * solo si está publicado, no lo ocultó la moderación y el proveedor está
- * aprobado (scopeVisible). El destacado no saltea nada de eso.
+ * aprobado y habilitado comercialmente (scopeVisible). El destacado no saltea
+ * nada de eso. Si el proveedor deja de estar habilitado, nada se borra: sus
+ * productos publicados vuelven a verse cuando se habilita otra vez.
  */
 class SupplierProduct extends Model
 {
@@ -58,17 +61,32 @@ class SupplierProduct extends Model
     {
         return $query->where('supplier_products.status', self::PUBLISHED)
             ->where('supplier_products.hidden_by_admin', false)
-            ->whereHas('supplier', fn (Builder $s) => $s->approved());
+            ->whereHas('supplier', fn (Builder $s) => $s->operating());
     }
 
     public function isVisible(): bool
     {
-        return $this->status === self::PUBLISHED && ! $this->hidden_by_admin && $this->supplier?->isApproved();
+        return $this->status === self::PUBLISHED && ! $this->hidden_by_admin && (bool) $this->supplier?->isOperating();
     }
 
+    public function reports(): HasMany
+    {
+        return $this->hasMany(MarketplaceReport::class);
+    }
+
+    public function placements(): HasMany
+    {
+        return $this->hasMany(FeaturedPlacement::class)->latest('id');
+    }
+
+    /** ¿Destacado vigente ahora? (el catálogo lo trae calculado en featured_now; si no, se consulta el historial). */
     public function isFeatured(): bool
     {
-        return $this->featured_until !== null && $this->featured_until->isFuture();
+        if (array_key_exists('featured_now', $this->attributes)) {
+            return (bool) $this->attributes['featured_now'];
+        }
+
+        return FeaturedPlacement::running()->where('supplier_product_id', $this->id)->exists();
     }
 
     public function hasPrice(): bool
@@ -78,7 +96,7 @@ class SupplierProduct extends Model
 
     public function priceLabel(): string
     {
-        return $this->hasPrice() ? '$ '.number_format((float) $this->price, 0, ',', '.').($this->currency !== 'ARS' ? ' '.$this->currency : '') : 'A cotizar';
+        return $this->hasPrice() ? Money::format((float) $this->price, $this->currency) : 'A cotizar';
     }
 
     public function categoryLabel(): string

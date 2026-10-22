@@ -26,15 +26,19 @@
             </div>
             <div class="rounded-2xl border border-[#14171C]/10 bg-white p-5">
                 <p class="font-semibold text-[#14171C]">Soy técnico o administrativo de una empresa</p>
-                <p class="mt-2 text-sm leading-6">Tu empresa puede darte de baja. Si querés que se eliminen tus datos personales, escribinos. Ver la sección 03.</p>
+                <p class="mt-2 text-sm leading-6">Tu empresa puede darte de baja. Si querés que se eliminen tus datos personales, escribinos. Ver la sección 04.</p>
             </div>
             <div class="rounded-2xl border border-[#14171C]/10 bg-white p-5">
                 <p class="font-semibold text-[#14171C]">Uso el portal de clientes</p>
-                <p class="mt-2 text-sm leading-6">La empresa que te invitó puede quitarte el acceso. Para eliminar tu cuenta, escribinos. Ver la sección 03.</p>
+                <p class="mt-2 text-sm leading-6">La empresa que te invitó puede quitarte el acceso. Para eliminar tu cuenta, escribinos. Ver la sección 04.</p>
             </div>
             <div class="rounded-2xl border border-[#14171C]/10 bg-white p-5">
                 <p class="font-semibold text-[#14171C]">Una empresa cargó mis datos (cliente, contacto)</p>
-                <p class="mt-2 text-sm leading-6">Esa empresa decide sobre esos datos: pedíselo a ella o escribinos y le daremos intervención. Ver la sección 04.</p>
+                <p class="mt-2 text-sm leading-6">Esa empresa decide sobre esos datos: pedíselo a ella o escribinos y le daremos intervención. Ver la sección 05.</p>
+            </div>
+            <div class="rounded-2xl border border-[#14171C]/10 bg-white p-5">
+                <p class="font-semibold text-[#14171C]">Soy proveedor de repuestos</p>
+                <p class="mt-2 text-sm leading-6">Cancelá tu suscripción y pedinos el cierre de la cuenta por correo. Ver la sección 03.</p>
             </div>
         </div>
         <p>Hoy no hay un botón para que cada persona borre su propia cuenta desde Ascento: los pedidos se gestionan como se explica en esta página.</p>
@@ -50,21 +54,34 @@
         <x-legal.note tone="danger" title="La eliminación es definitiva">
             <p>Se borran de la base de datos la empresa, sus usuarios, clientes, edificios, ascensores, trabajos, remitos, reportes, presupuestos, avisos y exportaciones, y sus archivos (fotos, documentos, logo). No se puede deshacer.</p>
             <p>Si una persona del portal también tiene acceso por otra empresa, su cuenta se conserva para esa otra empresa y solo pierde el acceso a la eliminada.</p>
+            <p>Los pedidos de repuestos que la empresa hizo se conservan para cada proveedor, sin los datos de la empresa (sección 03).</p>
         </x-legal.note>
     </x-legal.section>
 
-    <x-legal.section n="03" title="Eliminar tu cuenta de usuario" id="usuario">
+    <x-legal.section n="03" title="Cerrar una cuenta de proveedor de repuestos" id="proveedor">
+        <ol>
+            <li><strong>Cancelá la suscripción</strong> desde «Suscripción» en tu área, para que Mercado Pago no siga cobrando. Mientras pueda seguir cobrando, la cuenta no se cierra.</li>
+            <li><strong>Escribinos</strong> a <a href="mailto:{{ $email }}">{{ $email }}</a> desde el correo de la cuenta. Confirmamos el pedido antes de cerrarla.</li>
+        </ol>
+        <x-legal.note tone="danger" title="Qué se borra y qué se conserva">
+            <p>Se borran tus usuarios, productos, fotos (también los archivos), favoritos y reportes de esos productos, y los datos de contacto, la descripción y las marcas del perfil. No se puede deshacer.</p>
+            <p>Se conservan, sin esos datos: el nombre comercial, el país y la identificación fiscal de la empresa proveedora, porque los pedidos y cotizaciones son también historial de las empresas compradoras y porque los cobros de la suscripción y de los destacados son un registro contable que la ley nos obliga a guardar.</p>
+        </x-legal.note>
+        <p>Si se elimina una <strong>empresa compradora</strong>, sus pedidos de repuestos se conservan para cada proveedor sin el nombre de la empresa, sus datos de contacto, notas ni comentarios.</p>
+    </x-legal.section>
+
+    <x-legal.section n="04" title="Eliminar tu cuenta de usuario" id="usuario">
         <p><strong>Técnicos y administrativos.</strong> El dueño de tu empresa puede darte de baja desde el panel: dejás de poder entrar. Los registros de trabajo que hiciste (por ejemplo, los remitos que firmaste) siguen siendo parte del historial de la empresa y conservan tu nombre, porque documentan trabajos realizados para sus clientes.</p>
         <p><strong>Usuarios del portal.</strong> La empresa que te invitó puede quitarte el acceso a sus edificios. Si además querés que se elimine tu cuenta, escribinos.</p>
         <p>En ambos casos, si querés que eliminemos tus datos personales, escribinos a <a href="mailto:{{ $email }}">{{ $email }}</a>. Revisaremos el pedido con la empresa, porque parte de esa información es del historial de su trabajo, y te diremos qué se elimina y qué se conserva y por qué.</p>
     </x-legal.section>
 
-    <x-legal.section n="04" title="Datos que cargó una empresa sobre vos" id="terceros">
+    <x-legal.section n="05" title="Datos que cargó una empresa sobre vos" id="terceros">
         <p>Si figurás en Ascento porque una empresa te cargó como cliente, contacto de un edificio o firmante de un remito, esa empresa es quien decide sobre esos datos. Podés pedirle directamente que los corrija o elimine. Si nos escribís a nosotros, le haremos llegar tu pedido y te ayudaremos a ejercer tus derechos.</p>
         <p>Quien usa el QR de un ascensor no tiene cuenta: un reporte se guarda sin nombre ni dirección IP. Si escribiste datos personales en un reporte o adjuntaste una foto y querés que se borren, pedíselo a la empresa de mantenimiento del edificio, que es quien gestiona ese reporte, o escribinos.</p>
     </x-legal.section>
 
-    <x-legal.section n="05" title="Cómo verificamos el pedido" id="verificacion">
+    <x-legal.section n="06" title="Cómo verificamos el pedido" id="verificacion">
         <ul>
             <li>Respondemos al correo asociado a la cuenta y, si el pedido llega desde otro, te pedimos que lo confirmes desde ese correo.</li>
             <li>Para eliminar una empresa, solo atendemos el pedido de su dueño y lo confirmamos antes de hacerlo.</li>
@@ -72,16 +89,17 @@
         </ul>
     </x-legal.section>
 
-    <x-legal.section n="06" title="Qué puede conservarse" id="conservacion">
+    <x-legal.section n="07" title="Qué puede conservarse" id="conservacion">
         <ul>
             <li><strong>Copias de seguridad:</strong> lo eliminado puede seguir en las copias de seguridad hasta que se reemplacen, en general en unas semanas. No se usan para otra cosa que recuperar el servicio ante una falla.</li>
-            <li><strong>Historial de una empresa que sigue activa:</strong> los registros de trabajo con el nombre de un usuario dado de baja (sección 03).</li>
-            <li><strong>Obligaciones legales:</strong> la información que una ley nos obligue a conservar, por el plazo que establezca, o la necesaria para defendernos ante un reclamo.</li>
+            <li><strong>Historial de una empresa que sigue activa:</strong> los registros de trabajo con el nombre de un usuario dado de baja (sección 04).</li>
+            <li><strong>Historial de la otra parte en Repuestos:</strong> los pedidos y cotizaciones, sin tus datos personales (sección 03).</li>
+            <li><strong>Obligaciones legales:</strong> la información que una ley nos obligue a conservar, por el plazo que establezca (por ejemplo, los registros de cobros), o la necesaria para defendernos ante un reclamo.</li>
         </ul>
         <p>Cuando no podamos eliminar algo, te lo diremos y te explicaremos el motivo.</p>
     </x-legal.section>
 
-    <x-legal.section n="07" title="Plazos" id="plazos">
+    <x-legal.section n="08" title="Plazos" id="plazos">
         <p>Respondemos dentro de los plazos que fija la Ley 25.326 y, si usás Ascento desde otro país, procuramos cumplir también los que fije la normativa de ese país. Si para verificar tu identidad o consultar a una empresa necesitamos más información, te lo decimos y el plazo corre desde que la recibimos.</p>
         <p>Ascento no tiene hoy una integración con WhatsApp ni con otros servicios de Meta: no guardamos datos de esas plataformas. Lo que hayas enviado por WhatsApp desde tu propio teléfono queda en esa aplicación.</p>
         <p class="no-print"><a href="{{ $mailto }}" class="inline-flex items-center rounded-full bg-[#12151C] px-5 py-3 text-sm font-semibold !text-white hover:!no-underline">Solicitar eliminación por correo</a></p>

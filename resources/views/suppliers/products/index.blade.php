@@ -1,6 +1,6 @@
 <x-supplier-layout title="Mi catálogo">
     <div class="s-row" style="margin-bottom:14px">
-        <div><h1 class="s-h1">Mi catálogo</h1><p class="s-sub" style="margin:0">Lo publicado lo ven las empresas de mantenimiento{{ $supplier->isApproved() ? '' : ' cuando aprobemos tu cuenta' }}.</p></div>
+        <div><h1 class="s-h1">Mi catálogo</h1><p class="s-sub" style="margin:0">Lo publicado lo ven las empresas de mantenimiento{{ $supplier->isOperating() ? '' : ' cuando tu cuenta esté habilitada' }}.</p></div>
         @unless(in_array($supplier->status, ['rejected', 'suspended'], true))<a class="s-btn" href="{{ route('suppliers.products.create') }}">+ Nuevo producto</a>@endunless
     </div>
     @include('suppliers.partials.status-notice')

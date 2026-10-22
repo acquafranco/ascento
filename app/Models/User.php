@@ -309,7 +309,13 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     /** ¿Puede registrar dispositivos para recibir push? */
     public function canReceivePush(): bool
     {
-        return $this->canReceiveWorkOrderPush() || $this->canReceiveAdminPush() || $this->canReceivePortalPush();
+        return $this->canReceiveWorkOrderPush() || $this->canReceiveAdminPush() || $this->canReceivePortalPush() || $this->canReceiveSupplierPush();
+    }
+
+    /** Proveedores del marketplace: push de sus pedidos y de su cuenta (Notifier valida el proveedor en cada envío). */
+    public function canReceiveSupplierPush(): bool
+    {
+        return ! $this->trashed() && $this->isSupplierUser() && $this->supplier_id !== null;
     }
 
     /**

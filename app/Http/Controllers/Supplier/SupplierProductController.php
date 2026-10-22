@@ -46,16 +46,17 @@ class SupplierProductController extends Controller
 
     public function create(Request $request): View
     {
-        SupplierAreaController::ensureCanEdit($request->user()->supplier);
+        SupplierAreaController::ensureCanPublish($request->user()->supplier);
 
         return view('suppliers.products.form', ['product' => new SupplierProduct(['price_mode' => 'quote', 'availability' => 'to_order'])]);
     }
 
     public function store(Request $request): RedirectResponse
     {
-        SupplierAreaController::ensureCanEdit($request->user()->supplier);
+        SupplierAreaController::ensureCanPublish($request->user()->supplier);
         $product = new SupplierProduct($this->validated($request));
-        $product->forceFill(['supplier_id' => $request->user()->supplier_id, 'status' => SupplierProduct::DRAFT, 'currency' => 'ARS'])->save();
+        // Moneda del país registrado del proveedor (nunca del formulario).
+        $product->forceFill(['supplier_id' => $request->user()->supplier_id, 'status' => SupplierProduct::DRAFT, 'currency' => $request->user()->supplier->currency ?: 'ARS'])->save();
 
         return redirect()->route('suppliers.products.edit', $product->id)->with('status', 'Producto guardado como borrador. Sumá fotos y publicalo cuando esté listo.');
     }
@@ -83,12 +84,18 @@ class SupplierProductController extends Controller
         if (! in_array($to, self::TRANSITIONS[$model->status] ?? [], true)) {
             throw ValidationException::withMessages(['estado' => 'Esta publicación no se puede pasar a ese estado.']);
         }
+        if ($to === SupplierProduct::PUBLISHED) {
+            SupplierAreaController::ensureCanPublish($request->user()->supplier);
+            if ($model->hidden_by_admin) {
+                throw ValidationException::withMessages(['estado' => 'Esta publicación está oculta por moderación: no se puede publicar hasta que Ascento la restaure.']);
+            }
+        }
 
         $model->forceFill(['status' => $to, 'published_at' => $to === SupplierProduct::PUBLISHED ? ($model->published_at ?? now()) : $model->published_at])->save();
 
         $message = match ($to) {
-            SupplierProduct::PUBLISHED => $request->user()->supplier->isApproved()
-                ? ($model->hidden_by_admin ? 'Publicado, pero sigue oculto por moderación.' : 'Publicado: ya lo ven las empresas.')
+            SupplierProduct::PUBLISHED => $request->user()->supplier->isOperating()
+                ? 'Publicado: ya lo ven las empresas.'
                 : 'Publicado. Se va a ver cuando aprobemos tu cuenta.',
             SupplierProduct::PAUSED => 'Pausado: no se ve en el catálogo.',
             SupplierProduct::RETIRED => 'Retirado del catálogo.',

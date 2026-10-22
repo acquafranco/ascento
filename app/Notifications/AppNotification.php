@@ -40,6 +40,18 @@ abstract class AppNotification extends Notification
         return null;
     }
 
+    /** Proveedor del marketplace al que se refiere (obligatorio para avisos a proveedores). */
+    public function supplierId(): ?int
+    {
+        return null;
+    }
+
+    /** ¿Es un aviso para el equipo de Ascento (SuperAdmin)? Ningún otro le llega. */
+    public function forSuperAdmin(): bool
+    {
+        return false;
+    }
+
     public function actionLabel(): string
     {
         return 'Ver';

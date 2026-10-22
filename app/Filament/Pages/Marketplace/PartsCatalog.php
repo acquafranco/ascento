@@ -7,10 +7,11 @@ use App\Models\Marketplace\MarketplaceReport;
 use App\Models\Marketplace\MarketplaceRequest;
 use App\Models\Marketplace\Supplier;
 use App\Models\Marketplace\SupplierProduct;
-use App\Notifications\Marketplace\MarketplaceAdminNotice;
+use App\Services\Marketplace\MarketplaceNotifier;
 use App\Services\Marketplace\RequestCart;
 use App\Support\Marketplace\BuyerAccess;
 use App\Support\Marketplace\Catalog;
+use App\Support\Marketplace\CatalogRanking;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -209,7 +210,7 @@ class PartsCatalog extends Page
             ['user_id' => auth()->id(), 'reason' => $this->reportReason, 'details' => filled($this->reportDetails) ? trim($this->reportDetails) : null],
         );
         if ($report->wasRecentlyCreated) {
-            MarketplaceAdminNotice::toTeam(new MarketplaceAdminNotice('Reporte de una publicación', 'Reportaron «'.$product->name.'»: '.$report->reasonLabel().'.', '/admin/marketplace/reportes', 'mkt-report:'.$report->id));
+            app(MarketplaceNotifier::class)->team('Reporte de una publicación', 'Reportaron «'.$product->name.'»: '.$report->reasonLabel().'.', '/admin/marketplace/reportes', 'report:'.$report->id);
         }
 
         $this->reportingId = null;
@@ -237,7 +238,7 @@ class PartsCatalog extends Page
             return $base + ['mode' => 'compare', 'products' => $this->compareProducts()];
         }
 
-        $supplier = $this->proveedor ? Supplier::approved()->findOrFail($this->proveedor) : null;
+        $supplier = $this->proveedor ? Supplier::operating()->findOrFail($this->proveedor) : null;
         $query = $this->query($favorites);
 
         return $base + [
@@ -245,7 +246,7 @@ class PartsCatalog extends Page
             'supplierProfile' => $supplier,
             'operations' => $supplier?->completedOperations(),
             'products' => (clone $query)->limit($this->perPage)->get(),
-            'total' => (clone $query)->count(),
+            'total' => (clone $query)->reorder()->count(),
             'brands' => SupplierProduct::visible()->whereNotNull('brand')->distinct()->orderBy('brand')->limit(150)->pluck('brand'),
             'compareProducts' => $this->compareProducts(),
         ];
@@ -261,10 +262,11 @@ class PartsCatalog extends Page
     private function query(array $favorites): Builder
     {
         $like = fn (string $v) => '%'.addcslashes($v, '\\%_').'%';
+        $words = trim($this->q) === '' ? [] : array_slice(preg_split('/\s+/', trim(mb_substr($this->q, 0, 120))), 0, 6);
 
-        return SupplierProduct::visible()->with(['supplier:id,name', 'photos'])
-            ->when(trim($this->q) !== '', function (Builder $q) use ($like) {
-                foreach (array_slice(preg_split('/\s+/', trim($this->q)), 0, 6) as $word) {
+        $query = SupplierProduct::visible()->with(['supplier:id,name', 'photos'])
+            ->when($words !== [], function (Builder $q) use ($like, $words) {
+                foreach ($words as $word) {
                     $q->where(fn (Builder $w) => $w->where('name', 'like', $like($word))->orWhere('brand', 'like', $like($word))->orWhere('model', 'like', $like($word))
                         ->orWhere('part_number', 'like', $like($word))->orWhere('compatibility', 'like', $like($word))->orWhere('description', 'like', $like($word)));
                 }
@@ -274,9 +276,9 @@ class PartsCatalog extends Page
             ->when(isset(Catalog::AVAILABILITY[$this->disponibilidad]), fn (Builder $q) => $q->where('availability', $this->disponibilidad))
             ->when(isset(Catalog::PRICE_MODES[$this->precio]), fn (Builder $q) => $q->where('price_mode', $this->precio))
             ->when($this->proveedor, fn (Builder $q) => $q->where('supplier_id', $this->proveedor))
-            ->when($this->favoritos, fn (Builder $q) => $q->whereIn('supplier_products.id', $favorites ?: [0]))
-            // Destacados primero (vigentes); después, lo más nuevo.
-            ->orderByRaw('CASE WHEN featured_until IS NOT NULL AND featured_until > ? THEN 0 ELSE 1 END', [now()])
-            ->orderByDesc('published_at')->orderByDesc('id');
+            ->when($this->favoritos, fn (Builder $q) => $q->whereIn('supplier_products.id', $favorites ?: [0]));
+
+        // Relevancia, compatibilidad, disponibilidad, destacado y rotación (CatalogRanking).
+        return CatalogRanking::apply($query, $words, $this->companyId());
     }
 }

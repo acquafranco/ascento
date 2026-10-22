@@ -3,15 +3,18 @@
 namespace App\Models\Marketplace;
 
 use App\Models\User;
+use App\Support\Marketplace\SupplierStanding;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * Proveedor de repuestos (marketplace). Cuenta comercial aparte de las
  * empresas de mantenimiento: sus usuarios (role = supplier) no tienen
  * empresa y no ven nada de ninguna. Su catálogo se ve solo si el SuperAdmin
- * lo aprobó y no está suspendido.
+ * lo aprobó y su estado comercial lo permite (SupplierStanding: prueba,
+ * suscripción o modalidad gratuita).
  */
 class Supplier extends Model
 {
@@ -39,7 +42,17 @@ class Supplier extends Model
         'categories' => 'array',
         'brands' => 'array',
         'approved_at' => 'datetime',
+        'trial_started_at' => 'datetime',
+        'trial_ends_at' => 'datetime',
+        'commercial_state_at' => 'datetime',
+        'closed_at' => 'datetime',
     ];
+
+    /** Moneda de los precios según el país registrado (config/marketplace.php). */
+    public static function currencyFor(?string $country): string
+    {
+        return (string) config('marketplace.currencies.'.strtoupper((string) $country), 'USD');
+    }
 
     public function users(): HasMany
     {
@@ -54,6 +67,47 @@ class Supplier extends Model
     public function requests(): HasMany
     {
         return $this->hasMany(MarketplaceRequest::class);
+    }
+
+    public function subscription(): HasOne
+    {
+        return $this->hasOne(SupplierSubscription::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(SupplierPayment::class)->latest('id');
+    }
+
+    public function placements(): HasMany
+    {
+        return $this->hasMany(FeaturedPlacement::class)->latest('id');
+    }
+
+    /** Estado comercial (prueba, suscripción, moderación…): ver SupplierStanding. */
+    public function standing(): string
+    {
+        return SupplierStanding::of($this);
+    }
+
+    /** ¿Su catálogo se ve y recibe pedidos nuevos? */
+    public function isOperating(): bool
+    {
+        return SupplierStanding::operating($this);
+    }
+
+    public function scopeOperating(Builder $query): Builder
+    {
+        return SupplierStanding::applyOperating($query);
+    }
+
+    /** La prueba empieza una sola vez (la primera aprobación); nunca se reinicia. */
+    public function startTrialOnce(int $days): void
+    {
+        if ($this->trial_started_at !== null || $this->trial_ends_at !== null) {
+            return;
+        }
+        $this->forceFill(['trial_started_at' => now(), 'trial_ends_at' => now()->addDays($days)]);
     }
 
     public function isApproved(): bool

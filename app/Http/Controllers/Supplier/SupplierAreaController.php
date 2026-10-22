@@ -7,9 +7,11 @@ use App\Models\Marketplace\MarketplaceRequest;
 use App\Models\Marketplace\Supplier;
 use App\Models\Marketplace\SupplierProduct;
 use App\Support\Marketplace\Catalog;
+use App\Support\Marketplace\SupplierStanding;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 /** Inicio y perfil del proveedor (área /proveedores). */
@@ -20,8 +22,7 @@ class SupplierAreaController extends Controller
         $user = $request->user();
         $supplier = $user->supplier;
 
-        $notifications = $user->notifications()->latest()->limit(8)->get();
-        $user->unreadNotifications()->whereIn('id', $notifications->pluck('id'))->update(['read_at' => now()]);
+        $notifications = $user->notifications()->latest()->limit(5)->get();
 
         return view('suppliers.home', [
             'supplier' => $supplier,
@@ -65,9 +66,23 @@ class SupplierAreaController extends Controller
         return redirect()->route('suppliers.profile.edit')->with('status', 'Perfil guardado.');
     }
 
-    /** Rechazado o suspendido: puede mirar, no cambiar. */
+    /** Rechazado, suspendido o cerrado: puede mirar, no cambiar. */
     public static function ensureCanEdit(Supplier $supplier): void
     {
-        abort_if(in_array($supplier->status, [Supplier::REJECTED, Supplier::SUSPENDED], true), 403, 'Tu cuenta de proveedor no está habilitada para hacer cambios.');
+        abort_if($supplier->closed_at !== null || in_array($supplier->status, [Supplier::REJECTED, Supplier::SUSPENDED], true), 403, 'Tu cuenta de proveedor no está habilitada para hacer cambios.');
+    }
+
+    /**
+     * Publicar o cargar productos nuevos: mientras se revisa la cuenta (para
+     * tener el catálogo listo) o con la cuenta habilitada comercialmente. Con
+     * la prueba o la suscripción vencidas puede editar y pausar lo que tiene,
+     * pero no publicar ni sumar productos.
+     */
+    public static function ensureCanPublish(Supplier $supplier): void
+    {
+        self::ensureCanEdit($supplier);
+        if ($supplier->status !== Supplier::PENDING && ! $supplier->isOperating()) {
+            throw ValidationException::withMessages(['estado' => 'Tu cuenta no está habilitada para publicar: '.mb_strtolower(SupplierStanding::label($supplier->standing())).'. Revisá «Suscripción».']);
+        }
     }
 }

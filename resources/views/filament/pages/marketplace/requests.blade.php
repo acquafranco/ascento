@@ -18,8 +18,11 @@
                 <span class="mk-pill {{ $row->statusTone() }}" data-mk-request-status="{{ $row->status }}">{{ $row->statusLabel() }}</span>
             </div>
             @if($row->quoteExpired())<div class="mk-note">La cotización venció el {{ $row->quoteExpiresAt()->format('d/m/Y') }}. Pedile al proveedor que la actualice.</div>@endif
+            @if($row->isOpen() && ! $supplierAvailable)
+                <div class="mk-note" data-mk-supplier-off>{{ $row->supplier->name }} no está disponible en Ascento por ahora: no se puede aceptar su cotización. El pedido se conserva; podés cancelarlo{{ $row->status === MarketplaceRequest::ACCEPTED ? ' o seguir coordinando con el proveedor por sus datos de contacto' : '' }}.</div>
+            @endif
             @if($row->status === MarketplaceRequest::ACCEPTED)
-                <div class="mk-note">Aceptaste la cotización. <strong>Coordiná el pago y la entrega directamente con el proveedor</strong> (Ascento no cobra). Cuando recibas los productos, marcá el pedido como completado.</div>
+                <div class="mk-note">Aceptaste la cotización. <strong>Coordiná el pago, el envío y la entrega directamente con el proveedor</strong>: Ascento no cobra comisiones, no procesa el pago y no garantiza la entrega. Cuando recibas los productos, marcá el pedido como completado.</div>
             @endif
 
             <section class="mk-card mk-scroll">
@@ -70,14 +73,37 @@
                     @if($row->notes)<p style="white-space:pre-line; font-size:.85rem; margin:.5rem 0 0">{{ $row->notes }}</p>@endif
                 </section>
                 <section class="mk-card">
-                    <p class="mk-h2">Historial</p>
+                    <p class="mk-h2">Historial y conversación</p>
                     <ol style="margin:0; padding-left:1.1rem; font-size:.85rem; line-height:1.6">
                         @foreach($row->events as $e)
-                            <li><strong>{{ MarketplaceRequest::STATUSES[$e->to] ?? $e->to }}</strong> <span class="mk-muted">· {{ $e->actorLabel() }} · {{ $e->created_at->format('d/m/Y H:i') }}</span>@if($e->note)<br><span class="mk-muted" style="white-space:pre-line">{{ $e->note }}</span>@endif</li>
+                            <li data-mk-event="{{ $e->kind }}"><strong>{{ $e->label() }}</strong> <span class="mk-muted">· {{ $e->actorLabel() }} · {{ $e->created_at->format('d/m/Y H:i') }}</span>@if($e->note)<br><span style="white-space:pre-line">{{ $e->note }}</span>@endif</li>
                         @endforeach
                     </ol>
+                    @if($canOrder && in_array($row->status, [...MarketplaceRequest::OPEN, MarketplaceRequest::COMPLETED], true))
+                        <div style="margin-top:.6rem">
+                            <label for="mk-comment" style="font-size:.8rem; font-weight:600">Comentario para el proveedor</label>
+                            <textarea id="mk-comment" wire:model="comment" maxlength="2000" rows="2" class="mk-input" placeholder="Consultas, plazos, cambios…"></textarea>
+                            @error('comentario')<p class="mk-muted" style="color:#991b1b">{{ $message }}</p>@enderror
+                            <div class="mk-actions"><button type="button" class="mk-btn secondary" wire:click="sendComment" data-mk-comment>Enviar comentario</button></div>
+                        </div>
+                    @endif
                 </section>
             </div>
+
+            @if($canOrder && in_array($row->status, [...MarketplaceRequest::OPEN, MarketplaceRequest::COMPLETED], true))
+                <details class="mk-card">
+                    <summary style="cursor:pointer; font-weight:600; font-size:.875rem">Reportar un problema con este pedido a Ascento</summary>
+                    @if($row->hasOpenIncident())
+                        <p class="mk-muted">Ya hay una incidencia abierta: el equipo de Ascento la está revisando.</p>
+                    @else
+                        <label for="mk-incident" style="font-size:.8rem; font-weight:600; display:block; margin-top:.5rem">Qué pasó</label>
+                        <textarea id="mk-incident" wire:model="incident" maxlength="2000" rows="2" class="mk-input"></textarea>
+                        @error('incidencia')<p class="mk-muted" style="color:#991b1b">{{ $message }}</p>@enderror
+                        <p class="mk-muted" style="margin:.3rem 0 0">Para problemas que necesiten la intervención de Ascento. Ascento no garantiza pagos, envíos ni entregas.</p>
+                        <div class="mk-actions"><button type="button" class="mk-btn danger" wire:click="sendIncident" data-mk-incident>Enviar a Ascento</button></div>
+                    @endif
+                </details>
+            @endif
 
             @include('filament.pages.marketplace.supplier-card', ['supplier' => $row->supplier, 'operations' => $operations])
             @if($canOrder)<div><button type="button" class="mk-btn secondary" wire:click="repeat" data-mk-repeat>Repetir este pedido</button></div>@endif

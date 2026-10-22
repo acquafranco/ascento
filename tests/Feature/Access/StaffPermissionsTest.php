@@ -581,7 +581,8 @@ class StaffPermissionsTest extends TestCase
     {
         $panel = Filament::getPanel('ascensores_app');
         $superAdminOnly = [CompanyResource::class, SubscriptionResource::class, \App\Filament\Resources\SalesLeads\SalesLeadResource::class,
-            \App\Filament\Resources\Marketplace\SupplierResource::class, \App\Filament\Resources\Marketplace\SupplierProductResource::class, \App\Filament\Resources\Marketplace\MarketplaceReportResource::class];
+            \App\Filament\Resources\Marketplace\SupplierResource::class, \App\Filament\Resources\Marketplace\SupplierProductResource::class, \App\Filament\Resources\Marketplace\MarketplaceReportResource::class,
+            \App\Filament\Resources\Marketplace\MarketplaceRequestResource::class, \App\Filament\Resources\Marketplace\SupplierPaymentResource::class, \App\Filament\Resources\Marketplace\FeaturedPlacementResource::class];
         $ownerOnly = [StaffUserResource::class];
 
         foreach ($panel->getResources() as $resource) {

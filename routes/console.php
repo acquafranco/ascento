@@ -64,3 +64,9 @@ Schedule::command('media:process-videos')->everyMinute()->withoutOverlapping(15)
 Schedule::command('backup:run')->dailyAt('03:15')->withoutOverlapping(180);
 Schedule::command('backup:process')->everyMinute()->withoutOverlapping(180);
 Schedule::command('backup:prune')->dailyAt('04:30');
+
+// Marketplace de repuestos: vencimientos de cotizaciones y destacados, cambios
+// de estado comercial de los proveedores y sus avisos (idempotente).
+Schedule::command('marketplace:tick')->hourly()->withoutOverlapping(30);
+// Cobros a proveedores (suscripción y destacados): por si se perdió un webhook.
+Schedule::command('marketplace:reconcile-payments')->everySixHours()->withoutOverlapping();

@@ -83,6 +83,28 @@ class MercadoPagoService
         ]);
     }
 
+    /**
+     * Pago único (Checkout Pro): una preferencia con su init_point. Lo usan
+     * los destacados del marketplace; el pago se confirma después con
+     * getPayment() (webhook «payment» o reconciliación), nunca con el retorno
+     * del navegador.
+     */
+    public function createPreference(array $data): array
+    {
+        return $this->request('post', '/checkout/preferences', $data);
+    }
+
+    /** Pagos por referencia externa (reconciliación de pagos únicos si se perdió un webhook). */
+    public function searchPayments(string $externalReference): array
+    {
+        return $this->request('get', '/v1/payments/search', [
+            'external_reference' => $externalReference,
+            'sort' => 'date_created',
+            'criteria' => 'desc',
+            'limit' => 20,
+        ]);
+    }
+
     /** Cuenta dueña del access token (para el diagnóstico). */
     public function me(): array
     {

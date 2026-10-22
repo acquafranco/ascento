@@ -4,6 +4,7 @@ namespace App\Models\Marketplace;
 
 use App\Models\Company;
 use App\Models\User;
+use App\Support\Marketplace\Money;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -68,7 +69,14 @@ class MarketplaceRequest extends Model
         'quoted_at' => 'datetime',
         'accepted_at' => 'datetime',
         'completed_at' => 'datetime',
+        'expiring_notified_at' => 'datetime',
+        'expired_notified_at' => 'datetime',
+        'incident_at' => 'datetime',
+        'incident_resolved_at' => 'datetime',
     ];
+
+    /** Horas antes del vencimiento en que se avisa al comprador. */
+    public const EXPIRY_WARNING_HOURS = 24;
 
     public function company(): BelongsTo
     {
@@ -129,6 +137,17 @@ class MarketplaceRequest extends Model
         return $this->quoted_at ? crc32($this->quoted_at->timestamp.'|'.$this->quoted_total) : null;
     }
 
+    public function hasOpenIncident(): bool
+    {
+        return $this->incident_at !== null && $this->incident_resolved_at === null;
+    }
+
+    /** Nombre de la empresa compradora (se conserva aunque la empresa se haya eliminado). */
+    public function buyerLabel(): string
+    {
+        return $this->company_id === null ? 'Empresa dada de baja' : ($this->buyer_name ?: (string) $this->company?->name);
+    }
+
     public function statusLabel(): string
     {
         return self::STATUSES[$this->status] ?? $this->status;
@@ -152,6 +171,6 @@ class MarketplaceRequest extends Model
 
     public function money(?float $value): string
     {
-        return $value === null ? '—' : '$ '.number_format($value, 2, ',', '.').($this->currency !== 'ARS' ? ' '.$this->currency : '');
+        return Money::format($value, $this->currency);
     }
 }

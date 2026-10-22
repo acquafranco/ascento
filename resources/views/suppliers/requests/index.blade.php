@@ -20,7 +20,7 @@
                     @foreach($rows as $r)
                         <tr data-supplier-request="{{ $r->reference }}">
                             <td><a class="s-link" href="{{ route('suppliers.requests.show', $r->reference) }}">{{ $r->reference }}</a></td>
-                            <td>{{ $r->company?->name }}</td>
+                            <td>{{ $r->buyerLabel() }}</td>
                             <td>{{ $r->items_count }}</td>
                             <td>{{ $r->created_at->format('d/m/Y') }}</td>
                             <td><span class="s-tag {{ $r->statusTone() }}">{{ $r->statusLabel() }}</span></td>

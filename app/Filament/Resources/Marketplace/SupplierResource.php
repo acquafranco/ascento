@@ -4,10 +4,15 @@ namespace App\Filament\Resources\Marketplace;
 
 use App\Filament\Resources\Marketplace\Pages\ListSuppliers;
 use App\Filament\Resources\Marketplace\Pages\ViewSupplier;
+use App\Models\Marketplace\MarketplaceSettings;
 use App\Models\Marketplace\Supplier;
+use App\Models\Marketplace\SupplierSubscription;
 use App\Support\Countries;
 use App\Support\Marketplace\Catalog;
+use App\Support\Marketplace\Money;
+use App\Support\Marketplace\SupplierStanding;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Components\ViewEntry;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -15,7 +20,11 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
-/** Proveedores del marketplace de repuestos: revisar, aprobar, rechazar, suspender (solo SuperAdmin). */
+/**
+ * Proveedores del marketplace de repuestos (solo SuperAdmin): revisar,
+ * aprobar, rechazar, suspender, reactivar, notas internas, estado comercial
+ * (prueba y suscripción), cobros, destacados y el registro de acciones.
+ */
 class SupplierResource extends Resource
 {
     protected static ?string $model = Supplier::class;
@@ -69,10 +78,30 @@ class SupplierResource extends Resource
                     ->color(fn ($state) => match ($state) {
                         'approved' => 'success', 'pending' => 'warning', default => 'danger'
                     }),
+                TextColumn::make('standing')->label('Estado comercial')->state(fn (Supplier $r) => SupplierStanding::label(SupplierStanding::of($r, once(fn () => MarketplaceSettings::current()))))
+                    ->badge()->color(fn (Supplier $r) => SupplierStanding::operating($r, once(fn () => MarketplaceSettings::current())) ? 'success' : 'gray')
+                    ->description(fn (Supplier $r) => $r->trial_ends_at ? 'Prueba hasta '.$r->trial_ends_at->format('d/m/Y') : null),
                 TextColumn::make('products_count')->label('Productos')->counts('products'),
                 TextColumn::make('created_at')->label('Alta')->dateTime('d/m/Y')->sortable(),
             ])
-            ->filters([SelectFilter::make('status')->label('Estado')->options(Supplier::STATUSES)])
+            ->modifyQueryUsing(fn ($query) => $query->with('subscription'))
+            ->filters([
+                SelectFilter::make('status')->label('Moderación')->options(Supplier::STATUSES),
+                SelectFilter::make('comercial')->label('Estado comercial')->options([
+                    'trial' => 'En prueba', 'trial_soon' => 'Prueba vence en 7 días', 'active' => 'Suscripción activa', 'pending' => 'Suscripción pendiente de pago',
+                    'canceled' => 'Suscripción cancelada', 'past_due' => 'Cobro rechazado', 'operating' => 'Habilitados (catálogo visible)', 'not_operating' => 'Aprobados sin habilitación (prueba o suscripción vencida)',
+                ])->query(fn ($query, array $data) => match ($data['value'] ?? null) {
+                    'trial' => $query->where('status', Supplier::APPROVED)->where('trial_ends_at', '>', now()),
+                    'trial_soon' => $query->where('status', Supplier::APPROVED)->whereBetween('trial_ends_at', [now(), now()->addDays(7)]),
+                    'active' => $query->whereHas('subscription', fn ($q) => $q->where('current_period_end', '>', now())),
+                    'pending' => $query->whereHas('subscription', fn ($q) => $q->where('status', SupplierSubscription::PENDING)),
+                    'canceled' => $query->whereHas('subscription', fn ($q) => $q->where('status', SupplierSubscription::CANCELED)),
+                    'past_due' => $query->whereHas('subscription', fn ($q) => $q->where('status', SupplierSubscription::PAST_DUE)),
+                    'operating' => $query->operating(),
+                    'not_operating' => $query->where('status', Supplier::APPROVED)->whereNull('closed_at')->whereNotIn('id', Supplier::operating()->select('suppliers.id')),
+                    default => $query,
+                }),
+            ])
             ->recordActions(MarketplaceModeration::supplierActions())
             ->recordUrl(fn (Supplier $r) => static::getUrl('view', ['record' => $r]));
     }
@@ -96,6 +125,18 @@ class SupplierResource extends Resource
                 TextEntry::make('users')->label('Usuarios')->state(fn (Supplier $r) => $r->users()->pluck('email')->implode(', ')),
                 TextEntry::make('operations')->label('Operaciones completadas')->state(fn (Supplier $r) => $r->completedOperations()),
                 TextEntry::make('description')->label('Descripción')->placeholder('—')->columnSpanFull(),
+                TextEntry::make('admin_notes')->label('Notas administrativas (no las ve el proveedor)')->placeholder('—')->columnSpanFull(),
+            ]),
+            Section::make('Estado comercial')->columns(['default' => 1, 'md' => 3])->columnSpanFull()->schema([
+                TextEntry::make('standing')->label('Estado')->state(fn (Supplier $r) => SupplierStanding::label($r->standing()))->badge(),
+                TextEntry::make('trial')->label('Prueba')->state(fn (Supplier $r) => $r->trial_ends_at ? $r->trial_started_at?->format('d/m/Y').' al '.$r->trial_ends_at->format('d/m/Y') : 'Empieza al aprobarlo'),
+                TextEntry::make('currency')->label('Moneda de sus precios'),
+                TextEntry::make('subscription.status')->label('Suscripción')->formatStateUsing(fn ($state) => SupplierSubscription::STATUSES[$state] ?? $state)->placeholder('Sin suscripción'),
+                TextEntry::make('subscription.amount')->label('Importe mensual')->state(fn (Supplier $r) => $r->subscription ? Money::format((float) $r->subscription->amount, $r->subscription->currency) : null)->placeholder('—'),
+                TextEntry::make('subscription.current_period_end')->label('Pagada hasta')->dateTime('d/m/Y')->placeholder('—'),
+            ]),
+            Section::make('Cobros, destacados y acciones administrativas')->columnSpanFull()->schema([
+                ViewEntry::make('history')->view('filament.marketplace.supplier-history')->columnSpanFull(),
             ]),
         ]);
     }

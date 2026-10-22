@@ -9,12 +9,13 @@ use App\Filament\Resources\Marketplace\Pages\ListSupplierProducts;
 use App\Filament\Resources\Marketplace\Pages\ListSuppliers;
 use App\Filament\Resources\Marketplace\SupplierProductResource;
 use App\Filament\Resources\Marketplace\SupplierResource;
+use App\Models\Marketplace\FeaturedPlacement;
 use App\Models\Marketplace\MarketplaceReport;
 use App\Models\Marketplace\Supplier;
 use App\Models\PlatformAuditLog;
 use App\Models\User;
-use App\Notifications\Marketplace\MarketplaceAdminNotice;
-use App\Notifications\Marketplace\SupplierAccountUpdate;
+use App\Notifications\MailOnlyNotification;
+use App\Notifications\Marketplace\MarketplaceNotice;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
@@ -61,12 +62,13 @@ class MarketplaceModerationTest extends TestCase
         $this->assertSame($super->id, PlatformAuditLog::first()->user_id);
 
         // El proveedor se entera en su área y por correo (con el motivo, si lo hay).
-        foreach ([Supplier::APPROVED, Supplier::SUSPENDED] as $status) {
-            foreach (['database', 'mail'] as $channel) {
-                Notification::assertSentTo($supplierUser, SupplierAccountUpdate::class, fn ($n, $channels) => $n->status === $status && $channels === [$channel]);
-            }
-        }
-        Notification::assertSentTo($supplierUser, SupplierAccountUpdate::class, fn ($n) => $n->status === Supplier::SUSPENDED && str_contains($n->body(), 'Datos fiscales inconsistentes'));
+        $titles = $supplierUser->notifications()->orderBy('created_at')->get()->pluck('data.title')->all();
+        $this->assertSame(['Tu cuenta de proveedor está aprobada', 'Suspendimos tu cuenta de proveedor'], $titles);
+        $this->assertStringContainsString('Datos fiscales inconsistentes', $supplierUser->notifications()->where('data->title', 'Suspendimos tu cuenta de proveedor')->value('data')['body']);
+        $this->assertSame(2, $supplierUser->notifications()->whereNotNull('mailed_at')->count());
+        Notification::assertSentTo($supplierUser, MailOnlyNotification::class);
+        // La prueba empezó con la aprobación (una sola vez).
+        $this->assertNotNull($supplier->trial_ends_at);
     }
 
     public function test_hiding_and_featuring_products(): void
@@ -80,8 +82,11 @@ class MarketplaceModerationTest extends TestCase
         $this->assertTrue($product->fresh()->isFeatured());
         Livewire::test(ListSupplierProducts::class)->callTableAction('hide', $product, ['reason' => 'Fotos de otra marca'])->assertNotified('Producto oculto');
         $product->refresh();
-        $this->assertTrue($product->hidden_by_admin && $product->isFeatured());
-        $this->assertFalse($product->isVisible()); // destacado y oculto: oculto
+        // Ocultarlo termina el destacado (ya no es elegible) y queda en el historial.
+        $this->assertTrue($product->hidden_by_admin);
+        $this->assertFalse($product->isFeatured());
+        $this->assertFalse($product->isVisible());
+        $this->assertSame([FeaturedPlacement::CANCELLED, 'admin'], [$product->placements()->value('status'), $product->placements()->value('source')]);
 
         // El proveedor no lo puede volver a mostrar desde su formulario.
         auth()->logout();
@@ -105,7 +110,7 @@ class MarketplaceModerationTest extends TestCase
         Livewire::test(PartsCatalog::class, ['producto' => $product->id])->call('startReport', $product->id)->set('reportReason', 'other')->call('submitReport');
         $report = MarketplaceReport::sole();
         $this->assertSame([$a['company']->id, 'fraud'], [$report->company_id, $report->reason]);
-        $this->assertSame(1, $super->notifications()->where('type', MarketplaceAdminNotice::class)->count());
+        $this->assertSame(1, $super->notifications()->where('type', MarketplaceNotice::class)->count());
 
         auth()->logout();
         $this->actingInPanel($super);
