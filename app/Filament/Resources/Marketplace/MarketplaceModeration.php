@@ -55,6 +55,9 @@ final class MarketplaceModeration
                 'reviewed_by' => auth()->id(),
                 'approved_at' => $to === Supplier::APPROVED ? ($record->approved_at ?? now()) : $record->approved_at,
             ])->save();
+            if ($to === Supplier::SUSPENDED) {
+                app(FeaturedPlacements::class)->endForSupplier($record->id, 'Cuenta del proveedor suspendida.');
+            }
             PlatformAudit::record('marketplace.supplier.'.$to, $record, ['from' => $from, 'to' => $to, 'reason' => $reason]);
             self::noticeSupplier($record, $from, $to, $reason);
             Notification::make()->title($title)->success()->send();
@@ -135,7 +138,7 @@ final class MarketplaceModeration
             $to === Supplier::APPROVED && $from === Supplier::SUSPENDED => ['Reactivamos tu cuenta de proveedor', 'Tu cuenta vuelve a estar habilitada. Tus productos publicados se ven otra vez (no se reactivan publicaciones ocultas por moderación).'],
             $to === Supplier::APPROVED => ['Tu cuenta de proveedor está aprobada', 'Aprobamos tu cuenta: tus productos publicados ya los ven las empresas de mantenimiento. Publicar es gratis hasta '.MarketplaceSettings::current()->freeLimit().' productos a la vez.'],
             $to === Supplier::REJECTED => ['No pudimos aprobar tu cuenta de proveedor', 'Revisamos tu cuenta y por ahora no la podemos aprobar.'.$why],
-            default => ['Suspendimos tu cuenta de proveedor', 'Tu catálogo dejó de verse y no podés cotizar pedidos nuevos. Tus datos y tu historial se conservan.'.$why],
+            default => ['Suspendimos tu cuenta de proveedor', 'Tu catálogo dejó de verse, tus destacados vigentes se cancelaron y no podés cotizar pedidos nuevos. Tus datos y tu historial se conservan.'.$why],
         };
         $notify->supplier($supplier, $title, $body, '/proveedores', 'account:'.$to.':'.$stamp);
 

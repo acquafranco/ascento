@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Marketplace;
 
+use App\Filament\Resources\Marketplace\Pages\ListSuppliers;
 use App\Models\Marketplace\FeaturedPlacement;
 use App\Models\Marketplace\MarketplaceSettings;
 use App\Models\Marketplace\Supplier;
@@ -9,10 +10,12 @@ use App\Models\Marketplace\SupplierPayment;
 use App\Models\Marketplace\SupplierSubscription;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Services\Marketplace\FeaturedPlacements;
 use App\Support\Marketplace\SupplierStanding;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
+use Livewire\Livewire;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\Feature\Marketplace\Concerns\MakesMarketplace;
 use Tests\TestCase;
@@ -307,6 +310,86 @@ class SupplierBillingTest extends TestCase
         $this->assertSame(SupplierPayment::REFUNDED, SupplierPayment::sole()->status);
         $this->assertTrue(SupplierSubscription::sole()->current_period_end->equalTo($end));
         $this->assertSame(1, $super->notifications()->where('data->title', 'Cobro de Premium devuelto')->count());
+
+        // La misma cuota reaparece «aprobada» (contracargo revertido, aviso viejo): no suma otro mes ni deja de figurar devuelta.
+        $this->api['/v1/payments/PAP1']['status'] = 'approved';
+        $this->webhook('subscription_authorized_payment', 'AP1')->assertOk();
+        $this->assertSame(SupplierPayment::REFUNDED, SupplierPayment::sole()->status);
+        $this->assertTrue(SupplierSubscription::sole()->current_period_end->equalTo($end));
+    }
+
+    public function test_a_refunded_or_cancelled_featured_purchase_is_never_reactivated_by_a_payment(): void
+    {
+        $super = User::factory()->superAdmin()->create();
+        [$supplier, $user] = $this->makeSupplier();
+        $product = $this->makeProduct($supplier);
+        $this->actingAs($user)->post(route('suppliers.featured.purchase'), ['producto' => $product->id, 'dias' => 7]);
+        $placement = FeaturedPlacement::sole();
+        $pay = fn (int $id, string $status) => $this->api["/v1/payments/{$id}"] = ['id' => $id, 'status' => $status, 'external_reference' => $placement->external_reference, 'transaction_amount' => 5000, 'currency_id' => 'ARS'];
+
+        // Pagado y devuelto: se cancela.
+        $pay(601, 'approved');
+        $this->webhook('payment', '601')->assertOk();
+        $pay(601, 'refunded');
+        $this->webhook('payment', '601')->assertOk();
+        $this->assertSame(FeaturedPlacement::CANCELLED, $placement->fresh()->status);
+
+        // El pago devuelto reaparece aprobado, o llega otro pago de la misma compra: nada se reactiva.
+        $pay(601, 'approved');
+        $this->webhook('payment', '601')->assertOk();
+        $pay(602, 'approved');
+        $this->webhook('payment', '602')->assertOk();
+        $this->assertSame(FeaturedPlacement::CANCELLED, $placement->fresh()->status);
+        $this->assertFalse($product->fresh()->isFeatured());
+        $this->assertSame(SupplierPayment::REFUNDED, SupplierPayment::where('mp_payment_id', '601')->value('status'));
+        $this->assertSame('Pago duplicado: devolver', SupplierPayment::where('mp_payment_id', '602')->value('status_detail'));
+        $this->assertSame(1, $super->notifications()->where('data->title', 'Pago duplicado de un destacado')->count());
+
+        // Cancelado por Ascento antes de pagarse: el pago tardío no lo activa, queda para revisar.
+        $this->travel(1)->days();
+        $this->post(route('suppliers.featured.purchase'), ['producto' => $product->id, 'dias' => 7]);
+        $second = FeaturedPlacement::latest('id')->first();
+        app(FeaturedPlacements::class)->cancel($super, $second, 'Pedido del proveedor');
+        $this->api['/v1/payments/603'] = ['id' => 603, 'status' => 'approved', 'external_reference' => $second->external_reference, 'transaction_amount' => 5000, 'currency_id' => 'ARS'];
+        $this->webhook('payment', '603')->assertOk();
+        $this->assertSame(FeaturedPlacement::NEEDS_REVIEW, $second->fresh()->status);
+        $this->assertFalse($product->fresh()->isFeatured());
+        $this->assertSame(1, $super->notifications()->where('data->title', 'Destacado pagado que requiere revisión')->count());
+
+        // Checkout abandonado (venció sin pago) y acreditado tarde: sí se activa.
+        $this->travel(1)->days();
+        $this->post(route('suppliers.featured.purchase'), ['producto' => $product->id, 'dias' => 7]);
+        $late = FeaturedPlacement::latest('id')->first();
+        $this->travel(4)->days();
+        Artisan::call('marketplace:tick');
+        $this->assertSame(FeaturedPlacement::CANCELLED, $late->fresh()->status);
+        $this->api['/v1/payments/604'] = ['id' => 604, 'status' => 'approved', 'external_reference' => $late->external_reference, 'transaction_amount' => 5000, 'currency_id' => 'ARS'];
+        $this->webhook('payment', '604')->assertOk();
+        $this->assertSame(FeaturedPlacement::ACTIVE, $late->fresh()->status);
+    }
+
+    public function test_suspending_a_supplier_cancels_its_running_featured_listings(): void
+    {
+        $super = User::factory()->superAdmin()->create();
+        [$supplier, $user] = $this->makeSupplier();
+        $product = $this->makeProduct($supplier);
+        $this->actingAs($user)->post(route('suppliers.featured.purchase'), ['producto' => $product->id, 'dias' => 7]);
+        $placement = FeaturedPlacement::sole();
+        $this->api['/v1/payments/701'] = ['id' => 701, 'status' => 'approved', 'external_reference' => $placement->external_reference, 'transaction_amount' => 5000, 'currency_id' => 'ARS'];
+        $this->webhook('payment', '701')->assertOk();
+        $this->assertSame(FeaturedPlacement::ACTIVE, $placement->fresh()->status);
+
+        $this->actingAs($super);
+        Livewire::test(ListSuppliers::class)->callTableAction('suspend', $supplier, ['reason' => 'Revisión'])->assertNotified('Proveedor suspendido');
+        $this->assertSame(FeaturedPlacement::CANCELLED, $placement->fresh()->status);
+        $this->assertSame('Cuenta del proveedor suspendida.', $placement->fresh()->status_reason);
+        $this->assertNull($product->fresh()->featured_until);
+
+        // Reactivar la cuenta no revive el destacado; el pago queda registrado.
+        Livewire::test(ListSuppliers::class)->callTableAction('reactivate', $supplier->fresh());
+        $this->webhook('payment', '701')->assertOk();
+        $this->assertSame(FeaturedPlacement::CANCELLED, $placement->fresh()->status);
+        $this->assertSame(SupplierPayment::APPROVED, SupplierPayment::sole()->status);
     }
 
     public function test_company_subscriptions_are_not_mixed_with_suppliers(): void

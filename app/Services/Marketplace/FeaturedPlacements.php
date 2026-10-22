@@ -28,6 +28,9 @@ use Illuminate\Validation\ValidationException;
  */
 class FeaturedPlacements
 {
+    /** Motivo de un checkout que venció sin pago (el único cancelado que un pago tardío puede activar). */
+    public const ABANDONED = 'No se completó el pago.';
+
     public function __construct(private MarketplaceNotifier $notify) {}
 
     /** URL de pago para destacar un producto propio. */
@@ -91,7 +94,15 @@ class FeaturedPlacements
     {
         $result = DB::transaction(function () use ($placement) {
             $row = FeaturedPlacement::lockForUpdate()->find($placement->id);
-            if (! in_array($row->status, [FeaturedPlacement::PENDING_PAYMENT, FeaturedPlacement::CANCELLED], true)) {
+            // Un checkout abandonado (venció sin pago) se puede acreditar tarde; cualquier otra cancelación
+            // (Ascento, moderación, suspensión, cuenta cerrada) no se reactiva sola por un pago: se revisa.
+            $abandoned = $row->status === FeaturedPlacement::CANCELLED && $row->starts_at === null && $row->status_reason === self::ABANDONED;
+            if ($row->status === FeaturedPlacement::CANCELLED && ! $abandoned) {
+                $row->forceFill(['status' => FeaturedPlacement::NEEDS_REVIEW, 'status_reason' => 'Se pagó un destacado que ya estaba cancelado ('.($row->status_reason ?: 'sin motivo').').'])->save();
+
+                return 'review';
+            }
+            if ($row->status !== FeaturedPlacement::PENDING_PAYMENT && ! $abandoned) {
                 return null; // ya activado (aviso repetido)
             }
             $product = $row->product()->with('supplier')->first();
@@ -111,8 +122,8 @@ class FeaturedPlacements
         if ($result === 'active') {
             $this->notify->supplier($placement->supplier_id, 'Destacado activo', '«'.$placement->product_name.'» está destacado del '.$placement->starts_at->format('d/m/Y').' al '.$placement->ends_at->format('d/m/Y').'.', '/proveedores/destacados', 'feat:'.$placement->id.':active');
         } elseif ($result === 'review') {
-            $this->notify->supplier($placement->supplier_id, 'Recibimos el pago del destacado', 'El producto «'.$placement->product_name.'» ya no se puede destacar (no está visible). Ascento va a revisar el caso y te va a escribir.', '/proveedores/destacados', 'feat:'.$placement->id.':review');
-            $this->notify->team('Destacado pagado que requiere revisión', 'El destacado #'.$placement->id.' («'.$placement->product_name.'») se pagó pero el producto ya no era elegible. Definí la devolución o la reasignación.', '/admin/marketplace/destacados', 'feat-review:'.$placement->id, mail: true);
+            $this->notify->supplier($placement->supplier_id, 'Recibimos el pago del destacado', 'El destacado de «'.$placement->product_name.'» ya no se podía activar. Ascento va a revisar el caso y te va a escribir.', '/proveedores/destacados', 'feat:'.$placement->id.':review');
+            $this->notify->team('Destacado pagado que requiere revisión', 'El destacado #'.$placement->id.' («'.$placement->product_name.'») se pagó pero no se activó: '.$placement->status_reason.' Definí la devolución o la reasignación.', '/admin/marketplace/destacados', 'feat-review:'.$placement->id, mail: true);
         }
     }
 
@@ -174,6 +185,13 @@ class FeaturedPlacements
             ->each(fn (FeaturedPlacement $p) => $this->end($p, FeaturedPlacement::CANCELLED, $reason));
     }
 
+    /** Suspensión del proveedor: sus destacados activos se cancelan (sección 18 de los términos). */
+    public function endForSupplier(int $supplierId, string $reason): void
+    {
+        FeaturedPlacement::where('supplier_id', $supplierId)->where('status', FeaturedPlacement::ACTIVE)->get()
+            ->each(fn (FeaturedPlacement $p) => $this->end($p, FeaturedPlacement::CANCELLED, $reason));
+    }
+
     /** Vencimientos (tarea programada). Idempotente: cada destacado vence y se avisa una sola vez. */
     public function expireDue(): int
     {
@@ -195,7 +213,7 @@ class FeaturedPlacements
             });
         // Checkouts abandonados (la preferencia de pago ya venció).
         FeaturedPlacement::where('status', FeaturedPlacement::PENDING_PAYMENT)->where('created_at', '<', now()->subHours(FeaturedPlacement::CHECKOUT_HOURS + 48))
-            ->update(['status' => FeaturedPlacement::CANCELLED, 'status_reason' => 'No se completó el pago.', 'checkout_url' => null]);
+            ->update(['status' => FeaturedPlacement::CANCELLED, 'status_reason' => self::ABANDONED, 'checkout_url' => null]);
 
         return $n;
     }
