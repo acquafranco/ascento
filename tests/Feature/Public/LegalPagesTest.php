@@ -42,7 +42,7 @@ class LegalPagesTest extends TestCase
                 $this->assertStringNotContainsString($broken, $html, "{$page} contiene «{$broken}»");
             }
             // La fecha es la de la versión, no la del día en que se abre.
-            $this->assertStringContainsString('Versión vigente desde el 21 de octubre de 2026', $html);
+            $this->assertStringContainsString('Versión vigente desde el 22 de octubre de 2026', $html);
         }
     }
 

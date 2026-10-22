@@ -29,7 +29,10 @@ class RegisteredUserController extends Controller
 {
     public function create(Request $request): View
     {
-        return view('auth.register', ['challenge' => RegistrationChallenge::prepare($request)]);
+        // Plan elegido en la calculadora (solo uno que se venda hoy): se recuerda para «Mi suscripción».
+        $plan = SubscriptionPlan::offered()->firstWhere('slug', (string) $request->query('plan'));
+
+        return view('auth.register', ['challenge' => RegistrationChallenge::prepare($request), 'intendedPlan' => $plan]);
     }
 
     /**
@@ -101,6 +104,9 @@ class RegisteredUserController extends Controller
             'locality' => ['required', 'string', 'max:255'],
 
             'business_name' => ['nullable', 'string', 'max:255'],
+
+            // Plan elegido en la calculadora (no cambia la prueba gratis).
+            'intended_plan' => ['nullable', 'string', Rule::in(SubscriptionPlan::offered()->pluck('slug')->all())],
 
             'terms' => ['accepted'],
 
@@ -174,7 +180,7 @@ class RegisteredUserController extends Controller
                 ]);
 
                 // Empresa nueva: se le abre la configuración inicial guiada (CompanySetup).
-                $company->forceFill(['setup_status' => CompanySetup::PENDING])->save();
+                $company->forceFill(['setup_status' => CompanySetup::PENDING, 'intended_plan' => $request->input('intended_plan') ?: null])->save();
 
                 /*
                 |--------------------------------------------------------------------------

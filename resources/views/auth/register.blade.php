@@ -3,7 +3,14 @@
     <h1 class="mt-2 font-display font-semibold text-2xl tracking-tight text-ink">Creá tu cuenta</h1>
     <p class="mt-1.5 text-sm text-ink/50">Empezá a organizar tu empresa de ascensores hoy.</p>
 
+    @include('auth.partials.account-type', ['current' => 'company'])
+
     <form method="POST" action="{{ route('register') }}" class="mt-8 space-y-6">
+        @php $planChoice = $intendedPlan ?? \App\Models\SubscriptionPlan::offered()->firstWhere('slug', old('intended_plan')); @endphp
+        @if($planChoice)
+            <input type="hidden" name="intended_plan" value="{{ $planChoice->slug }}">
+            <p class="rounded-xl border border-amber-500/30 bg-amber-50 px-4 py-3 text-sm text-ink/70" data-register-plan>Elegiste el plan <strong class="text-ink">{{ $planChoice->shortName() }}</strong> ({{ $planChoice->formattedPrice() }}/mes). Empezás con la prueba gratis de {{ \App\Models\SubscriptionPlan::TRIAL_DAYS }} días y lo contratás desde tu cuenta cuando quieras.</p>
+        @endif
         @csrf
 
         <x-input-error :messages="$errors->get('form')" class="rounded-xl border border-red-200 bg-red-50 px-4 py-3" />

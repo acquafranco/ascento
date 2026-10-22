@@ -282,9 +282,11 @@ class Subscription extends Page
 
         // Solo planes que se venden hoy. Un slug inválido o inactivo se rechaza
         // (nunca se cae en otro plan). Sin slug: el actual o el recomendado.
+        // Durante la prueba, el plan elegido en la calculadora (si lo hubo) va primero.
         $plan = $plan !== null
             ? $this->getPlans()->firstWhere('slug', $plan)
-            : ($this->getPlans()->firstWhere('slug', $this->getPlan()->slug) ?? $this->getPlans()->firstWhere('is_recommended', true));
+            : (($this->isInFreePeriod() ? $this->getPlans()->firstWhere('slug', $company->intended_plan) : null)
+                ?? $this->getPlans()->firstWhere('slug', $this->getPlan()->slug) ?? $this->getPlans()->firstWhere('is_recommended', true));
 
         if (! $this->canStartCheckout() || ! $plan) {
             Notification::make()->title('No se puede iniciar el pago ahora')->warning()->send();
