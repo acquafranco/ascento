@@ -254,7 +254,8 @@ class MercadoPagoSubscriptionTest extends TestCase
         $this->mpPreapproval('PRE-ZZZ', $this->a['company'], 'authorized');
 
         $this->mpWebhook('subscription_preapproval', 'PRE-ZZZ')->assertOk()->assertJson(['status' => 'subscription_not_found']);
-        $this->mpWebhook('payment', '123')->assertOk()->assertJson(['status' => 'ignored']);
+        // «payment» ahora se consulta (destacados del marketplace): un id que Mercado Pago no conoce no cambia nada.
+        $this->mpWebhook('payment', '123')->assertOk()->assertJson(['status' => 'not_found']);
         $this->mpWebhook('subscription_preapproval', 'bad id;drop')->assertOk()->assertJson(['status' => 'ignored']);
 
         $this->assertSame(0, Subscription::count());

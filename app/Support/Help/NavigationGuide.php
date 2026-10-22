@@ -14,6 +14,7 @@ use App\Filament\Pages\ImplementationRates;
 use App\Filament\Pages\IndicatorsPage;
 use App\Filament\Pages\Marketplace\PartsCatalog;
 use App\Filament\Pages\Marketplace\PartsRequests;
+use App\Filament\Pages\MarketplaceSettingsPage;
 use App\Filament\Pages\ParachuteTestsPage;
 use App\Filament\Pages\PlanFeatures;
 use App\Filament\Pages\PublicQrPage;
@@ -29,7 +30,10 @@ use App\Filament\Resources\Elevators\ElevatorResource;
 use App\Filament\Resources\Emergency\EmergencyRequestResource;
 use App\Filament\Resources\Inspections\InspectionResource;
 use App\Filament\Resources\Maintenances\MaintenanceResource;
+use App\Filament\Resources\Marketplace\FeaturedPlacementResource;
 use App\Filament\Resources\Marketplace\MarketplaceReportResource;
+use App\Filament\Resources\Marketplace\MarketplaceRequestResource;
+use App\Filament\Resources\Marketplace\SupplierPaymentResource;
 use App\Filament\Resources\Marketplace\SupplierProductResource;
 use App\Filament\Resources\Marketplace\SupplierResource;
 use App\Filament\Resources\OnCall\OnCallScheduleResource;
@@ -111,6 +115,10 @@ final class NavigationGuide
             SupplierResource::class => ['Los proveedores de repuestos: revisar, aprobar, rechazar y suspender cuentas.', null],
             SupplierProductResource::class => ['Las publicaciones de repuestos: ocultar las que no cumplen y destacar.', null],
             MarketplaceReportResource::class => ['Los reportes de publicaciones que hacen las empresas.', null],
+            MarketplaceRequestResource::class => ['Todos los pedidos de cotización entre empresas y proveedores: estados, importes cotizados, historial e incidencias para resolver.', null],
+            SupplierPaymentResource::class => ['Lo que Mercado Pago cobró a los proveedores (Premium y destacados). Solo los cobros aprobados son ingresos.', null],
+            FeaturedPlacementResource::class => ['Las publicaciones destacadas compradas o asignadas, con su período y estado.', null],
+            MarketplaceSettingsPage::class => ['Límites de publicaciones (gratuito y Premium), precio de Premium, países con cobro y precios de destacados (sin habilitar, no se cobra nada).', null],
         ];
     }
 

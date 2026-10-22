@@ -92,6 +92,48 @@ class Notifier
             return null; // ya avisado
         }
 
+        return $this->deliver($user, $notification, $row, $mail, $broadcast, $pushAfterResponse);
+    }
+
+    /**
+     * Avisos a cuentas SIN empresa (marketplace): los usuarios de un proveedor
+     * (solo los del proveedor del que trata el aviso) y el SuperAdmin. Las
+     * mismas garantías que sendTo(): una sola vez por evento, en pantalla al
+     * instante, push si lo activó y correo con constancia de envío o de fallo.
+     */
+    public function sendToAccount(User $user, AppNotification $notification, bool $mail = true): ?DatabaseNotification
+    {
+        $user = User::find($user->id);
+
+        if (! $user || ! $this->mayReceiveAccount($user, $notification)) {
+            return null;
+        }
+
+        $row = $this->store($user, $notification, null);
+
+        return $row ? $this->deliver($user, $notification, $row, $mail, true, false) : null;
+    }
+
+    public function mayReceiveAccount(User $user, AppNotification $notification): bool
+    {
+        if ($user->trashed()) {
+            return false;
+        }
+
+        if ($user->isSuperAdmin()) {
+            return $notification->forSuperAdmin();
+        }
+
+        // Proveedor: solo avisos de SU proveedor, con la cuenta sin cerrar.
+        return $user->isSupplierUser()
+            && $user->supplier_id !== null
+            && $notification->supplierId() !== null
+            && (int) $notification->supplierId() === (int) $user->supplier_id
+            && $user->supplier()->whereNull('closed_at')->exists();
+    }
+
+    private function deliver(User $user, AppNotification $notification, DatabaseNotification $row, bool $mail, bool $broadcast, bool $pushAfterResponse): DatabaseNotification
+    {
         // En pantalla al instante (campanita / bandeja), si hay tiempo real.
         // (Los envíos en lote avisan una sola vez al final: ver ClientShareNotifier.)
         if ($broadcast) {
@@ -154,7 +196,7 @@ class Notifier
         return true;
     }
 
-    private function store(User $user, AppNotification $notification, int $companyId): ?DatabaseNotification
+    private function store(User $user, AppNotification $notification, ?int $companyId): ?DatabaseNotification
     {
         $key = $notification->dedupeKey();
 

@@ -16,9 +16,13 @@
         <div class="s-notice bad" data-product-hidden><strong>Oculto por moderación.</strong> {{ $product->hidden_reason ?: 'No cumple las reglas de publicación.' }} Si lo corregiste, escribinos a {{ config('app.support_email') }} para revisarlo.</div>
     @endif
 
+    @if(! $isNew && $product->status === 'over_limit')
+        <div class="s-notice warn" data-product-over-limit><strong>Fuera del límite de tu plan.</strong> No se ve en el catálogo porque tu plan permite {{ $usage['limit'] }} productos publicados a la vez. No es una sanción ni se borró nada: publicalo cuando tengas lugar (pausá o retirá otro) o con Premium.</div>
+    @endif
+
     @if(! $isNew && ! $locked)
         <div class="s-card s-row">
-            <span class="s-muted">Estado de la publicación</span>
+            <span class="s-muted">Estado de la publicación · {{ $usage['published'] }} de {{ $usage['limit'] }} publicados ({{ $usage['remaining'] }} {{ $usage['remaining'] === 1 ? 'lugar libre' : 'lugares libres' }})</span>
             <div class="s-actions">
                 @foreach(SupplierProductController::TRANSITIONS[$product->status] ?? [] as $to)
                     <form method="POST" action="{{ route('suppliers.products.status', $product->id) }}">@csrf<input type="hidden" name="estado" value="{{ $to }}">

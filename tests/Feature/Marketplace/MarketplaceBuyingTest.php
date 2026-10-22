@@ -9,8 +9,7 @@ use App\Models\Marketplace\MarketplaceFavorite;
 use App\Models\Marketplace\MarketplaceRequest;
 use App\Models\Marketplace\Supplier;
 use App\Models\User;
-use App\Notifications\Marketplace\BuyerRequestUpdate;
-use App\Notifications\Marketplace\SupplierRequestUpdate;
+use App\Notifications\Marketplace\MarketplaceNotice;
 use App\Services\Marketplace\MarketplaceRequests;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
@@ -101,7 +100,9 @@ class MarketplaceBuyingTest extends TestCase
         $request = MarketplaceRequest::sole();
         $item = $request->items()->sole();
         $this->assertSame([MarketplaceRequest::SENT, $a['company']->id, $supplier->id, 3, '1000.00'], [$request->status, $request->company_id, $request->supplier_id, $item->quantity, $item->listed_price]);
-        $this->assertSame(1, $supplierUser->notifications()->where('type', SupplierRequestUpdate::class)->count());
+        $this->assertSame(['Pedido de cotización nuevo'], $supplierUser->notifications()->where('type', MarketplaceNotice::class)->get()->pluck('data.title')->all());
+        // Constancia para quien lo envió (sin push ni correo).
+        $this->assertSame(['Pedido de cotización enviado'], $a['admin']->notifications()->get()->pluck('data.title')->all());
         // El pedido en armado se vació.
         Livewire::test(PartsRequests::class)->assertSee('No sumaste productos todavía');
 
@@ -143,7 +144,7 @@ class MarketplaceBuyingTest extends TestCase
         $request->refresh();
         $this->assertSame([MarketplaceRequest::QUOTED, '6800.50'], [$request->status, $request->quoted_total]);
         $this->post(route('suppliers.requests.quote', $request->reference), ['precios' => [$i1->id => '-5']])->assertSessionHasErrors();
-        $this->assertSame(1, $a['admin']->notifications()->where('type', BuyerRequestUpdate::class)->count());
+        $this->assertSame(1, $a['admin']->notifications()->where('type', MarketplaceNotice::class)->where('data->title', 'Te cotizaron un pedido')->count());
 
         // Otra empresa no lo ve.
         auth()->logout();

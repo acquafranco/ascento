@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Marketplace\MarketplaceRequest;
 use App\Models\Marketplace\Supplier;
 use App\Models\Marketplace\SupplierProduct;
+use App\Services\Marketplace\PublicationLimits;
 use App\Support\Marketplace\Catalog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,11 +21,11 @@ class SupplierAreaController extends Controller
         $user = $request->user();
         $supplier = $user->supplier;
 
-        $notifications = $user->notifications()->latest()->limit(8)->get();
-        $user->unreadNotifications()->whereIn('id', $notifications->pluck('id'))->update(['read_at' => now()]);
+        $notifications = $user->notifications()->latest()->limit(5)->get();
 
         return view('suppliers.home', [
             'supplier' => $supplier,
+            'usage' => PublicationLimits::usage($supplier),
             'products' => SupplierProduct::where('supplier_id', $supplier->id)->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status'),
             'hidden' => SupplierProduct::where('supplier_id', $supplier->id)->where('hidden_by_admin', true)->count(),
             'open' => MarketplaceRequest::forSupplier($supplier->id)->whereIn('status', [MarketplaceRequest::SENT])->count(),
@@ -65,9 +66,19 @@ class SupplierAreaController extends Controller
         return redirect()->route('suppliers.profile.edit')->with('status', 'Perfil guardado.');
     }
 
-    /** Rechazado o suspendido: puede mirar, no cambiar. */
+    /** Rechazado, suspendido o cerrado: puede mirar, no cambiar. */
     public static function ensureCanEdit(Supplier $supplier): void
     {
-        abort_if(in_array($supplier->status, [Supplier::REJECTED, Supplier::SUSPENDED], true), 403, 'Tu cuenta de proveedor no está habilitada para hacer cambios.');
+        abort_if($supplier->closed_at !== null || in_array($supplier->status, [Supplier::REJECTED, Supplier::SUSPENDED], true), 403, 'Tu cuenta de proveedor no está habilitada para hacer cambios.');
+    }
+
+    /**
+     * Cargar o publicar productos: con la cuenta sin rechazar, suspender ni
+     * cerrar (también mientras se revisa, para tener el catálogo listo). El
+     * límite del plan se controla al publicar (PublicationLimits).
+     */
+    public static function ensureCanPublish(Supplier $supplier): void
+    {
+        self::ensureCanEdit($supplier);
     }
 }

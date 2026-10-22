@@ -301,6 +301,17 @@ class CompanyEraser
         }
         $n += $of('buildings')->delete();
 
+        // Marketplace: los pedidos son también historial del proveedor. Se conservan
+        // sin datos de la empresa (contacto, notas y comentarios del comprador).
+        $requests = $ids('marketplace_requests');
+        $n += DB::table('marketplace_request_events')->whereIn('marketplace_request_id', $requests ?: [0])->where('actor', 'buyer')->update(['note' => null, 'user_id' => null]);
+        $n += $of('marketplace_requests')->update([
+            'company_id' => null, 'created_by' => null, 'buyer_name' => null, 'contact_name' => 'Empresa dada de baja', 'contact_email' => '',
+            'contact_phone' => null, 'delivery_area' => null, 'notes' => null, 'updated_at' => now(),
+        ]);
+        $n += $of('marketplace_favorites')->delete();
+        $n += $of('marketplace_reports')->update(['company_id' => null, 'user_id' => null, 'details' => null]);
+
         $n += $of('portal_memberships')->delete();
         $n += $of('notifications')->delete();
         $n += $of('activity_logs')->delete();

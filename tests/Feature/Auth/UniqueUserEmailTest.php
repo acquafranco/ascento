@@ -187,6 +187,43 @@ class UniqueUserEmailTest extends TestCase
         $this->assertTrue($super->fresh()->is_super_admin);
     }
 
+    /* Marketplace: los proveedores comparten la misma regla en las dos direcciones. */
+
+    private function registerSupplier(string $email)
+    {
+        return $this->post('/proveedores/registro', [
+            ...$this->registrationProof(),
+            'supplier_name' => 'Repuestos Nuevos', 'country' => 'AR', 'tax_id' => '30-71234567-1', 'phone' => '11 4567-8900', 'coverage' => 'CABA',
+            'categories' => ['doors'], 'name' => 'Proveedora', 'email' => $email, 'password' => self::PASSWORD, 'password_confirmation' => self::PASSWORD, 'terms' => '1',
+        ]);
+    }
+
+    public function test_supplier_accounts_follow_the_same_unique_email_rule(): void
+    {
+        User::factory()->create(['email' => 'super@ascento.test', 'is_super_admin' => true]);
+
+        // Ningún correo de otra cuenta (de cualquier rol), con otras mayúsculas o espacios, sirve para un proveedor.
+        foreach (['DUENA@a.test', ' oficina@a.test', 'Tecnico@B.test', 'consorcio@cliente.test ', 'super@ascento.test'] as $email) {
+            $this->flushSession();
+            auth()->logout();
+            $this->registerSupplier($email)->assertSessionHasErrors(['email' => UserEmail::TAKEN_MESSAGE]);
+            $this->assertSame(1, $this->accounts($email));
+        }
+
+        // Y el correo de un proveedor no sirve para una empresa, un técnico, un administrativo ni el portal.
+        $this->flushSession();
+        $this->registerSupplier('ventas@proveedor.test')->assertRedirect(route('suppliers.home'));
+        auth()->logout();
+        $this->flushSession();
+        $this->register('Ventas@Proveedor.test')->assertSessionHasErrors(['email' => UserEmail::TAKEN_MESSAGE]);
+        $this->actingInPanel($this->a['admin']);
+        $this->createTechnician('ventas@proveedor.test')->assertHasFormErrors(['email']);
+        $this->createStaff('ventas@proveedor.test')->assertHasFormErrors(['email']);
+        $this->inviteToPortal('ventas@proveedor.test')->assertHasTableActionErrors(['email' => [UserEmail::TAKEN_MESSAGE]]);
+        $this->assertSame(1, $this->accounts('ventas@proveedor.test'));
+        $this->assertTrue(User::where('email_key', 'ventas@proveedor.test')->sole()->isSupplierUser());
+    }
+
     /* 5 y 6: mayúsculas y espacios */
 
     public function test_upper_case_and_accidental_spaces_do_not_make_a_different_email(): void

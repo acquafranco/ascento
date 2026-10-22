@@ -8,7 +8,7 @@
     @include('filament.pages.marketplace.styles')
 
     <div class="mk-stack">
-        <div class="mk-note">Precios, disponibilidad y compatibilidad los <strong>declara cada proveedor</strong>; Ascento no los verifica. Una cotización no es una compra: Ascento no cobra ni intermedia el pago.</div>
+        <div class="mk-note">Precios, disponibilidad y compatibilidad los <strong>declara cada proveedor</strong>; Ascento no los verifica. Una cotización no es una compra: Ascento no cobra comisiones ni procesa el pago; el pago, el envío y la entrega se coordinan directamente con cada proveedor. Los «Destacados» son visibilidad contratada por el proveedor y solo se ordenan antes que productos igual de relevantes.</div>
 
         @if($mode === 'product')
             {{-- Detalle del producto --}}

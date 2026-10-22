@@ -5,7 +5,7 @@ namespace Tests\Feature\Marketplace;
 use App\Models\Marketplace\Supplier;
 use App\Models\Marketplace\SupplierProduct;
 use App\Models\User;
-use App\Notifications\Marketplace\MarketplaceAdminNotice;
+use App\Notifications\Marketplace\MarketplaceNotice;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -45,7 +45,10 @@ class SupplierAccountTest extends TestCase
             ->assertSee(route('suppliers.register'), false)->assertSee('name="company_name"', false);
         $this->get(route('suppliers.register'))->assertOk()->assertSee('data-account-type="supplier"', false)->assertSee('name="tax_id"', false);
         // Los términos explican que Ascento no cobra ni verifica la compatibilidad declarada.
-        $this->get(route('legal.terms'))->assertSee('Ascento no vende, no compra, no cobra ni intermedia el pago')->assertSee('declara el proveedor');
+        $this->get(route('legal.terms'))->assertSee('Ascento no vende, no compra, no cobra comisiones por las ventas ni procesa los pagos de los repuestos')->assertSee('declara el proveedor')
+            ->assertSee('Condiciones comerciales para proveedores de repuestos')->assertSee('Publicar es gratis y por tiempo indefinido')->assertSee('no se borra nada')->assertSee('igual de relevantes');
+        $this->get(route('legal.data-deletion'))->assertSee('Cerrar una cuenta de proveedor de repuestos');
+        $this->get(route('suppliers.register'))->assertSee('Publicar es gratis para siempre: hasta 20 productos')->assertDontSee('Prueba gratuita');
         $this->get(route('legal.privacy'))->assertSee('Proveedores de repuestos')->assertSee('Calculadora del sitio');
     }
 
@@ -59,7 +62,8 @@ class SupplierAccountTest extends TestCase
         $supplier = $user->supplier;
         $this->assertSame([User::ROLE_SUPPLIER, null, Supplier::PENDING, '30-71234567-1'], [$user->role, $user->company_id, $supplier->status, $supplier->tax_id]);
         $this->assertSame(['Schindler', 'Otis'], $supplier->brands);
-        $this->assertSame(1, $super->notifications()->where('type', MarketplaceAdminNotice::class)->count());
+        $this->assertSame(['Proveedor nuevo para revisar'], $super->notifications()->where('type', MarketplaceNotice::class)->get()->pluck('data.title')->all());
+        $this->assertSame(['Recibimos tu solicitud'], $user->notifications()->get()->pluck('data.title')->all());
 
         // Sin confirmar el correo: a «Verificá tu email».
         $this->get(route('suppliers.home'))->assertRedirect(route('verification.notice'));

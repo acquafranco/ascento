@@ -2,6 +2,7 @@
     <span class="font-mono text-xs tracking-widest text-amber-600 uppercase">Alta de proveedor</span>
     <h1 class="mt-2 font-display font-semibold text-2xl tracking-tight text-ink">Vendé repuestos a empresas de ascensores</h1>
     <p class="mt-1.5 text-sm text-ink/50">Publicá tu catálogo y recibí pedidos de cotización de empresas de mantenimiento. Revisamos cada cuenta antes de mostrarla.</p>
+    <p class="mt-1.5 text-sm text-ink/50" data-supplier-free>Publicar es gratis para siempre: hasta {{ \App\Models\Marketplace\MarketplaceSettings::current()->freeLimit() }} productos a la vez, sin cargar una tarjeta. Ascento no cobra comisiones por tus ventas: el pago y la entrega los acordás directamente con cada comprador.</p>
 
     @include('auth.partials.account-type', ['current' => 'supplier'])
 

@@ -1,6 +1,8 @@
 @php
     use App\Models\Marketplace\MarketplaceRequest;
-    $canQuote = $supplier->isApproved() && $row->canMove('supplier', MarketplaceRequest::QUOTED);
+    $canQuote = $supplier->isOperating() && $row->canMove('supplier', MarketplaceRequest::QUOTED);
+    $canTalk = in_array($row->status, [...MarketplaceRequest::OPEN, MarketplaceRequest::COMPLETED], true) && $supplier->closed_at === null && in_array($supplier->status, ['approved', 'suspended'], true);
+    $phoneDigits = $row->contact_phone ? preg_replace('/[^0-9]/', '', $row->contact_phone) : null;
 @endphp
 <x-supplier-layout :title="'Pedido '.$row->reference">
     <a class="s-link" href="{{ route('suppliers.requests.index') }}">← Pedidos</a>
@@ -14,23 +16,36 @@
         <section class="s-card">
             <h2 class="s-h2">Contacto del comprador</h2>
             <p style="margin:0; font-size:14px; line-height:1.7">
-                <strong>{{ $row->company?->name }}</strong><br>
-                {{ $row->contact_name }}<br>
-                <a class="s-link" href="mailto:{{ $row->contact_email }}">{{ $row->contact_email }}</a>
-                @if($row->contact_phone)<br><a class="s-link" href="tel:{{ preg_replace('/[^0-9+]/', '', $row->contact_phone) }}">{{ $row->contact_phone }}</a>@endif
-                @if($row->delivery_area)<br><span class="s-muted">Entrega en: {{ $row->delivery_area }}</span>@endif
+                <strong>{{ $row->buyerLabel() }}</strong><br>
+                @if($row->company_id)
+                    {{ $row->contact_name }}<br>
+                    <a class="s-link" href="mailto:{{ $row->contact_email }}?subject={{ rawurlencode('Pedido '.$row->reference) }}">{{ $row->contact_email }}</a>
+                    @if($row->contact_phone)<br><a class="s-link" href="tel:{{ preg_replace('/[^0-9+]/', '', $row->contact_phone) }}">{{ $row->contact_phone }}</a>
+                        @if(strlen($phoneDigits) >= 8) · <a class="s-link" href="https://wa.me/{{ $phoneDigits }}?text={{ rawurlencode('Hola, te escribo por el pedido '.$row->reference.' de Ascento.') }}" target="_blank" rel="noopener">WhatsApp</a>@endif
+                    @endif
+                    @if($row->delivery_area)<br><span class="s-muted">Entrega en: {{ $row->delivery_area }}</span>@endif
+                @else
+                    <span class="s-muted">La empresa eliminó su cuenta: se conserva el historial del pedido sin sus datos de contacto.</span>
+                @endif
             </p>
+            <p class="s-hint">Son los datos que el comprador eligió compartir para este pedido. Usalos solo para coordinarlo. El pago, el envío y la entrega se acuerdan directamente entre ustedes.</p>
             @if($row->notes)<p class="s-muted" style="white-space:pre-line; margin-top:10px">{{ $row->notes }}</p>@endif
             <p class="s-muted" style="margin-top:10px">Pedido el {{ $row->created_at->format('d/m/Y H:i') }}.</p>
         </section>
 
         <section class="s-card">
             <h2 class="s-h2">Historial</h2>
-            <ol style="margin:0; padding-left:18px; font-size:14px; line-height:1.6">
-                @foreach($row->events as $e)
-                    <li><strong>{{ MarketplaceRequest::STATUSES[$e->to] ?? $e->to }}</strong> <span class="s-muted">· {{ $e->actorLabel() }} · {{ $e->created_at->format('d/m/Y H:i') }}</span>@if($e->note)<br><span class="s-muted" style="white-space:pre-line">{{ $e->note }}</span>@endif</li>
-                @endforeach
-            </ol>
+            @foreach($row->events as $e)
+                <div class="s-event {{ $e->kind }}"><strong style="font-size:14px">{{ $e->label() }}</strong> <span class="s-muted">· {{ $e->actorLabel() }} · {{ $e->created_at->format('d/m/Y H:i') }}</span>@if($e->note)<br><span style="white-space:pre-line; font-size:14px">{{ $e->note }}</span>@endif</div>
+            @endforeach
+            @if($canTalk)
+                <form method="POST" action="{{ route('suppliers.requests.comment', $row->reference) }}" class="s-form" style="margin-top:10px" data-request-comment>
+                    @csrf
+                    <label class="s-label" for="comentario">Comentario para el comprador</label>
+                    <textarea id="comentario" name="comentario" maxlength="2000" required style="min-height:70px" placeholder="Consultas, plazos, cambios…"></textarea>
+                    <button class="s-btn secondary" type="submit" style="margin-top:8px">Enviar comentario</button>
+                </form>
+            @endif
         </section>
     </div>
 
@@ -88,6 +103,21 @@
         </details>
     @endif
     @if($row->status === 'accepted')
-        <div class="s-notice ok" style="margin-top:14px">El comprador aceptó la cotización. Coordiná con {{ $row->contact_name }} el pago y la entrega; cuando lo reciba, lo marca como completado.</div>
+        <div class="s-notice ok" style="margin-top:14px">El comprador aceptó la cotización. Coordiná directamente con {{ $row->contact_name }} el pago, el envío y la entrega (Ascento no interviene); cuando lo reciba, lo marca como completado.</div>
+    @endif
+    @if($canTalk)
+        <details class="s-card" style="margin-top:14px">
+            <summary style="cursor:pointer; font-weight:600">Reportar un problema a Ascento</summary>
+            @if($row->hasOpenIncident())
+                <p class="s-muted">Ya hay una incidencia abierta en este pedido: el equipo de Ascento la está revisando.</p>
+            @else
+                <form method="POST" action="{{ route('suppliers.requests.incident', $row->reference) }}" class="s-form" style="margin-top:10px">
+                    @csrf
+                    <div class="s-field"><label class="s-label" for="incidencia">Qué pasó</label><textarea id="incidencia" name="incidencia" maxlength="2000" required></textarea>
+                        <p class="s-hint">Para problemas con el pedido o la otra parte que necesiten la intervención de Ascento. Ascento no garantiza pagos ni entregas.</p></div>
+                    <button class="s-btn danger" type="submit" data-request-incident>Enviar a Ascento</button>
+                </form>
+            @endif
+        </details>
     @endif
 </x-supplier-layout>

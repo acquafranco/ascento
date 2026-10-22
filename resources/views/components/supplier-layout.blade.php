@@ -6,8 +6,11 @@
         ['suppliers.home', 'Inicio', route('suppliers.home')],
         ['suppliers.products.*', 'Mi catálogo', route('suppliers.products.index')],
         ['suppliers.requests.*', 'Pedidos', route('suppliers.requests.index')],
+        ['suppliers.billing*', 'Plan', route('suppliers.billing')],
+        ['suppliers.featured*', 'Destacados', route('suppliers.featured')],
         ['suppliers.profile.*', 'Mi perfil', route('suppliers.profile.edit')],
     ];
+    $unreadCount = $user ? $user->unreadNotifications()->count() : 0;
 @endphp
 <!DOCTYPE html>
 <html lang="es">
@@ -16,7 +19,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     @include('partials.brand-head')
     <meta name="robots" content="noindex, nofollow">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $title }} · Ascento Proveedores</title>
+    @if($user)
+        {{-- Push del proveedor: clave PÚBLICA VAPID y URLs del área (componente compartido resources/js/push-notifications.js). --}}
+        <meta name="ascento-push" content="{{ json_encode([
+            'userId' => $user->id,
+            'vapidPublicKey' => config('webpush.vapid.public_key'),
+            'storeUrl' => route('suppliers.push.store'),
+            'destroyUrl' => route('suppliers.push.destroy'),
+            'testUrl' => route('suppliers.push.test'),
+            'successMessage' => 'Listo. Te vamos a avisar en este dispositivo cuando llegue un pedido o cambie tu cuenta.',
+        ]) }}">
+        <link rel="manifest" href="/manifest.webmanifest">
+        @vite(['resources/js/portal.js'])
+    @endif
     <style>
         :root { --dark: #11161D; --orange: #FF6600; --orange-ink: #B34700; --light: #F7F7F4; --line: #E4E2DA; --ink: #11161D; --muted: #5F6472; }
         * { box-sizing: border-box; }
@@ -75,6 +92,15 @@
         .s-photos img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); display: block; }
         .s-stat b { display: block; font-size: 24px; }
         .s-foot { text-align: center; font-size: 12px; color: #8C8F98; margin-top: 36px; }
+        [x-cloak] { display: none !important; }
+        .s-bell { position: relative; display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,.06); color: #fff; border: 1px solid rgba(255,255,255,.16); border-radius: 10px; padding: 7px 10px; font-size: 13px; text-decoration: none; }
+        .s-count { background: var(--orange); color: var(--dark); border-radius: 999px; font-size: 11px; font-weight: 800; padding: 0 6px; min-width: 18px; text-align: center; line-height: 18px; }
+        .s-push { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+        .s-list { list-style: none; margin: 0; padding: 0; }
+        .s-list li + li { border-top: 1px solid #F0EEE7; }
+        .s-item { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; text-decoration: none; }
+        .s-event { border-left: 3px solid var(--line); padding: 2px 0 2px 10px; margin: 0 0 10px; }
+        .s-event.note { border-left-color: #8DA2FB; } .s-event.incident { border-left-color: #F98080; } .s-event.resolved { border-left-color: #31C48D; }
         @media (max-width: 640px) { .s-brand small { display: none; } .s-table.s-stack-sm thead { display: none; } .s-table.s-stack-sm td { display: block; border: 0; padding: 4px 0; } .s-table.s-stack-sm tr { display: block; border-bottom: 1px solid var(--line); padding: 10px 0; } }
         @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
     </style>
@@ -87,7 +113,10 @@
                 <img src="{{ asset('images/brand/logo-64.png') }}" alt="">
                 <span style="min-width:0"><b>{{ $supplier?->name ?? 'Ascento' }}</b><small>Ascento · Proveedores de repuestos</small></span>
             </a>
-            <form method="POST" action="{{ route('logout') }}">@csrf<button class="s-out" type="submit">Salir</button></form>
+            <span style="display:flex; gap:8px; align-items:center">
+                <a class="s-bell" href="{{ route('suppliers.notifications.index') }}" aria-label="Avisos">🔔 <span class="s-count" data-unread-count @if($unreadCount === 0) hidden @endif>{{ $unreadCount > 99 ? '99+' : $unreadCount }}</span></a>
+                <form method="POST" action="{{ route('logout') }}">@csrf<button class="s-out" type="submit">Salir</button></form>
+            </span>
         </div>
         <nav class="s-nav" aria-label="Secciones"><div class="s-nav-in">
             @foreach($tabs as [$pattern, $label, $url])
@@ -99,12 +128,17 @@
         @if(session('status'))
             <div class="s-notice ok" role="status">{{ session('status') }}</div>
         @endif
-        @if($errors->has('estado'))
-            <div class="s-notice bad" role="alert">{{ $errors->first('estado') }}</div>
-        @endif
+        @foreach(['estado', 'suscripcion', 'destacado', 'comentario', 'incidencia'] as $field)
+            @if($errors->has($field))
+                <div class="s-notice bad" role="alert">{{ $errors->first($field) }}</div>
+            @endif
+        @endforeach
         {{ $slot }}
-        <p class="s-foot">Ascento no cobra ni intermedia los pagos: el pago y la entrega se coordinan entre proveedor y comprador.
-            · <a href="{{ route('legal.terms') }}">Términos</a> · <a href="{{ route('legal.privacy') }}">Privacidad</a></p>
+        <p class="s-foot">Ascento no cobra comisiones ni procesa los pagos de los repuestos: el pago, el envío y la entrega se coordinan directamente entre proveedor y comprador.
+            · <a href="{{ route('legal.terms') }}#repuestos">Términos</a> · <a href="{{ route('legal.privacy') }}">Privacidad</a></p>
     </main>
+    @if($user)
+        @include('partials.realtime-inbox', ['countUrl' => route('suppliers.notifications.count'), 'inboxUrl' => route('suppliers.notifications.index')])
+    @endif
 </body>
 </html>

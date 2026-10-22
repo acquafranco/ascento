@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\WebhookEvent;
+use App\Services\Marketplace\Billing\SupplierBillingSync;
 use App\Services\MercadoPagoApiException;
 use App\Services\MercadoPagoService;
 use App\Services\MercadoPagoSubscriptionSync;
@@ -18,8 +19,9 @@ use Throwable;
  * 1. Valida la firma (x-signature, HMAC-SHA256 con la clave secreta del
  *    webhook). En producción, sin clave configurada se rechaza todo.
  * 2. Nunca usa el body para decidir el estado: con el id consulta la API de
- *    Mercado Pago (MercadoPagoSubscriptionSync), que además verifica empresa
- *    e importe.
+ *    Mercado Pago (MercadoPagoSubscriptionSync para empresas,
+ *    SupplierBillingSync para proveedores del marketplace), que además
+ *    verifica la referencia y el importe.
  * 3. Responde 200 rápido; ante errores de la API responde 500 para que
  *    Mercado Pago reintente.
  */
@@ -29,7 +31,10 @@ class MercadoPagoWebhookController extends Controller
 
     private const PAYMENT_TOPICS = ['subscription_authorized_payment', 'authorized_payment'];
 
-    public function __invoke(Request $request, MercadoPagoSubscriptionSync $sync): JsonResponse
+    /** Pagos únicos (Checkout Pro): hoy solo los destacados del marketplace. */
+    private const ONE_OFF_TOPICS = ['payment'];
+
+    public function __invoke(Request $request, MercadoPagoSubscriptionSync $sync, SupplierBillingSync $suppliers): JsonResponse
     {
         $topic = (string) ($request->query('type') ?? $request->input('type') ?? $request->query('topic') ?? $request->input('topic') ?? '');
         $dataId = $this->dataId($request);
@@ -64,9 +69,12 @@ class MercadoPagoWebhookController extends Controller
         }
 
         try {
+            // Primero las empresas (como siempre); si no es de una empresa, puede
+            // ser de un proveedor del marketplace (tablas y referencias propias).
             $result = match (true) {
-                in_array($topic, self::PREAPPROVAL_TOPICS, true) => $sync->syncPreapproval($dataId),
-                in_array($topic, self::PAYMENT_TOPICS, true) => $sync->syncAuthorizedPayment($dataId),
+                in_array($topic, self::PREAPPROVAL_TOPICS, true) => $this->orSupplier($sync->syncPreapproval($dataId), fn () => $suppliers->syncPreapproval($dataId)),
+                in_array($topic, self::PAYMENT_TOPICS, true) => $this->orSupplier($sync->syncAuthorizedPayment($dataId), fn () => $suppliers->syncAuthorizedPayment($dataId)),
+                in_array($topic, self::ONE_OFF_TOPICS, true) => $suppliers->syncPayment($dataId),
                 default => 'ignored',
             };
         } catch (MercadoPagoApiException $e) {
@@ -86,6 +94,11 @@ class MercadoPagoWebhookController extends Controller
         }
 
         return $this->finish($event, $result);
+    }
+
+    private function orSupplier(string $companyResult, callable $supplier): string
+    {
+        return $companyResult === 'subscription_not_found' ? $supplier() : $companyResult;
     }
 
     private function finish(WebhookEvent $event, string $result, int $status = 200): JsonResponse

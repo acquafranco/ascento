@@ -7,31 +7,32 @@ use App\Models\Marketplace\MarketplaceRequestEvent;
 use App\Models\Marketplace\Supplier;
 use App\Models\Marketplace\SupplierProduct;
 use App\Models\User;
-use App\Notifications\Marketplace\BuyerRequestUpdate;
-use App\Notifications\Marketplace\SupplierRequestUpdate;
-use App\Services\Notifications\Notifier;
+use App\Services\Activity\PlatformAudit;
 use App\Support\Marketplace\BuyerAccess;
 use App\Support\Marketplace\Catalog;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use Throwable;
 
 /**
- * Pedidos de cotización del marketplace: crear, cotizar, aceptar, completar.
+ * Pedidos de cotización del marketplace: crear, cotizar, aceptar, completar,
+ * comentar, reportar una incidencia y la intervención del SuperAdmin.
  *
  * - Todo se valida acá, en el servidor: quién es, de qué empresa o
  *   proveedor, qué estado permite qué (MarketplaceRequest::TRANSITIONS).
  * - Precios y totales salen de la base o del proveedor; nunca del comprador.
  * - Un mismo envío (misma clave) no crea dos pedidos.
  * - Ascento no cobra: nada se marca como pagado.
+ * - Proveedor no habilitado por moderación (suspendido, cerrado): no recibe
+ *   pedidos nuevos ni cotiza, y su cotización no se puede aceptar. El plan
+ *   (gratuito o Premium) no cambia nada de esto: solo el límite de publicaciones.
+ *   Lo ya aceptado sigue: el comprador lo completa o lo cancela, y las dos
+ *   partes pueden seguir comentando para coordinar. Nada se cancela solo.
  */
 class MarketplaceRequests
 {
-    public function __construct(private Notifier $notifier) {}
+    public function __construct(private MarketplaceNotifier $notify) {}
 
     /**
      * @param  array<int, int>  $quantities  producto => cantidad (del carrito)
@@ -47,7 +48,7 @@ class MarketplaceRequests
             return $existing; // reenvío del mismo formulario
         }
 
-        $supplier = Supplier::approved()->find($supplierId);
+        $supplier = Supplier::operating()->find($supplierId);
         $products = $supplier
             ? SupplierProduct::visible()->where('supplier_id', $supplier->id)->whereIn('id', array_keys($quantities))->get()
             : collect();
@@ -65,6 +66,7 @@ class MarketplaceRequests
                 $request->forceFill([
                     'reference' => $this->reference(),
                     'company_id' => $companyId,
+                    'buyer_name' => (string) $buyer->company?->name,
                     'supplier_id' => $supplier->id,
                     'created_by' => $buyer->id,
                     'contact_name' => trim($contact['contact_name']),
@@ -96,7 +98,10 @@ class MarketplaceRequests
             return MarketplaceRequest::where('idempotency_key', $idempotency)->firstOrFail();
         }
 
-        $this->notifySupplier($request, 'Pedido de cotización nuevo', ($request->company?->name ?? 'Una empresa').' te pidió una cotización ('.($n = $request->items()->count()).' '.($n === 1 ? 'producto' : 'productos').').', 'new');
+        $n = $request->items()->count();
+        $this->notify->supplier($request->supplier_id, 'Pedido de cotización nuevo', $request->buyer_name.' te pidió una cotización ('.$n.' '.($n === 1 ? 'producto' : 'productos').', pedido '.$request->reference.').', $this->supplierPath($request), 'r'.$request->id.':new');
+        // Constancia en la campanita de quien lo envió (sin push ni correo: lo acaba de hacer).
+        $this->notify->buyer($request, 'Pedido de cotización enviado', 'Le enviaste el pedido '.$request->reference.' a '.$request->supplier->name.'. Te avisamos cuando lo cotice.', 'sent', mail: false, push: false);
 
         return $request;
     }
@@ -109,6 +114,9 @@ class MarketplaceRequests
     public function quote(User $supplierUser, MarketplaceRequest $request, array $unitPrices, ?int $validDays, ?string $note): MarketplaceRequest
     {
         $this->assertSupplier($supplierUser, $request, MarketplaceRequest::QUOTED);
+        if (! $supplierUser->supplier->isOperating()) {
+            throw ValidationException::withMessages(['estado' => 'Tu cuenta no está habilitada para cotizar.']);
+        }
 
         $items = $request->items()->get();
         $total = 0.0;
@@ -154,13 +162,20 @@ class MarketplaceRequests
                 'quote_valid_days' => $validDays,
                 'supplier_note' => filled($note) ? Str::limit(trim($note), 2000, '') : null,
                 'quoted_at' => now(),
+                // Una cotización nueva tiene sus propios avisos de vencimiento.
+                'expiring_notified_at' => null,
+                'expired_notified_at' => null,
             ])->save();
             $this->event($request, $supplierUser, 'supplier', $from, MarketplaceRequest::QUOTED, $note);
 
             return $from;
         });
 
-        $this->notifyBuyer($request, $from === MarketplaceRequest::QUOTED ? 'Cotización actualizada' : 'Te cotizaron un pedido', $request->supplier->name.' cotizó el pedido '.$request->reference.'.', 'quoted-'.$request->quoted_at->timestamp);
+        $expires = $request->quoteExpiresAt();
+        $this->notify->buyer($request,
+            $from === MarketplaceRequest::QUOTED ? 'Cotización actualizada' : 'Te cotizaron un pedido',
+            $request->supplier->name.' cotizó el pedido '.$request->reference.': '.$request->money((float) $request->quoted_total).($expires ? ', válida hasta el '.$expires->format('d/m/Y') : '').'.',
+            'quoted-'.$request->quoted_at->timestamp, mail: true);
 
         return $request;
     }
@@ -169,7 +184,7 @@ class MarketplaceRequests
     {
         $this->assertSupplier($supplierUser, $request, MarketplaceRequest::DECLINED);
         $this->move($request, $supplierUser, 'supplier', MarketplaceRequest::DECLINED, $note);
-        $this->notifyBuyer($request, 'Un proveedor no puede cotizar', $request->supplier->name.' no puede cotizar el pedido '.$request->reference.'.', 'declined');
+        $this->notify->buyer($request, 'Un proveedor no puede cotizar', $request->supplier->name.' no puede cotizar el pedido '.$request->reference.'.', 'declined', mail: true);
 
         return $request;
     }
@@ -190,7 +205,7 @@ class MarketplaceRequests
         if ($to === MarketplaceRequest::ACCEPTED && $request->quoteExpired()) {
             throw ValidationException::withMessages(['estado' => 'La cotización venció. Pedile al proveedor que la actualice.']);
         }
-        if ($to === MarketplaceRequest::ACCEPTED && ! $request->supplier?->isApproved()) {
+        if ($to === MarketplaceRequest::ACCEPTED && ! $request->supplier?->isOperating()) {
             throw ValidationException::withMessages(['estado' => 'Este proveedor no está disponible en este momento.']);
         }
 
@@ -206,15 +221,140 @@ class MarketplaceRequests
             : null);
 
         $texts = [
-            MarketplaceRequest::ACCEPTED => ['Aceptaron tu cotización', 'aceptó la cotización del pedido '.$request->reference.'. Coordiná el pago y la entrega con el comprador.'],
+            MarketplaceRequest::ACCEPTED => ['Aceptaron tu cotización', 'aceptó la cotización del pedido '.$request->reference.'. Coordiná el pago y la entrega directamente con el comprador.'],
             MarketplaceRequest::REJECTED => ['Rechazaron tu cotización', 'rechazó la cotización del pedido '.$request->reference.'.'],
             MarketplaceRequest::CANCELLED => ['Cancelaron un pedido', 'canceló el pedido '.$request->reference.'.'],
             MarketplaceRequest::COMPLETED => ['Pedido completado', 'confirmó que recibió el pedido '.$request->reference.'.'],
         ];
         [$title, $body] = $texts[$to];
-        $this->notifySupplier($request, $title, ($request->company?->name ?? 'La empresa').' '.$body, $to);
+        $this->notify->supplier($request->supplier_id, $title, $request->buyer_name.' '.$body.($note ? ' Comentario: '.Str::limit(trim($note), 300) : ''), $this->supplierPath($request), 'r'.$request->id.':'.$to);
+
+        // Otra persona de la empresa (no quien lo hizo) se entera del cambio.
+        $buyerTexts = [
+            MarketplaceRequest::ACCEPTED => 'Se aceptó la cotización del pedido '.$request->reference.'.',
+            MarketplaceRequest::REJECTED => 'Se rechazó la cotización del pedido '.$request->reference.'.',
+            MarketplaceRequest::CANCELLED => 'Se canceló el pedido '.$request->reference.'.',
+            MarketplaceRequest::COMPLETED => 'Se confirmó la recepción del pedido '.$request->reference.'.',
+        ];
+        $this->notify->buyer($request, 'Pedido '.$request->reference.' actualizado', $buyerTexts[$to].' Lo hizo '.$buyer->name.'.', $to, actor: $buyer);
 
         return $request;
+    }
+
+    /**
+     * Comentario entre las partes (queda en el historial del pedido y avisa a
+     * la otra parte). No reemplaza el contacto directo: las dos partes ven el
+     * teléfono y el correo de la otra.
+     */
+    public function comment(User $user, MarketplaceRequest $request, string $text): MarketplaceRequest
+    {
+        $text = trim($text);
+        if ($text === '' || mb_strlen($text) > 2000) {
+            throw ValidationException::withMessages(['comentario' => 'Escribí un comentario (hasta 2000 caracteres).']);
+        }
+        $actor = $this->party($user, $request);
+        if (! in_array($request->status, [...MarketplaceRequest::OPEN, MarketplaceRequest::COMPLETED], true)) {
+            throw ValidationException::withMessages(['comentario' => 'Este pedido está cerrado. Para seguir, usá los datos de contacto.']);
+        }
+
+        $event = $this->note($request, $user, $actor, MarketplaceRequestEvent::NOTE, $text);
+        if ($actor === 'buyer') {
+            $this->notify->supplier($request->supplier_id, 'Comentario en el pedido '.$request->reference, $request->buyer_name.': '.Str::limit($text, 300), $this->supplierPath($request), 'note:'.$event->id);
+        } else {
+            $this->notify->buyer($request, 'Comentario en el pedido '.$request->reference, $request->supplier->name.': '.Str::limit($text, 300), 'note:'.$event->id, mail: true);
+        }
+
+        return $request;
+    }
+
+    /** Una de las partes pide ayuda a Ascento con este pedido (una incidencia abierta a la vez). */
+    public function reportIncident(User $user, MarketplaceRequest $request, string $text): MarketplaceRequest
+    {
+        $text = trim($text);
+        if ($text === '' || mb_strlen($text) > 2000) {
+            throw ValidationException::withMessages(['incidencia' => 'Contanos qué pasó (hasta 2000 caracteres).']);
+        }
+        $actor = $this->party($user, $request);
+
+        $opened = DB::transaction(function () use ($request, $user, $actor, $text) {
+            $fresh = MarketplaceRequest::whereKey($request->id)->lockForUpdate()->first();
+            if ($fresh->hasOpenIncident()) {
+                return false;
+            }
+            $request->forceFill(['incident_at' => now(), 'incident_resolved_at' => null])->save();
+            $this->note($request, $user, $actor, MarketplaceRequestEvent::INCIDENT, $text);
+
+            return true;
+        });
+        if (! $opened) {
+            throw ValidationException::withMessages(['incidencia' => 'Ya hay una incidencia abierta en este pedido: Ascento la está revisando.']);
+        }
+
+        $this->notify->team('Incidencia en un pedido de repuestos', 'Pedido '.$request->reference.' ('.($actor === 'buyer' ? 'lo reportó el comprador' : 'lo reportó el proveedor').'): '.Str::limit($text, 200), '/admin/marketplace/pedidos/'.$request->id, 'incident:'.$request->id.':'.$request->incident_at->timestamp, mail: true);
+
+        return $request;
+    }
+
+    /** SuperAdmin: cierra la incidencia (con nota visible para las dos partes). */
+    public function resolveIncident(User $admin, MarketplaceRequest $request, string $note): MarketplaceRequest
+    {
+        abort_unless($admin->isSuperAdmin(), 403);
+        if (! $request->hasOpenIncident()) {
+            throw ValidationException::withMessages(['nota' => 'Este pedido no tiene una incidencia abierta.']);
+        }
+        $request->forceFill(['incident_resolved_at' => now()])->save();
+        $this->note($request, $admin, 'admin', MarketplaceRequestEvent::RESOLVED, trim($note));
+        PlatformAudit::record('marketplace.request.incident_resolved', $request, ['note' => $note], 'Pedido '.$request->reference);
+        $this->notifyBoth($request, 'Ascento respondió la incidencia del pedido '.$request->reference, trim($note), 'resolved:'.$request->incident_resolved_at->timestamp);
+
+        return $request;
+    }
+
+    /**
+     * SuperAdmin: anula un pedido abierto por una incidencia administrativa.
+     * No cambia importes ni borra nada: queda un evento «Cancelado» de Ascento
+     * con el motivo, visible para las dos partes, y el registro de auditoría.
+     */
+    public function adminCancel(User $admin, MarketplaceRequest $request, string $reason): MarketplaceRequest
+    {
+        abort_unless($admin->isSuperAdmin(), 403);
+        $reason = trim($reason);
+        if ($reason === '') {
+            throw ValidationException::withMessages(['motivo' => 'Escribí el motivo: lo ven las dos partes.']);
+        }
+
+        DB::transaction(function () use ($request, $admin, $reason) {
+            $fresh = MarketplaceRequest::whereKey($request->id)->lockForUpdate()->first();
+            if (! $fresh->isOpen()) {
+                throw ValidationException::withMessages(['motivo' => 'Solo se puede anular un pedido abierto.']);
+            }
+            $from = $fresh->status;
+            $request->forceFill(['status' => MarketplaceRequest::CANCELLED])->save();
+            $this->event($request, $admin, 'admin', $from, MarketplaceRequest::CANCELLED, $reason);
+        });
+        PlatformAudit::record('marketplace.request.cancelled_by_admin', $request, ['reason' => $reason], 'Pedido '.$request->reference);
+        $this->notifyBoth($request, 'Ascento anuló el pedido '.$request->reference, 'Motivo: '.$reason, 'admin-cancel');
+
+        return $request;
+    }
+
+    private function notifyBoth(MarketplaceRequest $request, string $title, string $body, string $key): void
+    {
+        $this->notify->supplier($request->supplier_id, $title, $body, $this->supplierPath($request), 'r'.$request->id.':'.$key);
+        $this->notify->buyer($request, $title, $body, $key, mail: true);
+    }
+
+    /** 'buyer' o 'supplier' si el usuario es parte del pedido; si no, 404. */
+    private function party(User $user, MarketplaceRequest $request): string
+    {
+        if (! $user->isSupplierUser() && BuyerAccess::canOrder($user) && $request->company_id !== null && (int) $request->company_id === (int) $user->company_id) {
+            return 'buyer';
+        }
+        if ($user->isSupplierUser() && $user->supplier_id !== null && (int) $user->supplier_id === (int) $request->supplier_id
+            && in_array($user->supplier?->status, [Supplier::APPROVED, Supplier::SUSPENDED], true) && $user->supplier?->closed_at === null) {
+            return 'supplier';
+        }
+        abort(404);
     }
 
     private function assertSupplier(User $user, MarketplaceRequest $request, string $to): void
@@ -222,7 +362,7 @@ class MarketplaceRequests
         abort_unless($user->isSupplierUser() && $user->supplier_id !== null && (int) $request->supplier_id === (int) $user->supplier_id, 404);
 
         if (! $user->supplier?->isApproved()) {
-            throw ValidationException::withMessages(['estado' => 'Tu cuenta no está habilitada para cotizar.']);
+            throw ValidationException::withMessages(['estado' => 'Tu cuenta no está habilitada para responder pedidos.']);
         }
         if (! $request->canMove('supplier', $to)) {
             throw ValidationException::withMessages(['estado' => 'Este pedido ya no se puede cambiar así. Actualizá la pantalla.']);
@@ -251,17 +391,38 @@ class MarketplaceRequests
         });
     }
 
-    private function event(MarketplaceRequest $request, ?User $user, string $actor, ?string $from, string $to, ?string $note): void
+    private function event(MarketplaceRequest $request, ?User $user, string $actor, ?string $from, string $to, ?string $note): MarketplaceRequestEvent
     {
-        MarketplaceRequestEvent::create([
+        return MarketplaceRequestEvent::create([
             'marketplace_request_id' => $request->id,
             'user_id' => $user?->id,
             'actor' => $actor,
+            'kind' => MarketplaceRequestEvent::STATUS,
             'from' => $from,
             'to' => $to,
             'note' => filled($note) ? Str::limit(trim((string) $note), 2000, '') : null,
             'created_at' => now(),
         ]);
+    }
+
+    /** Comentario, incidencia o resolución: no cambia el estado del pedido. */
+    private function note(MarketplaceRequest $request, User $user, string $actor, string $kind, string $text): MarketplaceRequestEvent
+    {
+        return MarketplaceRequestEvent::create([
+            'marketplace_request_id' => $request->id,
+            'user_id' => $user->id,
+            'actor' => $actor,
+            'kind' => $kind,
+            'from' => $request->status,
+            'to' => $request->status,
+            'note' => Str::limit($text, 2000, ''),
+            'created_at' => now(),
+        ]);
+    }
+
+    private function supplierPath(MarketplaceRequest $request): string
+    {
+        return '/proveedores/pedidos/'.$request->reference;
     }
 
     private function reference(): string
@@ -271,40 +432,5 @@ class MarketplaceRequests
         } while (MarketplaceRequest::where('reference', $ref)->exists());
 
         return $ref;
-    }
-
-    /** Aviso a los usuarios del proveedor: en su área al instante; el correo, después de responder. */
-    private function notifySupplier(MarketplaceRequest $request, string $title, string $body, string $event): void
-    {
-        $notification = new SupplierRequestUpdate($request->reference, $title, $body, $event);
-        User::where('supplier_id', $request->supplier_id)->where('role', User::ROLE_SUPPLIER)->get()->each(function (User $user) use ($notification, $request) {
-            try {
-                $user->notifyNow($notification, ['database']);
-                $send = fn () => Notification::sendNow($user, $notification, ['mail']);
-                app()->runningInConsole() ? $send() : dispatch(function () use ($send, $request) {
-                    try {
-                        $send();
-                    } catch (Throwable $e) {
-                        Log::warning('No se pudo enviar el correo de un pedido de repuestos', ['marketplace_request_id' => $request->id, 'exception' => $e::class]);
-                    }
-                })->afterResponse();
-            } catch (Throwable $e) {
-                Log::warning('No se pudo avisar al proveedor', ['marketplace_request_id' => $request->id, 'exception' => $e::class]);
-            }
-        });
-    }
-
-    /** Aviso a quien hizo el pedido (campanita del panel), si sigue pudiendo verlo. */
-    private function notifyBuyer(MarketplaceRequest $request, string $title, string $body, string $event): void
-    {
-        $buyer = $request->creator;
-        if (! $buyer || ! BuyerAccess::canBrowse($buyer)) {
-            return;
-        }
-        try {
-            $this->notifier->sendTo($buyer, new BuyerRequestUpdate($request->id, $request->reference, $title, $body, $event), (int) $request->company_id, mail: false);
-        } catch (Throwable $e) {
-            Log::warning('No se pudo avisar al comprador', ['marketplace_request_id' => $request->id, 'exception' => $e::class]);
-        }
     }
 }

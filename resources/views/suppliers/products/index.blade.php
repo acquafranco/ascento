@@ -1,9 +1,16 @@
 <x-supplier-layout title="Mi catálogo">
     <div class="s-row" style="margin-bottom:14px">
-        <div><h1 class="s-h1">Mi catálogo</h1><p class="s-sub" style="margin:0">Lo publicado lo ven las empresas de mantenimiento{{ $supplier->isApproved() ? '' : ' cuando aprobemos tu cuenta' }}.</p></div>
+        <div><h1 class="s-h1">Mi catálogo</h1><p class="s-sub" style="margin:0">Lo publicado lo ven las empresas de mantenimiento{{ $supplier->isOperating() ? '' : ' cuando tu cuenta esté habilitada' }}.</p></div>
         @unless(in_array($supplier->status, ['rejected', 'suspended'], true))<a class="s-btn" href="{{ route('suppliers.products.create') }}">+ Nuevo producto</a>@endunless
     </div>
     @include('suppliers.partials.status-notice')
+    @include('suppliers.partials.usage', ['usage' => $usage])
+    @if($usage['over_limit'] > 0 && $usage['remaining'] > 0)
+        <form method="POST" action="{{ route('suppliers.products.restore') }}" class="s-notice warn" data-restore-over-limit>@csrf
+            Tenés {{ $usage['over_limit'] }} {{ $usage['over_limit'] === 1 ? 'producto' : 'productos' }} fuera del límite y {{ $usage['remaining'] }} {{ $usage['remaining'] === 1 ? 'lugar libre' : 'lugares libres' }}.
+            <button class="s-btn secondary" type="submit" style="margin-left:6px">Volver a publicar los que entran</button>
+        </form>
+    @endif
 
     <nav class="s-actions" aria-label="Filtrar por estado" style="margin-bottom:12px">
         <a class="s-tag {{ ! $status ? 'info' : '' }}" href="{{ route('suppliers.products.index') }}" @if(! $status) aria-current="page" @endif>Todos</a>
@@ -17,7 +24,7 @@
     @else
         <div class="s-card s-scroll">
             <table class="s-table s-stack-sm">
-                <thead><tr><th>Producto</th><th>Rubro</th><th>Precio</th><th>Disponibilidad</th><th>Estado</th></tr></thead>
+                <thead><tr><th>Producto</th><th>Rubro</th><th>Precio</th><th>Disponibilidad</th><th>Estado</th>@if($usage['premium'])<th>Si vuelvo al plan gratuito</th>@endif</tr></thead>
                 <tbody>
                     @foreach($products as $p)
                         <tr data-supplier-product="{{ $p->id }}">
@@ -30,6 +37,10 @@
                                 @if($p->hidden_by_admin)<br><span class="s-tag bad" style="margin-top:4px">Oculto por moderación</span>@endif
                                 @if($p->isFeatured())<br><span class="s-tag warn" style="margin-top:4px">Destacado</span>@endif
                             </td>
+                            @if($usage['premium'])
+                                <td><form method="POST" action="{{ route('suppliers.products.keep', $p->id) }}">@csrf<input type="hidden" name="conservar" value="{{ $p->keep_on_free ? 0 : 1 }}">
+                                    <button class="s-btn secondary" type="submit" style="min-height:32px; padding:4px 10px; font-size:13px" data-keep="{{ $p->keep_on_free ? 1 : 0 }}">{{ $p->keep_on_free ? '✓ Conservar publicado' : 'Conservar publicado' }}</button></form></td>
+                            @endif
                         </tr>
                     @endforeach
                 </tbody>

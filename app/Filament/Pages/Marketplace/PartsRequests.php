@@ -49,6 +49,10 @@ class PartsRequests extends Page
 
     public string $note = '';
 
+    public string $comment = '';
+
+    public string $incident = '';
+
     public static function canAccess(): bool
     {
         return BuyerAccess::canBrowse(auth()->user());
@@ -167,6 +171,24 @@ class PartsRequests extends Page
         })->success()->send();
     }
 
+    /** Comentario para el proveedor (queda en el historial y le avisa). */
+    public function sendComment(): void
+    {
+        $this->resetErrorBag();
+        app(MarketplaceRequests::class)->comment(auth()->user(), $this->current(), $this->comment);
+        $this->comment = '';
+        Notification::make()->title('Comentario enviado')->body('Le avisamos al proveedor.')->success()->send();
+    }
+
+    /** Incidencia para el equipo de Ascento. */
+    public function sendIncident(): void
+    {
+        $this->resetErrorBag();
+        app(MarketplaceRequests::class)->reportIncident(auth()->user(), $this->current(), $this->incident);
+        $this->incident = '';
+        Notification::make()->title('Le avisamos al equipo de Ascento')->body('Te respondemos en este pedido.')->success()->send();
+    }
+
     /** Repetir: vuelve a sumar al pedido en armado lo que siga disponible. */
     public function repeat(): void
     {
@@ -199,7 +221,7 @@ class PartsRequests extends Page
         if ($this->pedido !== null) {
             $request = $this->current();
 
-            return $base + ['mode' => 'detail', 'row' => $request, 'operations' => $request->supplier->completedOperations()];
+            return $base + ['mode' => 'detail', 'row' => $request, 'operations' => $request->supplier->completedOperations(), 'supplierAvailable' => $request->supplier->isOperating()];
         }
 
         $history = in_array($this->estado, ['abiertos', 'historial'], true) ? $this->estado : 'abiertos';

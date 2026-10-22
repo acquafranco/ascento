@@ -5,9 +5,9 @@ namespace App\Http\Controllers\Supplier;
 use App\Http\Controllers\Controller;
 use App\Models\Marketplace\Supplier;
 use App\Models\User;
-use App\Notifications\Marketplace\MarketplaceAdminNotice;
 use App\Rules\TaxId;
 use App\Rules\UniqueUserEmail;
+use App\Services\Marketplace\MarketplaceNotifier;
 use App\Support\Auth\PasswordPolicy;
 use App\Support\Auth\RegistrationChallenge;
 use App\Support\Auth\UserEmail;
@@ -90,6 +90,8 @@ class SupplierRegistrationController extends Controller
                 $supplier->forceFill([
                     'slug' => Str::slug($data['supplier_name']).'-'.Str::lower(Str::random(5)),
                     'country' => $country,
+                    // Moneda de sus precios según el país registrado (validado con su identificación fiscal).
+                    'currency' => Supplier::currencyFor($country),
                     'tax_id' => TaxId::format($country, $data['tax_id']),
                     'status' => Supplier::PENDING,
                 ])->save();
@@ -111,10 +113,10 @@ class SupplierRegistrationController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
-        MarketplaceAdminNotice::toTeam(new MarketplaceAdminNotice(
-            'Proveedor nuevo para revisar', $supplier->name.' se registró como proveedor de repuestos.',
-            '/admin/marketplace/proveedores/'.$supplier->id, 'mkt-supplier-new:'.$supplier->id,
-        ));
+        $notify = app(MarketplaceNotifier::class);
+        $notify->team('Proveedor nuevo para revisar', $supplier->name.' ('.Countries::name($supplier->country).') se registró como proveedor de repuestos.', '/admin/marketplace/proveedores/'.$supplier->id, 'supplier-new:'.$supplier->id, mail: true);
+        // Constancia en su bandeja (el correo de confirmación de la cuenta ya sale aparte).
+        $notify->supplier($supplier, 'Recibimos tu solicitud', 'Estamos revisando tu cuenta de proveedor. Te avisamos por correo cuando la aprobemos; mientras tanto podés completar tu perfil y armar tu catálogo.', '/proveedores', 'registered', mail: false, push: false);
 
         return redirect()->route('suppliers.home');
     }
