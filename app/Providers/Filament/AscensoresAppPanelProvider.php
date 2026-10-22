@@ -233,6 +233,8 @@ class AscensoresAppPanelProvider extends PanelProvider
                 \App\Http\Middleware\EnsureSuperAdminTwoFactor::class,
                 // Empresa nueva: el asistente de configuración inicial se abre solo (CompanySetupWizard).
                 \App\Http\Middleware\OpenCompanySetup::class,
+                // Después de la configuración inicial, el dueño de una empresa nueva confirma su correo (EmailGate).
+                \App\Http\Middleware\RequireVerifiedOwner::class,
             ], isPersistent: true);
     }
 }

@@ -50,6 +50,11 @@ Route::middleware('auth')->group(function () {
         ->middleware('throttle:6,1,verification.send')
         ->name('verification.send');
 
+    // Cuenta sin confirmar: corregir el correo desde «Verificá tu email».
+    Route::post('email/verification-email', [EmailVerificationNotificationController::class, 'changeEmail'])
+        ->middleware('throttle:6,1,verification.change-email')
+        ->name('verification.change-email');
+
     Route::get('confirm-password', [ConfirmablePasswordController::class, 'show'])
         ->name('password.confirm');
 

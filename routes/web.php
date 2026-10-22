@@ -145,6 +145,8 @@ Route::prefix('{company:slug}')
         'subscription',
         // Un administrativo no usa la app del técnico (Etapa 6).
         'staff.panel',
+        // Dueño de empresa nueva sin correo confirmado: primero lo confirma.
+        'verified.owner',
     ])
     ->scopeBindings()
     ->group(function () {
