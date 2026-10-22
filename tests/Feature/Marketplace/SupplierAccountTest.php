@@ -46,9 +46,9 @@ class SupplierAccountTest extends TestCase
         $this->get(route('suppliers.register'))->assertOk()->assertSee('data-account-type="supplier"', false)->assertSee('name="tax_id"', false);
         // Los términos explican que Ascento no cobra ni verifica la compatibilidad declarada.
         $this->get(route('legal.terms'))->assertSee('Ascento no vende, no compra, no cobra comisiones por las ventas ni procesa los pagos de los repuestos')->assertSee('declara el proveedor')
-            ->assertSee('Condiciones comerciales para proveedores de repuestos')->assertSee('no se borra nada')->assertSee('igual de relevantes');
+            ->assertSee('Condiciones comerciales para proveedores de repuestos')->assertSee('Publicar es gratis y por tiempo indefinido')->assertSee('no se borra nada')->assertSee('igual de relevantes');
         $this->get(route('legal.data-deletion'))->assertSee('Cerrar una cuenta de proveedor de repuestos');
-        $this->get(route('suppliers.register'))->assertSee('Prueba gratuita de 30 días');
+        $this->get(route('suppliers.register'))->assertSee('Publicar es gratis para siempre: hasta 20 productos')->assertDontSee('Prueba gratuita');
         $this->get(route('legal.privacy'))->assertSee('Proveedores de repuestos')->assertSee('Calculadora del sitio');
     }
 

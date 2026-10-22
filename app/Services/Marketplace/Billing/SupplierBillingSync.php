@@ -64,7 +64,7 @@ class SupplierBillingSync
             return 'reference_mismatch';
         }
         if (! $this->amountMatches((float) $subscription->amount, $subscription->currency, data_get($data, 'auto_recurring.transaction_amount'), data_get($data, 'auto_recurring.currency_id'))) {
-            $this->incident('Suscripción de proveedor con importe distinto', 'La suscripción #'.$subscription->id.' informa un importe distinto al creado por Ascento.', 'sub-amount:'.$subscription->id);
+            $this->incident('Premium de proveedor con importe distinto', 'La suscripción Premium #'.$subscription->id.' informa un importe distinto al creado por Ascento.', 'sub-amount:'.$subscription->id);
 
             return 'amount_mismatch';
         }
@@ -103,8 +103,8 @@ class SupplierBillingSync
 
         if ($status !== $previous && $status === SupplierSubscription::CANCELED) {
             $subscription->refresh();
-            $until = $subscription->current_period_end?->isFuture() ? ' Tu catálogo sigue visible hasta el '.$subscription->current_period_end->format('d/m/Y').'.' : '';
-            $this->notify->supplier($subscription->supplier_id, 'Suscripción cancelada', 'Tu suscripción al marketplace quedó cancelada: no se te va a volver a cobrar.'.$until, '/proveedores/suscripcion', 'sub-canceled:'.$subscription->id.':'.$subscription->canceled_at?->timestamp);
+            $until = $subscription->current_period_end?->isFuture() ? ' Premium sigue hasta el '.$subscription->current_period_end->format('d/m/Y').'; después volvés al plan gratuito (podés elegir qué productos conservar publicados).' : '';
+            $this->notify->supplier($subscription->supplier_id, 'Premium cancelado', 'Tu suscripción Premium quedó cancelada: no se te va a volver a cobrar.'.$until, '/proveedores/suscripcion', 'sub-canceled:'.$subscription->id.':'.$subscription->canceled_at?->timestamp);
         }
 
         return 'preapproval_'.($data['status'] ?? 'unknown');
@@ -159,8 +159,8 @@ class SupplierBillingSync
 
             if ($status === SupplierPayment::APPROVED && ! $wasApproved) {
                 $paidAt = $this->date($payment['date_approved'] ?? null) ?? $this->date($authorized['debit_date'] ?? null) ?? now();
-                // El mes pago empieza al terminar lo que ya tenía (días pagos o la prueba): no se pierde ningún día.
-                $start = collect([$paidAt, $sub->current_period_end, $sub->supplier->trial_ends_at])->filter()->max()->copy();
+                // Si todavía quedan días pagos, el mes nuevo se suma al final (no se pierde ningún día).
+                $start = collect([$paidAt, $sub->current_period_end])->filter()->max()->copy();
                 $end = $start->copy()->addMonthNoOverflow();
                 $row->forceFill(['paid_at' => $paidAt, 'period_start' => $start, 'period_end' => $end]);
                 $sub->forceFill([
@@ -192,9 +192,9 @@ class SupplierBillingSync
     {
         $path = '/proveedores/suscripcion';
         match ($changedTo) {
-            SupplierPayment::APPROVED => $this->notify->supplier($subscription->supplier_id, 'Cobro de la suscripción aprobado', 'Recibimos el pago de '.Money::format((float) $payment->amount, $payment->currency).'. Tu suscripción está al día hasta el '.$subscription->current_period_end?->format('d/m/Y').'.', $path, 'pay:'.$payment->id.':approved'),
-            SupplierPayment::REJECTED => $this->notify->supplier($subscription->supplier_id, 'Cobro de la suscripción rechazado', 'Mercado Pago no pudo cobrar la suscripción. Va a reintentar; revisá tu medio de pago para que tu catálogo siga visible.', $path, 'pay:'.$payment->id.':rejected'),
-            SupplierPayment::PENDING => $this->notify->supplier($subscription->supplier_id, 'Cobro de la suscripción pendiente', 'Mercado Pago está procesando el cobro de la suscripción. Te avisamos cuando se acredite.', $path, 'pay:'.$payment->id.':pending', mail: false),
+            SupplierPayment::APPROVED => $this->notify->supplier($subscription->supplier_id, 'Cobro de Premium aprobado', 'Recibimos el pago de '.Money::format((float) $payment->amount, $payment->currency).'. Premium está al día hasta el '.$subscription->current_period_end?->format('d/m/Y').'. Si tenías productos fuera del límite, podés volver a publicarlos desde «Plan».', $path, 'pay:'.$payment->id.':approved'),
+            SupplierPayment::REJECTED => $this->notify->supplier($subscription->supplier_id, 'Cobro de Premium rechazado', 'Mercado Pago no pudo cobrar Premium y va a reintentar. Si no se cobra, volvés al plan gratuito: no se borra nada, pero solo quedan publicados los productos que entran en su límite.', $path, 'pay:'.$payment->id.':rejected'),
+            SupplierPayment::PENDING => $this->notify->supplier($subscription->supplier_id, 'Cobro de Premium pendiente', 'Mercado Pago está procesando el cobro de Premium. Te avisamos cuando se acredite.', $path, 'pay:'.$payment->id.':pending', mail: false),
             SupplierPayment::AMOUNT_MISMATCH => $this->incident('Cobro de proveedor con importe distinto', 'El cobro #'.$payment->id.' de la suscripción #'.$subscription->id.' no coincide con el importe esperado. No se aplicó.', 'pay-amount:'.$payment->id),
             default => null,
         };

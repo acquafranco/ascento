@@ -4,8 +4,8 @@ namespace Tests\Feature\Marketplace;
 
 use App\Events\UserNotificationsChanged;
 use App\Models\Marketplace\MarketplaceRequest;
-use App\Models\Marketplace\MarketplaceSettings;
 use App\Models\Marketplace\Supplier;
+use App\Models\Marketplace\SupplierSubscription;
 use App\Models\User;
 use App\Notifications\Marketplace\MarketplaceNotice;
 use App\Services\Marketplace\MarketplaceRequests;
@@ -72,23 +72,23 @@ class MarketplaceNotificationsTest extends TestCase
         $this->assertNull($request->fresh()->expired_notified_at);
     }
 
-    public function test_commercial_state_changes_notify_the_supplier_and_buyers_with_open_requests_once(): void
+    public function test_premium_cancellation_and_end_are_announced_once(): void
     {
-        [$supplier, $supplierUser, $a] = $this->quotedRequest(10);
-        $supplier->forceFill(['trial_started_at' => now(), 'trial_ends_at' => now()->addDays(2)])->save();
-        config(['services.mercadopago.access_token' => 'APP_USR-TEST']);
-        MarketplaceSettings::create(['trial_days' => 30, 'billing_enabled' => true, 'plan_price' => 25000, 'plan_currency' => 'ARS', 'international_free' => true]);
+        [$supplier, $supplierUser] = $this->makeSupplier();
+        SupplierSubscription::create(['supplier_id' => $supplier->id, 'external_reference' => 'ascento-supplier-'.$supplier->id, 'status' => SupplierSubscription::CANCELED,
+            'amount' => 25000, 'currency' => 'ARS', 'current_period_start' => now()->subDays(28), 'current_period_end' => now()->addDays(2)]);
 
-        Artisan::call('marketplace:tick'); // registra el estado inicial y avisa que la prueba termina pronto
+        Artisan::call('marketplace:tick'); // registra el plan (Premium) y avisa que termina pronto
         Artisan::call('marketplace:tick');
-        $this->assertSame(1, $supplierUser->notifications()->where('data->title', 'Tu prueba gratuita termina pronto')->count());
+        $this->assertSame(1, $supplierUser->notifications()->where('data->title', 'Tu Premium termina pronto')->count());
 
         $this->travel(3)->days();
         Artisan::call('marketplace:tick');
         Artisan::call('marketplace:tick');
-        $this->assertSame(1, $supplierUser->notifications()->where('data->title', 'Terminó tu prueba gratuita')->count());
-        $this->assertSame(1, $a['admin']->notifications()->where('data->title', 'Proveedor no disponible')->count());
-        $this->assertSame('trial_expired', $supplier->fresh()->commercial_state);
+        $this->assertSame(1, $supplierUser->notifications()->where('data->title', 'Terminó tu Premium')->count());
+        $this->assertSame('free', $supplier->fresh()->commercial_state);
+        // Volver al plan gratuito no deja al proveedor sin operar.
+        $this->assertTrue($supplier->fresh()->isOperating());
     }
 
     public function test_recipients_are_always_authorized(): void

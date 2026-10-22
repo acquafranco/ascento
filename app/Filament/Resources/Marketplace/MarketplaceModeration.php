@@ -12,6 +12,7 @@ use App\Services\Activity\PlatformAudit;
 use App\Services\Marketplace\Billing\SupplierSubscriptions;
 use App\Services\Marketplace\FeaturedPlacements;
 use App\Services\Marketplace\MarketplaceNotifier;
+use App\Services\Marketplace\PublicationLimits;
 use App\Services\Marketplace\SupplierEraser;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -27,8 +28,8 @@ use Throwable;
  * Acciones de moderación del marketplace (solo SuperAdmin). Cada una vuelve a
  * verificar el rol, valida el estado de partida, avisa a quien corresponde y
  * queda en PlatformAudit. La moderación es independiente del pago: aprobar
- * no cobra, suspender no cancela la suscripción sola (se avisa) y pagar
- * nunca aprueba ni reactiva.
+ * no cobra (plan gratuito), suspender no cancela Premium solo (se avisa) y
+ * pagar nunca aprueba ni reactiva.
  */
 final class MarketplaceModeration
 {
@@ -53,12 +54,7 @@ final class MarketplaceModeration
                 'status_reason' => $to === Supplier::APPROVED ? null : (filled($reason) ? trim($reason) : null),
                 'reviewed_by' => auth()->id(),
                 'approved_at' => $to === Supplier::APPROVED ? ($record->approved_at ?? now()) : $record->approved_at,
-            ]);
-            // La prueba empieza con la primera aprobación y nunca se reinicia.
-            if ($to === Supplier::APPROVED) {
-                $record->startTrialOnce(MarketplaceSettings::current()->trialDays());
-            }
-            $record->save();
+            ])->save();
             PlatformAudit::record('marketplace.supplier.'.$to, $record, ['from' => $from, 'to' => $to, 'reason' => $reason]);
             self::noticeSupplier($record, $from, $to, $reason);
             Notification::make()->title($title)->success()->send();
@@ -67,9 +63,7 @@ final class MarketplaceModeration
         return [
             Action::make('approve')->label('Aprobar')->icon('heroicon-o-check-badge')->color('success')
                 ->visible(fn (Supplier $record) => self::allowed() && $record->closed_at === null && in_array($record->status, [Supplier::PENDING, Supplier::REJECTED], true))
-                ->requiresConfirmation()->modalDescription(fn (Supplier $record) => $record->trial_ends_at
-                    ? 'Su catálogo publicado vuelve a verse según su estado comercial (la prueba ya se usó).'
-                    : 'Empieza su prueba gratuita de '.MarketplaceSettings::current()->trialDays().' días y su catálogo publicado pasa a verse.')
+                ->requiresConfirmation()->modalDescription('Su catálogo publicado pasa a verse (plan gratuito, sin cargo, con su límite de publicaciones).')
                 ->action(fn (Supplier $record) => $move($record, Supplier::APPROVED, null, 'Proveedor aprobado')),
             Action::make('reject')->label('Rechazar')->icon('heroicon-o-x-circle')->color('danger')
                 ->visible(fn (Supplier $record) => self::allowed() && $record->status === Supplier::PENDING)
@@ -79,7 +73,7 @@ final class MarketplaceModeration
                 ->visible(fn (Supplier $record) => self::allowed() && $record->status === Supplier::APPROVED && $record->closed_at === null)
                 ->schema([self::reason()])
                 ->modalDescription(fn (Supplier $record) => 'Su catálogo deja de verse y no puede cotizar. Los pedidos quedan como están y se avisa a los compradores con pedidos abiertos.'
-                    .($record->subscription?->isBillable() ? ' Ojo: su suscripción en Mercado Pago sigue cobrando hasta que la canceles desde «Cancelar suscripción».' : ''))
+                    .($record->subscription?->isBillable() ? ' Ojo: su Premium en Mercado Pago sigue cobrando hasta que lo canceles desde «Cancelar Premium».' : ''))
                 ->action(fn (Supplier $record, array $data) => $move($record, Supplier::SUSPENDED, $data['reason'], 'Proveedor suspendido')),
             Action::make('reactivate')->label('Reactivar')->icon('heroicon-o-arrow-path')->color('success')
                 ->visible(fn (Supplier $record) => self::allowed() && $record->status === Supplier::SUSPENDED && $record->closed_at === null)
@@ -95,7 +89,7 @@ final class MarketplaceModeration
                     PlatformAudit::record('marketplace.supplier.notes', $record);
                     Notification::make()->title('Notas guardadas')->success()->send();
                 }),
-            Action::make('cancelSubscription')->label('Cancelar suscripción')->icon('heroicon-o-credit-card')->color('danger')
+            Action::make('cancelSubscription')->label('Cancelar Premium')->icon('heroicon-o-credit-card')->color('danger')
                 ->visible(fn (Supplier $record) => self::allowed() && (bool) $record->subscription?->isBillable())
                 ->requiresConfirmation()->modalDescription('Cancela la suscripción en Mercado Pago: no se le vuelve a cobrar. Los días ya pagados se respetan.')
                 ->action(function (Supplier $record) {
@@ -108,7 +102,7 @@ final class MarketplaceModeration
                         return;
                     }
                     PlatformAudit::record('marketplace.supplier.subscription_cancelled', $record);
-                    Notification::make()->title('Suscripción cancelada')->success()->send();
+                    Notification::make()->title('Premium cancelado')->success()->send();
                 }),
             Action::make('erase')->label('Cerrar y eliminar datos')->icon('heroicon-o-trash')->color('danger')
                 ->visible(fn (Supplier $record) => self::allowed() && $record->closed_at === null)
@@ -138,10 +132,8 @@ final class MarketplaceModeration
         $why = filled($reason) ? ' Motivo: '.trim($reason) : '';
         $stamp = now()->timestamp;
         [$title, $body] = match (true) {
-            $to === Supplier::APPROVED && $from === Supplier::SUSPENDED => ['Reactivamos tu cuenta de proveedor', 'Tu cuenta vuelve a estar habilitada. Tus productos publicados se ven otra vez según tu estado comercial (no se reactivan publicaciones ocultas por moderación).'],
-            $to === Supplier::APPROVED => ['Tu cuenta de proveedor está aprobada', $supplier->trial_ends_at?->isFuture()
-                ? 'Aprobamos tu cuenta: tus productos publicados ya los ven las empresas de mantenimiento. Tu prueba gratuita termina el '.$supplier->trial_ends_at->format('d/m/Y').'.'
-                : 'Aprobamos tu cuenta. Revisá tu estado comercial en «Suscripción».'],
+            $to === Supplier::APPROVED && $from === Supplier::SUSPENDED => ['Reactivamos tu cuenta de proveedor', 'Tu cuenta vuelve a estar habilitada. Tus productos publicados se ven otra vez (no se reactivan publicaciones ocultas por moderación).'],
+            $to === Supplier::APPROVED => ['Tu cuenta de proveedor está aprobada', 'Aprobamos tu cuenta: tus productos publicados ya los ven las empresas de mantenimiento. Publicar es gratis hasta '.MarketplaceSettings::current()->freeLimit().' productos a la vez.'],
             $to === Supplier::REJECTED => ['No pudimos aprobar tu cuenta de proveedor', 'Revisamos tu cuenta y por ahora no la podemos aprobar.'.$why],
             default => ['Suspendimos tu cuenta de proveedor', 'Tu catálogo dejó de verse y no podés cotizar pedidos nuevos. Tus datos y tu historial se conservan.'.$why],
         };
@@ -188,8 +180,12 @@ final class MarketplaceModeration
                 ->action(function (SupplierProduct $record) {
                     abort_unless(self::allowed(), 403);
                     $record->forceFill(['hidden_by_admin' => false, 'hidden_reason' => null])->save();
+                    // Si al volver a contar no entra en el límite de su plan, queda «fuera del límite» (no se publica de más).
+                    app(PublicationLimits::class)->fitRestored($record);
                     PlatformAudit::record('marketplace.product.unhidden', $record);
-                    app(MarketplaceNotifier::class)->supplier($record->supplier_id, 'Restauramos tu publicación', '«'.$record->name.'» ya no está oculta por moderación.'.($record->status === SupplierProduct::PUBLISHED ? '' : ' Publicala de nuevo cuando quieras.'), '/proveedores/catalogo/'.$record->id, 'product:'.$record->id.':restored:'.now()->timestamp);
+                    app(MarketplaceNotifier::class)->supplier($record->supplier_id, 'Restauramos tu publicación', '«'.$record->name.'» ya no está oculta por moderación.'.match ($record->fresh()->status) {
+                        SupplierProduct::PUBLISHED => '', SupplierProduct::OVER_LIMIT => ' Quedó «fuera del límite» de tu plan: publicala cuando tengas lugar.', default => ' Publicala de nuevo cuando quieras.'
+                    }, '/proveedores/catalogo/'.$record->id, 'product:'.$record->id.':restored:'.now()->timestamp);
                     Notification::make()->title('Restaurada (se ve si el proveedor la tiene publicada)')->success()->send();
                 }),
             Action::make('feature')->label('Destacar')->icon('heroicon-o-star')

@@ -36,8 +36,7 @@ class SupplierBillingTest extends TestCase
     {
         parent::setUp();
         config(['services.mercadopago.access_token' => 'APP_USR-TEST', 'services.mercadopago.webhook_secret' => self::SECRET, 'services.mercadopago.test_payer_email' => null]);
-        MarketplaceSettings::create(['trial_days' => 30, 'billing_enabled' => true, 'plan_price' => 25000, 'plan_currency' => 'ARS', 'international_free' => true,
-            'featured_enabled' => true, 'featured_price_7' => 5000, 'featured_price_30' => 15000]);
+        MarketplaceSettings::current()->update(['premium_enabled' => true, 'premium_price' => 25000, 'featured_enabled' => true, 'featured_price_7' => 5000, 'featured_price_30' => 15000]);
 
         Http::preventStrayRequests();
         Http::fake(['api.mercadopago.com/*' => function ($request) {
@@ -95,17 +94,9 @@ class SupplierBillingTest extends TestCase
             'transaction_amount' => $amount, 'currency_id' => 'ARS', 'date_approved' => $status === 'approved' ? now()->toIso8601String() : null];
     }
 
-    private function trialEnded(Supplier $supplier): Supplier
-    {
-        $supplier->forceFill(['trial_started_at' => now()->subDays(40), 'trial_ends_at' => now()->subDays(10)])->save();
-
-        return $supplier->fresh();
-    }
-
     public function test_the_subscription_activates_only_with_a_confirmed_charge_and_never_twice(): void
     {
         [$supplier, $user] = $this->makeSupplier();
-        $supplier = $this->trialEnded($supplier);
         $this->actingAs($user);
 
         // El importe sale de la configuración (lo que mande el navegador se ignora); dos clics, un checkout.
@@ -117,12 +108,12 @@ class SupplierBillingTest extends TestCase
         // Volver de Mercado Pago no activa nada: se consulta la API (todavía pendiente).
         $this->preapproval('PRE1', $supplier, 'pending');
         $this->get(route('suppliers.billing', ['mp' => 'return', 'status' => 'approved', 'collection_status' => 'approved']))->assertOk();
-        $this->assertSame(SupplierStanding::SUBSCRIPTION_PENDING, $supplier->fresh()->standing());
+        $this->assertSame(SupplierStanding::FREE, $supplier->fresh()->standing());
 
         // Autorizada sin cobro confirmado: sigue pendiente de pago.
         $this->preapproval('PRE1', $supplier, 'authorized');
         $this->webhook('subscription_preapproval', 'PRE1')->assertOk();
-        $this->assertSame(SupplierStanding::SUBSCRIPTION_PENDING, $supplier->fresh()->standing());
+        $this->assertSame(SupplierStanding::FREE, $supplier->fresh()->standing());
 
         // Cobro aprobado: activa un mes. El mismo aviso repetido no suma otro mes.
         $this->installment('AP1', 'PRE1', $supplier, 'approved');
@@ -130,9 +121,9 @@ class SupplierBillingTest extends TestCase
         $end = SupplierSubscription::sole()->current_period_end;
         $this->webhook('subscription_authorized_payment', 'AP1')->assertOk();
         $this->assertTrue(SupplierSubscription::sole()->current_period_end->equalTo($end));
-        $this->assertSame(SupplierStanding::ACTIVE, $supplier->fresh()->standing());
+        $this->assertSame(SupplierStanding::PREMIUM, $supplier->fresh()->standing());
         $this->assertSame(1, SupplierPayment::where('status', SupplierPayment::APPROVED)->count());
-        $this->assertSame(1, $user->notifications()->where('data->title', 'Cobro de la suscripción aprobado')->count());
+        $this->assertSame(1, $user->notifications()->where('data->title', 'Cobro de Premium aprobado')->count());
 
         // Un aviso viejo «pendiente» no retrocede un cobro aprobado.
         $this->api['/v1/payments/PAP1']['status'] = 'in_process';
@@ -144,7 +135,6 @@ class SupplierBillingTest extends TestCase
     {
         $super = User::factory()->superAdmin()->create();
         [$supplier, $user] = $this->makeSupplier();
-        $this->trialEnded($supplier);
         [$intruder] = $this->makeSupplier(Supplier::APPROVED, 'Otro Proveedor');
         $this->actingAs($user)->post(route('suppliers.billing.subscribe'));
         auth()->logout();
@@ -167,7 +157,6 @@ class SupplierBillingTest extends TestCase
     public function test_rejected_charges_and_cancellation_follow_the_gateway(): void
     {
         [$supplier, $user] = $this->makeSupplier();
-        $supplier = $this->trialEnded($supplier);
         $this->actingAs($user)->post(route('suppliers.billing.subscribe'));
         $this->preapproval('PRE1', $supplier, 'authorized');
         $this->installment('AP1', 'PRE1', $supplier, 'approved');
@@ -178,10 +167,12 @@ class SupplierBillingTest extends TestCase
         $this->installment('AP2', 'PRE1', $supplier, 'rejected');
         $this->webhook('subscription_authorized_payment', 'AP2')->assertOk();
         $this->assertSame(SupplierSubscription::PAST_DUE, SupplierSubscription::sole()->status);
-        $this->assertSame(SupplierStanding::ACTIVE, $supplier->fresh()->standing()); // tolerancia de 5 días
-        $this->assertSame(1, $user->notifications()->where('data->title', 'Cobro de la suscripción rechazado')->count());
+        $this->assertSame(SupplierStanding::PREMIUM, $supplier->fresh()->standing()); // tolerancia de 5 días
+        $this->assertSame(1000, SupplierStanding::publicationLimit($supplier->fresh()));
+        $this->assertSame(1, $user->notifications()->where('data->title', 'Cobro de Premium rechazado')->count());
         $this->travel(5)->days();
-        $this->assertSame(SupplierStanding::LAPSED, $supplier->fresh()->standing());
+        $this->assertSame(SupplierStanding::FREE, $supplier->fresh()->standing()); // vuelve al plan gratuito, no queda bloqueado
+        $this->assertSame(20, SupplierStanding::publicationLimit($supplier->fresh()));
 
         // Cancelar: se cancela en Mercado Pago y queda cancelada (no se reactiva por un aviso viejo).
         $this->post(route('suppliers.billing.cancel'))->assertSessionHasNoErrors();
@@ -195,7 +186,6 @@ class SupplierBillingTest extends TestCase
     {
         $super = User::factory()->superAdmin()->create();
         [$supplier, $user] = $this->makeSupplier();
-        $supplier->forceFill(['trial_started_at' => now(), 'trial_ends_at' => now()->addDays(30)])->save();
         $product = $this->makeProduct($supplier, ['name' => 'Operador de puerta']);
         $this->actingAs($user);
 
@@ -250,7 +240,6 @@ class SupplierBillingTest extends TestCase
     public function test_featured_listings_expire_once_and_can_not_be_bought_by_ineligible_suppliers(): void
     {
         [$supplier, $user] = $this->makeSupplier();
-        $supplier->forceFill(['trial_started_at' => now(), 'trial_ends_at' => now()->addDays(30)])->save();
         $product = $this->makeProduct($supplier);
         $this->actingAs($user)->post(route('suppliers.featured.purchase'), ['producto' => $product->id, 'dias' => 7]);
         $placement = FeaturedPlacement::sole();
@@ -268,9 +257,9 @@ class SupplierBillingTest extends TestCase
         $this->assertFalse($product->fresh()->isFeatured());
         $this->assertSame(1, $user->notifications()->where('data->title', 'Destacado vencido')->count());
 
-        // Prueba vencida con cobros activos: no puede comprar destacados.
-        $supplier->forceFill(['trial_ends_at' => now()->subDay()])->save(); // con cobros activos y sin suscripción
-        $this->actingAs($user->fresh())->post(route('suppliers.featured.purchase'), ['producto' => $product->id, 'dias' => 7])->assertSessionHasErrors('estado');
+        // Suspendido por moderación: no puede comprar destacados (pagar no lo habilita).
+        $supplier->forceFill(['status' => Supplier::SUSPENDED])->save();
+        $this->actingAs($user->fresh())->post(route('suppliers.featured.purchase'), ['producto' => $product->id, 'dias' => 7])->assertForbidden();
         $this->assertSame(1, FeaturedPlacement::count());
     }
 

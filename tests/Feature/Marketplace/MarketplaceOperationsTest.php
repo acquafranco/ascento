@@ -194,14 +194,25 @@ class MarketplaceOperationsTest extends TestCase
         $super = User::factory()->superAdmin()->create();
         $this->actingInPanel($super);
         config(['services.mercadopago.access_token' => null]);
-        Livewire::test(MarketplaceSettingsPage::class)->set('data.billing_enabled', true)->call('save')->assertNotified('Falta el precio');
-        Livewire::test(MarketplaceSettingsPage::class)->set('data.billing_enabled', true)->set('data.plan_price', 25000)->call('save')->assertNotified('Mercado Pago no está configurado');
-        $this->assertFalse(MarketplaceSettings::current()->chargesSubscription());
+        Livewire::test(MarketplaceSettingsPage::class)->assertSet('data.free_product_limit', 20)->assertSet('data.premium_product_limit', 1000)
+            ->set('data.premium_enabled', true)->call('save')->assertNotified('Falta el precio');
+        Livewire::test(MarketplaceSettingsPage::class)->set('data.premium_enabled', true)->set('data.premium_price', 25000)->call('save')->assertNotified('Mercado Pago no está configurado');
+        $this->assertFalse(MarketplaceSettings::current()->sellsPremium());
 
+        // Bajar el límite gratuito deja fuera del límite lo que sobra (sin borrar) y queda auditado.
+        [$supplier] = $this->makeSupplier();
+        $this->makeProduct($supplier, ['name' => 'Uno']);
+        $this->makeProduct($supplier, ['name' => 'Dos']);
         config(['services.mercadopago.access_token' => 'APP_USR-TEST']);
-        Livewire::test(MarketplaceSettingsPage::class)->set('data.billing_enabled', true)->set('data.plan_price', 25000)->set('data.trial_days', 15)->call('save')->assertNotified('Configuración guardada');
-        $this->assertTrue(MarketplaceSettings::current()->chargesSubscription());
-        $this->assertSame(15, MarketplaceSettings::current()->trialDays());
+        // Un país sin pasarela no se puede habilitar.
+        Livewire::test(MarketplaceSettingsPage::class)->set('data.billing_countries', ['AR', 'CL'])->call('save')->assertHasErrors('data.billing_countries.1');
+        Livewire::test(MarketplaceSettingsPage::class)->set('data.premium_enabled', true)->set('data.premium_price', 25000)->set('data.free_product_limit', 1)
+            ->set('data.billing_countries', ['AR'])->call('save')->assertHasNoErrors()->assertNotified('Configuración guardada');
+        $settings = MarketplaceSettings::current();
+        $this->assertTrue($settings->sellsPremium());
+        $this->assertSame(['AR'], $settings->billing_countries);
+        $this->assertSame(1, SupplierProduct::where('status', SupplierProduct::PUBLISHED)->count());
+        $this->assertSame(2, SupplierProduct::count());
         $this->assertSame('marketplace.settings.updated', PlatformAuditLog::latest('id')->value('action'));
     }
 }

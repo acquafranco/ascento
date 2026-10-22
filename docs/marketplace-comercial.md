@@ -16,41 +16,75 @@ comisiones por ventas, no procesa los pagos de repuestos y no gestiona envíos.
 | Unicidad de correos | `users.email_key` (columna generada `lower(trim(email))`) con índice único, `UniqueUserEmail` en todos los altas y cambios, `users:email-conflicts` para históricos. Todas las cuentas (SuperAdmin, dueños, administrativos, técnicos, portal y proveedores) están en `users`. | No se reimplementó. Se agregó la prueba cruzada proveedor ↔ resto de los roles. Los correos de **contacto** (empresa, clientes, proveedor de ventas) no son cuentas y no se restringen. |
 | Borrado | `CompanyEraser` (SuperAdmin) borraba en cascada los pedidos de repuestos (historial del proveedor). | Corregido: se conservan sin datos de la empresa. Nuevo `SupplierEraser`. |
 
-## 2. Estados del proveedor (`SupplierStanding`)
+## 2. Modelo definitivo: plan gratuito con límite + Premium opcional
 
-Moderación (SuperAdmin) y estado comercial son independientes. **Pagar nunca aprueba ni levanta una suspensión.**
+**Moderación** (SuperAdmin) y **plan** son independientes:
+- Pagar nunca aprueba ni levanta una suspensión.
+- No pagar nunca deja a un proveedor sin publicar.
+- No hay prueba gratuita: el plan gratuito no vence.
 
-| Estado | Catálogo visible y pedidos nuevos |
-|---|---|
-| Pendiente de aprobación / Rechazado / Suspendido por moderación / Cuenta cerrada | No |
-| Aprobado, en período de prueba (empieza **una sola vez**, en la primera aprobación) | Sí |
-| Suscripción activa (período pago vigente o tolerancia de 5 días tras un cobro rechazado) | Sí |
-| Aprobado, sin cargo (Argentina con los cobros sin habilitar) | Sí |
-| Aprobado, modalidad gratuita internacional (país sin pasarela, opción del SuperAdmin) | Sí |
-| Prueba vencida / Suscripción pendiente de pago / Suscripción vencida o cancelada / Sin modalidad en su país | No |
+| Estado (`SupplierStanding`) | Catálogo visible y pedidos nuevos | Límite de publicaciones |
+|---|---|---|
+| Pendiente de aprobación | No (puede armar el catálogo) | Gratuito |
+| Rechazado / Suspendido / Cuenta cerrada | No | — |
+| **Plan gratuito** | Sí | `free_product_limit` (20) |
+| **Premium** (período pagado, o 5 días de tolerancia tras un cobro rechazado) | Sí | `premium_product_limit` (1.000) |
 
-- La regla se calcula **en el momento** (PHP y SQL), no depende de la tarea programada.
-- Al dejar de operar **no se borra nada**. Lo publicado vuelve a verse al reactivarse; lo oculto o retirado por moderación no.
-- No puede publicar ni cargar productos nuevos, ni cotizar. Puede editar, pausar, declinar pedidos, comentar y gestionar su suscripción.
-- Lo ya aceptado sigue: el comprador lo completa o lo cancela. **Regla elegida:** nada se cancela automáticamente al vencer, porque cancelar dejaría a las dos partes sin el historial de una compra ya acordada fuera de Ascento.
-- Una cotización de un proveedor que no opera no se puede aceptar. El comprador recibe un aviso con sus pedidos abiertos.
-- El país es el registrado y validado con la identificación fiscal; el proveedor no lo puede cambiar. La moneda de sus precios sale del país (`config/marketplace.php`).
+### Límite de publicaciones (`PublicationLimits`)
+- **Qué cuenta:** productos en estado `published` que no están ocultos por moderación. Un producto es una publicación, tenga 1 o 10.000 unidades.
+- **Qué no cuenta:**
+  - borradores;
+  - pausados;
+  - retirados;
+  - ocultos por moderación;
+  - «fuera del límite» (`over_limit`).
+- **Control:** publicar siempre pasa por `PublicationLimits::publish()`. Esa función bloquea la fila del proveedor (`SELECT … FOR UPDATE`) y recién después cuenta, en la misma transacción, así que dos pedidos simultáneos no pasan el límite. Además lo verifiqué en MySQL con 6 procesos en paralelo.
+- **Lleno:**
+  - Mensaje claro.
+  - El producto nuevo queda como borrador.
+  - Se puede pausar o retirar otro, o contratar Premium si está a la venta en su país.
+- **Restaurar una publicación oculta por moderación:** si no entra, queda ella «fuera del límite»; nunca desplaza a otra.
+
+### Cuando Premium vence o se cancela
+- Se vuelve al plan gratuito sin borrar nada: productos, fotos, perfil, pedidos y cotizaciones se conservan.
+- `marketplace:tick`, cada 15 minutos, detecta las publicaciones que exceden el límite y las pasa a `over_limit`. Ese estado es **distinto** de «oculto por moderación».
+- El orden para decidir cuáles quedan publicadas:
+  1. las que el proveedor marcó «Conservar publicado», hasta el límite gratuito;
+  2. las que tienen un destacado vigente;
+  3. la regla configurada: «más recientes» (por defecto) o «más antiguas», por fecha de primera publicación, y a igualdad, el id.
+- Los destacados de los productos que quedan fuera del límite se cancelan.
+- Se avisa al proveedor.
+- Puede cambiar cuáles publica en cualquier momento, siempre dentro del límite.
+- Al reactivar Premium, «Volver a publicar los que entran» republica lo que quedó fuera del límite (no lo oculto por moderación).
+- **Demora:** hasta que corre la tarea (máximo 15 minutos), los productos de más siguen visibles.
+
+### Otros datos
+- **País:** el registrado y validado con la identificación fiscal; el proveedor no puede cambiarlo. La moneda de sus precios sale del país (`config/marketplace.php`).
+- **Cobros:** solo en los países de «Cobros por país» que tengan pasarela **y** usen la moneda de los precios (hoy, Argentina en ARS). A los demás no se les muestra ninguna opción de pago.
 
 ## 3. Cobros
 
-- **Suscripción:**
+- **Premium:**
   - El precio sale de «Configuración del marketplace»; nunca del navegador.
-  - Se puede contratar durante la prueba: el primer mes pago empieza al terminar la prueba.
-  - Activa solo con un cobro aprobado por el importe y la moneda esperados.
+  - Se activa solo con un cobro aprobado por el importe y la moneda esperados.
+  - Mientras está pendiente, el proveedor sigue en el plan gratuito.
   - Cuotas duplicadas o fuera de orden no suman ni retroceden.
-  - Importe o referencia distintos: no se aplica y se avisa al equipo.
-  - Cancelar llama a Mercado Pago y el acceso sigue hasta el fin del período pago.
+  - Un importe o una referencia distintos no se aplican y se avisa al equipo.
+  - Cancelar llama a Mercado Pago; Premium sigue hasta el fin del período pago.
 - **Destacados** (7 y 30 días):
-  - Pendiente de pago → activo **solo** con `payment.status = approved` por el precio configurado.
+  - Precios iniciales preparados: ARS 5.000 y ARS 15.000, **apagados** hasta que los confirmes.
+  - Se venden en cualquier plan, solo en países con cobro.
+  - Pendiente de pago → activo **solo** con el pago aprobado por el precio configurado.
   - Dos clics reutilizan el checkout pendiente; la preferencia vence en 24 h.
-  - Si el producto deja de ser elegible antes del pago: «Pagado: requiere revisión» y aviso al equipo; la devolución es manual.
+  - Renovar es otra compra, que empieza cuando termina la vigente. Vencen solos.
+  - Si el producto deja de ser elegible antes del pago, queda «Pagado: requiere revisión» y se avisa al equipo.
   - Una devolución o un contracargo lo cancela.
-  - Ocultar o retirar por moderación termina los destacados activos.
+  - Ocultar, retirar o pasar a «fuera del límite» termina el destacado.
+- **Devoluciones** (procedimiento administrativo):
+  1. El proveedor la pide por correo.
+  2. El SuperAdmin revisa el caso en «Destacados de repuestos» y «Cobros a proveedores».
+  3. Si corresponde, devuelve desde el panel de Mercado Pago.
+  4. El aviso de devolución que llega por webhook o por la reconciliación deja el cobro como «Devuelto» y cancela el destacado. No hay devoluciones automáticas.
 - **Orden del catálogo** (`CatalogRanking`):
   1. Relevancia (palabras en nombre, modelo, código o marca).
   2. Compatibilidad declarada.
@@ -73,7 +107,7 @@ Canales:
 | Registro recibido | Proveedor | ✓ | – | (sale el correo de confirmación de cuenta) |
 | Proveedor nuevo pendiente | SuperAdmin | ✓ | – | ✓ |
 | Aprobado / rechazado / suspendido / reactivado (con motivo) | Proveedor | ✓ | ✓ | ✓ |
-| Proveedor suspendido o deja de operar | Compradores con pedidos abiertos | ✓ | ✓ | ✓ |
+| Proveedor suspendido o cerrado | Compradores con pedidos abiertos | ✓ | ✓ | ✓ |
 | Pedido de cotización nuevo | Proveedor | ✓ | ✓ | ✓ |
 | Pedido enviado (constancia) | Comprador que lo envió | ✓ | – | – |
 | Cotización recibida / actualizada / no puede cotizar | Comprador | ✓ | ✓ | ✓ |
@@ -84,8 +118,8 @@ Canales:
 | Comentario de la otra parte | Comprador o proveedor | ✓ | ✓ | ✓ |
 | Incidencia reportada | SuperAdmin | ✓ | – | ✓ |
 | Incidencia resuelta / pedido anulado por Ascento | Ambas partes | ✓ | ✓ | ✓ |
-| Prueba termina en 3 días / terminó | Proveedor | ✓ | ✓ | ✓ |
-| Suscripción cancelada, vence en 3 días, vencida, activa otra vez | Proveedor | ✓ | ✓ | ✓ |
+| Premium cancelado / termina en 3 días / terminó (volvió al plan gratuito) / activo | Proveedor | ✓ | ✓ | ✓ |
+| Productos que quedaron «fuera del límite» | Proveedor | ✓ | ✓ | ✓ |
 | Cobro aprobado / rechazado | Proveedor | ✓ | ✓ | ✓ |
 | Cobro pendiente | Proveedor | ✓ | ✓ | – |
 | Importe distinto, destacado pagado sin poder activarse, devolución | SuperAdmin | ✓ | – | ✓ |
@@ -104,7 +138,7 @@ Canales:
 
 | Comando | Cuándo | Qué hace |
 |---|---|---|
-| `marketplace:tick` | cada hora | Avisos de cotizaciones por vencer y vencidas; vencimiento y aviso de destacados; checkouts abandonados; cambios de estado comercial (con aviso al proveedor y a compradores con pedidos abiertos); recordatorios de fin de prueba o período. Idempotente (marcas con UPDATE condicional + claves de aviso). |
+| `marketplace:tick` | cada 15 minutos | Avisos de cotizaciones por vencer y vencidas; vencimiento y aviso de destacados; checkouts abandonados; cambio de plan (Premium ↔ gratuito) con aviso; publicaciones que exceden el límite → «fuera del límite»; aviso de fin de un Premium cancelado. Idempotente (marcas con UPDATE condicional + claves de aviso). |
 | `marketplace:reconcile-payments` | cada 6 h | Relee de Mercado Pago las suscripciones de proveedores y los destacados pendientes de los últimos 3 días, por si se perdió un webhook. |
 
 Zona horaria: `America/Argentina/Buenos_Aires`. Una cotización vence a las 23:59 del último día de validez.
@@ -112,11 +146,11 @@ Zona horaria: `America/Argentina/Buenos_Aires`. Una cotización vence a las 23:5
 ## 6. SuperAdmin (Plataforma)
 
 - **Proveedores de repuestos:**
-  - aprobar (empieza la prueba), rechazar, suspender, reactivar;
+  - aprobar, rechazar, suspender, reactivar;
   - notas internas;
   - cancelar la suscripción;
   - cerrar y eliminar datos;
-  - estado comercial con filtros (en prueba, vence en 7 días, activa, pendiente, cancelada, cobro rechazado, habilitados, sin habilitación);
+  - plan y uso del límite, con filtros (Premium, gratuito, Premium pendiente, cancelado, cobro rechazado, con productos fuera del límite);
   - cobros, destacados e historial de acciones.
 - **Publicaciones de repuestos:**
   - búsqueda;
@@ -128,21 +162,21 @@ Zona horaria: `America/Argentina/Buenos_Aires`. Una cotización vence a las 23:5
 - **Cobros a proveedores:** historial de cobros e ingresos confirmados.
 - **Destacados de repuestos:** historial y cancelación con motivo.
 - **Configuración del marketplace:**
-  - días de prueba;
-  - precio mensual y cobro habilitado, que exige precio y Mercado Pago configurado;
-  - modalidad gratuita internacional;
-  - precios de destacados.
+  - límites del plan gratuito y de Premium;
+  - regla para cuando un Premium vuelve al plan gratuito;
+  - precio y venta de Premium, que exige precio y Mercado Pago configurado;
+  - países con cobro (solo los que tienen pasarela);
+  - precios y venta de destacados.
 - **Auditoría:** todas las acciones quedan en `platform_audit_logs`.
 
 ## 7. Decisiones comerciales pendientes
 
-1. Precio de la suscripción de proveedores (hoy vacío: no se cobra ni se muestra).
-2. Precios de destacados de 7 y 30 días (hoy vacíos: no se venden).
-3. Cuándo habilitar el cobro. Al habilitarlo, los proveedores argentinos con la prueba terminada y sin suscripción dejan de verse hasta suscribirse; la pantalla de configuración muestra cuántos son.
-4. Si se mantiene la modalidad gratuita para otros países (hoy encendida).
-5. Duración de la prueba (30 días por defecto; editable).
-6. Política de devoluciones de destacados pagados que no se pudieron activar.
-7. Comisión por ventas: **no implementada** y fuera de alcance. Requeriría Mercado Pago Marketplace (OAuth por proveedor y `marketplace_fee`) y revisión legal.
+1. Precio mensual de Premium. Hoy está vacío, así que Premium no se ofrece.
+2. Confirmar los precios de los destacados (ARS 5.000 y 15.000 preparados) y encender «Vender destacados».
+3. Confirmar los límites: 20 en el plan gratuito y 1.000 en Premium, ambos editables.
+4. La regla para cuando un Premium vuelve al plan gratuito y no eligió: «más recientes» o «más antiguas».
+5. Si en el futuro se cobra en otros países, hace falta una pasarela y precios en su moneda.
+6. Comisión por ventas: **no implementada** y fuera de alcance.
 
 ## 8. Para cobrar de verdad (pendiente de verificar con credenciales reales)
 

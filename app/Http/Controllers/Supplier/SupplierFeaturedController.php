@@ -43,11 +43,11 @@ class SupplierFeaturedController extends Controller
 
         return view('suppliers.featured', [
             'supplier' => $supplier,
-            'offers' => SupplierBilling::canCharge($supplier) ? $settings->featuredOffers() : [],
-            'currency' => $settings->plan_currency ?: 'ARS',
+            'offers' => $settings->chargesIn($supplier->country) && SupplierBilling::canCharge($supplier) ? $settings->featuredOffers() : [],
+            'currency' => $settings->pricing_currency ?: 'ARS',
             'products' => SupplierProduct::visible()->where('supplier_id', $supplier->id)->orderBy('name')->get(['id', 'name', 'supplier_id', 'status', 'hidden_by_admin']),
             'placements' => FeaturedPlacement::where('supplier_id', $supplier->id)->latest('id')->limit(100)->get(),
-            'billable' => SupplierBilling::supportsCountry($supplier->country),
+            'billable' => $settings->chargesIn($supplier->country),
         ]);
     }
 
@@ -57,7 +57,7 @@ class SupplierFeaturedController extends Controller
             'producto' => ['required', 'integer'],
             'dias' => ['required', 'integer', Rule::in(MarketplaceSettings::FEATURED_DAYS)],
         ]);
-        SupplierAreaController::ensureCanPublish($request->user()->supplier);
+        SupplierAreaController::ensureCanEdit($request->user()->supplier);
         $product = SupplierProduct::where('supplier_id', $request->user()->supplier_id)->findOrFail((int) $data['producto']);
 
         try {

@@ -13,8 +13,8 @@ use Tests\TestCase;
 
 /**
  * La migración del modelo comercial sobre datos que ya existían: no borra ni
- * cambia nada, los proveedores aprobados empiezan su prueba al aplicarla, los
- * pendientes no, y el historial deja de borrarse en cascada.
+ * cambia productos ni pedidos, todos los proveedores quedan en el plan
+ * gratuito (sin prueba) y el historial deja de borrarse en cascada.
  */
 class MarketplaceCommercialMigrationTest extends TestCase
 {
@@ -40,12 +40,14 @@ class MarketplaceCommercialMigrationTest extends TestCase
 
         $migration->up();
 
-        $this->assertNotNull(DB::table('suppliers')->where('id', $approved->id)->value('trial_ends_at'));
-        $this->assertNull(DB::table('suppliers')->where('id', $pending->id)->value('trial_ends_at'));
+        // Configuración inicial: 20 / 1.000, Premium sin precio y destacados preparados pero apagados.
+        $settings = DB::table('marketplace_settings')->sole();
+        $this->assertSame([20, 1000, 0, null, 0], [(int) $settings->free_product_limit, (int) $settings->premium_product_limit, (int) $settings->premium_enabled, $settings->premium_price, (int) $settings->featured_enabled]);
+        $this->assertFalse(Schema::hasColumn('suppliers', 'trial_ends_at'));
         $this->assertSame('ARS', DB::table('suppliers')->where('id', $approved->id)->value('currency'));
         $this->assertSame('CLP', DB::table('suppliers')->where('id', $pending->id)->value('currency'));
         $this->assertSame($a['company']->name, DB::table('marketplace_requests')->where('id', $requestId)->value('buyer_name'));
-        $this->assertEquals((array) $before, (array) DB::table('supplier_products')->where('id', $productId)->first());
+        $this->assertEquals((array) $before, array_intersect_key((array) DB::table('supplier_products')->where('id', $productId)->first(), (array) $before));
         $this->assertSame(1, DB::table('marketplace_requests')->count());
 
         // Borrar la empresa ya no borra el pedido del proveedor; el proveedor no se borra en cascada.

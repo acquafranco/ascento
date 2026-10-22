@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Supplier;
 use App\Http\Controllers\Controller;
 use App\Models\Marketplace\SupplierProduct;
 use App\Models\Marketplace\SupplierProductPhoto;
+use App\Services\Marketplace\PublicationLimits;
 use App\Services\Media\PhotoProcessor;
 use App\Support\Marketplace\Catalog;
 use Illuminate\Http\RedirectResponse;
@@ -26,6 +27,7 @@ class SupplierProductController extends Controller
         SupplierProduct::DRAFT => [SupplierProduct::PUBLISHED, SupplierProduct::RETIRED],
         SupplierProduct::PUBLISHED => [SupplierProduct::PAUSED, SupplierProduct::RETIRED],
         SupplierProduct::PAUSED => [SupplierProduct::PUBLISHED, SupplierProduct::RETIRED],
+        SupplierProduct::OVER_LIMIT => [SupplierProduct::PUBLISHED, SupplierProduct::PAUSED, SupplierProduct::RETIRED],
         SupplierProduct::RETIRED => [SupplierProduct::DRAFT],
     ];
 
@@ -41,14 +43,14 @@ class SupplierProductController extends Controller
             ->when(isset(SupplierProduct::STATUSES[$status]), fn ($q) => $q->where('status', $status))
             ->withCount('photos')->latest('updated_at')->paginate(25)->withQueryString();
 
-        return view('suppliers.products.index', ['products' => $products, 'status' => $status]);
+        return view('suppliers.products.index', ['products' => $products, 'status' => $status, 'usage' => PublicationLimits::usage($request->user()->supplier)]);
     }
 
     public function create(Request $request): View
     {
         SupplierAreaController::ensureCanPublish($request->user()->supplier);
 
-        return view('suppliers.products.form', ['product' => new SupplierProduct(['price_mode' => 'quote', 'availability' => 'to_order'])]);
+        return view('suppliers.products.form', ['product' => new SupplierProduct(['price_mode' => 'quote', 'availability' => 'to_order']), 'usage' => PublicationLimits::usage($request->user()->supplier)]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -63,7 +65,7 @@ class SupplierProductController extends Controller
 
     public function edit(Request $request, int $product): View
     {
-        return view('suppliers.products.form', ['product' => $this->product($request, $product)->load('photos')]);
+        return view('suppliers.products.form', ['product' => $this->product($request, $product)->load('photos'), 'usage' => PublicationLimits::usage($request->user()->supplier)]);
     }
 
     public function update(Request $request, int $product): RedirectResponse
@@ -75,7 +77,7 @@ class SupplierProductController extends Controller
         return redirect()->route('suppliers.products.edit', $model->id)->with('status', 'Cambios guardados.');
     }
 
-    public function status(Request $request, int $product): RedirectResponse
+    public function status(Request $request, int $product, PublicationLimits $limits): RedirectResponse
     {
         SupplierAreaController::ensureCanEdit($request->user()->supplier);
         $model = $this->product($request, $product);
@@ -85,13 +87,11 @@ class SupplierProductController extends Controller
             throw ValidationException::withMessages(['estado' => 'Esta publicación no se puede pasar a ese estado.']);
         }
         if ($to === SupplierProduct::PUBLISHED) {
-            SupplierAreaController::ensureCanPublish($request->user()->supplier);
-            if ($model->hidden_by_admin) {
-                throw ValidationException::withMessages(['estado' => 'Esta publicación está oculta por moderación: no se puede publicar hasta que Ascento la restaure.']);
-            }
+            // Con bloqueo y conteo en la base: dos pedidos a la vez no pasan el límite del plan.
+            $model = $limits->publish($model);
+        } else {
+            $model->forceFill(['status' => $to, 'limit_hidden_at' => null])->save();
         }
-
-        $model->forceFill(['status' => $to, 'published_at' => $to === SupplierProduct::PUBLISHED ? ($model->published_at ?? now()) : $model->published_at])->save();
 
         $message = match ($to) {
             SupplierProduct::PUBLISHED => $request->user()->supplier->isOperating()
@@ -103,6 +103,24 @@ class SupplierProductController extends Controller
         };
 
         return back()->with('status', $message);
+    }
+
+    /** Premium: «conservar publicado si vuelvo al plan gratuito». */
+    public function keep(Request $request, int $product, PublicationLimits $limits): RedirectResponse
+    {
+        SupplierAreaController::ensureCanEdit($request->user()->supplier);
+        $limits->setKeep($this->product($request, $product), $request->boolean('conservar'));
+
+        return back()->with('status', $request->boolean('conservar') ? 'Lo vamos a conservar publicado si volvés al plan gratuito.' : 'Listo, ya no está marcado para conservar.');
+    }
+
+    /** Vuelve a publicar lo que quedó fuera del límite, mientras haya lugar en el plan. */
+    public function restoreOverLimit(Request $request, PublicationLimits $limits): RedirectResponse
+    {
+        SupplierAreaController::ensureCanEdit($request->user()->supplier);
+        $n = $limits->restoreOverLimit($request->user()->supplier);
+
+        return back()->with('status', $n ? "Volviste a publicar {$n} ".($n === 1 ? 'producto' : 'productos').'.' : 'No hay lugar en tu plan o no hay productos fuera del límite.');
     }
 
     public function storePhoto(Request $request, int $product, PhotoProcessor $photos): RedirectResponse

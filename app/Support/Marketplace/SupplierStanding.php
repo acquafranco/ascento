@@ -5,18 +5,15 @@ namespace App\Support\Marketplace;
 use App\Models\Marketplace\MarketplaceSettings;
 use App\Models\Marketplace\Supplier;
 use App\Models\Marketplace\SupplierSubscription;
-use App\Services\Marketplace\Billing\SupplierBilling;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
- * Estado comercial de un proveedor: la ÚNICA regla que decide si su catálogo
- * se ve, si puede publicar y si recibe pedidos nuevos. La moderación
- * (aprobado, rechazado, suspendido) y el pago son cosas distintas: pagar
- * nunca aprueba ni levanta una suspensión.
+ * Estado de un proveedor: moderación (la decide el SuperAdmin) y plan
+ * (gratuito para siempre o Premium pago). Son independientes: pagar nunca
+ * aprueba ni levanta una suspensión, y no pagar nunca deja a un proveedor sin
+ * publicar: vuelve al plan gratuito con su límite (PublicationLimits).
  *
- * Se calcula siempre con los datos actuales (no depende de que corra una
- * tarea programada): al vencer la prueba o el período pago, el catálogo deja
- * de verse en ese mismo momento. Nada se borra.
+ * Se calcula siempre con los datos actuales; no depende de una tarea programada.
  */
 final class SupplierStanding
 {
@@ -28,87 +25,55 @@ final class SupplierStanding
 
     public const CLOSED = 'closed';
 
-    public const TRIAL = 'trial';
+    public const FREE = 'free';
 
-    public const ACTIVE = 'active';
-
-    /** Argentina con los cobros todavía sin habilitar: no se le puede cobrar, sigue sin cargo. */
-    public const FREE_UNBILLED = 'free_unbilled';
-
-    /** País sin pasarela de cobro, con la modalidad gratuita habilitada por el SuperAdmin. */
-    public const FREE_INTERNATIONAL = 'free_international';
-
-    public const TRIAL_EXPIRED = 'trial_expired';
-
-    public const SUBSCRIPTION_PENDING = 'subscription_pending';
-
-    public const LAPSED = 'lapsed';
-
-    /** País sin pasarela y sin modalidad gratuita: no puede operar (ni pagar) por ahora. */
-    public const UNAVAILABLE_COUNTRY = 'unavailable_country';
+    public const PREMIUM = 'premium';
 
     public const LABELS = [
         self::PENDING_APPROVAL => 'Pendiente de aprobación',
         self::REJECTED => 'Rechazado',
         self::SUSPENDED => 'Suspendido por moderación',
         self::CLOSED => 'Cuenta cerrada',
-        self::TRIAL => 'Aprobado, en período de prueba',
-        self::ACTIVE => 'Suscripción activa',
-        self::FREE_UNBILLED => 'Aprobado, sin cargo (cobros no habilitados)',
-        self::FREE_INTERNATIONAL => 'Aprobado, modalidad gratuita internacional',
-        self::TRIAL_EXPIRED => 'Prueba vencida',
-        self::SUBSCRIPTION_PENDING => 'Suscripción pendiente de pago',
-        self::LAPSED => 'Suscripción vencida o cancelada',
-        self::UNAVAILABLE_COUNTRY => 'Sin modalidad disponible en su país',
+        self::FREE => 'Plan gratuito',
+        self::PREMIUM => 'Premium',
     ];
 
     /** Estados en los que el catálogo se ve y se reciben pedidos nuevos. */
-    public const OPERATING = [self::TRIAL, self::ACTIVE, self::FREE_UNBILLED, self::FREE_INTERNATIONAL];
+    public const OPERATING = [self::FREE, self::PREMIUM];
 
-    public static function of(Supplier $supplier, ?MarketplaceSettings $settings = null): string
+    public static function of(Supplier $supplier): string
     {
-        $settings ??= MarketplaceSettings::current();
-
         if ($supplier->closed_at !== null) {
             return self::CLOSED;
         }
 
-        $moderation = match ($supplier->status) {
+        return match ($supplier->status) {
             Supplier::PENDING => self::PENDING_APPROVAL,
             Supplier::REJECTED => self::REJECTED,
-            Supplier::SUSPENDED => self::SUSPENDED,
-            Supplier::APPROVED => null,
+            Supplier::APPROVED => self::isPremium($supplier) ? self::PREMIUM : self::FREE,
             default => self::SUSPENDED,
-        };
-        if ($moderation !== null) {
-            return $moderation;
-        }
-
-        $subscription = $supplier->relationLoaded('subscription') ? $supplier->subscription : $supplier->subscription()->first();
-        if ($subscription?->grantsAccess()) {
-            return self::ACTIVE;
-        }
-        if ($supplier->trial_ends_at?->isFuture()) {
-            return self::TRIAL;
-        }
-
-        if (! SupplierBilling::supportsCountry($supplier->country)) {
-            return $settings->international_free ? self::FREE_INTERNATIONAL : self::UNAVAILABLE_COUNTRY;
-        }
-        if (! $settings->chargesSubscription()) {
-            return self::FREE_UNBILLED;
-        }
-
-        return match (true) {
-            $subscription !== null && in_array($subscription->status, [SupplierSubscription::PENDING, SupplierSubscription::AUTHORIZED], true) && $subscription->current_period_end === null => self::SUBSCRIPTION_PENDING,
-            $subscription !== null && $subscription->current_period_end !== null => self::LAPSED,
-            default => self::TRIAL_EXPIRED,
         };
     }
 
-    public static function operating(Supplier $supplier, ?MarketplaceSettings $settings = null): bool
+    public static function operating(Supplier $supplier): bool
     {
-        return in_array(self::of($supplier, $settings), self::OPERATING, true);
+        return in_array(self::of($supplier), self::OPERATING, true);
+    }
+
+    /** ¿Tiene Premium hoy? Solo con un período pagado (o la tolerancia de un cobro rechazado). */
+    public static function isPremium(Supplier $supplier): bool
+    {
+        $subscription = $supplier->relationLoaded('subscription') ? $supplier->subscription : $supplier->subscription()->first();
+
+        return (bool) $subscription?->grantsAccess();
+    }
+
+    /** Publicaciones simultáneas permitidas (según el plan; la moderación no cambia el número). */
+    public static function publicationLimit(Supplier $supplier, ?MarketplaceSettings $settings = null): int
+    {
+        $settings ??= MarketplaceSettings::current();
+
+        return self::isPremium($supplier) ? $settings->premiumLimit() : $settings->freeLimit();
     }
 
     public static function label(string $state): string
@@ -116,30 +81,28 @@ final class SupplierStanding
         return self::LABELS[$state] ?? $state;
     }
 
-    /**
-     * La misma regla en SQL, para el catálogo y los pedidos nuevos (consultas
-     * sobre la tabla suppliers). Los parámetros salen del servidor, nunca del navegador.
-     */
-    public static function applyOperating(Builder $query, ?MarketplaceSettings $settings = null): Builder
+    /** Detalle de Premium para las pantallas (null = no tiene ni tuvo Premium). */
+    public static function premiumDetail(Supplier $supplier): ?string
     {
-        $settings ??= MarketplaceSettings::current();
-        $billable = SupplierBilling::countries();
+        $sub = $supplier->relationLoaded('subscription') ? $supplier->subscription : $supplier->subscription()->first();
+        if (! $sub) {
+            return null;
+        }
+        $until = $sub->current_period_end?->format('d/m/Y');
 
-        return $query->where('suppliers.status', Supplier::APPROVED)
-            ->whereNull('suppliers.closed_at')
-            ->where(function (Builder $w) use ($settings, $billable) {
-                $w->where('suppliers.trial_ends_at', '>', now())
-                    ->orWhereHas('subscription', fn (Builder $s) => $s->where(fn (Builder $p) => $p
-                        ->where('current_period_end', '>', now())
-                        ->orWhere(fn (Builder $d) => $d->where('status', SupplierSubscription::PAST_DUE)
-                            ->where('current_period_end', '>', now()->subDays(SupplierSubscription::PAST_DUE_GRACE_DAYS)))));
+        return match (true) {
+            $sub->status === SupplierSubscription::PAST_DUE && $sub->grantsAccess() => 'Cobro rechazado: Mercado Pago reintenta; Premium sigue unos días más',
+            $sub->grantsAccess() && $sub->status === SupplierSubscription::CANCELED => 'Cancelado: Premium sigue hasta el '.$until,
+            $sub->grantsAccess() => 'Activo hasta el '.$until.' (se renueva solo)',
+            in_array($sub->status, [SupplierSubscription::PENDING, SupplierSubscription::AUTHORIZED], true) && $sub->current_period_end === null => 'Pendiente de pago: seguís en el plan gratuito hasta que Mercado Pago confirme el cobro',
+            $until !== null => 'Terminó el '.$until.': volviste al plan gratuito',
+            default => null,
+        };
+    }
 
-                if (! $settings->chargesSubscription()) {
-                    $w->orWhereIn('suppliers.country', $billable);
-                }
-                if ($settings->international_free) {
-                    $w->orWhereNotIn('suppliers.country', $billable);
-                }
-            });
+    /** La misma regla de moderación en SQL (catálogo y pedidos nuevos). */
+    public static function applyOperating(Builder $query): Builder
+    {
+        return $query->where('suppliers.status', Supplier::APPROVED)->whereNull('suppliers.closed_at');
     }
 }

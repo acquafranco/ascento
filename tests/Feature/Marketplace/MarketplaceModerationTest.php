@@ -67,8 +67,6 @@ class MarketplaceModerationTest extends TestCase
         $this->assertStringContainsString('Datos fiscales inconsistentes', $supplierUser->notifications()->where('data->title', 'Suspendimos tu cuenta de proveedor')->value('data')['body']);
         $this->assertSame(2, $supplierUser->notifications()->whereNotNull('mailed_at')->count());
         Notification::assertSentTo($supplierUser, MailOnlyNotification::class);
-        // La prueba empezó con la aprobación (una sola vez).
-        $this->assertNotNull($supplier->trial_ends_at);
     }
 
     public function test_hiding_and_featuring_products(): void

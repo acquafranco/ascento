@@ -38,7 +38,7 @@
             </div>
             <div class="rounded-2xl border border-[#14171C]/10 bg-white p-5">
                 <p class="font-semibold text-[#14171C]">Soy proveedor de repuestos</p>
-                <p class="mt-2 text-sm leading-6">Cancelá tu suscripción y pedinos el cierre de la cuenta por correo. Ver la sección 03.</p>
+                <p class="mt-2 text-sm leading-6">Si tenés Premium, cancelalo, y pedinos el cierre de la cuenta por correo. Ver la sección 03.</p>
             </div>
         </div>
         <p>Hoy no hay un botón para que cada persona borre su propia cuenta desde Ascento: los pedidos se gestionan como se explica en esta página.</p>
@@ -60,12 +60,12 @@
 
     <x-legal.section n="03" title="Cerrar una cuenta de proveedor de repuestos" id="proveedor">
         <ol>
-            <li><strong>Cancelá la suscripción</strong> desde «Suscripción» en tu área, para que Mercado Pago no siga cobrando. Mientras pueda seguir cobrando, la cuenta no se cierra.</li>
+            <li><strong>Si tenés Premium, cancelalo</strong> desde «Plan» en tu área, para que Mercado Pago no siga cobrando. Mientras pueda seguir cobrando, la cuenta no se cierra.</li>
             <li><strong>Escribinos</strong> a <a href="mailto:{{ $email }}">{{ $email }}</a> desde el correo de la cuenta. Confirmamos el pedido antes de cerrarla.</li>
         </ol>
         <x-legal.note tone="danger" title="Qué se borra y qué se conserva">
             <p>Se borran tus usuarios, productos, fotos (también los archivos), favoritos y reportes de esos productos, y los datos de contacto, la descripción y las marcas del perfil. No se puede deshacer.</p>
-            <p>Se conservan, sin esos datos: el nombre comercial, el país y la identificación fiscal de la empresa proveedora, porque los pedidos y cotizaciones son también historial de las empresas compradoras y porque los cobros de la suscripción y de los destacados son un registro contable que la ley nos obliga a guardar.</p>
+            <p>Se conservan, sin esos datos: el nombre comercial, el país y la identificación fiscal de la empresa proveedora, porque los pedidos y cotizaciones son también historial de las empresas compradoras y porque los cobros de Premium y de los destacados son un registro contable que la ley nos obliga a guardar.</p>
         </x-legal.note>
         <p>Si se elimina una <strong>empresa compradora</strong>, sus pedidos de repuestos se conservan para cada proveedor sin el nombre de la empresa, sus datos de contacto, notas ni comentarios.</p>
     </x-legal.section>

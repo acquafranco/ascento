@@ -24,14 +24,14 @@ class MarketplaceRevenueStats extends StatsOverviewWidget
             ->selectRaw('currency, sum(amount) as total')->groupBy('currency')->pluck('total', 'currency')
             ->map(fn ($total, $currency) => Money::format((float) $total, $currency))->implode(' · ') ?: Money::format(0.0, 'ARS');
 
-        $trial = Supplier::where('status', Supplier::APPROVED)->whereNull('closed_at')->where('trial_ends_at', '>', now());
+        $premium = SupplierSubscription::where('current_period_end', '>', now());
 
         return [
-            Stat::make('Suscripciones cobradas este mes', $income('subscription'))->description('Cobros aprobados por Mercado Pago'),
+            Stat::make('Premium cobrado este mes', $income('subscription'))->description('Cobros aprobados por Mercado Pago'),
             Stat::make('Destacados cobrados este mes', $income('featured'))->description('Pagos aprobados por Mercado Pago'),
-            Stat::make('Proveedores en prueba', (clone $trial)->count())->description((clone $trial)->where('trial_ends_at', '<=', now()->addDays(7))->count().' terminan en 7 días'),
-            Stat::make('Suscripciones activas', SupplierSubscription::where('current_period_end', '>', now())->count())
+            Stat::make('Proveedores Premium', (clone $premium)->count())
                 ->description(SupplierSubscription::where('status', SupplierSubscription::PAST_DUE)->count().' con cobro rechazado'),
+            Stat::make('Proveedores en plan gratuito', Supplier::where('status', Supplier::APPROVED)->whereNull('closed_at')->whereDoesntHave('subscription', fn ($q) => $q->where('current_period_end', '>', now()))->count()),
             Stat::make('Pagos pendientes o con problemas', SupplierPayment::whereIn('status', [SupplierPayment::PENDING, SupplierPayment::AMOUNT_MISMATCH])->count())
                 ->color('warning')->description(FeaturedPlacement::where('status', FeaturedPlacement::NEEDS_REVIEW)->count().' destacados pagos para revisar'),
         ];

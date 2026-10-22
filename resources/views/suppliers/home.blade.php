@@ -3,6 +3,7 @@
     <p class="s-sub">Tu catálogo y los pedidos de cotización de empresas de mantenimiento.</p>
 
     @include('suppliers.partials.status-notice')
+    @include('suppliers.partials.usage', ['usage' => $usage])
 
     <div class="s-grid">
         <a class="s-card s-stat" href="{{ route('suppliers.requests.index', ['estado' => 'sent']) }}" style="text-decoration:none"><b>{{ $open }}</b><span class="s-muted">Pedidos para cotizar</span></a>
@@ -37,6 +38,6 @@
             <li>Si aceptan, coordinan directamente el pago, el envío y la entrega. Ascento no cobra comisiones ni procesa esos pagos.</li>
             <li>Cuando el comprador confirma que recibió el pedido, suma a tus operaciones completadas.</li>
         </ol>
-        <p class="s-muted" style="margin-top:10px">Tu estado comercial (prueba, suscripción) está en <a class="s-link" href="{{ route('suppliers.billing') }}">Suscripción</a>; la visibilidad adicional para un producto, en <a class="s-link" href="{{ route('suppliers.featured') }}">Destacados</a>.</p>
+        <p class="s-muted" style="margin-top:10px">Tu plan (gratuito o Premium) está en <a class="s-link" href="{{ route('suppliers.billing') }}">Plan</a>; la visibilidad adicional para un producto, en <a class="s-link" href="{{ route('suppliers.featured') }}">Destacados</a>.</p>
     </section>
 </x-supplier-layout>

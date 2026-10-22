@@ -6,12 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\Marketplace\MarketplaceRequest;
 use App\Models\Marketplace\Supplier;
 use App\Models\Marketplace\SupplierProduct;
+use App\Services\Marketplace\PublicationLimits;
 use App\Support\Marketplace\Catalog;
-use App\Support\Marketplace\SupplierStanding;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 /** Inicio y perfil del proveedor (área /proveedores). */
@@ -26,6 +25,7 @@ class SupplierAreaController extends Controller
 
         return view('suppliers.home', [
             'supplier' => $supplier,
+            'usage' => PublicationLimits::usage($supplier),
             'products' => SupplierProduct::where('supplier_id', $supplier->id)->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status'),
             'hidden' => SupplierProduct::where('supplier_id', $supplier->id)->where('hidden_by_admin', true)->count(),
             'open' => MarketplaceRequest::forSupplier($supplier->id)->whereIn('status', [MarketplaceRequest::SENT])->count(),
@@ -73,16 +73,12 @@ class SupplierAreaController extends Controller
     }
 
     /**
-     * Publicar o cargar productos nuevos: mientras se revisa la cuenta (para
-     * tener el catálogo listo) o con la cuenta habilitada comercialmente. Con
-     * la prueba o la suscripción vencidas puede editar y pausar lo que tiene,
-     * pero no publicar ni sumar productos.
+     * Cargar o publicar productos: con la cuenta sin rechazar, suspender ni
+     * cerrar (también mientras se revisa, para tener el catálogo listo). El
+     * límite del plan se controla al publicar (PublicationLimits).
      */
     public static function ensureCanPublish(Supplier $supplier): void
     {
         self::ensureCanEdit($supplier);
-        if ($supplier->status !== Supplier::PENDING && ! $supplier->isOperating()) {
-            throw ValidationException::withMessages(['estado' => 'Tu cuenta no está habilitada para publicar: '.mb_strtolower(SupplierStanding::label($supplier->standing())).'. Revisá «Suscripción».']);
-        }
     }
 }

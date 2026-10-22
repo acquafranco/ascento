@@ -12,9 +12,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 /**
  * Proveedor de repuestos (marketplace). Cuenta comercial aparte de las
  * empresas de mantenimiento: sus usuarios (role = supplier) no tienen
- * empresa y no ven nada de ninguna. Su catálogo se ve solo si el SuperAdmin
- * lo aprobó y su estado comercial lo permite (SupplierStanding: prueba,
- * suscripción o modalidad gratuita).
+ * empresa y no ven nada de ninguna. Su catálogo se ve si el SuperAdmin lo
+ * aprobó; publicar es gratis con un límite de productos (Premium lo amplía:
+ * SupplierStanding y PublicationLimits).
  */
 class Supplier extends Model
 {
@@ -42,8 +42,6 @@ class Supplier extends Model
         'categories' => 'array',
         'brands' => 'array',
         'approved_at' => 'datetime',
-        'trial_started_at' => 'datetime',
-        'trial_ends_at' => 'datetime',
         'commercial_state_at' => 'datetime',
         'closed_at' => 'datetime',
     ];
@@ -90,7 +88,7 @@ class Supplier extends Model
         return SupplierStanding::of($this);
     }
 
-    /** ¿Su catálogo se ve y recibe pedidos nuevos? */
+    /** ¿Su catálogo se ve y recibe pedidos nuevos? (aprobado y sin cerrar) */
     public function isOperating(): bool
     {
         return SupplierStanding::operating($this);
@@ -99,15 +97,6 @@ class Supplier extends Model
     public function scopeOperating(Builder $query): Builder
     {
         return SupplierStanding::applyOperating($query);
-    }
-
-    /** La prueba empieza una sola vez (la primera aprobación); nunca se reinicia. */
-    public function startTrialOnce(int $days): void
-    {
-        if ($this->trial_started_at !== null || $this->trial_ends_at !== null) {
-            return;
-        }
-        $this->forceFill(['trial_started_at' => now(), 'trial_ends_at' => now()->addDays($days)]);
     }
 
     public function isApproved(): bool

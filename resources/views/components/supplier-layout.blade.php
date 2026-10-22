@@ -6,7 +6,7 @@
         ['suppliers.home', 'Inicio', route('suppliers.home')],
         ['suppliers.products.*', 'Mi catálogo', route('suppliers.products.index')],
         ['suppliers.requests.*', 'Pedidos', route('suppliers.requests.index')],
-        ['suppliers.billing*', 'Suscripción', route('suppliers.billing')],
+        ['suppliers.billing*', 'Plan', route('suppliers.billing')],
         ['suppliers.featured*', 'Destacados', route('suppliers.featured')],
         ['suppliers.profile.*', 'Mi perfil', route('suppliers.profile.edit')],
     ];

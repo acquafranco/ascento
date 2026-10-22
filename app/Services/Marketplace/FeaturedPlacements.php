@@ -36,11 +36,14 @@ class FeaturedPlacements
         $supplier = $user->supplier;
         abort_unless($user->isSupplierUser() && $supplier && (int) $product->supplier_id === (int) $supplier->id, 404);
 
-        $price = MarketplaceSettings::current()->featuredPrice($days);
+        $settings = MarketplaceSettings::current();
+        $price = $settings->featuredPrice($days);
         $gateway = SupplierBilling::for($supplier);
         $why = match (true) {
             $price === null => 'Los destacados no están disponibles por ahora.',
-            ! $gateway?->isConfigured() => 'Los pagos no están disponibles en tu país todavía.',
+            // Nunca se cobra en una moneda o con una pasarela que no corresponde al país del proveedor.
+            ! $settings->chargesIn($supplier->country) || ! $gateway?->isConfigured() => 'Los pagos no están disponibles en tu país todavía.',
+            ! $supplier->isOperating() => 'Tu cuenta no está habilitada.',
             ! $product->isVisible() => 'Solo se puede destacar un producto publicado y visible en el catálogo.',
             default => null,
         };
@@ -58,7 +61,7 @@ class FeaturedPlacements
             throw ValidationException::withMessages(['destacado' => 'Ya hay un pago pendiente para destacar este producto. Esperá a que se acredite o a que venza (24 h).']);
         }
 
-        $placement = DB::transaction(function () use ($user, $supplier, $product, $days, $price) {
+        $placement = DB::transaction(function () use ($user, $supplier, $product, $days, $price, $settings) {
             $placement = FeaturedPlacement::create([
                 'supplier_id' => $supplier->id,
                 'supplier_product_id' => $product->id,
@@ -66,7 +69,7 @@ class FeaturedPlacements
                 'source' => 'purchase',
                 'days' => $days,
                 'amount' => $price,
-                'currency' => MarketplaceSettings::current()->plan_currency ?: 'ARS',
+                'currency' => $settings->pricing_currency ?: 'ARS',
                 'status' => FeaturedPlacement::PENDING_PAYMENT,
                 'created_by' => $user->id,
             ]);

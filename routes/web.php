@@ -127,6 +127,8 @@ Route::middleware(['auth', 'supplier'])->prefix('proveedores')->name('suppliers.
         Route::get('/{product}', 'edit')->name('edit');
         Route::put('/{product}', 'update')->middleware('throttle:60,1,suppliers.products.update')->name('update');
         Route::post('/{product}/estado', 'status')->middleware('throttle:60,1,suppliers.products.status')->name('status');
+        Route::post('/{product}/conservar', 'keep')->middleware('throttle:60,1,suppliers.products.keep')->name('keep');
+        Route::post('/fuera-del-limite/publicar', 'restoreOverLimit')->middleware('throttle:10,1,suppliers.products.restore')->name('restore');
         Route::post('/{product}/fotos', 'storePhoto')->middleware('throttle:30,1,suppliers.products.photo')->name('photos.store');
         Route::delete('/{product}/fotos/{photo}', 'destroyPhoto')->middleware('throttle:30,1,suppliers.products.photo-delete')->name('photos.destroy');
     });

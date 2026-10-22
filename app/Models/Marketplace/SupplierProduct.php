@@ -27,10 +27,14 @@ class SupplierProduct extends Model
 
     public const RETIRED = 'retired';
 
+    /** No entra en el límite de publicaciones del plan (lo puso el sistema; no es moderación). */
+    public const OVER_LIMIT = 'over_limit';
+
     public const STATUSES = [
         self::DRAFT => 'Borrador',
         self::PUBLISHED => 'Publicado',
         self::PAUSED => 'Pausado',
+        self::OVER_LIMIT => 'Fuera del límite del plan',
         self::RETIRED => 'Retirado',
     ];
 
@@ -42,6 +46,8 @@ class SupplierProduct extends Model
     protected $casts = [
         'price' => 'decimal:2',
         'hidden_by_admin' => 'boolean',
+        'keep_on_free' => 'boolean',
+        'limit_hidden_at' => 'datetime',
         'featured_until' => 'datetime',
         'published_at' => 'datetime',
     ];

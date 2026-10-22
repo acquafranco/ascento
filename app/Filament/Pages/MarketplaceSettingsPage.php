@@ -6,8 +6,12 @@ use App\Models\Marketplace\MarketplaceSettings;
 use App\Models\Marketplace\Supplier;
 use App\Services\Activity\PlatformAudit;
 use App\Services\Marketplace\Billing\SupplierBilling;
+use App\Services\Marketplace\PublicationLimits;
 use App\Services\MercadoPagoService;
+use App\Support\Countries;
 use Filament\Forms;
+use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
@@ -17,10 +21,10 @@ use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
 
 /**
- * Configuración comercial del marketplace (solo SuperAdmin): duración de la
- * prueba, precio de la suscripción de proveedores, cobros habilitados,
- * modalidad gratuita fuera de Argentina y precios de destacados. Sin precios
- * cargados no se cobra ni se anuncia nada. Cada cambio queda auditado.
+ * Configuración comercial del marketplace (solo SuperAdmin): límites de
+ * publicaciones (gratuito / Premium), precio y venta de Premium, países con
+ * cobro, regla de visibilidad al volver al plan gratuito y destacados. Sin
+ * precio o con la venta apagada no se cobra ni se anuncia nada. Auditado.
  */
 class MarketplaceSettingsPage extends Page implements Forms\Contracts\HasForms
 {
@@ -49,36 +53,45 @@ class MarketplaceSettingsPage extends Page implements Forms\Contracts\HasForms
 
     public function getSubheading(): ?string
     {
-        return 'Prueba, suscripción y destacados de los proveedores de repuestos. Son cobros de Ascento al proveedor: nunca comisiones sobre ventas.';
+        return 'Publicar es gratis con un límite; Premium y los destacados son cobros opcionales de Ascento al proveedor, nunca comisiones sobre ventas.';
     }
 
     public function mount(): void
     {
         abort_unless(static::canAccess(), 403);
         $this->form->fill(MarketplaceSettings::current()->only([
-            'trial_days', 'billing_enabled', 'plan_price', 'international_free', 'featured_enabled', 'featured_price_7', 'featured_price_30',
+            'free_product_limit', 'premium_product_limit', 'premium_enabled', 'premium_price', 'billing_countries', 'over_limit_rule',
+            'featured_enabled', 'featured_price_7', 'featured_price_30',
         ]));
     }
 
     public function form(Schema $schema): Schema
     {
-        $money = fn (string $name, string $label) => TextInput::make($name)->label($label)->numeric()->minValue(0.01)->maxValue(99999999)->prefix('ARS')->helperText('Vacío: no se vende.');
+        $settings = MarketplaceSettings::current();
+        $currency = $settings->pricing_currency ?: 'ARS';
+        $money = fn (string $name, string $label) => TextInput::make($name)->label($label)->numeric()->minValue(0.01)->maxValue(99999999)->prefix($currency)->helperText('Vacío: no se vende.');
+        // Solo países con pasarela de cobro y la misma moneda de los precios (hoy, Argentina en ARS).
+        $countries = collect(SupplierBilling::countries())->filter(fn ($c) => Supplier::currencyFor($c) === $currency)
+            ->mapWithKeys(fn ($c) => [$c => Countries::name($c).' ('.Supplier::currencyFor($c).', Mercado Pago)'])->all();
 
         return $schema->statePath('data')->components([
-            Section::make('Prueba gratuita')->schema([
-                TextInput::make('trial_days')->label('Días de prueba')->numeric()->integer()->minValue(1)->maxValue(365)->required()
-                    ->helperText('Para proveedores aprobados de acá en adelante. Empieza una sola vez, al aprobar la cuenta; cambiarlo no modifica pruebas ya iniciadas.'),
+            Section::make('Límites de publicaciones')->description('Productos publicados a la vez (no unidades de stock). Borradores, pausados, retirados, ocultos por moderación y fuera del límite no cuentan.')
+                ->columns(['default' => 1, 'md' => 3])->schema([
+                    TextInput::make('free_product_limit')->label('Plan gratuito')->numeric()->integer()->minValue(1)->maxValue(100000)->required()
+                        ->helperText('Gratis para siempre, también para proveedores de otros países.'),
+                    TextInput::make('premium_product_limit')->label('Premium')->numeric()->integer()->minValue(1)->maxValue(100000)->required()->gte('free_product_limit'),
+                    Select::make('over_limit_rule')->label('Si vuelve al plan gratuito y no eligió')->options(MarketplaceSettings::OVER_LIMIT_RULES)->required()->native(false)
+                        ->helperText('Primero quedan las que marcó «conservar» y las que tienen un destacado vigente. Nada se borra.'),
+                ]),
+            Section::make('Premium (suscripción mensual con Mercado Pago)')->columns(['default' => 1, 'md' => 2])->schema([
+                $money('premium_price', 'Precio mensual'),
+                Toggle::make('premium_enabled')->label('Vender Premium')->helperText('Apagado o sin precio: no se muestra ni se cobra.'),
             ]),
-            Section::make('Suscripción de proveedores (Argentina, Mercado Pago)')->columns(['default' => 1, 'md' => 2])->schema([
-                $money('plan_price', 'Precio mensual'),
-                Toggle::make('billing_enabled')->label('Cobrar la suscripción')
-                    ->helperText('Apagado: los proveedores argentinos siguen sin cargo al terminar la prueba. Encendido (con precio): al terminar la prueba, para seguir publicando necesitan la suscripción activa.'),
+            Section::make('Cobros por país')->schema([
+                CheckboxList::make('billing_countries')->label('Países con cobros habilitados')->options($countries)
+                    ->helperText('Los proveedores de los demás países publican gratis y no ven opciones de pago. Para sumar otro país hace falta una pasarela en su moneda.'),
             ]),
-            Section::make('Otros países')->schema([
-                Toggle::make('international_free')->label('Modalidad gratuita para proveedores de otros países')
-                    ->helperText('Esta etapa no tiene cobros fuera de Argentina. Encendido: operan sin cargo. Apagado: al terminar la prueba su catálogo deja de verse (no pueden pagar).'),
-            ]),
-            Section::make('Publicaciones destacadas (pago único, Mercado Pago)')->columns(['default' => 1, 'md' => 3])->schema([
+            Section::make('Publicaciones destacadas (pago único con Mercado Pago)')->columns(['default' => 1, 'md' => 3])->schema([
                 $money('featured_price_7', 'Precio por 7 días'),
                 $money('featured_price_30', 'Precio por 30 días'),
                 Toggle::make('featured_enabled')->label('Vender destacados'),
@@ -90,14 +103,10 @@ class MarketplaceSettingsPage extends Page implements Forms\Contracts\HasForms
     {
         abort_unless(static::canAccess(), 403);
         $data = $this->form->getState();
+        $data['billing_countries'] = array_values(array_intersect((array) ($data['billing_countries'] ?? []), SupplierBilling::countries()));
 
-        if (($data['billing_enabled'] ?? false) && blank($data['plan_price'] ?? null)) {
-            Notification::make()->title('Falta el precio')->body('Para cobrar la suscripción, cargá el precio mensual.')->warning()->send();
-
-            return;
-        }
-        if ((($data['billing_enabled'] ?? false) || ($data['featured_enabled'] ?? false)) && ! MercadoPagoService::isConfigured()) {
-            Notification::make()->title('Mercado Pago no está configurado')->body('Sin MERCADOPAGO_ACCESS_TOKEN no se puede cobrar: dejá los cobros apagados.')->danger()->send();
+        if (($data['premium_enabled'] ?? false) && blank($data['premium_price'] ?? null)) {
+            Notification::make()->title('Falta el precio')->body('Para vender Premium, cargá el precio mensual.')->warning()->send();
 
             return;
         }
@@ -106,20 +115,24 @@ class MarketplaceSettingsPage extends Page implements Forms\Contracts\HasForms
 
             return;
         }
+        if ((($data['premium_enabled'] ?? false) || ($data['featured_enabled'] ?? false)) && ! MercadoPagoService::isConfigured()) {
+            Notification::make()->title('Mercado Pago no está configurado')->body('Sin MERCADOPAGO_ACCESS_TOKEN no se puede cobrar: dejá las ventas apagadas.')->danger()->send();
+
+            return;
+        }
 
         $settings = MarketplaceSettings::query()->orderBy('id')->first() ?? new MarketplaceSettings;
-        $wasCharging = $settings->exists && $settings->chargesSubscription();
-        $settings->fill($data + ['plan_currency' => 'ARS']);
+        $settings->fill($data + ['pricing_currency' => 'ARS']);
         $settings->forceFill(['updated_by' => Auth::id()])->save();
         PlatformAudit::record('marketplace.settings.updated', $settings, $settings->getChanges(), 'Configuración del marketplace');
 
-        $body = null;
-        if (! $wasCharging && $settings->chargesSubscription()) {
-            $affected = Supplier::where('status', Supplier::APPROVED)->whereNull('closed_at')->whereIn('country', SupplierBilling::countries())
-                ->where(fn ($q) => $q->whereNull('trial_ends_at')->orWhere('trial_ends_at', '<=', now()))
-                ->whereDoesntHave('subscription', fn ($q) => $q->where('current_period_end', '>', now()))->count();
-            $body = $affected ? "{$affected} proveedor(es) con la prueba terminada y sin suscripción dejan de verse hasta suscribirse (se les avisa en la próxima corrida de marketplace:tick)." : null;
+        // Si bajó un límite, lo que sobra queda «fuera del límite» ahora (nada se borra; se avisa a cada proveedor).
+        $moved = 0;
+        if ($settings->wasChanged(['free_product_limit', 'premium_product_limit'])) {
+            Supplier::whereNull('closed_at')->each(function (Supplier $s) use (&$moved) {
+                $moved += app(PublicationLimits::class)->enforce($s);
+            });
         }
-        Notification::make()->title('Configuración guardada')->body($body)->success()->send();
+        Notification::make()->title('Configuración guardada')->body($moved ? "{$moved} publicaciones quedaron fuera del límite (se avisó a cada proveedor)." : null)->success()->send();
     }
 }

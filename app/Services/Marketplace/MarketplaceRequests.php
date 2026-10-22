@@ -24,8 +24,9 @@ use Illuminate\Validation\ValidationException;
  * - Precios y totales salen de la base o del proveedor; nunca del comprador.
  * - Un mismo envío (misma clave) no crea dos pedidos.
  * - Ascento no cobra: nada se marca como pagado.
- * - Proveedor no habilitado (prueba vencida, suscripción vencida, suspendido):
- *   no recibe pedidos nuevos ni cotiza, y su cotización no se puede aceptar.
+ * - Proveedor no habilitado por moderación (suspendido, cerrado): no recibe
+ *   pedidos nuevos ni cotiza, y su cotización no se puede aceptar. El plan
+ *   (gratuito o Premium) no cambia nada de esto: solo el límite de publicaciones.
  *   Lo ya aceptado sigue: el comprador lo completa o lo cancela, y las dos
  *   partes pueden seguir comentando para coordinar. Nada se cancela solo.
  */
@@ -114,7 +115,7 @@ class MarketplaceRequests
     {
         $this->assertSupplier($supplierUser, $request, MarketplaceRequest::QUOTED);
         if (! $supplierUser->supplier->isOperating()) {
-            throw ValidationException::withMessages(['estado' => 'Tu cuenta no está habilitada para cotizar. Revisá tu suscripción.']);
+            throw ValidationException::withMessages(['estado' => 'Tu cuenta no está habilitada para cotizar.']);
         }
 
         $items = $request->items()->get();

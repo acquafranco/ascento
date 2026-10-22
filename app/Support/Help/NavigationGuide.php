@@ -116,9 +116,9 @@ final class NavigationGuide
             SupplierProductResource::class => ['Las publicaciones de repuestos: ocultar las que no cumplen y destacar.', null],
             MarketplaceReportResource::class => ['Los reportes de publicaciones que hacen las empresas.', null],
             MarketplaceRequestResource::class => ['Todos los pedidos de cotización entre empresas y proveedores: estados, importes cotizados, historial e incidencias para resolver.', null],
-            SupplierPaymentResource::class => ['Lo que Mercado Pago cobró a los proveedores (suscripciones y destacados). Solo los cobros aprobados son ingresos.', null],
+            SupplierPaymentResource::class => ['Lo que Mercado Pago cobró a los proveedores (Premium y destacados). Solo los cobros aprobados son ingresos.', null],
             FeaturedPlacementResource::class => ['Las publicaciones destacadas compradas o asignadas, con su período y estado.', null],
-            MarketplaceSettingsPage::class => ['La prueba, la suscripción y los precios de destacados de los proveedores (sin precios, no se cobra nada).', null],
+            MarketplaceSettingsPage::class => ['Límites de publicaciones (gratuito y Premium), precio de Premium, países con cobro y precios de destacados (sin habilitar, no se cobra nada).', null],
         ];
     }
 

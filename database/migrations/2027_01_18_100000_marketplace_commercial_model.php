@@ -8,22 +8,27 @@ use Illuminate\Support\Facades\Schema;
 /**
  * Marketplace de repuestos: modelo comercial de los proveedores.
  *
- * - marketplace_settings: una fila que edita el SuperAdmin (duración de la
- *   prueba, precio de la suscripción, precios de destacados, cobros
- *   habilitados, modalidad gratuita fuera de Argentina). Sin precios cargados:
- *   nada se cobra ni se anuncia.
- * - suppliers: prueba (empieza UNA vez, al aprobarse), moneda (según el país
- *   registrado), notas administrativas y el último estado comercial avisado.
- * - supplier_subscriptions / supplier_payments: suscripción de proveedores y
- *   cada cobro confirmado por Mercado Pago (aparte de las de empresas).
- * - featured_placements: historial de publicaciones destacadas (compradas o
- *   asignadas por el SuperAdmin).
+ * - marketplace_settings: una fila que edita el SuperAdmin. Publicar es
+ *   GRATIS para siempre con un límite de publicaciones (20); Premium es una
+ *   suscripción mensual con un límite mayor (1.000). Precio de Premium vacío y
+ *   ventas apagadas: nada se cobra ni se anuncia. Destacados: precios
+ *   iniciales preparados (ARS 5.000 / 15.000) pero APAGADOS hasta confirmarlos.
+ *   Cobros solo en los países habilitados (hoy, Argentina).
+ * - suppliers: moneda (según el país registrado), notas administrativas,
+ *   último estado comercial avisado (gratuito / Premium) y cierre de cuenta.
+ * - supplier_products: «conservar en el plan gratuito» (lo elige el proveedor
+ *   Premium) y la marca de cuándo quedó fuera del límite (estado over_limit,
+ *   distinto de oculto por moderación).
+ * - supplier_subscriptions / supplier_payments: suscripción Premium y cada
+ *   cobro confirmado por Mercado Pago (aparte de las de empresas).
+ * - featured_placements: historial de publicaciones destacadas.
  * - marketplace_requests: el historial deja de borrarse en cascada al eliminar
- *   la empresa compradora o el proveedor (es también historial de la otra parte);
- *   avisos de vencimiento de cotizaciones sin duplicar.
+ *   la empresa compradora o el proveedor; avisos de vencimiento sin duplicar.
  *
- * Datos existentes: no se borra ni se cambia nada. Los proveedores ya
- * aprobados empiezan su prueba al aplicar esta migración (no se pierde ningún día).
+ * Datos existentes: no se borra nada ni se cambia ningún producto. Todos los
+ * proveedores quedan en el plan gratuito; si alguno tiene más publicaciones
+ * que el límite, la tarea marketplace:tick deja fuera del límite las que
+ * sobran (regla documentada, reversible) y le avisa para que elija.
  */
 return new class extends Migration
 {
@@ -31,13 +36,18 @@ return new class extends Migration
     {
         Schema::create('marketplace_settings', function (Blueprint $table) {
             $table->id();
-            $table->unsignedSmallInteger('trial_days')->default(30);
-            // Cobros a proveedores argentinos: hasta habilitarlos (con precio), nadie queda bloqueado por no pagar.
-            $table->boolean('billing_enabled')->default(false);
-            $table->decimal('plan_price', 12, 2)->nullable();
-            $table->char('plan_currency', 3)->default('ARS');
-            // Proveedores de otros países: sin cobro posible en esta etapa.
-            $table->boolean('international_free')->default(true);
+            // Publicaciones simultáneas por plan (productos publicados, no unidades de stock).
+            $table->unsignedInteger('free_product_limit')->default(20);
+            $table->unsignedInteger('premium_product_limit')->default(1000);
+            // Premium: sin precio o apagado, no se vende ni se anuncia.
+            $table->boolean('premium_enabled')->default(false);
+            $table->decimal('premium_price', 12, 2)->nullable();
+            // Moneda de los precios de Ascento a proveedores (la de los países con cobro habilitado).
+            $table->char('pricing_currency', 3)->default('ARS');
+            // Países con cobros habilitados (además tienen que tener pasarela en config/marketplace.php).
+            $table->json('billing_countries')->nullable();
+            // Qué publicaciones quedan visibles si un Premium vuelve al plan gratuito y no eligió: recent | oldest.
+            $table->string('over_limit_rule', 12)->default('recent');
             $table->boolean('featured_enabled')->default(false);
             $table->decimal('featured_price_7', 12, 2)->nullable();
             $table->decimal('featured_price_30', 12, 2)->nullable();
@@ -45,15 +55,28 @@ return new class extends Migration
             $table->timestamps();
         });
 
+        // Valores iniciales: límites 20 / 1.000, destacados preparados pero apagados, Premium sin precio.
+        DB::table('marketplace_settings')->insert([
+            'free_product_limit' => 20, 'premium_product_limit' => 1000, 'premium_enabled' => false, 'premium_price' => null,
+            'pricing_currency' => 'ARS', 'billing_countries' => json_encode(['AR']), 'over_limit_rule' => 'recent',
+            'featured_enabled' => false, 'featured_price_7' => 5000, 'featured_price_30' => 15000,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
         Schema::table('suppliers', function (Blueprint $table) {
             $table->char('currency', 3)->default('ARS')->after('country');
-            $table->timestamp('trial_started_at')->nullable()->after('approved_at');
-            $table->timestamp('trial_ends_at')->nullable()->after('trial_started_at');
             $table->text('admin_notes')->nullable();
-            // Último estado comercial avisado (para avisar cada cambio una sola vez).
+            // Último estado comercial avisado (gratuito / Premium), para avisar cada cambio una sola vez.
             $table->string('commercial_state', 24)->nullable();
             $table->timestamp('commercial_state_at')->nullable();
             $table->timestamp('closed_at')->nullable();
+        });
+
+        Schema::table('supplier_products', function (Blueprint $table) {
+            // Premium: «conservar publicado si vuelvo al plan gratuito».
+            $table->boolean('keep_on_free')->default(false);
+            // Cuándo pasó a over_limit (fuera del límite del plan; no es moderación).
+            $table->timestamp('limit_hidden_at')->nullable();
         });
 
         Schema::create('supplier_subscriptions', function (Blueprint $table) {
@@ -159,11 +182,6 @@ return new class extends Migration
             DB::table('supplier_products')->whereIn('supplier_id', DB::table('suppliers')->where('country', $country)->select('id'))->update(['currency' => $currency]);
         }
 
-        // Proveedores ya aprobados: la prueba empieza hoy (una sola vez).
-        DB::table('suppliers')->where('status', 'approved')->whereNull('trial_ends_at')->update([
-            'trial_started_at' => now(),
-            'trial_ends_at' => now()->addDays(30),
-        ]);
     }
 
     public function down(): void
@@ -182,8 +200,11 @@ return new class extends Migration
         Schema::dropIfExists('featured_placements');
         Schema::dropIfExists('supplier_subscriptions');
         Schema::table('suppliers', function (Blueprint $table) {
-            $table->dropColumn(['currency', 'trial_started_at', 'trial_ends_at', 'admin_notes', 'commercial_state', 'commercial_state_at', 'closed_at']);
+            $table->dropColumn(['currency', 'admin_notes', 'commercial_state', 'commercial_state_at', 'closed_at']);
         });
+        // Lo que quedó fuera del límite vuelve a «pausado» (el esquema anterior no conoce over_limit).
+        DB::table('supplier_products')->where('status', 'over_limit')->update(['status' => 'paused']);
+        Schema::table('supplier_products', fn (Blueprint $table) => $table->dropColumn(['keep_on_free', 'limit_hidden_at']));
         Schema::dropIfExists('marketplace_settings');
     }
 };

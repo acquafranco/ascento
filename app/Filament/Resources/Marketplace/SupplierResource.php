@@ -6,7 +6,9 @@ use App\Filament\Resources\Marketplace\Pages\ListSuppliers;
 use App\Filament\Resources\Marketplace\Pages\ViewSupplier;
 use App\Models\Marketplace\MarketplaceSettings;
 use App\Models\Marketplace\Supplier;
+use App\Models\Marketplace\SupplierProduct;
 use App\Models\Marketplace\SupplierSubscription;
+use App\Services\Marketplace\PublicationLimits;
 use App\Support\Countries;
 use App\Support\Marketplace\Catalog;
 use App\Support\Marketplace\Money;
@@ -22,8 +24,8 @@ use Filament\Tables\Table;
 
 /**
  * Proveedores del marketplace de repuestos (solo SuperAdmin): revisar,
- * aprobar, rechazar, suspender, reactivar, notas internas, estado comercial
- * (prueba y suscripción), cobros, destacados y el registro de acciones.
+ * aprobar, rechazar, suspender, reactivar, notas internas, plan (gratuito o
+ * Premium) y uso del límite, cobros, destacados y el registro de acciones.
  */
 class SupplierResource extends Resource
 {
@@ -78,27 +80,31 @@ class SupplierResource extends Resource
                     ->color(fn ($state) => match ($state) {
                         'approved' => 'success', 'pending' => 'warning', default => 'danger'
                     }),
-                TextColumn::make('standing')->label('Estado comercial')->state(fn (Supplier $r) => SupplierStanding::label(SupplierStanding::of($r, once(fn () => MarketplaceSettings::current()))))
-                    ->badge()->color(fn (Supplier $r) => SupplierStanding::operating($r, once(fn () => MarketplaceSettings::current())) ? 'success' : 'gray')
-                    ->description(fn (Supplier $r) => $r->trial_ends_at ? 'Prueba hasta '.$r->trial_ends_at->format('d/m/Y') : null),
+                TextColumn::make('standing')->label('Estado')->state(fn (Supplier $r) => SupplierStanding::label(SupplierStanding::of($r)))
+                    ->badge()->color(fn (Supplier $r) => match (SupplierStanding::of($r)) {
+                        'premium' => 'warning', 'free' => 'success', default => 'gray'
+                    }),
+                TextColumn::make('usage')->label('Publicados')->state(function (Supplier $r) {
+                    $u = PublicationLimits::usage($r, once(fn () => MarketplaceSettings::current()));
+
+                    return $u['published'].' de '.$u['limit'].($u['over_limit'] ? ' · '.$u['over_limit'].' fuera del límite' : '');
+                }),
                 TextColumn::make('products_count')->label('Productos')->counts('products'),
                 TextColumn::make('created_at')->label('Alta')->dateTime('d/m/Y')->sortable(),
             ])
             ->modifyQueryUsing(fn ($query) => $query->with('subscription'))
             ->filters([
                 SelectFilter::make('status')->label('Moderación')->options(Supplier::STATUSES),
-                SelectFilter::make('comercial')->label('Estado comercial')->options([
-                    'trial' => 'En prueba', 'trial_soon' => 'Prueba vence en 7 días', 'active' => 'Suscripción activa', 'pending' => 'Suscripción pendiente de pago',
-                    'canceled' => 'Suscripción cancelada', 'past_due' => 'Cobro rechazado', 'operating' => 'Habilitados (catálogo visible)', 'not_operating' => 'Aprobados sin habilitación (prueba o suscripción vencida)',
+                SelectFilter::make('plan')->label('Plan')->options([
+                    'premium' => 'Premium activo', 'free' => 'Plan gratuito', 'pending' => 'Premium pendiente de pago',
+                    'canceled' => 'Premium cancelado', 'past_due' => 'Cobro de Premium rechazado', 'over_limit' => 'Con productos fuera del límite',
                 ])->query(fn ($query, array $data) => match ($data['value'] ?? null) {
-                    'trial' => $query->where('status', Supplier::APPROVED)->where('trial_ends_at', '>', now()),
-                    'trial_soon' => $query->where('status', Supplier::APPROVED)->whereBetween('trial_ends_at', [now(), now()->addDays(7)]),
-                    'active' => $query->whereHas('subscription', fn ($q) => $q->where('current_period_end', '>', now())),
+                    'premium' => $query->whereHas('subscription', fn ($q) => $q->where('current_period_end', '>', now())),
+                    'free' => $query->whereDoesntHave('subscription', fn ($q) => $q->where('current_period_end', '>', now())),
                     'pending' => $query->whereHas('subscription', fn ($q) => $q->where('status', SupplierSubscription::PENDING)),
                     'canceled' => $query->whereHas('subscription', fn ($q) => $q->where('status', SupplierSubscription::CANCELED)),
                     'past_due' => $query->whereHas('subscription', fn ($q) => $q->where('status', SupplierSubscription::PAST_DUE)),
-                    'operating' => $query->operating(),
-                    'not_operating' => $query->where('status', Supplier::APPROVED)->whereNull('closed_at')->whereNotIn('id', Supplier::operating()->select('suppliers.id')),
+                    'over_limit' => $query->whereHas('products', fn ($q) => $q->where('status', SupplierProduct::OVER_LIMIT)),
                     default => $query,
                 }),
             ])
@@ -127,13 +133,17 @@ class SupplierResource extends Resource
                 TextEntry::make('description')->label('Descripción')->placeholder('—')->columnSpanFull(),
                 TextEntry::make('admin_notes')->label('Notas administrativas (no las ve el proveedor)')->placeholder('—')->columnSpanFull(),
             ]),
-            Section::make('Estado comercial')->columns(['default' => 1, 'md' => 3])->columnSpanFull()->schema([
+            Section::make('Plan y publicaciones')->columns(['default' => 1, 'md' => 3])->columnSpanFull()->schema([
                 TextEntry::make('standing')->label('Estado')->state(fn (Supplier $r) => SupplierStanding::label($r->standing()))->badge(),
-                TextEntry::make('trial')->label('Prueba')->state(fn (Supplier $r) => $r->trial_ends_at ? $r->trial_started_at?->format('d/m/Y').' al '.$r->trial_ends_at->format('d/m/Y') : 'Empieza al aprobarlo'),
+                TextEntry::make('premium')->label('Premium')->state(fn (Supplier $r) => SupplierStanding::premiumDetail($r))->placeholder('No contratado'),
+                TextEntry::make('usage')->label('Publicaciones')->state(function (Supplier $r) {
+                    $u = PublicationLimits::usage($r);
+
+                    return "{$u['published']} publicados de {$u['limit']} · {$u['drafts']} borradores · {$u['over_limit']} fuera del límite";
+                }),
                 TextEntry::make('currency')->label('Moneda de sus precios'),
-                TextEntry::make('subscription.status')->label('Suscripción')->formatStateUsing(fn ($state) => SupplierSubscription::STATUSES[$state] ?? $state)->placeholder('Sin suscripción'),
-                TextEntry::make('subscription.amount')->label('Importe mensual')->state(fn (Supplier $r) => $r->subscription ? Money::format((float) $r->subscription->amount, $r->subscription->currency) : null)->placeholder('—'),
-                TextEntry::make('subscription.current_period_end')->label('Pagada hasta')->dateTime('d/m/Y')->placeholder('—'),
+                TextEntry::make('subscription.amount')->label('Importe de Premium')->state(fn (Supplier $r) => $r->subscription ? Money::format((float) $r->subscription->amount, $r->subscription->currency) : null)->placeholder('—'),
+                TextEntry::make('subscription.current_period_end')->label('Premium pagado hasta')->dateTime('d/m/Y')->placeholder('—'),
             ]),
             Section::make('Cobros, destacados y acciones administrativas')->columnSpanFull()->schema([
                 ViewEntry::make('history')->view('filament.marketplace.supplier-history')->columnSpanFull(),

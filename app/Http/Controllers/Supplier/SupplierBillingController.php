@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Marketplace\MarketplaceSettings;
 use App\Services\Marketplace\Billing\SupplierBilling;
 use App\Services\Marketplace\Billing\SupplierSubscriptions;
+use App\Services\Marketplace\PublicationLimits;
 use App\Services\MercadoPagoApiException;
-use App\Support\Marketplace\SupplierStanding;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -16,8 +16,8 @@ use Illuminate\View\View;
 use Throwable;
 
 /**
- * «Suscripción» del proveedor: estado comercial, prueba, suscripción,
- * historial de cobros, suscribirse y cancelar. Al volver de Mercado Pago NO
+ * «Plan» del proveedor: uso del límite de publicaciones, plan gratuito y
+ * Premium, historial de cobros, contratar y cancelar Premium. Al volver de Mercado Pago NO
  * se activa nada por el retorno: se vuelve a consultar la API (y el webhook
  * confirma igual).
  */
@@ -42,11 +42,12 @@ class SupplierBillingController extends Controller
         return view('suppliers.billing', [
             'supplier' => $supplier,
             'settings' => $settings,
-            'state' => SupplierStanding::of($supplier, $settings),
+            'usage' => PublicationLimits::usage($supplier, $settings),
             'subscription' => $supplier->subscription,
             'blockReason' => SupplierSubscriptions::blockReason($supplier, $settings),
             'payments' => $supplier->payments()->with('placement')->limit(50)->get(),
-            'billable' => SupplierBilling::supportsCountry($supplier->country),
+            'billable' => $settings->chargesIn($supplier->country),
+            'featuredOffers' => $settings->chargesIn($supplier->country) && SupplierBilling::canCharge($supplier) ? $settings->featuredOffers() : [],
         ]);
     }
 
@@ -77,6 +78,6 @@ class SupplierBillingController extends Controller
             return back()->withErrors(['suscripcion' => 'No pudimos cancelarla. Intentá de nuevo en unos minutos o escribinos.']);
         }
 
-        return back()->with('status', 'Suscripción cancelada: no se te va a volver a cobrar. Los días ya pagados se respetan.');
+        return back()->with('status', 'Premium cancelado: no se te va a volver a cobrar. Sigue hasta el fin del período pago y después volvés al plan gratuito.');
     }
 }
