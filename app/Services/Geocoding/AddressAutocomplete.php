@@ -3,6 +3,8 @@
 namespace App\Services\Geocoding;
 
 use App\Models\Building;
+use App\Models\Company;
+use App\Support\Countries;
 use App\Support\Geocoding\BuildingAddress;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -29,8 +31,9 @@ class AddressAutocomplete
     /**
      * @return array<string, string> token => dirección legible
      */
-    public function search(string $text, ?int $companyId): array
+    public function search(string $text, ?int $companyId, ?string $country = null): array
     {
+        $country = strtolower(Countries::normalize($country ?: ($companyId ? Company::whereKey($companyId)->value('country') : null)));
         $text = Str::squish($text);
 
         // Con menos de 4 letras no hay nada útil (y se ahorran créditos).
@@ -42,9 +45,9 @@ class AddressAutocomplete
 
         try {
             $results = Cache::remember(
-                'geo:ac:'.md5(mb_strtolower($text).'|'.json_encode($near)),
+                'geo:ac:'.md5(mb_strtolower($text).'|'.json_encode($near).'|'.$country),
                 now()->addDay(),
-                fn () => $this->client->autocomplete($text, $near),
+                fn () => $this->client->autocomplete($text, $near, $country),
             );
         } catch (GeocodingUnavailableException $e) {
             Log::info('Autocompletado de direcciones no disponible', ['error' => $e->getMessage()]);
@@ -130,7 +133,7 @@ class AddressAutocomplete
     /**
      * Resultado de Geoapify → campos del formulario de edificios.
      *
-     * @return array{name: ?string, address: ?string, locality: ?string, municipality: ?string, neighborhood: ?string, province: ?string}
+     * @return array{name: ?string, address: ?string, locality: ?string, municipality: ?string, neighborhood: ?string, province: ?string, country: string}
      */
     public function toBuildingFields(array $result): array
     {
@@ -147,14 +150,21 @@ class AddressAutocomplete
         }
 
         $housenumber = $clean($result['housenumber'] ?? null);
+        $country = Countries::normalize($result['country_code'] ?? null);
 
         return [
             'name' => $clean($result['street'] ?? null),
-            'address' => $housenumber !== null && preg_match('/\d+/', $housenumber, $m) ? $m[0] : null,
+            // Argentina: la altura. Otros países: el número como viene («12-34»).
+            'address' => match (true) {
+                $housenumber === null => null,
+                $country !== 'AR' => mb_substr($housenumber, 0, 20),
+                default => preg_match('/\d+/', $housenumber, $m) ? $m[0] : null,
+            },
             'locality' => $clean($result['city'] ?? null),
             'municipality' => $municipality,
             'neighborhood' => $clean($result['suburb'] ?? ($result['district'] ?? null)),
             'province' => $clean($result['state'] ?? null),
+            'country' => $country,
         ];
     }
 

@@ -269,7 +269,7 @@ class BuildingsMap extends Page
         $editUrl = BuildingResource::getUrl('edit', ['record' => '__ID__']);
 
         return $this->unlocatedQuery()
-            ->with(['client:id,name', 'company:id,province'])
+            ->with(['client:id,name', 'company:id,province,country'])
             ->orderByRaw("CASE geocoding_status WHEN 'needs_review' THEN 0 WHEN 'error' THEN 1 ELSE 2 END")
             ->orderBy('name')
             ->limit(self::LIST_LIMIT)
@@ -412,7 +412,7 @@ class BuildingsMap extends Page
         }
 
         // findOrFail dentro de la empresa actual: un id de otra empresa da 404.
-        $building = $this->buildingsQuery()->with(['client:id,name', 'company:id,province'])->findOrFail($buildingId);
+        $building = $this->buildingsQuery()->with(['client:id,name', 'company:id,province,country'])->findOrFail($buildingId);
 
         $building->forceFill([
             'latitude' => round((float) $latitude, 7),

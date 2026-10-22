@@ -3,6 +3,7 @@
 namespace App\Support\Geocoding;
 
 use App\Models\Building;
+use App\Support\Countries;
 use Illuminate\Support\Str;
 
 /**
@@ -15,8 +16,10 @@ use Illuminate\Support\Str;
  *   municipality  → municipio / partido (ej. "Tigre"), opcional
  *   neighborhood  → barrio (ej. "Nordelta", "Palermo"), opcional
  *   province      → provincia, opcional (texto libre: "CABA", "Bs As"...)
- * No hay código postal ni país: Ascento opera en Argentina, y si falta la
- * provincia se usa la de la empresa.
+ *   country       → país (Latinoamérica), opcional: si falta, el de la empresa
+ *                   (y si tampoco, Argentina)
+ * Si falta la provincia se usa la de la empresa (solo si es del mismo país).
+ * Los alias de CABA y Provincia de Buenos Aires solo se aplican en Argentina.
  *
  * Con eso se arma una búsqueda ESTRUCTURADA (street / housenumber / city /
  * state) en vez de concatenar todo en un texto libre: es más precisa y
@@ -63,8 +66,10 @@ class BuildingAddress
 
     public static function fromBuilding(Building $building): self
     {
+        $country = Countries::normalize($building->country ?: $building->company?->country);
         $street = self::clean($building->name) ?? '';
-        $number = self::extractNumber($building->address);
+        // Argentina: solo la altura. Otros países: el número como se escribe allá («12-34», «1234 B»).
+        $number = $country === 'AR' ? self::extractNumber($building->address) : self::localNumber($building->address);
 
         // Compatibilidad: si el número quedó pegado a la calle ("Cabildo 1234").
         if ($number === null && preg_match('/^(.*\D)\s+(\d{1,6})$/u', $street, $m)) {
@@ -72,17 +77,20 @@ class BuildingAddress
             $number = $m[2];
         }
 
+        $sameCountryAsCompany = $country === Countries::normalize($building->company?->country);
+        $argentina = $country === 'AR';
+
         $province = self::clean($building->province)
-            ?? self::clean($building->company?->province);
+            ?? ($sameCountryAsCompany ? self::clean($building->company?->province) : null);
 
         $state = null;
         $isCaba = false;
 
         if ($province !== null) {
-            if (self::isCaba($province)) {
+            if ($argentina && self::isCaba($province)) {
                 $state = self::CABA_STATE;
                 $isCaba = true;
-            } elseif (self::isPba($province)) {
+            } elseif ($argentina && self::isPba($province)) {
                 $state = 'Buenos Aires';
             } else {
                 $state = $province;
@@ -98,7 +106,7 @@ class BuildingAddress
                 continue;
             }
 
-            if (self::isCaba($value)) {
+            if ($argentina && self::isCaba($value)) {
                 $isCaba = true;
                 $state = self::CABA_STATE;
 
@@ -126,7 +134,7 @@ class BuildingAddress
             number: $number,
             cities: $cities,
             state: $state,
-            countryCode: strtolower((string) config('services.geoapify.country_code', 'ar')),
+            countryCode: strtolower($country),
         );
     }
 
@@ -180,7 +188,7 @@ class BuildingAddress
             trim($this->street.' '.$this->number),
             ...$this->cities,
             $this->state,
-            $this->countryCode === 'ar' ? 'Argentina' : strtoupper($this->countryCode),
+            Countries::name($this->countryCode),
         ]);
 
         return mb_substr(implode(', ', $parts), 0, 255);
@@ -200,6 +208,14 @@ class BuildingAddress
         }
 
         return null;
+    }
+
+    /** Número fuera de Argentina: letras, números, guiones y barras; tiene que tener algún dígito. */
+    private static function localNumber(?string $value): ?string
+    {
+        $value = Str::squish((string) preg_replace('/[^0-9A-Za-z\-\/ ]/u', ' ', (string) $value));
+
+        return $value !== '' && preg_match('/\d/', $value) ? mb_substr($value, 0, 20) : null;
     }
 
     private static function key(string $value): string

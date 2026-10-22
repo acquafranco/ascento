@@ -37,6 +37,7 @@ class Company extends Model
         'address',
         'city',
         'province',
+        'country',
         'postal_code',
         'activity',
         'gross_income_number',

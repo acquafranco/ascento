@@ -38,6 +38,7 @@ use App\Models\Task;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderMaterial;
+use App\Support\Countries;
 use App\Support\ElevatorComponents;
 use App\Support\WorkOrderLabels;
 use Carbon\Carbon;
@@ -275,7 +276,7 @@ class CompanyDataExporter
             'Condición frente al IVA' => $company->tax_condition, 'Actividad' => $company->activity,
             'Ingresos Brutos' => $company->gross_income_number, 'Inicio de actividades' => $company->activity_started_at,
             'Email' => $company->email, 'Teléfono' => $company->phone, 'Domicilio' => $company->address,
-            'Localidad' => $company->city, 'Provincia' => $company->province, 'Código postal' => $company->postal_code,
+            'Localidad' => $company->city, 'Provincia' => $company->province, 'País' => Countries::name($company->country), 'Código postal' => $company->postal_code,
             'Banco' => $company->bank_name, 'CBU / CVU' => $company->bank_cbu, 'Alias' => $company->bank_alias,
             'Plan' => $company->plan()->name, 'Alta en Ascento' => $company->created_at, 'Exportado el' => now(),
         ] as $label => $value) {
@@ -286,8 +287,8 @@ class CompanyDataExporter
         $this->sheet('Clientes', ['ID', 'Nombre', 'Tipo', 'Contacto', 'Teléfono', 'Email', 'Notas', 'Activo', 'Eliminado', 'Alta'],
             $this->scoped(Client::class, true), fn ($c) => [$c->id, $c->name, $c->type, $c->contact_person, $c->phone, $c->email, $c->notes, (bool) $c->is_active, $c->deleted_at !== null, $c->created_at]);
 
-        $this->sheet('Edificios', ['ID', 'Cliente ID', 'Cliente', 'Nombre', 'Dirección', 'Localidad', 'Municipio', 'Provincia', 'Barrio', 'Contacto', 'Teléfono', 'Ascensores', 'Montacargas', 'Tracción', 'Hidráulicos', 'Latitud', 'Longitud', 'Notas', 'Activo', 'Eliminado', 'Alta'],
-            $this->scoped(Building::class, true), fn ($b) => [$b->id, $b->client_id, $this->name('clients', $b->client_id), $b->name, $b->address, $b->locality, $b->municipality, $b->province, $b->neighborhood, $b->contact_person, $b->phone,
+        $this->sheet('Edificios', ['ID', 'Cliente ID', 'Cliente', 'Nombre', 'Dirección', 'Localidad', 'Municipio', 'Provincia', 'Barrio', 'País', 'Contacto', 'Teléfono', 'Ascensores', 'Montacargas', 'Tracción', 'Hidráulicos', 'Latitud', 'Longitud', 'Notas', 'Activo', 'Eliminado', 'Alta'],
+            $this->scoped(Building::class, true), fn ($b) => [$b->id, $b->client_id, $this->name('clients', $b->client_id), $b->name, $b->address, $b->locality, $b->municipality, $b->province, $b->neighborhood, Countries::name($b->country ?: $company->country), $b->contact_person, $b->phone,
                 (int) $b->elevator_count, (int) $b->freight_elevator_count, (int) $b->traction_elevator_count, (int) $b->hydraulic_elevator_count, $b->latitude !== null ? (float) $b->latitude : null, $b->longitude !== null ? (float) $b->longitude : null, $b->notes, (bool) $b->is_active, $b->deleted_at !== null, $b->created_at]);
 
         $this->sheet('Ascensores', ['ID', 'Edificio ID', 'Edificio', 'Equipo', 'Tipo', 'Activo', 'Fabricante', 'Modelo', 'N° de serie', 'Año', 'Capacidad (kg)', 'Personas', 'Velocidad (m/s)', 'Paradas', 'Instalación*', 'Instalador', 'Máquina', 'Controlador', 'Marca del control', 'Modelo del control', 'Motor', 'Puertas', 'Operador de puertas', 'Otros componentes', 'Notas'],
