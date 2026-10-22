@@ -57,4 +57,27 @@ class MarketplaceCommercialMigrationTest extends TestCase
         $this->expectException(QueryException::class);
         DB::table('suppliers')->where('id', $approved->id)->delete();
     }
+
+    public function test_admin_featured_products_from_before_the_history_keep_their_label(): void
+    {
+        [$supplier] = $this->makeSupplier();
+        $current = $this->makeProduct($supplier, ['name' => 'Vigente']);
+        $expired = $this->makeProduct($supplier, ['name' => 'Vencido']);
+        DB::table('supplier_products')->where('id', $current->id)->update(['featured_until' => now()->addDays(10)]);
+        DB::table('supplier_products')->where('id', $expired->id)->update(['featured_until' => now()->subDay()]);
+        $this->assertFalse($current->fresh()->isFeatured());
+
+        $migration = require base_path('database/migrations/2027_01_19_100000_backfill_admin_featured_placements.php');
+        $migration->up();
+        $migration->up(); // se puede correr dos veces
+
+        $this->assertSame(1, DB::table('featured_placements')->count());
+        $this->assertTrue($current->fresh()->isFeatured());
+        $this->assertFalse($expired->fresh()->isFeatured());
+        $this->assertSame('admin', DB::table('featured_placements')->value('source'));
+        $this->assertNull(DB::table('featured_placements')->value('amount'));
+
+        $migration->down();
+        $this->assertSame(0, DB::table('featured_placements')->count());
+    }
 }

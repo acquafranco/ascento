@@ -56,7 +56,7 @@ comisiones por ventas, no procesa los pagos de repuestos y no gestiona envíos.
 - Se avisa al proveedor.
 - Puede cambiar cuáles publica en cualquier momento, siempre dentro del límite.
 - Al reactivar Premium, «Volver a publicar los que entran» republica lo que quedó fuera del límite (no lo oculto por moderación).
-- **Demora:** hasta que corre la tarea (máximo 15 minutos), los productos de más siguen visibles.
+- **Sin demora:** la visibilidad pública (`SupplierProduct::visible()`, que usa `PublicationLimits::withinLimit()`) aplica el límite del plan vigente en el momento, con el mismo orden que la tarea. Cuando vence un Premium, lo que excede deja de verse en ese instante y no se puede pedir. La tarea después marca los estados y avisa.
 
 ### Otros datos
 - **País:** el registrado y validado con la identificación fiscal; el proveedor no puede cambiarlo. La moneda de sus precios sale del país (`config/marketplace.php`).
@@ -80,6 +80,8 @@ comisiones por ventas, no procesa los pagos de repuestos y no gestiona envíos.
   - Si el producto deja de ser elegible antes del pago, queda «Pagado: requiere revisión» y se avisa al equipo.
   - Una devolución o un contracargo lo cancela.
   - Ocultar, retirar o pasar a «fuera del límite» termina el destacado.
+- **Pago duplicado de un destacado:** una preferencia de Checkout Pro se puede pagar más de una vez. Un segundo pago aprobado para la misma compra no activa otro período: queda marcado «Pago duplicado: devolver» y se avisa al equipo.
+- **Cobros aprobados:** solo una devolución o un contracargo los cambia. Un aviso viejo «pendiente» o «rechazado» no los retrocede. Si se devuelve una cuota de Premium, queda «Devuelto» y se avisa al equipo, pero el período no se recorta solo.
 - **Devoluciones** (procedimiento administrativo):
   1. El proveedor la pide por correo.
   2. El SuperAdmin revisa el caso en «Destacados de repuestos» y «Cobros a proveedores».
@@ -177,6 +179,11 @@ Zona horaria: `America/Argentina/Buenos_Aires`. Una cotización vence a las 23:5
 4. La regla para cuando un Premium vuelve al plan gratuito y no eligió: «más recientes» o «más antiguas».
 5. Si en el futuro se cobra en otros países, hace falta una pasarela y precios en su moneda.
 6. Comisión por ventas: **no implementada** y fuera de alcance.
+
+## 7b. Migraciones de esta etapa
+
+- `2027_01_18_100000_marketplace_commercial_model`: ya está en `main` (PR #118). **No se edita más**; si ya corrió en algún entorno, cualquier cambio va en una migración nueva.
+- `2027_01_19_100000_backfill_admin_featured_placements`: pasa al historial los destacados vigentes que el SuperAdmin asignó antes (solo `featured_until`). Se puede correr más de una vez, y `down()` quita solo lo que creó.
 
 ## 8. Para cobrar de verdad (pendiente de verificar con credenciales reales)
 

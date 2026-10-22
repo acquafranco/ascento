@@ -263,6 +263,52 @@ class SupplierBillingTest extends TestCase
         $this->assertSame(1, FeaturedPlacement::count());
     }
 
+    public function test_a_second_payment_for_the_same_featured_purchase_never_activates_twice_and_is_flagged(): void
+    {
+        $super = User::factory()->superAdmin()->create();
+        [$supplier, $user] = $this->makeSupplier();
+        $product = $this->makeProduct($supplier);
+        $this->actingAs($user)->post(route('suppliers.featured.purchase'), ['producto' => $product->id, 'dias' => 7]);
+        $placement = FeaturedPlacement::sole();
+        // Volver de Mercado Pago con «approved» en la URL no activa nada: la API no tiene ningún pago todavía.
+        $this->get(route('suppliers.featured', ['mp' => 'return', 'status' => 'approved', 'collection_status' => 'approved', 'payment_id' => '999']))->assertOk();
+        $this->assertSame(FeaturedPlacement::PENDING_PAYMENT, $placement->fresh()->status);
+        foreach ([501, 502] as $id) {
+            $this->api["/v1/payments/{$id}"] = ['id' => $id, 'status' => 'approved', 'external_reference' => $placement->external_reference, 'transaction_amount' => 5000, 'currency_id' => 'ARS'];
+            $this->webhook('payment', (string) $id)->assertOk();
+        }
+        $placement->refresh();
+        $this->assertSame(FeaturedPlacement::ACTIVE, $placement->status);
+        $this->assertTrue($placement->ends_at->between(now()->addDays(7)->subMinute(), now()->addDays(7)->addMinute())); // un solo período
+        $this->assertSame(1, FeaturedPlacement::count());
+        $this->assertSame('Pago duplicado: devolver', SupplierPayment::where('mp_payment_id', '502')->value('status_detail'));
+        $this->assertSame(1, $super->notifications()->where('data->title', 'Pago duplicado de un destacado')->count());
+    }
+
+    public function test_an_approved_premium_charge_only_changes_with_a_refund(): void
+    {
+        $super = User::factory()->superAdmin()->create();
+        [$supplier, $user] = $this->makeSupplier();
+        $this->actingAs($user)->post(route('suppliers.billing.subscribe'));
+        $this->preapproval('PRE1', $supplier, 'authorized');
+        $this->installment('AP1', 'PRE1', $supplier, 'approved');
+        $this->webhook('subscription_authorized_payment', 'AP1');
+        $end = SupplierSubscription::sole()->current_period_end;
+
+        // Aviso viejo «rechazado» después de aprobado: no lo retrocede ni corta Premium.
+        $this->api['/v1/payments/PAP1']['status'] = 'rejected';
+        $this->webhook('subscription_authorized_payment', 'AP1')->assertOk();
+        $this->assertSame(SupplierPayment::APPROVED, SupplierPayment::sole()->status);
+        $this->assertSame(SupplierSubscription::AUTHORIZED, SupplierSubscription::sole()->status);
+
+        // Devolución: queda registrada y se avisa al equipo; el período no se recorta solo.
+        $this->api['/v1/payments/PAP1']['status'] = 'refunded';
+        $this->webhook('subscription_authorized_payment', 'AP1')->assertOk();
+        $this->assertSame(SupplierPayment::REFUNDED, SupplierPayment::sole()->status);
+        $this->assertTrue(SupplierSubscription::sole()->current_period_end->equalTo($end));
+        $this->assertSame(1, $super->notifications()->where('data->title', 'Cobro de Premium devuelto')->count());
+    }
+
     public function test_company_subscriptions_are_not_mixed_with_suppliers(): void
     {
         [$supplier, $user] = $this->makeSupplier();

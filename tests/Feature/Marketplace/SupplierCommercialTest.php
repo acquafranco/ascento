@@ -3,6 +3,7 @@
 namespace Tests\Feature\Marketplace;
 
 use App\Filament\Pages\Marketplace\PartsCatalog;
+use App\Filament\Pages\MarketplaceSettingsPage;
 use App\Filament\Resources\Marketplace\Pages\ListSupplierProducts;
 use App\Models\Marketplace\FeaturedPlacement;
 use App\Models\Marketplace\MarketplaceRequest;
@@ -61,6 +62,10 @@ class SupplierCommercialTest extends TestCase
         $this->assertSame(SupplierStanding::FREE, $supplier->standing());
         $this->actingAs($user)->get(route('suppliers.billing'))->assertOk()->assertSee('Plan gratuito')->assertSee('0 de 20 productos publicados')
             ->assertSee('Premium todavía no está disponible')->assertDontSee('Contratar Premium con Mercado Pago')->assertDontSee('prueba gratuita');
+
+        // Los términos muestran los límites de la configuración, no números fijos.
+        $this->limits(25, 1500);
+        $this->get(route('legal.terms'))->assertSee('(hoy, 25)')->assertSee('hasta 1.500 productos');
     }
 
     public function test_the_free_limit_counts_published_products_only_and_keeps_extra_ones_as_drafts(): void
@@ -155,6 +160,39 @@ class SupplierCommercialTest extends TestCase
         $this->assertSame(0, SupplierProduct::where('status', SupplierProduct::OVER_LIMIT)->count());
     }
 
+    public function test_when_premium_ends_the_catalog_respects_the_free_limit_before_the_scheduled_task_runs(): void
+    {
+        $this->limits(2, 10);
+        [$supplier] = $this->makeSupplier();
+        $this->premium($supplier);
+        $keep = $this->makeProduct($supplier, ['name' => 'Elegido', 'published_at' => now()->subDays(50)]);
+        $keep->forceFill(['keep_on_free' => true])->save();
+        $old = $this->makeProduct($supplier, ['name' => 'Viejo', 'published_at' => now()->subDays(40)]);
+        $recent = $this->makeProduct($supplier, ['name' => 'Reciente', 'published_at' => now()->subDays(1)]);
+        $mid = $this->makeProduct($supplier, ['name' => 'Medio', 'published_at' => now()->subDays(20)]);
+        $this->assertSame(4, SupplierProduct::visible()->count());
+
+        // Vence Premium y todavía no corrió marketplace:tick: el catálogo ya muestra solo 2, los mismos que dejará la tarea.
+        $this->travel(32)->days();
+        $this->assertSame(4, PublicationLimits::counted($supplier->id)->count()); // estados sin tocar todavía
+        $visible = SupplierProduct::visible()->pluck('id')->all();
+        $this->assertEqualsCanonicalizing([$keep->id, $recent->id], $visible);
+        $this->assertFalse($old->fresh()->isVisible());
+        $a = $this->makeTenant();
+        try {
+            app(MarketplaceRequests::class)->create($a['admin'], $supplier->id, [$mid->id => 1], ['contact_name' => 'Ana', 'contact_email' => 'ana@e.test'], 'k');
+            $this->fail('Se pidió un producto que excede el límite del plan');
+        } catch (ValidationException) {
+        }
+
+        Artisan::call('marketplace:tick');
+        $this->assertEqualsCanonicalizing($visible, PublicationLimits::counted($supplier->id)->pluck('id')->all());
+        $this->assertEqualsCanonicalizing($visible, SupplierProduct::visible()->pluck('id')->all());
+        // La moderación manda: ocultar uno visible no hace aparecer otro que quedó fuera del límite.
+        $recent->forceFill(['hidden_by_admin' => true])->save();
+        $this->assertSame([$keep->id], SupplierProduct::visible()->pluck('id')->all());
+    }
+
     public function test_without_a_choice_the_rule_is_deterministic_and_featured_products_stay(): void
     {
         $this->limits(2, 10);
@@ -226,6 +264,29 @@ class SupplierCommercialTest extends TestCase
         // Si el SuperAdmin quita Argentina de los países con cobro, tampoco se ofrece allí.
         MarketplaceSettings::current()->update(['billing_countries' => []]);
         $this->assertFalse(MarketplaceSettings::current()->chargesIn('AR'));
+    }
+
+    public function test_a_supplier_can_not_touch_another_suppliers_products_requests_or_settings(): void
+    {
+        [$mine, $me] = $this->makeSupplier();
+        [$other, $otherUser] = $this->makeSupplier(Supplier::APPROVED, 'Competidor');
+        $theirs = $this->makeProduct($other, ['name' => 'Ajeno', 'status' => SupplierProduct::DRAFT]);
+        $a = $this->makeTenant();
+        $visible = $this->makeProduct($other, ['name' => 'Visible']);
+        $request = app(MarketplaceRequests::class)->create($a['admin'], $other->id, [$visible->id => 1], ['contact_name' => 'Ana', 'contact_email' => 'ana@e.test'], 'k');
+        auth()->logout();
+        $this->actingAs($me);
+
+        $this->get(route('suppliers.products.edit', $theirs->id))->assertNotFound();
+        $this->post(route('suppliers.products.status', $theirs->id), ['estado' => 'published'])->assertNotFound();
+        $this->post(route('suppliers.products.keep', $theirs->id), ['conservar' => 1])->assertNotFound();
+        $this->put(route('suppliers.products.update', $theirs->id), ['name' => 'X', 'category' => 'doors', 'price_mode' => 'quote', 'availability' => 'in_stock'])->assertNotFound();
+        $this->post(route('suppliers.featured.purchase'), ['producto' => $visible->id, 'dias' => 7])->assertNotFound();
+        $this->get(route('suppliers.requests.show', $request->reference))->assertNotFound();
+        $this->post(route('suppliers.requests.comment', $request->reference), ['comentario' => 'Hola'])->assertNotFound();
+        $this->get(MarketplaceSettingsPage::getUrl())->assertRedirect();
+        $this->assertSame([SupplierProduct::DRAFT, 'Ajeno'], [$theirs->fresh()->status, $theirs->fresh()->name]);
+        $this->assertSame(0, $request->events()->where('kind', 'note')->count());
     }
 
     public function test_the_plan_never_blocks_operations_of_a_free_supplier(): void

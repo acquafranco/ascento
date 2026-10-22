@@ -6,8 +6,11 @@ use App\Models\Marketplace\FeaturedPlacement;
 use App\Models\Marketplace\MarketplaceSettings;
 use App\Models\Marketplace\Supplier;
 use App\Models\Marketplace\SupplierProduct;
+use App\Models\Marketplace\SupplierSubscription;
 use App\Support\Marketplace\SupplierStanding;
+use Closure;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -33,6 +36,37 @@ class PublicationLimits
     public static function counted(int $supplierId): Builder
     {
         return SupplierProduct::where('supplier_id', $supplierId)->where('status', SupplierProduct::PUBLISHED)->where('hidden_by_admin', false);
+    }
+
+    /**
+     * Subconsulta (para whereIn) con los ids de productos publicados que
+     * ENTRAN en el límite del plan de su proveedor HOY, con el mismo orden que
+     * enforce(): «conservar», destacado vigente, fecha de publicación según la
+     * regla configurada y el id. Así, cuando vence un Premium, lo que excede el
+     * límite deja de verse en ese mismo momento, sin esperar a marketplace:tick
+     * (que después lo marca como «fuera del límite» y avisa).
+     */
+    public static function withinLimit(): Closure
+    {
+        $settings = MarketplaceSettings::current();
+        $now = now();
+        $dir = $settings->overLimitRule() === 'recent' ? 'desc' : 'asc';
+
+        return function (QueryBuilder $query) use ($settings, $now, $dir) {
+            $featured = DB::table('featured_placements')->select('supplier_product_id')->distinct()
+                ->where('status', FeaturedPlacement::ACTIVE)->where('starts_at', '<=', $now)->where('ends_at', '>', $now);
+            $ranked = DB::table('supplier_products as sp')
+                ->leftJoinSub($featured, 'fp', 'fp.supplier_product_id', '=', 'sp.id')
+                ->where('sp.status', SupplierProduct::PUBLISHED)->where('sp.hidden_by_admin', false)
+                ->selectRaw("sp.id, sp.supplier_id, row_number() over (partition by sp.supplier_id order by sp.keep_on_free desc, case when fp.supplier_product_id is null then 0 else 1 end desc, sp.published_at {$dir}, sp.id {$dir}) as rn");
+            $premium = DB::table('supplier_subscriptions')->select('supplier_id')
+                ->where(fn ($w) => $w->where('current_period_end', '>', $now)
+                    ->orWhere(fn ($p) => $p->where('status', SupplierSubscription::PAST_DUE)->where('current_period_end', '>', $now->copy()->subDays(SupplierSubscription::PAST_DUE_GRACE_DAYS))));
+
+            $query->select('r.id')->fromSub($ranked, 'r')
+                ->leftJoinSub($premium, 'ps', 'ps.supplier_id', '=', 'r.supplier_id')
+                ->whereRaw('r.rn <= case when ps.supplier_id is null then ? else ? end', [$settings->freeLimit(), $settings->premiumLimit()]);
+        };
     }
 
     /** @return array{limit: int, published: int, remaining: int, drafts: int, over_limit: int, paused: int, premium: bool} */
