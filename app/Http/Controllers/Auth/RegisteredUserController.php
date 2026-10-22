@@ -6,12 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
-use App\Rules\Cuit;
+use App\Rules\TaxId;
 use App\Rules\UniqueUserEmail;
 use App\Services\Onboarding\CompanySetup;
 use App\Support\Auth\PasswordPolicy;
 use App\Support\Auth\RegistrationChallenge;
 use App\Support\Auth\UserEmail;
+use App\Support\Countries;
 use App\Support\Provinces;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -37,7 +38,7 @@ class RegisteredUserController extends Controller
      */
     public static function cuitTakenMessage(): string
     {
-        return 'Ya hay una cuenta de Ascento para ese CUIT. Si sos parte de esa empresa, pedile a su administrador que te cree un usuario, o recuperá tu contraseña desde "¿Olvidaste tu contraseña?". Si creés que es un error, escribinos a '.config('app.support_email').'.';
+        return 'Ya hay una cuenta de Ascento para esa identificación fiscal. Si sos parte de esa empresa, pedile a su administrador que te cree un usuario, o recuperá tu contraseña desde "¿Olvidaste tu contraseña?". Si creés que es un error, escribinos a '.config('app.support_email').'.';
     }
 
     public function store(Request $request): RedirectResponse
@@ -47,6 +48,12 @@ class RegisteredUserController extends Controller
 
         // Mismo correo con otras mayúsculas o espacios = la misma cuenta.
         $request->merge(['email' => UserEmail::normalize((string) $request->input('email'))]);
+        // País de la empresa (Latinoamérica). Sin elegir (formulario viejo), Argentina como
+        // hasta ahora; un código que no está en la lista se rechaza al validar.
+        if (blank($request->input('country'))) {
+            $request->merge(['country' => Countries::DEFAULT]);
+        }
+        $country = Countries::normalize((string) $request->input('country'));
 
         $request->validate([
 
@@ -68,14 +75,17 @@ class RegisteredUserController extends Controller
             // Lo mínimo para crear bien la empresa. El resto (razón social,
             // domicilio, condición fiscal, datos bancarios…) se completa después
             // desde "Mi empresa".
+            'country' => ['required', Rule::in(array_keys(Countries::LATAM))],
+
+            // Identificación fiscal según el país: CUIT en Argentina; RUT, RFC, NIT, RUC… en el resto.
             'cuit' => [
                 'required',
                 'string',
-                'max:20',
-                new Cuit,
+                'max:25',
+                new TaxId($country),
                 // Una empresa = una cuenta (y una sola prueba gratis).
-                function (string $attribute, $value, \Closure $fail) {
-                    if (Company::withTrashed()->where('cuit', Cuit::format($value))->exists()) {
+                function (string $attribute, $value, \Closure $fail) use ($country) {
+                    if (Company::withTrashed()->where('cuit', TaxId::format($country, $value))->exists()) {
                         $fail(static::cuitTakenMessage());
                     }
                 },
@@ -83,7 +93,10 @@ class RegisteredUserController extends Controller
 
             'phone' => ['required', 'string', 'min:6', 'max:30', 'regex:/^[0-9+()\-\s]+$/'],
 
-            'province' => ['required', 'string', Rule::in(Provinces::LIST)],
+            // Argentina: una de sus provincias. Otros países: estado, región, departamento… (texto).
+            'province' => Countries::isArgentina($country)
+                ? ['required', 'string', Rule::in(Provinces::LIST)]
+                : ['required', 'string', 'max:255'],
 
             'locality' => ['required', 'string', 'max:255'],
 
@@ -125,14 +138,16 @@ class RegisteredUserController extends Controller
         // al mismo tiempo con el mismo CUIT o email), no queda una empresa
         // huérfana ocupando el CUIT.
         try {
-            [$company, $user] = DB::transaction(function () use ($request) {
+            [$company, $user] = DB::transaction(function () use ($request, $country) {
                 $company = Company::create([
 
                     'name' => $request->company_name,
 
                     'business_name' => $request->business_name,
 
-                    'cuit' => Cuit::format($request->cuit),
+                    'cuit' => TaxId::format($country, $request->cuit),
+
+                    'country' => $country,
 
                     // Contacto inicial = el del responsable. El resto se completa
                     // después desde "Mi empresa".
@@ -140,7 +155,7 @@ class RegisteredUserController extends Controller
 
                     'phone' => trim((string) $request->phone),
 
-                    'province' => $request->province,
+                    'province' => trim((string) $request->province),
 
                     'city' => trim((string) $request->locality),
 

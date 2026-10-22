@@ -22,7 +22,7 @@ class CompanyForm
                     ->notIn(Company::RESERVED_SLUGS)
                     ->unique(ignoreRecord: true)
                     ->helperText('Minúsculas, números y guiones. Es parte de la dirección de la app de los técnicos.'),
-                TextInput::make('cuit'),
+                TextInput::make('cuit')->label('Identificación fiscal (CUIT, RUT, RFC…)'),
                 TextInput::make('tax_condition'),
                 TextInput::make('email')
                     ->label('Email address')

@@ -48,7 +48,7 @@
             @endif
             <div class="company">{{ $company?->business_name ?: $company?->name }}</div>
             <div class="muted">
-                @if($company?->cuit) CUIT {{ $company->cuit }} · @endif
+                @if($company?->cuit) {{ $company->taxIdLabel() }} {{ $company->cuit }} · @endif
                 {{ collect([$company?->address, $company?->phone, $company?->email])->filter()->implode(' · ') }}
             </div>
         </td>

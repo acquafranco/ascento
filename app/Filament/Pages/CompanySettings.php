@@ -4,7 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Enums\PlanFeature;
 use App\Models\Company;
-use App\Rules\Cuit;
+use App\Rules\TaxId;
 use App\Services\Onboarding\CompanySetup;
 use App\Support\Access\Access;
 use App\Support\Countries;
@@ -110,12 +110,13 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
                             ->prefixIcon('heroicon-o-building-office')
                             ->columnSpan(5),
 
+                        // Identificación fiscal según el país: CUIT, RUT, RFC, NIT, RUC…
                         TextInput::make('cuit')
-                            ->label('CUIT')
-                            ->maxLength(20)
-                            ->rule(new Cuit)
-                            ->dehydrateStateUsing(fn (?string $state) => Cuit::format($state))
-                            ->placeholder('30-12345678-9')
+                            ->label(fn ($get) => Countries::taxIdLabel($get('country')))
+                            ->maxLength(25)
+                            ->rule(fn ($get) => new TaxId($get('country')))
+                            ->dehydrateStateUsing(fn (?string $state, $get) => TaxId::format($get('country'), $state))
+                            ->placeholder(fn ($get) => Countries::taxIdExample($get('country')))
                             ->prefixIcon('heroicon-o-identification')
                             ->columnSpan(4),
 
@@ -177,8 +178,11 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
                     ->collapsed()
                     ->columns(2)
                     ->schema([
+                        // Condición frente al IVA e Ingresos Brutos: solo Argentina (en otro país no se
+                        // muestran y lo que hubiera guardado no se toca).
                         Forms\Components\Select::make('tax_condition')
                             ->label('Condición frente al IVA')
+                            ->visible(fn ($get) => Countries::isArgentina($get('country')))
                             ->options([
                                 'responsable_inscripto' => 'Responsable inscripto',
                                 'monotributo' => 'Monotributo',
@@ -186,7 +190,8 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
                                 'no_alcanzado' => 'No alcanzado',
                             ]),
                         TextInput::make('activity')->label('Actividad')->maxLength(255)->placeholder('Mantenimiento de ascensores'),
-                        TextInput::make('gross_income_number')->label('Ingresos Brutos')->maxLength(30),
+                        TextInput::make('gross_income_number')->label('Ingresos Brutos')->maxLength(30)
+                            ->visible(fn ($get) => Countries::isArgentina($get('country'))),
                         Forms\Components\DatePicker::make('activity_started_at')->label('Inicio de actividades')->native(false)->displayFormat('d/m/Y'),
                     ]),
 
@@ -198,9 +203,14 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
                     ->columns(3)
                     ->schema([
                         TextInput::make('bank_name')->label('Banco')->maxLength(255),
-                        TextInput::make('bank_cbu')->label('CBU / CVU')->maxLength(22)->regex('/^\d{22}$/')
-                            ->validationMessages(['regex' => 'El CBU tiene 22 números.']),
-                        TextInput::make('bank_alias')->label('Alias')->maxLength(40)->regex('/^[A-Za-z0-9.\-]{6,20}$/')
+                        // Argentina: CBU / CVU (22 números). Otros países: el número de cuenta, CLABE, IBAN…
+                        TextInput::make('bank_cbu')
+                            ->label(fn ($get) => Countries::isArgentina($get('country')) ? 'CBU / CVU' : 'Número de cuenta (CLABE, IBAN…)')
+                            ->maxLength(34)
+                            ->rule(fn ($get) => Countries::isArgentina($get('country')) ? 'regex:/^\d{22}$/' : 'regex:/^[0-9A-Za-z \-]{6,34}$/')
+                            ->validationMessages(['regex' => 'Revisá el número de cuenta (en Argentina, el CBU tiene 22 números).']),
+                        TextInput::make('bank_alias')->label('Alias')
+                            ->visible(fn ($get) => Countries::isArgentina($get('country')))->maxLength(40)->regex('/^[A-Za-z0-9.\-]{6,20}$/')
                             ->validationMessages(['regex' => 'El alias tiene entre 6 y 20 letras, números, puntos o guiones.']),
                     ]),
 

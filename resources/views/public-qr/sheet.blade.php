@@ -73,7 +73,7 @@
         @if($report)
             <p class="help" data-sheet="report"><strong>¿Notaste un problema?</strong> Escaneá el código y tocá «Reportar un problema». Se registra en Ascento para que la empresa de mantenimiento lo revise. No es un servicio de emergencias ni garantiza una respuesta inmediata.</p>
         @endif
-        <p class="safety">Ante una emergencia o si alguien queda atrapado, usá el botón de alarma o el intercomunicador del ascensor. Si hay peligro inmediato, llamá al 911.</p>
+        <p class="safety">Ante una emergencia o si alguien queda atrapado, usá el botón de alarma o el intercomunicador del ascensor. Si hay peligro inmediato, llamá {{ \App\Support\Countries::emergencyNumber($building->country ?: $company?->country) }}.</p>
 
         <div class="foot" data-sheet="ascento">
             @if($ascentoLogo)<img src="{{ $ascentoLogo }}" alt="Ascento">@endif

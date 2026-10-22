@@ -15,6 +15,7 @@ use App\Models\RepairComponent;
 use App\Models\WorkOrder;
 use App\Services\Parachute\ParachuteService;
 use App\Services\Visits\VisitSchedule;
+use App\Support\Countries;
 use App\Support\Plans\PlanGuard;
 use App\Support\WorkOrderLabels;
 use Carbon\CarbonInterface;
@@ -155,6 +156,8 @@ class PublicBuildingInfo
             ],
             'building' => [
                 'name' => $building?->name,
+                // País del edificio (o de la empresa): para el texto de emergencias.
+                'country' => Countries::normalize($building?->country ?: $company?->country),
                 'address' => trim(collect([$building?->address, $building?->locality])->filter()->implode(', ')),
             ],
             'show' => [

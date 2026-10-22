@@ -11,28 +11,28 @@ final class Countries
 {
     public const DEFAULT = 'AR';
 
-    /** código => [nombre, cómo se llama la división principal] */
+    /** código => [nombre, cómo se llama la división principal, identificación fiscal de empresas, ejemplo] */
     public const LATAM = [
-        'AR' => ['Argentina', 'Provincia'],
-        'BO' => ['Bolivia', 'Departamento'],
-        'BR' => ['Brasil', 'Estado'],
-        'CL' => ['Chile', 'Región'],
-        'CO' => ['Colombia', 'Departamento'],
-        'CR' => ['Costa Rica', 'Provincia'],
-        'CU' => ['Cuba', 'Provincia'],
-        'EC' => ['Ecuador', 'Provincia'],
-        'SV' => ['El Salvador', 'Departamento'],
-        'GT' => ['Guatemala', 'Departamento'],
-        'HN' => ['Honduras', 'Departamento'],
-        'MX' => ['México', 'Estado'],
-        'NI' => ['Nicaragua', 'Departamento'],
-        'PA' => ['Panamá', 'Provincia'],
-        'PY' => ['Paraguay', 'Departamento'],
-        'PE' => ['Perú', 'Departamento'],
-        'PR' => ['Puerto Rico', 'Municipio'],
-        'DO' => ['República Dominicana', 'Provincia'],
-        'UY' => ['Uruguay', 'Departamento'],
-        'VE' => ['Venezuela', 'Estado'],
+        'AR' => ['Argentina', 'Provincia', 'CUIT', '30-71234567-1'],
+        'BO' => ['Bolivia', 'Departamento', 'NIT', '1234567012'],
+        'BR' => ['Brasil', 'Estado', 'CNPJ', '12.345.678/0001-90'],
+        'CL' => ['Chile', 'Región', 'RUT', '76.123.456-7'],
+        'CO' => ['Colombia', 'Departamento', 'NIT', '900.123.456-7'],
+        'CR' => ['Costa Rica', 'Provincia', 'Cédula jurídica', '3-101-123456'],
+        'CU' => ['Cuba', 'Provincia', 'NIT', '01234567890'],
+        'EC' => ['Ecuador', 'Provincia', 'RUC', '1790012345001'],
+        'SV' => ['El Salvador', 'Departamento', 'NIT', '0614-123456-101-2'],
+        'GT' => ['Guatemala', 'Departamento', 'NIT', '1234567-8'],
+        'HN' => ['Honduras', 'Departamento', 'RTN', '08011999123456'],
+        'MX' => ['México', 'Estado', 'RFC', 'ABC123456T12'],
+        'NI' => ['Nicaragua', 'Departamento', 'RUC', 'J0310000012345'],
+        'PA' => ['Panamá', 'Provincia', 'RUC', '155612345-2-2019'],
+        'PY' => ['Paraguay', 'Departamento', 'RUC', '80012345-6'],
+        'PE' => ['Perú', 'Departamento', 'RUC', '20123456789'],
+        'PR' => ['Puerto Rico', 'Municipio', 'EIN', '66-1234567'],
+        'DO' => ['República Dominicana', 'Provincia', 'RNC', '1-01-12345-6'],
+        'UY' => ['Uruguay', 'Departamento', 'RUT', '211234560018'],
+        'VE' => ['Venezuela', 'Estado', 'RIF', 'J-12345678-9'],
     ];
 
     /** @return array<string, string> código => nombre (orden alfabético, Argentina incluida) */
@@ -58,6 +58,27 @@ final class Countries
     public static function regionLabel(?string $code): string
     {
         return self::LATAM[self::normalize($code)][1];
+    }
+
+    /** «CUIT», «RUT», «RFC»… según el país. */
+    public static function taxIdLabel(?string $code): string
+    {
+        return self::LATAM[self::normalize($code)][2];
+    }
+
+    public static function taxIdExample(?string $code): string
+    {
+        return self::LATAM[self::normalize($code)][3];
+    }
+
+    /**
+     * A quién llamar ante una emergencia, para los textos de seguridad: en
+     * Argentina, el 911 (como siempre); en otro país, «el número de emergencias
+     * de tu país» (no se publica un número que no esté verificado).
+     */
+    public static function emergencyNumber(?string $code): string
+    {
+        return self::isArgentina($code) ? 'al 911' : 'al número de emergencias de tu país';
     }
 
     public static function isArgentina(?string $code): bool

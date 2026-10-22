@@ -6,6 +6,7 @@ use App\Filament\Resources\Companies\CompanyDeletion;
 use App\Filament\Resources\Companies\CompanyResource;
 use App\Filament\Resources\Subscriptions\SubscriptionResource;
 use App\Models\Company;
+use App\Support\Countries;
 use App\Support\SubscriptionStatus;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -103,7 +104,7 @@ class CompaniesTable
                     ->sortable(),
 
                 TextColumn::make('business_name')->label('Razón social')->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('cuit')->label('CUIT')->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('cuit')->label('Identificación fiscal')->description(fn ($record) => $record->taxIdLabel().' · '.Countries::name($record->country))->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('phone')->label('Teléfono')->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('slug')->toggleable(isToggledHiddenByDefault: true),
             ])

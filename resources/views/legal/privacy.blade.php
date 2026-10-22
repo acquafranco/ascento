@@ -23,7 +23,8 @@
             <li><strong>Datos que una empresa cliente carga para su trabajo.</strong> Los de sus clientes y edificios, los de las personas de contacto, los remitos con firmas y fotos, los reportes, las pruebas, los reclamos, los reportes de problemas desde el QR y los pedidos de ayuda registrados de sus edificios. Sobre estos datos decide <strong>esa empresa</strong>: ella define qué carga, para qué y con quién lo comparte. Ascento los guarda y procesa para prestarle el servicio, siguiendo sus instrucciones y sin usarlos para fines propios distintos de prestar, proteger y mantener el servicio.</li>
         </ul>
         <p>Si tus datos figuran en Ascento porque los cargó una empresa (por ejemplo, sos administrador de un consorcio o técnico de una empresa), lo más rápido para consultarlos, corregirlos o pedir que se borren es dirigirte a esa empresa. También podés escribirnos y le haremos llegar tu pedido.</p>
-        <p>El tratamiento se rige por la Ley 25.326 de Protección de Datos Personales de la República Argentina y su reglamentación.</p>
+        <p>El titular de Ascento está en la República Argentina y el tratamiento se rige por la Ley 25.326 de Protección de Datos Personales y su reglamentación.</p>
+        <p>Ascento también se usa desde otros países de Latinoamérica. Si estás en uno de ellos, tus datos se guardan con los proveedores de la sección 05, que pueden estar fuera de tu país, y además pueden asistirte los derechos que te reconozca la normativa de protección de datos de tu país: podés ejercerlos con nosotros por los mismos medios. Si una empresa de otro país carga datos de terceros, es ella quien debe cumplir la normativa de su país frente a esas personas.</p>
     </x-legal.section>
 
     <x-legal.section n="02" title="Qué datos se tratan" id="datos">
@@ -78,7 +79,7 @@
             <li><strong>Servicios de notificaciones de los navegadores</strong> (por ejemplo, de Google, Apple o Mozilla), solo para quien activa las notificaciones.</li>
             <li><strong>Telegram,</strong> solo para quien conecta su cuenta para recibir avisos.</li>
         </ul>
-        <p>Algunos de estos proveedores pueden procesar datos fuera de la Argentina. Cuando eso ocurra, procuramos que sea con proveedores que ofrezcan un nivel de protección adecuado o con las garantías que exija la normativa.</p>
+        <p>Algunos de estos proveedores pueden procesar datos fuera de la Argentina y fuera del país desde donde usás Ascento. Cuando eso ocurra, procuramos que sea con proveedores que ofrezcan un nivel de protección adecuado o con las garantías que exija la normativa aplicable.</p>
     </x-legal.section>
 
     <x-legal.section n="06" title="Cuánto tiempo se guardan" id="conservacion">
@@ -97,6 +98,7 @@
         <p>Podés pedir acceso a tus datos, su rectificación, actualización o supresión, en los términos de la Ley 25.326.</p>
         <p>El titular de los datos personales tiene la facultad de ejercer el derecho de acceso a los mismos en forma gratuita a intervalos no inferiores a seis meses, salvo que se acredite un interés legítimo al efecto conforme lo establecido en el artículo 14, inciso 3 de la Ley N.º 25.326.</p>
         <p>Escribinos a <a href="mailto:{{ $email }}">{{ $email }}</a>, de ser posible desde el correo asociado a tu cuenta. Podemos pedirte información para verificar que sos quien decís ser (nunca más de lo necesario). Respondemos dentro de los plazos que fija la ley. Si los datos los cargó una empresa, le daremos intervención, porque es quien decide sobre ellos.</p>
+        <p>Si estás en otro país de Latinoamérica, también podés dirigirte a la autoridad de protección de datos de tu país, si existe.</p>
         <p>La Agencia de Acceso a la Información Pública, en su carácter de Órgano de Control de la Ley N.º 25.326, tiene la atribución de atender las denuncias y reclamos que interpongan quienes resulten afectados en sus derechos por incumplimiento de las normas vigentes en materia de protección de datos personales.</p>
     </x-legal.section>
 

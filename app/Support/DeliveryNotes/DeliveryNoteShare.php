@@ -24,7 +24,9 @@ final class DeliveryNoteShare
     public static function ensureToken(DeliveryNote $note): void
     {
         if (blank($note->public_token)) {
-            $note->forceFill(['public_token' => (string) Str::uuid()])->saveQuietly();
+            $note->forceFill(['public_token' => (string) Str::uuid()]);
+            // Sin tocar updated_at: el remito firmado no se modifica, solo se le crea el enlace.
+            DeliveryNote::withoutTimestamps(fn () => $note->saveQuietly());
         }
     }
 

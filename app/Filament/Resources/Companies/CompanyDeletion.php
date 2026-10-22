@@ -74,7 +74,7 @@ final class CompanyDeletion
 
         $who = collect([
             'Razón social' => $record->business_name,
-            'CUIT' => $record->cuit,
+            $record->taxIdLabel() => $record->cuit,
             'Correo' => $record->email,
             'Identificador' => $record->slug.' (#'.$record->id.')',
             'Estado' => $record->trashed() ? 'Desactivada' : 'Activa',

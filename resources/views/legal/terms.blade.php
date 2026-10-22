@@ -33,7 +33,8 @@
             <li><strong>Visitantes:</strong> personas sin cuenta que abren la página pública de un QR o un enlace público de un remito.</li>
         </ul>
         <p>Quien registra una empresa acepta estos términos al crear la cuenta (la aceptación queda registrada con su fecha) y declara que tiene facultades para obligar a esa empresa. Los demás usuarios quedan alcanzados por las reglas de uso que les corresponden cada vez que usan Ascento; la empresa cliente es quien los invita y debe informarles que la herramienta se rige por estos términos. Los visitantes del QR no necesitan aceptar nada para leer la información pública; la sección 07 explica el pedido de ayuda.</p>
-        <p>Ascento se ofrece hoy para empresas que operan en la República Argentina.</p>
+        <p>Ascento se ofrece para empresas que operan en la República Argentina y en otros países de Latinoamérica. El servicio lo presta su titular desde la República Argentina.</p>
+        <p>Quien contrata desde otro país es responsable de cumplir las normas de ese país que alcancen a su actividad y al uso que haga de Ascento (por ejemplo, las de protección de datos personales, las fiscales o las que regulan el mantenimiento de ascensores). Ascento no verifica ni asesora sobre esas normas.</p>
     </x-legal.section>
 
     <x-legal.section n="02" title="Qué es Ascento y qué no es" id="servicio">
@@ -59,7 +60,8 @@
             <li>dar de alta solo a personas autorizadas, asignar los permisos adecuados y dar de baja a quien deje de estar autorizado;</li>
             <li>tener una base legal para cargar datos personales de sus clientes, técnicos y terceros, e informarles lo necesario (ver la <a href="{{ route('legal.privacy') }}">Política de Privacidad</a>);</li>
             <li>si recibe reportes de problemas desde el QR, revisarlos y gestionarlos según sus propios procedimientos y las obligaciones que le correspondan (sección 07), y mantener personas habilitadas para recibir los avisos;</li>
-            <li>publicar en el QR o compartir en el portal solo información y documentos que tenga derecho a difundir, sin datos personales que no corresponda mostrar.</li>
+            <li>publicar en el QR o compartir en el portal solo información y documentos que tenga derecho a difundir, sin datos personales que no corresponda mostrar;</li>
+            <li>cargar correctamente su país y su identificación fiscal, y cumplir las normas del país donde opera.</li>
         </ul>
         <p>La empresa cliente responde por lo que hacen en su cuenta los usuarios que ella da de alta, sin perjuicio de la responsabilidad personal de cada uno.</p>
     </x-legal.section>
@@ -96,7 +98,7 @@
         <p>La empresa cliente puede publicar un QR por edificio con la información que ella elige (el «pasaporte del ascensor»): datos del edificio y de los equipos, fechas de servicios registrados, lo que corresponde en el período según la frecuencia que ella cargó, y los documentos y el estado de las incidencias que decida publicar uno por uno. Es un <strong>historial de registros y documentos</strong>: no es una certificación de seguridad, una habilitación ni una garantía de que el ascensor esté en condiciones de funcionamiento.</p>
         <p>Si su plan lo incluye y ella no lo desactiva, la página del QR permite <strong>«Reportar un problema»</strong>: cualquier persona, sin cuenta, elige qué notó, lo describe y puede adjuntar una foto.</p>
         <x-legal.note tone="danger" title="Reportar un problema no es un servicio de emergencias">
-            <p>Ante un atrapamiento o un peligro, usá el botón de alarma o el intercomunicador del ascensor y llamá al <strong>911</strong>. Un reporte no es una solicitud de rescate atendida. Ascento no presta asistencia, no tiene personal de guardia y no garantiza una respuesta. El reporte no reemplaza los medios de comunicación y de emergencia con que deba contar el ascensor.</p>
+            <p>Ante un atrapamiento o un peligro, usá el botón de alarma o el intercomunicador del ascensor y llamá al número de emergencias de tu país (en Argentina, el <strong>911</strong>). Un reporte no es una solicitud de rescate atendida. Ascento no presta asistencia, no tiene personal de guardia y no garantiza una respuesta. El reporte no reemplaza los medios de comunicación y de emergencia con que deba contar el ascensor.</p>
         </x-legal.note>
         <p>Cuando alguien envía un reporte, pueden ocurrir cosas distintas, que Ascento distingue y no presenta como equivalentes:</p>
         <ol>
@@ -128,9 +130,10 @@
 
     <x-legal.section n="10" title="Planes, prueba gratuita y pagos" id="pagos">
         <ul>
-            <li>Los planes, sus precios y lo que incluyen se informan en el sitio y dentro de Ascento antes de contratar.</li>
+            <li>Los planes, sus precios, la moneda y lo que incluyen se informan en el sitio y dentro de Ascento antes de contratar.</li>
             <li>La prueba gratuita no requiere medio de pago. Al vencer, para seguir usando Ascento hay que contratar un plan.</li>
             <li>Los pagos se procesan a través de Mercado Pago, según sus propias condiciones. Ascento no recibe ni guarda los datos completos de tarjetas.</li>
+            <li>Si pagás desde otro país, la disponibilidad de los medios de pago, la conversión de moneda y los impuestos, percepciones o cargos de tu país o de tu banco dependen de Mercado Pago, de tu entidad y de la normativa aplicable, no de Ascento.</li>
             <li>Podemos cambiar los precios para períodos futuros avisando con anticipación razonable; el cambio no afecta períodos ya pagados.</li>
             <li>Si el acceso vence o el pago no se acredita, el dueño de la cuenta solo ve la pantalla de suscripción para regularizarla, los técnicos dejan de operar y se interrumpen los avisos y los reportes desde el QR. Los datos no se eliminan por la falta de pago (ver sección 12).</li>
         </ul>
@@ -174,7 +177,7 @@
     </x-legal.section>
 
     <x-legal.section n="17" title="Ley aplicable, reclamos y jurisdicción" id="ley">
-        <p>Estos términos se rigen por las leyes de la República Argentina. Antes de iniciar un reclamo, te pedimos que nos escribas a <a href="mailto:{{ $email }}">{{ $email }}</a> para intentar resolverlo.</p>
+        <p>Estos términos se rigen por las leyes de la República Argentina. Si contratás o usás Ascento desde otro país, estos términos no excluyen las normas de ese país que no se puedan dejar de lado por contrato. Antes de iniciar un reclamo, te pedimos que nos escribas a <a href="mailto:{{ $email }}">{{ $email }}</a> para intentar resolverlo.</p>
         <p>Las controversias se someten a los tribunales competentes según la ley aplicable. Si quien reclama es un consumidor, se respetan las reglas de competencia y los derechos que le reconoce la normativa de defensa del consumidor.</p>
         <p>Si alguna cláusula fuera inválida, el resto de los términos sigue vigente.</p>
     </x-legal.section>

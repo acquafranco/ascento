@@ -30,7 +30,7 @@
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V4h11l-1 4h6v9H9l1-4H4"/></svg>
             Reportar un problema
         </a>
-        <p class="qr-cta-note">Para avisar algo que notaste (puertas, ruidos, luces, daños). No es un servicio de emergencias: ante una urgencia, usá la alarma del ascensor y llamá al 911.</p>
+        <p class="qr-cta-note">Para avisar algo que notaste (puertas, ruidos, luces, daños). No es un servicio de emergencias: ante una urgencia, usá la alarma del ascensor y llamá {{ \App\Support\Countries::emergencyNumber($info['building']['country'] ?? null) }}.</p>
     @endif
 
     {{-- REGISTRADO: trabajos con remito --}}
@@ -191,7 +191,7 @@
 
     <section class="qr-note" data-qr="disclaimer">
         <p><strong>Esta información es administrativa.</strong> La publica la empresa de mantenimiento con los registros que carga en Ascento. Es un historial de documentos. No es una evaluación ni una certificación de seguridad, no es una habilitación y no garantiza que el ascensor esté en condiciones de funcionamiento.</p>
-        <p>Ante una emergencia o si alguien queda atrapado, usá el botón de alarma o el intercomunicador del ascensor. Si hay peligro inmediato, llamá al 911.</p>
+        <p>Ante una emergencia o si alguien queda atrapado, usá el botón de alarma o el intercomunicador del ascensor. Si hay peligro inmediato, llamá {{ \App\Support\Countries::emergencyNumber($info['building']['country'] ?? null) }}.</p>
         <p class="qr-muted">Actualizado: {{ $info['updated_at']?->format('d/m/Y') ?? '—' }}</p>
     </section>
 
