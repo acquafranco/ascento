@@ -50,7 +50,7 @@ class GeocodePendingBuildings
     {
         try {
             $buildings = Building::withoutGlobalScope('company')
-                ->with('company:id,province')
+                ->with('company:id,province,country')
                 ->where('company_id', $this->companyId)
                 ->whereIn('geocoding_status', [Building::GEO_PENDING, Building::GEO_ERROR])
                 ->orderBy('id')

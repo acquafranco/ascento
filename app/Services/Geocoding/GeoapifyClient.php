@@ -31,7 +31,7 @@ class GeoapifyClient
      *
      * @throws GeocodingUnavailableException
      */
-    public function search(array $address): ?array
+    public function search(array $address, ?string $countryCode = null): ?array
     {
         if (! $this->isConfigured()) {
             throw new GeocodingUnavailableException('GEOAPIFY_API_KEY no está configurada.');
@@ -45,7 +45,7 @@ class GeoapifyClient
                 ->timeout(10)
                 ->get(self::GEOCODE_URL, [
                     ...$address,
-                    'filter' => 'countrycode:'.config('services.geoapify.country_code', 'ar'),
+                    'filter' => 'countrycode:'.strtolower($countryCode ?: (string) config('services.geoapify.country_code', 'ar')),
                     'lang' => 'es',
                     'limit' => 1,
                     'format' => 'json',
@@ -74,7 +74,7 @@ class GeoapifyClient
      *
      * @throws GeocodingUnavailableException
      */
-    public function autocomplete(string $text, ?array $near = null): array
+    public function autocomplete(string $text, ?array $near = null, ?string $countryCode = null): array
     {
         if (! $this->isConfigured()) {
             throw new GeocodingUnavailableException('GEOAPIFY_API_KEY no está configurada.');
@@ -88,7 +88,7 @@ class GeoapifyClient
                 ->timeout(6)
                 ->get('https://api.geoapify.com/v1/geocode/autocomplete', array_filter([
                     'text' => $text,
-                    'filter' => 'countrycode:'.config('services.geoapify.country_code', 'ar'),
+                    'filter' => 'countrycode:'.strtolower($countryCode ?: (string) config('services.geoapify.country_code', 'ar')),
                     'bias' => $near ? 'proximity:'.$near[1].','.$near[0] : null,
                     'lang' => 'es',
                     'limit' => 6,

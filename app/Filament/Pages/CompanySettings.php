@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Rules\Cuit;
 use App\Services\Onboarding\CompanySetup;
 use App\Support\Access\Access;
+use App\Support\Countries;
 use App\Support\Help\HelpTopics;
 use App\Support\Plans\PlanUpsell;
 use App\Support\Provinces;
@@ -58,6 +59,7 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
             'email' => $company->email,
             'phone' => $company->phone,
             'address' => $company->address,
+            'country' => Countries::normalize($company->country),
             'province' => $company->province,
             'city' => $company->city,
             'postal_code' => $company->postal_code,
@@ -130,10 +132,29 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
                             // para un selector: la fila se parte en dos hasta xl.
                             ->columnSpan(['lg' => 12, 'xl' => 6]),
 
+                        // País de la empresa (Latinoamérica): es el que usan por defecto sus edificios.
+                        Forms\Components\Select::make('country')
+                            ->label('País')
+                            ->options(Countries::options())
+                            ->in(array_keys(Countries::LATAM))
+                            ->required()
+                            ->searchable()
+                            ->native(false)
+                            ->live()
+                            ->columnSpan(['lg' => 4, 'xl' => 2]),
+
+                        // Argentina: la lista de provincias. Otros países: texto libre (estado, región, departamento…).
                         Forms\Components\Select::make('province')
                             ->label('Provincia')
                             ->options(Provinces::options())
                             ->searchable()
+                            ->visible(fn ($get) => Countries::isArgentina($get('country')))
+                            ->columnSpan(['lg' => 4, 'xl' => 2]),
+
+                        TextInput::make('province')
+                            ->label(fn ($get) => Countries::regionLabel($get('country')))
+                            ->maxLength(255)
+                            ->visible(fn ($get) => ! Countries::isArgentina($get('country')))
                             ->columnSpan(['lg' => 4, 'xl' => 2]),
 
                         TextInput::make('city')

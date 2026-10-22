@@ -181,7 +181,7 @@ final class CompanySetup
         }
 
         return DB::transaction(function () use ($data, $progress, $addressSearch) {
-            $building = Building::create(array_intersect_key($data, array_flip(['name', 'address', 'locality', 'municipality', 'province', 'neighborhood']))
+            $building = Building::create(array_intersect_key($data, array_flip(['name', 'address', 'locality', 'municipality', 'province', 'neighborhood', 'country']))
                 + ['client_id' => $progress['client']->id, 'is_active' => true]);
             BuildingForm::afterCreate($building, (array) ($data['equipment'] ?? []), $addressSearch);
 

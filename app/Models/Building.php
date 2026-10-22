@@ -68,6 +68,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
             'municipality',
             'neighborhood',
             'province',
+            'country',
         ];
 
         // Las coordenadas y el estado de geocodificación NO son fillable:
@@ -89,6 +90,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
             'notes',
             'is_active',
             'province',
+            // País (Latinoamérica); vacío = el de su empresa.
+            'country',
 
             'municipality',
 

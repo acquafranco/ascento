@@ -54,7 +54,7 @@ class BuildingGeocoder
 
         try {
             foreach ($address->queries() as $query) {
-                $result = $this->client->search($query);
+                $result = $this->client->search($query, $address->countryCode);
 
                 if ($result !== null && $this->isReliable($result, $address)) {
                     return $this->store(

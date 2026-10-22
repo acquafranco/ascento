@@ -95,6 +95,7 @@ class AddressAutocompleteTest extends TestCase
             'municipality' => 'Tigre',          // "Partido de Tigre" → "Tigre"
             'neighborhood' => null,
             'province' => 'Buenos Aires',
+            'country' => 'AR',                  // sin país en la respuesta: Argentina
         ], $fields);
 
         // Las comunas de CABA no son municipios.

@@ -10,7 +10,9 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
 use Filament\Infolists\Components\TextEntry;
 use App\Filament\Pages\BuildingsMap;
+use App\Models\Company;
 use App\Services\Geocoding\AddressAutocomplete;
+use App\Support\Countries;
 use App\Support\CompanyContext;
 use App\Models\Building;
 use Filament\Schemas\Components\Utilities\Get;
@@ -74,8 +76,8 @@ class BuildingForm
 
 
                 TextInput::make('province')
-                    ->label('Provincia')
-                    ->placeholder('Ej: Buenos Aires'),
+                    ->label(fn ($get) => Countries::regionLabel(self::countryOf($get)))
+                    ->placeholder(fn ($get) => Countries::isArgentina(self::countryOf($get)) ? 'Ej: Buenos Aires' : null),
 
 
                 TextInput::make('neighborhood')
@@ -202,9 +204,32 @@ class BuildingForm
      *
      * @return list<\Filament\Schemas\Components\Component|\Filament\Forms\Components\Field>
      */
+    /** País del edificio (o, si todavía no tiene, el de la empresa). */
+    private static function countryOf($get): string
+    {
+        return Countries::normalize($get('country') ?: Company::whereKey(CompanyContext::currentId())->value('country'));
+    }
+
     public static function addressFields(): array
     {
         return [
+            // Latinoamérica: el buscador y el mapa buscan en este país.
+            Select::make('country')
+                ->label('País')
+                ->options(Countries::options())
+                ->default(fn () => Countries::normalize(Company::whereKey(CompanyContext::currentId())->value('country')))
+                ->afterStateHydrated(function (Select $component, ?string $state) {
+                    if (blank($state)) {
+                        $component->state(Countries::normalize(Company::whereKey(CompanyContext::currentId())->value('country')));
+                    }
+                })
+                ->in(array_keys(Countries::LATAM))
+                ->required()
+                ->searchable()
+                ->native(false)
+                ->live()
+                ->columnSpanFull(),
+
             Select::make('address_search')
                 ->label('Buscar dirección')
                 ->placeholder('Escribí calle y altura. Ej: Cabildo 2040')
@@ -214,7 +239,7 @@ class BuildingForm
                 ->searchPrompt('Escribí al menos 4 letras de la calle y la altura')
                 ->searchingMessage('Buscando…')
                 ->noSearchResultsMessage('No encontramos esa dirección. Podés cargarla a mano abajo.')
-                ->getSearchResultsUsing(fn (string $search): array => app(AddressAutocomplete::class)->search($search, CompanyContext::currentId()))
+                ->getSearchResultsUsing(fn (string $search, $get): array => app(AddressAutocomplete::class)->search($search, CompanyContext::currentId(), self::countryOf($get)))
                 ->getOptionLabelUsing(fn ($value): ?string => app(AddressAutocomplete::class)->pick($value)['label'] ?? null)
                 ->live()
                 ->afterStateUpdated(function (?string $state, Set $set) {
@@ -242,11 +267,17 @@ class BuildingForm
                     ->columnSpan(2),
 
 
+                // Argentina: la altura (un entero, como siempre). Otros países: el número
+                // como se escribe allá («12-34», «1234 B», «S/N»).
                 TextInput::make('address')
                     ->label('Número')
                     ->required()
-                    ->integer()
-                    ->inputMode('numeric')
+                    // (sin maxLength: junto a «integer», Laravel compara el valor, no el largo; el
+                    // largo lo limita la regla de cada país)
+                    ->extraInputAttributes(['maxlength' => 20])
+                    ->rule(fn ($get) => Countries::isArgentina(self::countryOf($get)) ? 'integer' : 'regex:/^[0-9A-Za-z\/\-\s#.]{1,20}$/')
+                    ->validationMessages(['regex' => 'Usá solo números, letras, guiones o barras (por ejemplo: 12-34 o S/N).', 'integer' => 'Escribí solo el número (la altura).'])
+                    ->inputMode(fn ($get) => Countries::isArgentina(self::countryOf($get)) ? 'numeric' : 'text')
                     ->columnSpan(1),
 
 
