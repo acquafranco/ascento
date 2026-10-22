@@ -143,6 +143,9 @@ class SupplierBillingSync
             $row = SupplierPayment::firstOrNew(['provider_payment_id' => 'authorized:'.$id]);
             $wasApproved = $row->exists && $row->status === SupplierPayment::APPROVED;
             $wasSeen = $row->exists ? $row->status : null;
+            // Cada cuota suma su mes UNA vez: una cuota ya contada (paid_at) no vuelve a sumar aunque reaparezca aprobada.
+            $counted = $row->exists && $row->paid_at !== null;
+            $final = $this->finalStatus($wasSeen, $status);
 
             $row->forceFill([
                 'supplier_id' => $sub->supplier_id,
@@ -150,14 +153,13 @@ class SupplierBillingSync
                 'supplier_subscription_id' => $sub->id,
                 'provider' => 'mercadopago',
                 'mp_payment_id' => $mpPaymentId ? (string) $mpPaymentId : $row->mp_payment_id,
-                // Un cobro aprobado no «vuelve atrás» por un aviso viejo: solo una devolución lo cambia.
-                'status' => $wasApproved && $status !== SupplierPayment::REFUNDED ? SupplierPayment::APPROVED : $status,
+                'status' => $final,
                 'status_detail' => $payment['status_detail'] ?? data_get($authorized, 'payment.status_detail') ?? ($authorized['status'] ?? null),
                 'amount' => $amount,
                 'currency' => $currency,
             ]);
 
-            if ($status === SupplierPayment::APPROVED && ! $wasApproved) {
+            if ($final === SupplierPayment::APPROVED && ! $counted) {
                 $paidAt = $this->date($payment['date_approved'] ?? null) ?? $this->date($authorized['debit_date'] ?? null) ?? now();
                 // Si todavía quedan días pagos, el mes nuevo se suma al final (no se pierde ningún día).
                 $start = collect([$paidAt, $sub->current_period_end])->filter()->max()->copy();
@@ -170,7 +172,7 @@ class SupplierBillingSync
                     'last_payment_at' => $paidAt,
                     'status' => in_array($sub->status, [SupplierSubscription::PAST_DUE, SupplierSubscription::PENDING], true) ? SupplierSubscription::AUTHORIZED : $sub->status,
                 ]);
-            } elseif ($status === SupplierPayment::REJECTED && ! $wasApproved) {
+            } elseif ($final === SupplierPayment::REJECTED && ! $wasApproved) {
                 $sub->forceFill([
                     'last_payment_status' => SupplierPayment::REJECTED,
                     'status' => $sub->status === SupplierSubscription::AUTHORIZED ? SupplierSubscription::PAST_DUE : $sub->status,
@@ -233,12 +235,15 @@ class SupplierBillingSync
             $status = SupplierPayment::AMOUNT_MISMATCH;
         }
 
-        [$row, $changedTo] = DB::transaction(function () use ($placement, $payment, $id, $status) {
+        [$row, $changedTo, $duplicate] = DB::transaction(function () use ($placement, $payment, $id, $status) {
             FeaturedPlacement::whereKey($placement->id)->lockForUpdate()->first();
             $row = SupplierPayment::firstOrNew(['provider_payment_id' => 'payment:'.$id]);
             $before = $row->exists ? $row->status : null;
-            // Aprobado solo cambia por una devolución; un aviso viejo (pendiente o rechazado) no lo retrocede.
-            $final = $before === SupplierPayment::APPROVED && $status !== SupplierPayment::REFUNDED ? SupplierPayment::APPROVED : $status;
+            $final = $this->finalStatus($before, $status);
+            // Con el destacado bloqueado: si OTRO pago de esta compra ya se acreditó (aunque después se haya
+            // devuelto), este es un duplicado. Dos avisos simultáneos no pueden ser «el primero» los dos.
+            $duplicate = $final === SupplierPayment::APPROVED && $before !== SupplierPayment::APPROVED
+                && SupplierPayment::where('featured_placement_id', $placement->id)->where('provider_payment_id', '!=', 'payment:'.$id)->whereNotNull('paid_at')->exists();
             $row->forceFill([
                 'supplier_id' => $placement->supplier_id,
                 'kind' => 'featured',
@@ -252,13 +257,13 @@ class SupplierBillingSync
                 'paid_at' => $final === SupplierPayment::APPROVED ? ($row->paid_at ?? $this->date($payment['date_approved'] ?? null) ?? now()) : $row->paid_at,
             ])->save();
 
-            return [$row, $before === $final ? null : $final];
+            return [$row, $before === $final ? null : $final, $duplicate];
         });
 
         $features = app(FeaturedPlacements::class);
         match ($changedTo) {
             SupplierPayment::REFUNDED => $features->paymentReversed($placement->fresh(), $row),
-            SupplierPayment::APPROVED => $this->afterFeaturedApproved($placement->fresh(), $row, $features),
+            SupplierPayment::APPROVED => $duplicate ? $this->flagDuplicate($placement, $row) : $features->activatePaid($placement->fresh(), $row),
             SupplierPayment::REJECTED => $this->notify->supplier($placement->supplier_id, 'Pago del destacado rechazado', 'Mercado Pago rechazó el pago del destacado de «'.$placement->product_name.'». Podés intentarlo de nuevo desde «Destacados».', '/proveedores/destacados', 'feat-pay:'.$row->id.':rejected'),
             SupplierPayment::AMOUNT_MISMATCH => $this->incident('Pago de destacado con importe distinto', 'El pago #'.$row->id.' del destacado #'.$placement->id.' no coincide con el precio. No se activó.', 'feat-amount:'.$row->id),
             default => null,
@@ -272,16 +277,11 @@ class SupplierBillingSync
      * recibe OTRO pago aprobado (la preferencia de Checkout Pro se puede pagar
      * más de una vez), no se activa nada nuevo: se avisa al equipo para devolverlo.
      */
-    private function afterFeaturedApproved(FeaturedPlacement $placement, SupplierPayment $payment, FeaturedPlacements $features): void
+    private function flagDuplicate(FeaturedPlacement $placement, SupplierPayment $payment): void
     {
-        $approved = SupplierPayment::where('featured_placement_id', $placement->id)->where('status', SupplierPayment::APPROVED)->count();
-        if ($approved > 1) {
-            $payment->forceFill(['status_detail' => 'Pago duplicado: devolver'])->save();
-            $this->incident('Pago duplicado de un destacado', 'El destacado #'.$placement->id.' («'.$placement->product_name.'») recibió '.$approved.' pagos aprobados. No se activó otro período: devolvé el pago #'.$payment->id.' desde Mercado Pago.', 'feat-dup:'.$payment->id);
-
-            return;
-        }
-        $features->activatePaid($placement, $payment);
+        $paid = SupplierPayment::where('featured_placement_id', $placement->id)->whereNotNull('paid_at')->count();
+        $payment->forceFill(['status_detail' => 'Pago duplicado: devolver'])->save();
+        $this->incident('Pago duplicado de un destacado', 'El destacado #'.$placement->id.' («'.$placement->product_name.'») recibió '.$paid.' pagos acreditados. No se activó otro período: devolvé el pago #'.$payment->id.' desde Mercado Pago.', 'feat-dup:'.$payment->id);
     }
 
     /*
@@ -324,6 +324,20 @@ class SupplierBillingSync
     private function findSubscription(string $preapprovalId): ?SupplierSubscription
     {
         return $preapprovalId === '' ? null : SupplierSubscription::where('provider', 'mercadopago')->where('provider_subscription_id', $preapprovalId)->first();
+    }
+
+    /**
+     * Estado guardado de un cobro ante un aviso nuevo (repetido o fuera de orden):
+     * una devolución o contracargo es definitivo (lo revisa el equipo), y un
+     * aprobado solo cambia por una devolución.
+     */
+    private function finalStatus(?string $before, string $status): string
+    {
+        return match (true) {
+            $before === SupplierPayment::REFUNDED => SupplierPayment::REFUNDED,
+            $before === SupplierPayment::APPROVED && $status !== SupplierPayment::REFUNDED => SupplierPayment::APPROVED,
+            default => $status,
+        };
     }
 
     private function paymentStatus(mixed $status, bool $refunds = false): string

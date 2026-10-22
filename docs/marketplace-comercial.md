@@ -82,6 +82,10 @@ comisiones por ventas, no procesa los pagos de repuestos y no gestiona envíos.
   - Ocultar, retirar o pasar a «fuera del límite» termina el destacado.
 - **Pago duplicado de un destacado:** una preferencia de Checkout Pro se puede pagar más de una vez. Un segundo pago aprobado para la misma compra no activa otro período: queda marcado «Pago duplicado: devolver» y se avisa al equipo.
 - **Cobros aprobados:** solo una devolución o un contracargo los cambia. Un aviso viejo «pendiente» o «rechazado» no los retrocede. Si se devuelve una cuota de Premium, queda «Devuelto» y se avisa al equipo, pero el período no se recorta solo.
+- **Devoluciones definitivas:** un cobro «Devuelto» no vuelve a «Aprobado» por un aviso posterior. Cada cuota suma su mes una sola vez, y un destacado devuelto no se reactiva. Si Mercado Pago revierte un contracargo, lo resuelve el equipo a mano.
+- **Duplicados simultáneos:** quién es el primer pago se decide con el destacado bloqueado (`FOR UPDATE`). Cuenta cualquier pago ya acreditado de esa compra, aunque después se haya devuelto.
+- **Pagos de destacados cancelados:** solo un checkout vencido sin pago se activa si se acredita tarde. Si Ascento, la moderación, una suspensión o el cierre de la cuenta ya lo habían cancelado, queda «Requiere revisión» y se avisa al equipo.
+- **Suspensión:** suspender a un proveedor cancela sus destacados activos (sección 18 de los términos), y reactivar la cuenta no los revive.
 - **Devoluciones** (procedimiento administrativo):
   1. El proveedor la pide por correo.
   2. El SuperAdmin revisa el caso en «Destacados de repuestos» y «Cobros a proveedores».
