@@ -39,6 +39,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'staff.panel' => KeepStaffInPanel::class,
             // Dueño de empresa nueva sin correo confirmado: a «Verificá tu email» (EmailGate).
             'verified.owner' => \App\Http\Middleware\RequireVerifiedOwner::class,
+            // Área de proveedores de repuestos (marketplace).
+            'supplier' => \App\Http\Middleware\EnsureSupplierUser::class,
         ]);
 
         // Cabeceras de seguridad en todas las respuestas web.

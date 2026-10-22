@@ -32,7 +32,7 @@
             <li><strong>Usuarios del portal:</strong> personas de las administraciones o consorcios a las que la empresa cliente invita a ver información de sus edificios.</li>
             <li><strong>Visitantes:</strong> personas sin cuenta que abren la página pública de un QR o un enlace público de un remito.</li>
         </ul>
-        <p>Quien registra una empresa acepta estos términos al crear la cuenta (la aceptación queda registrada con su fecha) y declara que tiene facultades para obligar a esa empresa. Los demás usuarios quedan alcanzados por las reglas de uso que les corresponden cada vez que usan Ascento; la empresa cliente es quien los invita y debe informarles que la herramienta se rige por estos términos. Los visitantes del QR no necesitan aceptar nada para leer la información pública; la sección 07 explica el pedido de ayuda.</p>
+        <p>Quien registra una empresa acepta estos términos al crear la cuenta (la aceptación queda registrada con su fecha) y declara que tiene facultades para obligar a esa empresa. Los demás usuarios quedan alcanzados por las reglas de uso que les corresponden cada vez que usan Ascento; la empresa cliente es quien los invita y debe informarles que la herramienta se rige por estos términos. Los visitantes del QR no necesitan aceptar nada para leer la información pública; la sección 07 explica el pedido de ayuda. Quien registra una cuenta de proveedor de repuestos acepta estos términos, en especial la sección 17.</p>
         <p>Ascento se ofrece para empresas que operan en la República Argentina y en otros países de Latinoamérica. El servicio lo presta su titular desde la República Argentina.</p>
         <p>Quien contrata desde otro país es responsable de cumplir las normas de ese país que alcancen a su actividad y al uso que haga de Ascento (por ejemplo, las de protección de datos personales, las fiscales o las que regulan el mantenimiento de ascensores). Ascento no verifica ni asesora sobre esas normas.</p>
     </x-legal.section>
@@ -176,7 +176,23 @@
         <p>Ascento usa servicios de terceros para funcionar (por ejemplo, alojamiento, correo electrónico, notificaciones del navegador, Telegram si cada persona lo conecta, mapas y procesamiento de pagos con Mercado Pago). Su funcionamiento depende también de sus propias condiciones. Hoy Ascento no tiene una integración con WhatsApp: los botones para compartir por WhatsApp abren la aplicación de quien los usa.</p>
     </x-legal.section>
 
-    <x-legal.section n="17" title="Ley aplicable, reclamos y jurisdicción" id="ley">
+    <x-legal.section n="17" title="Repuestos: catálogo de proveedores y pedidos de cotización" id="repuestos">
+        <p>Ascento ofrece un catálogo donde proveedores de repuestos aprobados publican productos y las empresas de mantenimiento les piden cotizaciones. En esta etapa:</p>
+        <ul>
+            <li><strong>Ascento no vende, no compra, no cobra ni intermedia el pago.</strong> Una cotización no es una compra: si el comprador la acepta, el pago, la factura, la entrega, la garantía y las devoluciones se acuerdan directamente entre el proveedor y el comprador, y Ascento no marca ningún pedido como pagado.</li>
+            <li>El nombre, la descripción, las fotos, el precio, la disponibilidad y la <strong>compatibilidad</strong> de cada producto los <strong>declara el proveedor</strong>, que es responsable de que sean ciertos y de que el producto sea legal y seguro. Ascento no los verifica. Antes de comprar o instalar un repuesto, la empresa de mantenimiento debe confirmar su compatibilidad y su idoneidad técnica.</li>
+            <li>Ascento revisa y aprueba las cuentas de los proveedores y puede ocultar publicaciones, suspender cuentas o resolver reportes cuando una publicación es engañosa, insegura o no cumple estas reglas. Una publicación destacada sigue estas mismas reglas.</li>
+            <li>El proveedor solo ve de la empresa compradora su nombre y los datos de contacto que esta comparte en el pedido; nunca sus clientes, edificios, técnicos, órdenes de trabajo, remitos ni documentos. Debe usar esos datos solo para responder y cumplir ese pedido.</li>
+            <li>Las «operaciones completadas» que se muestran de cada proveedor cuentan solo los pedidos que el comprador confirmó como recibidos en Ascento. No son reseñas ni una garantía de calidad.</li>
+            <li>Hoy publicar es sin costo. Si en el futuro se ofrecen planes o publicaciones destacadas pagas para proveedores, sus condiciones y precios se informarán antes de contratarlos.</li>
+        </ul>
+    </x-legal.section>
+
+    <x-legal.section n="18" title="Calculadora y servicio de implementación" id="implementacion">
+        <p>La calculadora del sitio sugiere un plan según los límites vigentes de cada uno y, cuando hay tarifas publicadas, estima el costo de que Ascento cargue los datos iniciales. Esa estimación es orientativa y no obliga a ninguna de las partes hasta que se confirme un presupuesto por escrito; si las tarifas no están publicadas, se muestra «a confirmar». El servicio de implementación, si se contrata, se presupuesta y se cobra aparte de la suscripción mensual.</p>
+    </x-legal.section>
+
+    <x-legal.section n="19" title="Ley aplicable, reclamos y jurisdicción" id="ley">
         <p>Estos términos se rigen por las leyes de la República Argentina. Si contratás o usás Ascento desde otro país, estos términos no excluyen las normas de ese país que no se puedan dejar de lado por contrato. Antes de iniciar un reclamo, te pedimos que nos escribas a <a href="mailto:{{ $email }}">{{ $email }}</a> para intentar resolverlo.</p>
         <p>Las controversias se someten a los tribunales competentes según la ley aplicable. Si quien reclama es un consumidor, se respetan las reglas de competencia y los derechos que le reconoce la normativa de defensa del consumidor.</p>
         <p>Si alguna cláusula fuera inválida, el resto de los términos sigue vigente.</p>

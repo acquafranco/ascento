@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\PlanLimit;
 use App\Models\Concerns\ConsumesPlanLimit;
+use App\Models\Marketplace\Supplier;
 use App\Notifications\ResetPasswordNotification;
 use App\Services\Auth\TwoFactorAuthentication;
 use App\Support\Access\Access;
@@ -166,10 +167,15 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
                 $user->is_super_admin = (bool) $user->getOriginal('is_super_admin');
             }
 
+            // Nadie (salvo el SuperAdmin) cambia a qué proveedor pertenece un usuario.
+            if ($user->isDirty('supplier_id')) {
+                $user->supplier_id = $user->getOriginal('supplier_id');
+            }
+
             // Dar o quitar el rol de dueño o de administrativo es solo del
             // SuperAdmin (un técnico no se vuelve dueño ni administrativo por un
             // formulario manipulado). Los demás cambios de rol siguen como antes.
-            $privileged = ['admin', self::ROLE_STAFF];
+            $privileged = ['admin', self::ROLE_STAFF, self::ROLE_SUPPLIER];
             if ($user->isDirty('role') && (in_array($user->role, $privileged, true) || in_array($user->getOriginal('role'), $privileged, true))) {
                 $user->role = $user->getOriginal('role') ?? 'technician';
             }
@@ -186,6 +192,19 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
 
     /** Usuario administrativo (Etapa 6): panel con las áreas que habilite el dueño. */
     public const ROLE_STAFF = 'staff';
+
+    /** Usuario de un proveedor de repuestos (marketplace): sin empresa, solo su área /proveedores. */
+    public const ROLE_SUPPLIER = 'supplier';
+
+    public function isSupplierUser(): bool
+    {
+        return $this->role === self::ROLE_SUPPLIER && ! $this->isSuperAdmin();
+    }
+
+    public function supplier()
+    {
+        return $this->belongsTo(Supplier::class);
+    }
 
     public function isStaff(): bool
     {
@@ -248,6 +267,11 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
         // empresa). Si no, ningún destino: se cierra la sesión.
         if ($this->isClientUser()) {
             return PortalAccess::currentCompanyId($this) !== null ? route('portal.home') : null;
+        }
+
+        // Proveedor de repuestos: su área, mientras su cuenta exista (aprobada o no).
+        if ($this->isSupplierUser()) {
+            return $this->supplier_id && $this->supplier ? route('suppliers.home') : null;
         }
 
         if (! $this->company) {

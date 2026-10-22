@@ -666,6 +666,9 @@
         @php
             $plans = \App\Models\SubscriptionPlan::offered();
         @endphp
+        {{-- ============ CALCULADORA (plan + implementación) ============ --}}
+        @include('sales.partials.section')
+
         <section id="planes" class="py-24 sm:py-32 bg-white border-y border-ink/10" data-floor="04">
             <div class="mx-auto max-w-7xl px-5 sm:px-8">
                 <div data-reveal class="max-w-2xl mx-auto text-center">

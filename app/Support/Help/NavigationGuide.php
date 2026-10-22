@@ -10,7 +10,10 @@ use App\Filament\Pages\CompanyExports;
 use App\Filament\Pages\CompanySettings;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\HelpCenter;
+use App\Filament\Pages\ImplementationRates;
 use App\Filament\Pages\IndicatorsPage;
+use App\Filament\Pages\Marketplace\PartsCatalog;
+use App\Filament\Pages\Marketplace\PartsRequests;
 use App\Filament\Pages\ParachuteTestsPage;
 use App\Filament\Pages\PlanFeatures;
 use App\Filament\Pages\PublicQrPage;
@@ -26,11 +29,15 @@ use App\Filament\Resources\Elevators\ElevatorResource;
 use App\Filament\Resources\Emergency\EmergencyRequestResource;
 use App\Filament\Resources\Inspections\InspectionResource;
 use App\Filament\Resources\Maintenances\MaintenanceResource;
+use App\Filament\Resources\Marketplace\MarketplaceReportResource;
+use App\Filament\Resources\Marketplace\SupplierProductResource;
+use App\Filament\Resources\Marketplace\SupplierResource;
 use App\Filament\Resources\OnCall\OnCallScheduleResource;
 use App\Filament\Resources\Quotes\QuoteResource;
 use App\Filament\Resources\Receivables\ReceivableResource;
 use App\Filament\Resources\RepairComponents\RepairComponentResource;
 use App\Filament\Resources\Reports\ReportResource;
+use App\Filament\Resources\SalesLeads\SalesLeadResource;
 use App\Filament\Resources\StaffUsers\StaffUserResource;
 use App\Filament\Resources\StockItems\StockItemResource;
 use App\Filament\Resources\Subscriptions\SubscriptionResource;
@@ -52,7 +59,7 @@ final class NavigationGuide
     /** Categoría → [para qué sirve, orden sugerido]. */
     private const GROUPS = [
         'Gestión' => ['Tu cartera: los clientes, sus edificios y sus equipos, el mapa, el QR público y el seguimiento con cada cliente.', ['Clientes', 'Edificios', 'Ascensores']],
-        'Operaciones' => ['El trabajo de todos los días: la agenda del mes, las visitas, las órdenes y sus remitos, los reportes de fallas, las guardias y el stock.', ['Agenda', 'Visitas', 'Remitos']],
+        'Operaciones' => ['El trabajo de todos los días: la agenda del mes, las visitas, las órdenes y sus remitos, los reportes de fallas, las guardias, el stock y los pedidos de repuestos.', ['Agenda', 'Visitas', 'Remitos']],
         'Comercial' => ['Lo que vendés y cobrás: presupuestos, servicios contratados y la cuenta corriente de tus clientes.', ['Presupuestos', 'Servicios', 'Cobranzas']],
         'Administración' => ['Tu equipo, tu plan y la copia de tus datos.', null],
         'Plataforma' => ['Herramientas del SuperAdmin para todas las empresas.', null],
@@ -85,6 +92,8 @@ final class NavigationGuide
             ParachuteTestsPage::class => ['La periodicidad y el registro de las pruebas de paracaídas, con aviso de las próximas.', 'parachute'],
             RepairComponentResource::class => ['Los componentes que mandaste a un taller y en qué estado están.', 'repairs'],
             StockItemResource::class => ['Tus repuestos y materiales: entradas, salidas y lo que se usó en cada orden.', 'stock'],
+            PartsCatalog::class => ['Repuestos de proveedores aprobados: buscá, compará, guardá favoritos y sumalos a un pedido de cotización.', null],
+            PartsRequests::class => ['Tus pedidos de cotización de repuestos: enviarlos, ver la cotización, aceptarla y confirmar que llegaron. Ascento no cobra.', null],
             QuoteResource::class => ['Presupuestos con tu logo, para enviar por correo o WhatsApp.', 'quotes'],
             ServicesCluster::class => ['Lo que ofrecés (catálogo) y lo que tiene contratado cada cliente, que genera los cobros.', 'services_overview'],
             ReceivableResource::class => ['Lo que te deben tus clientes y los pagos que vas registrando.', 'receivables'],
@@ -97,6 +106,11 @@ final class NavigationGuide
             SubscriptionResource::class => ['Las suscripciones y pagos de cada empresa.', 'sa_subscriptions'],
             PlanFeatures::class => ['Qué funciones incluye cada plan.', 'sa_plans'],
             SystemBackups::class => ['Las copias de seguridad de toda la plataforma.', 'sa_backups'],
+            SalesLeadResource::class => ['Los pedidos de implementación y de propuesta que llegan desde la calculadora del sitio.', null],
+            ImplementationRates::class => ['Las tarifas del servicio de implementación que usa la calculadora (sin publicar: «a confirmar»).', null],
+            SupplierResource::class => ['Los proveedores de repuestos: revisar, aprobar, rechazar y suspender cuentas.', null],
+            SupplierProductResource::class => ['Las publicaciones de repuestos: ocultar las que no cumplen y destacar.', null],
+            MarketplaceReportResource::class => ['Los reportes de publicaciones que hacen las empresas.', null],
         ];
     }
 

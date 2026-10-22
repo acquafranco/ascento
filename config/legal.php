@@ -21,6 +21,6 @@ return [
     'owner_tax_id' => env('LEGAL_OWNER_CUIT'),
     'owner_address' => env('LEGAL_OWNER_ADDRESS'),
     'email' => env('LEGAL_EMAIL', env('SUPPORT_EMAIL', 'contacto@ascento.online')),
-    'updated_at' => '2026-10-21',
+    'updated_at' => '2026-10-22',
     'reviewed' => (bool) env('LEGAL_REVIEWED', false),
 ];

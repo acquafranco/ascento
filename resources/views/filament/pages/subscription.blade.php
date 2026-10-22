@@ -170,6 +170,9 @@
 
                 <div class="sub-plan {{ $option->is_recommended ? 'is-recommended' : '' }} {{ $state === 'current' ? 'is-current' : '' }}" data-plan="{{ $option->slug }}">
                     <div class="sub-plan-badges">
+                        @if ($this->getCompany()->intended_plan === $option->slug && $this->isInFreePeriod())
+                            <x-filament::badge color="success" data-intended-plan>Elegido en la calculadora</x-filament::badge>
+                        @endif
                         @if ($option->is_recommended)
                             <x-filament::badge color="primary">Recomendado</x-filament::badge>
                         @endif

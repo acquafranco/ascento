@@ -1,0 +1,79 @@
+<?php
+
+namespace App\Models\Marketplace;
+
+use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+/**
+ * Proveedor de repuestos (marketplace). Cuenta comercial aparte de las
+ * empresas de mantenimiento: sus usuarios (role = supplier) no tienen
+ * empresa y no ven nada de ninguna. Su catálogo se ve solo si el SuperAdmin
+ * lo aprobó y no está suspendido.
+ */
+class Supplier extends Model
+{
+    public const PENDING = 'pending';
+
+    public const APPROVED = 'approved';
+
+    public const REJECTED = 'rejected';
+
+    public const SUSPENDED = 'suspended';
+
+    public const STATUSES = [
+        self::PENDING => 'Pendiente de aprobación',
+        self::APPROVED => 'Aprobado',
+        self::REJECTED => 'Rechazado',
+        self::SUSPENDED => 'Suspendido',
+    ];
+
+    /** Lo que el proveedor edita desde su perfil. El estado y la revisión: nunca. */
+    protected $fillable = [
+        'name', 'legal_name', 'description', 'contact_email', 'contact_phone', 'website', 'coverage', 'categories', 'brands',
+    ];
+
+    protected $casts = [
+        'categories' => 'array',
+        'brands' => 'array',
+        'approved_at' => 'datetime',
+    ];
+
+    public function users(): HasMany
+    {
+        return $this->hasMany(User::class);
+    }
+
+    public function products(): HasMany
+    {
+        return $this->hasMany(SupplierProduct::class);
+    }
+
+    public function requests(): HasMany
+    {
+        return $this->hasMany(MarketplaceRequest::class);
+    }
+
+    public function isApproved(): bool
+    {
+        return $this->status === self::APPROVED;
+    }
+
+    public function scopeApproved(Builder $query): Builder
+    {
+        return $query->where('status', self::APPROVED);
+    }
+
+    public function statusLabel(): string
+    {
+        return self::STATUSES[$this->status] ?? $this->status;
+    }
+
+    /** Reputación: solo operaciones que el comprador confirmó como completadas. */
+    public function completedOperations(): int
+    {
+        return $this->requests()->where('status', MarketplaceRequest::COMPLETED)->count();
+    }
+}

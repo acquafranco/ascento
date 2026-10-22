@@ -580,7 +580,8 @@ class StaffPermissionsTest extends TestCase
     public function test_every_panel_resource_declares_its_area_or_is_super_admin_only(): void
     {
         $panel = Filament::getPanel('ascensores_app');
-        $superAdminOnly = [CompanyResource::class, SubscriptionResource::class];
+        $superAdminOnly = [CompanyResource::class, SubscriptionResource::class, \App\Filament\Resources\SalesLeads\SalesLeadResource::class,
+            \App\Filament\Resources\Marketplace\SupplierResource::class, \App\Filament\Resources\Marketplace\SupplierProductResource::class, \App\Filament\Resources\Marketplace\MarketplaceReportResource::class];
         $ownerOnly = [StaffUserResource::class];
 
         foreach ($panel->getResources() as $resource) {

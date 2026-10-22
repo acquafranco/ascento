@@ -39,6 +39,9 @@
                     <tr><td class="px-4 py-3 font-semibold text-[#14171C]">Clientes, administraciones y contactos</td><td class="px-4 py-3">Nombre, persona de contacto, teléfono, correo y notas que cargue la empresa; si tienen acceso al portal, su cuenta (nombre, correo, contraseña cifrada), los edificios autorizados y los reclamos que envíen, con sus fotos.</td></tr>
                     <tr><td class="px-4 py-3 font-semibold text-[#14171C]">Personas en los registros de trabajo</td><td class="px-4 py-3">Nombre y firma dibujada de quien firma un remito (técnico y, si firma, alguien del cliente), y lo que aparezca en fotos, reportes u observaciones. Las fotos se guardan sin metadatos, incluida la ubicación GPS.</td></tr>
                     <tr><td class="px-4 py-3 font-semibold text-[#14171C]">Visitantes del QR</td><td class="px-4 py-3">No se pide ningún dato personal ni una cuenta. Si alguien reporta un problema, se guardan el edificio, el ascensor si lo elige, lo que notó, lo que escribe, la foto si la adjunta, la fecha y hora y una huella cifrada de la conexión para frenar abusos; <strong>la dirección IP no se guarda</strong>. La foto queda en un archivo privado que solo ven la empresa y los técnicos asignados al edificio (no se publica ni se comparte con la administración). Recomendamos no incluir datos personales en el texto ni personas en la foto.</td></tr>
+                    <tr><td class="px-4 py-3 font-semibold text-[#14171C]">Proveedores de repuestos</td><td class="px-4 py-3">Datos de la empresa proveedora (nombre comercial, razón social, identificación fiscal, país, contacto de ventas, cobertura, rubros y marcas), su catálogo con fotos (sin metadatos) y, de sus usuarios, nombre, correo y contraseña cifrada. El perfil y el catálogo aprobados son visibles para las empresas de mantenimiento con cuenta.</td></tr>
+                    <tr><td class="px-4 py-3 font-semibold text-[#14171C]">Pedidos de repuestos</td><td class="px-4 py-3">Los productos pedidos, las cotizaciones, su historial y los datos de contacto que el comprador decide compartir con ese proveedor (nombre, correo, teléfono y zona de entrega). Ascento no recibe datos de pago de estos pedidos.</td></tr>
+                    <tr><td class="px-4 py-3 font-semibold text-[#14171C]">Calculadora del sitio</td><td class="px-4 py-3">Para ver el resultado no se pide ningún dato personal. Si alguien pide la implementación o una propuesta, se guardan su nombre, correo, teléfono y empresa si los escribe, lo que ingresó en la calculadora y una huella cifrada de la conexión para frenar abusos (no la dirección IP).</td></tr>
                     <tr><td class="px-4 py-3 font-semibold text-[#14171C]">Todas las personas con cuenta</td><td class="px-4 py-3">Sesiones (con dirección IP y navegador), registro de acciones sensibles en el panel (con IP), avisos recibidos y su lectura, suscripciones a notificaciones del navegador y, si lo conectan, el identificador de su chat de Telegram.</td></tr>
                 </tbody>
             </table>
@@ -64,7 +67,8 @@
             <li><strong>Portal del cliente:</strong> solo lo que la empresa comparte, de los edificios que autorizó para cada persona.</li>
             <li><strong>Página pública del QR:</strong> la información del edificio y del ascensor que la empresa decide publicar, incluidos los documentos y el estado de las incidencias que publique uno por uno. No muestra datos de técnicos, residentes ni contactos, ni el texto o las fotos de los reportes.</li>
             <li><strong>Enlace público de un remito:</strong> cualquier persona que tenga el enlace puede ver ese remito, incluidos los nombres y las firmas. La empresa decide con quién lo comparte.</li>
-            <li><strong>El equipo de Ascento:</strong> solo cuando es necesario para soporte, seguridad o mantenimiento del servicio.</li>
+            <li><strong>Repuestos:</strong> un proveedor ve de cada empresa compradora solo su nombre y los datos de contacto que esa empresa comparte en sus pedidos, nunca sus clientes, edificios, técnicos ni documentos. Las empresas con cuenta ven el perfil y el catálogo de los proveedores aprobados, incluido su contacto de ventas.</li>
+            <li><strong>El equipo de Ascento:</strong> solo cuando es necesario para soporte, seguridad, moderación del catálogo de repuestos o mantenimiento del servicio, y para responder los pedidos de la calculadora.</li>
             <li><strong>Proveedores que ayudan a prestar el servicio</strong> (sección 05) y autoridades, cuando una ley u orden judicial lo exija.</li>
         </ul>
     </x-legal.section>
@@ -90,6 +94,8 @@
             <li><strong>Ubicación de los técnicos:</strong> solo las posiciones recientes; se borran automáticamente a las pocas horas (hoy, a las 12 horas).</li>
             <li><strong>Exportaciones de datos:</strong> el archivo se puede descargar durante 7 días y después se borra.</li>
             <li><strong>Copias de seguridad:</strong> se hacen periódicamente y se conservan por un tiempo limitado, en general unas semanas, hasta que se reemplazan por copias nuevas. Un dato eliminado puede seguir en ellas hasta que venzan; no se usan para otra cosa que recuperar el servicio.</li>
+            <li><strong>Pedidos de repuestos:</strong> se conservan como historial de la empresa compradora y del proveedor mientras sus cuentas existan.</li>
+            <li><strong>Pedidos de la calculadora:</strong> mientras sean útiles para responder y hacer el seguimiento comercial; se borran antes si la persona lo pide.</li>
             <li><strong>Datos que la ley obligue a conservar:</strong> por el plazo que la ley establezca.</li>
         </ul>
     </x-legal.section>

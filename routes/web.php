@@ -14,6 +14,7 @@ use App\Http\Controllers\DeliveryNoteController;
 use App\Http\Controllers\ElevatorDocumentController;
 use App\Http\Controllers\HelpController;
 use App\Http\Controllers\InspectionReportController;
+use App\Http\Controllers\Marketplace\SupplierPhotoController;
 use App\Http\Controllers\NotificationInboxController;
 use App\Http\Controllers\OnCallController;
 use App\Http\Controllers\ParachuteController;
@@ -32,6 +33,11 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReportPdfController;
 use App\Http\Controllers\ReportPhotoController;
 use App\Http\Controllers\ReportVideoController;
+use App\Http\Controllers\SalesCalculatorController;
+use App\Http\Controllers\Supplier\SupplierAreaController;
+use App\Http\Controllers\Supplier\SupplierProductController;
+use App\Http\Controllers\Supplier\SupplierRegistrationController;
+use App\Http\Controllers\Supplier\SupplierRequestController;
 use App\Http\Controllers\TechnicianCountersController;
 use App\Http\Controllers\TechnicianLocationController;
 use App\Http\Controllers\TechnicianPhotoController;
@@ -93,6 +99,45 @@ Route::get(
     [DeliveryNoteController::class, 'showPublic']
 
 )->middleware('throttle:60,1,delivery-notes.public')->name('delivery-notes.public');
+
+// Calculadora comercial (Welcome): plan recomendado e implementación. Sin cuenta.
+Route::get('/calculadora', [SalesCalculatorController::class, 'show'])->middleware('throttle:60,1,sales.calculator')->name('sales.calculator');
+Route::get('/calculadora/resultado', [SalesCalculatorController::class, 'fragment'])->middleware('throttle:60,1,sales.calculator.result')->name('sales.calculator.result');
+Route::post('/calculadora/solicitud', [SalesCalculatorController::class, 'lead'])
+    ->middleware(['throttle:5,1,sales.lead', 'throttle:20,60,sales.lead-hour'])->name('sales.lead');
+
+// Marketplace de repuestos: registro y área de los proveedores (sin empresa:
+// no entran al panel, a la app del técnico ni al portal).
+Route::middleware('guest')->group(function () {
+    Route::get('/proveedores/registro', [SupplierRegistrationController::class, 'create'])->name('suppliers.register');
+    Route::post('/proveedores/registro', [SupplierRegistrationController::class, 'store'])->middleware('throttle:6,1,suppliers.register');
+});
+Route::middleware(['auth', 'supplier'])->prefix('proveedores')->name('suppliers.')->group(function () {
+    Route::get('/', [SupplierAreaController::class, 'home'])->name('home');
+    Route::get('/perfil', [SupplierAreaController::class, 'edit'])->name('profile.edit');
+    Route::put('/perfil', [SupplierAreaController::class, 'update'])->middleware('throttle:30,1,suppliers.profile')->name('profile.update');
+
+    Route::controller(SupplierProductController::class)->prefix('catalogo')->name('products.')->whereNumber(['product', 'photo'])->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/nuevo', 'create')->name('create');
+        Route::post('/', 'store')->middleware('throttle:60,1,suppliers.products.store')->name('store');
+        Route::get('/{product}', 'edit')->name('edit');
+        Route::put('/{product}', 'update')->middleware('throttle:60,1,suppliers.products.update')->name('update');
+        Route::post('/{product}/estado', 'status')->middleware('throttle:60,1,suppliers.products.status')->name('status');
+        Route::post('/{product}/fotos', 'storePhoto')->middleware('throttle:30,1,suppliers.products.photo')->name('photos.store');
+        Route::delete('/{product}/fotos/{photo}', 'destroyPhoto')->middleware('throttle:30,1,suppliers.products.photo-delete')->name('photos.destroy');
+    });
+
+    Route::controller(SupplierRequestController::class)->prefix('pedidos')->name('requests.')->where(['reference' => 'R-[A-Z0-9]{8}'])->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/{reference}', 'show')->name('show');
+        Route::post('/{reference}/cotizar', 'quote')->middleware('throttle:30,1,suppliers.requests.quote')->name('quote');
+        Route::post('/{reference}/rechazar', 'decline')->middleware('throttle:30,1,suppliers.requests.decline')->name('decline');
+    });
+});
+// Fotos de productos (proveedor dueño, compradores habilitados y SuperAdmin).
+Route::get('/marketplace/fotos/{photo}', SupplierPhotoController::class)
+    ->middleware(['auth', 'throttle:300,1,marketplace.photo'])->whereNumber('photo')->name('marketplace.photo');
 
 // QR público de un edificio (Etapa 7): solo lectura, sin cuenta, token aleatorio.
 Route::get('/qr/{token}', [PublicQrController::class, 'show'])
