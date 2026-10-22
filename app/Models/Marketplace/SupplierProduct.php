@@ -2,6 +2,7 @@
 
 namespace App\Models\Marketplace;
 
+use App\Services\Marketplace\PublicationLimits;
 use App\Support\Marketplace\Catalog;
 use App\Support\Marketplace\Money;
 use Illuminate\Database\Eloquent\Builder;
@@ -13,8 +14,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * Producto del catálogo de un proveedor. La compatibilidad es la que DECLARA
  * el proveedor: Ascento no la verifica y así se muestra. Lo ve un comprador
  * solo si está publicado, no lo ocultó la moderación y el proveedor está
- * aprobado y habilitado comercialmente (scopeVisible). El destacado no saltea
- * nada de eso. Si el proveedor deja de estar habilitado, nada se borra: sus
+ * aprobado, y si entra en el límite de publicaciones de su plan HOY
+ * (scopeVisible). El destacado no saltea nada de eso. Si el proveedor deja de estar habilitado, nada se borra: sus
  * productos publicados vuelven a verse cuando se habilita otra vez.
  */
 class SupplierProduct extends Model
@@ -67,12 +68,16 @@ class SupplierProduct extends Model
     {
         return $query->where('supplier_products.status', self::PUBLISHED)
             ->where('supplier_products.hidden_by_admin', false)
-            ->whereHas('supplier', fn (Builder $s) => $s->operating());
+            ->whereHas('supplier', fn (Builder $s) => $s->operating())
+            // Dentro del límite del plan HOY (también antes de que corra marketplace:tick).
+            ->whereIn('supplier_products.id', PublicationLimits::withinLimit());
     }
 
+    /** La misma regla que scopeVisible (una sola fuente: la consulta). */
     public function isVisible(): bool
     {
-        return $this->status === self::PUBLISHED && ! $this->hidden_by_admin && (bool) $this->supplier?->isOperating();
+        return $this->exists && $this->status === self::PUBLISHED && ! $this->hidden_by_admin
+            && static::visible()->whereKey($this->id)->exists();
     }
 
     public function reports(): HasMany

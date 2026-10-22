@@ -133,7 +133,7 @@ class SupplierBillingSync
         $payment = $mpPaymentId ? $this->mercadoPago->getPayment((string) $mpPaymentId) : [];
         $amount = $payment['transaction_amount'] ?? $authorized['transaction_amount'] ?? null;
         $currency = $payment['currency_id'] ?? $authorized['currency_id'] ?? null;
-        $status = $this->paymentStatus($payment['status'] ?? data_get($authorized, 'payment.status'));
+        $status = $this->paymentStatus($payment['status'] ?? data_get($authorized, 'payment.status'), refunds: true);
         if ($status === SupplierPayment::APPROVED && ! $this->amountMatches((float) $subscription->amount, $subscription->currency, $amount, $currency)) {
             $status = SupplierPayment::AMOUNT_MISMATCH;
         }
@@ -150,8 +150,8 @@ class SupplierBillingSync
                 'supplier_subscription_id' => $sub->id,
                 'provider' => 'mercadopago',
                 'mp_payment_id' => $mpPaymentId ? (string) $mpPaymentId : $row->mp_payment_id,
-                // Un cobro aprobado no «vuelve atrás» por un aviso viejo.
-                'status' => $wasApproved && $status === SupplierPayment::PENDING ? SupplierPayment::APPROVED : $status,
+                // Un cobro aprobado no «vuelve atrás» por un aviso viejo: solo una devolución lo cambia.
+                'status' => $wasApproved && $status !== SupplierPayment::REFUNDED ? SupplierPayment::APPROVED : $status,
                 'status_detail' => $payment['status_detail'] ?? data_get($authorized, 'payment.status_detail') ?? ($authorized['status'] ?? null),
                 'amount' => $amount,
                 'currency' => $currency,
@@ -196,6 +196,8 @@ class SupplierBillingSync
             SupplierPayment::REJECTED => $this->notify->supplier($subscription->supplier_id, 'Cobro de Premium rechazado', 'Mercado Pago no pudo cobrar Premium y va a reintentar. Si no se cobra, volvés al plan gratuito: no se borra nada, pero solo quedan publicados los productos que entran en su límite.', $path, 'pay:'.$payment->id.':rejected'),
             SupplierPayment::PENDING => $this->notify->supplier($subscription->supplier_id, 'Cobro de Premium pendiente', 'Mercado Pago está procesando el cobro de Premium. Te avisamos cuando se acredite.', $path, 'pay:'.$payment->id.':pending', mail: false),
             SupplierPayment::AMOUNT_MISMATCH => $this->incident('Cobro de proveedor con importe distinto', 'El cobro #'.$payment->id.' de la suscripción #'.$subscription->id.' no coincide con el importe esperado. No se aplicó.', 'pay-amount:'.$payment->id),
+            // Devolución o contracargo de una cuota: queda registrada; el período pagado lo revisa el SuperAdmin (no se recorta solo).
+            SupplierPayment::REFUNDED => $this->incident('Cobro de Premium devuelto', 'El cobro #'.$payment->id.' de la suscripción Premium #'.$subscription->id.' fue devuelto o desconocido en Mercado Pago. Revisá si corresponde cancelar Premium.', 'pay-refund:'.$payment->id),
             default => null,
         };
     }
@@ -235,7 +237,8 @@ class SupplierBillingSync
             FeaturedPlacement::whereKey($placement->id)->lockForUpdate()->first();
             $row = SupplierPayment::firstOrNew(['provider_payment_id' => 'payment:'.$id]);
             $before = $row->exists ? $row->status : null;
-            $final = $before === SupplierPayment::APPROVED && $status === SupplierPayment::PENDING ? SupplierPayment::APPROVED : $status;
+            // Aprobado solo cambia por una devolución; un aviso viejo (pendiente o rechazado) no lo retrocede.
+            $final = $before === SupplierPayment::APPROVED && $status !== SupplierPayment::REFUNDED ? SupplierPayment::APPROVED : $status;
             $row->forceFill([
                 'supplier_id' => $placement->supplier_id,
                 'kind' => 'featured',
@@ -254,14 +257,31 @@ class SupplierBillingSync
 
         $features = app(FeaturedPlacements::class);
         match ($changedTo) {
-            SupplierPayment::APPROVED => $features->activatePaid($placement->fresh(), $row),
             SupplierPayment::REFUNDED => $features->paymentReversed($placement->fresh(), $row),
+            SupplierPayment::APPROVED => $this->afterFeaturedApproved($placement->fresh(), $row, $features),
             SupplierPayment::REJECTED => $this->notify->supplier($placement->supplier_id, 'Pago del destacado rechazado', 'Mercado Pago rechazó el pago del destacado de «'.$placement->product_name.'». Podés intentarlo de nuevo desde «Destacados».', '/proveedores/destacados', 'feat-pay:'.$row->id.':rejected'),
             SupplierPayment::AMOUNT_MISMATCH => $this->incident('Pago de destacado con importe distinto', 'El pago #'.$row->id.' del destacado #'.$placement->id.' no coincide con el precio. No se activó.', 'feat-amount:'.$row->id),
             default => null,
         };
 
         return 'featured_'.$status;
+    }
+
+    /**
+     * Un pago aprobado activa el destacado una sola vez. Si la misma compra
+     * recibe OTRO pago aprobado (la preferencia de Checkout Pro se puede pagar
+     * más de una vez), no se activa nada nuevo: se avisa al equipo para devolverlo.
+     */
+    private function afterFeaturedApproved(FeaturedPlacement $placement, SupplierPayment $payment, FeaturedPlacements $features): void
+    {
+        $approved = SupplierPayment::where('featured_placement_id', $placement->id)->where('status', SupplierPayment::APPROVED)->count();
+        if ($approved > 1) {
+            $payment->forceFill(['status_detail' => 'Pago duplicado: devolver'])->save();
+            $this->incident('Pago duplicado de un destacado', 'El destacado #'.$placement->id.' («'.$placement->product_name.'») recibió '.$approved.' pagos aprobados. No se activó otro período: devolvé el pago #'.$payment->id.' desde Mercado Pago.', 'feat-dup:'.$payment->id);
+
+            return;
+        }
+        $features->activatePaid($placement, $payment);
     }
 
     /*
