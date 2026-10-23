@@ -74,6 +74,7 @@ class TechnicianInterventionTest extends TestCase
 
         return $this->actingAs($tech)->post(route('interventions.store', ['company' => $tenant['company']->slug]), [
             'building_id' => $tenant['building']->id,
+            'work_type' => 'claim',
             'elevator_number' => 'Ascensor 1',
             'channel' => 'whatsapp',
             'kind' => 'urgent',

@@ -33,7 +33,7 @@
 
     @if ($errors->any())
         <div id="remito-errors" class="t-alert-error mb-4" role="alert">
-            <p class="mb-1">No se pudo generar el remito:</p>
+            <p class="mb-1">No se pudo generar el remito. Revisá los campos marcados en rojo:</p>
             <ul class="list-inside list-disc space-y-0.5 font-normal">
                 @foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach
             </ul>
@@ -61,7 +61,8 @@
         </section>
     @endif
     {{-- Borrador por trabajo: una orden, o un tipo de visita de UN período (un borrador viejo de otro mes no se recupera en este remito). --}}
-    <form method="POST" action="{{ route('delivery-notes.store', ['company' => auth()->user()->company->slug]) }}" id="remito-form" class="space-y-4"
+    {{-- novalidate: la validación la hace este formulario (marca cada campo y lleva al primero) y la repite el servidor. --}}
+    <form method="POST" action="{{ route('delivery-notes.store', ['company' => auth()->user()->company->slug]) }}" id="remito-form" class="space-y-4" novalidate
           data-draft="remito.{{ auth()->id() }}.{{ $building->id }}.{{ $workOrder ? 'ot'.$workOrder->id : $assignmentType.'.'.$year.'-'.$month }}" @if($errors->any()) data-draft-restore="off" @endif>
         @csrf
         @include('partials.draft-notice', ['media' => 'Las firmas y los materiales se vuelven a cargar.'])
@@ -109,7 +110,7 @@
             </div>
             <div class="px-4 py-3">
                 <label for="month" class="t-label">Corresponde al mes</label>
-                <select id="month" name="month" class="t-input" data-draft-field>
+                <select id="month" name="month" class="t-input" data-draft-field data-field="month">
                     @foreach(range(1, 12) as $m)
                         <option value="{{ $m }}" @selected(old('month', $month) == $m)>{{ ucfirst(\Carbon\Carbon::create()->month($m)->locale('es')->monthName) }} {{ $year }}</option>
                     @endforeach
@@ -148,16 +149,14 @@
                         <div class="text-sm font-bold text-ink">Trabajo {{ $i + 1 }} · {{ $job->elevator_number }}</div>
                         <p class="mt-0.5 text-sm text-ink-700">{{ $job->description }}</p>
                         <label class="t-label mt-3" for="job-{{ $job->id }}-done">Qué hiciste</label>
-                        <textarea id="job-{{ $job->id }}-done" name="jobs[{{ $job->id }}][work_done]" rows="3" maxlength="5000" required class="t-input resize-y" data-job-done>{{ old('jobs.'.$job->id.'.work_done') }}</textarea>
-                        @error('jobs.'.$job->id.'.work_done')<p class="mt-1 text-sm font-semibold text-red-600">{{ $message }}</p>@enderror
+                        <textarea id="job-{{ $job->id }}-done" name="jobs[{{ $job->id }}][work_done]" rows="3" maxlength="5000" required class="t-input resize-y" data-job-done data-field="jobs.{{ $job->id }}.work_done" data-required-message="Contá qué hiciste en el trabajo {{ $i + 1 }}.">{{ old('jobs.'.$job->id.'.work_done') }}</textarea>
                         <label class="t-label mt-3" for="job-{{ $job->id }}-result">Cómo quedó</label>
-                        <select id="job-{{ $job->id }}-result" name="jobs[{{ $job->id }}][result]" required class="t-input" data-job-result>
+                        <select id="job-{{ $job->id }}-result" name="jobs[{{ $job->id }}][result]" required class="t-input" data-job-result data-field="jobs.{{ $job->id }}.result" data-required-message="Elegí cómo quedó el trabajo {{ $i + 1 }}.">
                             <option value="">Elegí el resultado</option>
                             @foreach(\App\Models\Report::RESULTS as $value => $label)
                                 <option value="{{ $value }}" @selected(old('jobs.'.$job->id.'.result') === $value)>{{ $label }}</option>
                             @endforeach
                         </select>
-                        @error('jobs.'.$job->id.'.result')<p class="mt-1 text-sm font-semibold text-red-600">{{ $message }}</p>@enderror
                     </div>
                 @endforeach
             </section>
@@ -167,9 +166,8 @@
         <section class="t-card space-y-4 p-4">
             <div>
                 <label class="t-label" for="description">{{ $jobs->isNotEmpty() ? 'Resumen de la visita (opcional)' : 'Trabajo realizado' }}</label>
-                <textarea name="description" id="description" data-draft-field rows="{{ $jobs->isNotEmpty() ? 3 : 6 }}" @if($jobs->isEmpty()) required @endif maxlength="5000" class="t-input resize-y" @if($jobs->isNotEmpty()) data-optional @endif
+                <textarea name="description" id="description" data-draft-field rows="{{ $jobs->isNotEmpty() ? 3 : 6 }}" @if($jobs->isEmpty()) required @endif maxlength="5000" class="t-input resize-y" data-field="description" data-required-message="Escribí el trabajo realizado." @if($jobs->isNotEmpty()) data-optional @endif
                           placeholder="{{ $jobs->isNotEmpty() ? 'Si lo dejás vacío, el remito lista los trabajos de arriba' : 'Detallá todo el trabajo realizado durante la visita' }}">{{ old('description') }}</textarea>
-                @error('description')<p class="mt-1 text-sm font-semibold text-red-600">{{ $message }}</p>@enderror
             </div>
 
             <label class="flex min-h-[52px] cursor-pointer select-none items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4">
@@ -215,6 +213,11 @@
                     </div>
                 @endif
 
+                @if($errors->has('materials') || $errors->has('materials.*'))
+                    <div class="t-field-error mb-2" data-materials-errors>
+                        @foreach(collect($errors->get('materials'))->merge(collect($errors->get('materials.*'))->flatten())->unique() as $message)<p>{{ $message }}</p>@endforeach
+                    </div>
+                @endif
                 <div id="materialRows" class="space-y-3"></div>
                 <button type="button" id="addMaterial" class="t-btn-secondary mt-3 w-full border-dashed">+ Agregar material</button>
 
@@ -289,7 +292,7 @@
                         <div class="text-xs font-bold uppercase tracking-wider text-ink-700">
                             {{ $who }} <span class="font-normal normal-case tracking-normal {{ $required ? 'text-red-600' : 'text-ink-500' }}">{{ $required ? '(obligatoria)' : '(opcional)' }}</span>
                         </div>
-                        <button type="button" id="{{ $key }}-trigger" data-target="{{ $key }}"
+                        <button type="button" id="{{ $key }}-trigger" data-target="{{ $key }}" @if($key === 'tech') data-field="signature" @else data-field="client_signature" @endif
                                 class="sig-trigger relative flex h-28 w-full items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-ink-300 bg-ink-50 transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                                 aria-label="Firmar como {{ mb_strtolower($who) }}">
                             <span id="{{ $key }}-placeholder" class="pointer-events-none flex flex-col items-center gap-1 text-ink-500">
@@ -299,15 +302,16 @@
                             <img id="{{ $key }}-preview" src="" alt="" class="pointer-events-none absolute inset-0 hidden h-full w-full object-contain p-1.5">
                         </button>
                         @if($key === 'tech')
-                            <p id="tech-error" class="hidden text-xs font-semibold text-red-600">Falta tu firma.</p>
+                            <p id="tech-error" class="t-field-error {{ $errors->has('signature') ? '' : 'hidden' }}">{{ $errors->first('signature') ?: 'Falta tu firma: tocá el recuadro y firmá.' }}</p>
+                        @elseif($errors->has('client_signature'))
+                            <p class="t-field-error">{{ $errors->first('client_signature') }}</p>
                         @endif
                         <div>
                             <label class="mb-1 block text-xs text-ink-500" for="{{ $key }}-name">Aclaración</label>
                             @if($key === 'tech')
-                                <input type="text" id="tech-name" name="signature_name" data-draft-field value="{{ old('signature_name', auth()->user()->name) }}" class="t-input py-2.5" placeholder="Nombre y apellido">
-                                @error('signature_name')<p class="mt-1 text-sm font-semibold text-red-600">{{ $message }}</p>@enderror
+                                <input type="text" id="tech-name" name="signature_name" data-draft-field value="{{ old('signature_name', auth()->user()->name) }}" class="t-input py-2.5" placeholder="Nombre y apellido" data-field="signature_name" data-required-message="Escribí tu nombre (aclaración de la firma).">
                             @else
-                                <input type="text" id="client-name" name="client_signature_name" data-draft-field value="{{ old('client_signature_name') }}" class="t-input py-2.5" placeholder="Nombre y apellido">
+                                <input type="text" id="client-name" name="client_signature_name" data-draft-field value="{{ old('client_signature_name') }}" class="t-input py-2.5" placeholder="Nombre y apellido" data-field="client_signature_name">
                             @endif
                         </div>
                     </div>
@@ -514,6 +518,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (currentTarget === 'tech') {
             techError.classList.add('hidden');
+            pad.trigger.classList.remove('t-input-invalid');
+            pad.trigger.removeAttribute('aria-invalid');
         }
 
         closeModal();
@@ -544,6 +550,118 @@ document.addEventListener('DOMContentLoaded', function () {
         formError.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
+    /*
+    | Errores por campo (los de este formulario y los que devuelve el servidor):
+    | borde rojo, mensaje debajo del campo, la lista arriba y el foco en el
+    | primero. Nada se relaja: el servidor vuelve a validar todo.
+    */
+    function fieldError(el, message) {
+        if (!el) return;
+        el.classList.add('t-input-invalid');
+        el.setAttribute('aria-invalid', 'true');
+        if (el.id === 'tech-trigger') {
+            techError.textContent = message;
+            techError.classList.remove('hidden');
+            el.style.borderStyle = 'solid';
+            el.style.borderColor = '#f87171';
+            return;
+        }
+        const next = el.nextElementSibling;
+        if (next && next.classList.contains('t-field-error') && next.dataset.clientError) {
+            next.textContent = message;
+            return;
+        }
+        const note = document.createElement('p');
+        note.className = 't-field-error';
+        note.dataset.clientError = '1';
+        note.textContent = message;
+        el.insertAdjacentElement('afterend', note);
+    }
+
+    function clearFieldErrors() {
+        form.querySelectorAll('.t-input-invalid').forEach(function (el) {
+            el.classList.remove('t-input-invalid');
+            el.removeAttribute('aria-invalid');
+        });
+        form.querySelectorAll('[data-client-error]').forEach(function (el) { el.remove(); });
+        if (!pads.tech.dataURL) techError.classList.add('hidden');
+    }
+
+    function goTo(el) {
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        try { el.focus({ preventScroll: true }); } catch (err) {}
+    }
+
+    function showProblems(list) {
+        formError.innerHTML = '';
+        const title = document.createElement('p');
+        title.textContent = list.length === 1 ? 'Falta completar un dato:' : 'Faltan completar ' + list.length + ' datos:';
+        const ul = document.createElement('ul');
+        ul.className = 'mt-1 list-inside list-disc font-normal';
+        list.forEach(function (problem) {
+            const li = document.createElement('li');
+            li.textContent = problem.message;
+            ul.appendChild(li);
+        });
+        formError.append(title, ul);
+        formError.classList.remove('hidden');
+    }
+
+    // Al corregir un campo, deja de estar en rojo.
+    form.addEventListener('input', function (e) {
+        if (!e.target.classList || !e.target.classList.contains('t-input-invalid')) return;
+        e.target.classList.remove('t-input-invalid');
+        e.target.removeAttribute('aria-invalid');
+        const next = e.target.nextElementSibling;
+        if (next && next.dataset && next.dataset.clientError) next.remove();
+    });
+    // Los selects avisan con «change»: mismo tratamiento que al escribir.
+    form.addEventListener('change', function (e) {
+        if (e.target.classList && e.target.classList.contains('t-input-invalid')) e.target.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    function collectProblems() {
+        const problems = [];
+        const add = function (el, message) { problems.push({ el: el, message: message }); };
+
+        // Trabajos de la visita: cada uno con lo que se hizo y su resultado.
+        form.querySelectorAll('[data-job-done], [data-job-result]').forEach(function (field) {
+            if (!field.value.trim()) add(field, field.dataset.requiredMessage);
+        });
+
+        const description = document.getElementById('description');
+        if (!description.value.trim() && !description.hasAttribute('data-optional')) add(description, description.dataset.requiredMessage);
+
+        // Materiales: si se agregó un renglón, material y cantidad mayor que cero.
+        form.querySelectorAll('.material-row').forEach(function (row, i) {
+            const item = row.querySelector('.material-item');
+            const qty = row.querySelector('.material-qty');
+            if (!item.value) add(item, 'Elegí el material del renglón ' + (i + 1) + ' (o quitalo).');
+            const amount = parseFloat(qty.value);
+            if (!(amount > 0)) add(qty, 'Indicá una cantidad mayor que cero en el renglón ' + (i + 1) + '.');
+        });
+
+        if (!pads.tech.dataURL) add(pads.tech.trigger, 'Falta tu firma: tocá el recuadro y firmá.');
+        const techName = document.getElementById('tech-name');
+        if (!techName.value.trim()) add(techName, techName.dataset.requiredMessage);
+
+        return problems;
+    }
+
+    // Errores que devolvió el servidor: se marcan en su campo y se va al primero.
+    const serverErrors = @json($errors->getMessages());
+    if (Object.keys(serverErrors).length) {
+        let first = null;
+        Object.entries(serverErrors).forEach(function ([name, messages]) {
+            const el = form.querySelector('[data-field="' + name + '"]');
+            if (!el) return;
+            fieldError(el, messages[0]);
+            first = first || el;
+        });
+        window.addEventListener('load', function () { goTo(first || document.getElementById('remito-errors')); });
+    }
+
 form.addEventListener('submit', function (e) {
 
     if (sending) {
@@ -551,34 +669,13 @@ form.addEventListener('submit', function (e) {
         return;
     }
 
-    const description = document.getElementById('description');
-
-    // Trabajos de la visita: cada uno con lo que se hizo y su resultado.
-    for (const field of document.querySelectorAll('[data-job-done], [data-job-result]')) {
-        if (!field.value.trim()) {
-            e.preventDefault();
-            showFormError('Completá qué hiciste y cómo quedó cada trabajo de la visita.');
-            field.focus();
-            return;
-        }
-    }
-
-    if (!description.value.trim() && !description.hasAttribute('data-optional')) {
+    clearFieldErrors();
+    const problems = collectProblems();
+    if (problems.length) {
         e.preventDefault();
-        showFormError('Completá el campo "Trabajo realizado".');
-        description.focus();
-        return;
-    }
-
-    if (!pads.tech.dataURL) {
-        e.preventDefault();
-        techError.classList.remove('hidden');
-        pads.tech.trigger.style.borderStyle = 'solid';
-        pads.tech.trigger.style.borderColor = '#f87171';
-        pads.tech.trigger.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center'
-        });
+        problems.forEach(function (problem) { fieldError(problem.el, problem.message); });
+        showProblems(problems);
+        goTo(problems[0].el);
         return;
     }
 
@@ -597,8 +694,9 @@ form.addEventListener('submit', function (e) {
 
     formError.classList.add('hidden');
     btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
 
-    text.textContent = 'Generando remito...';
+    text.textContent = 'Generando remito…';
 
     pads.tech.hiddenInput.value = pads.tech.dataURL;
     pads.client.hiddenInput.value = pads.client.dataURL || '';
@@ -612,18 +710,11 @@ window.addEventListener('pageshow', function (e) {
     if (!e.persisted) return;
     sending = false;
     document.getElementById('submit-remito').disabled = false;
+    document.getElementById('submit-remito').removeAttribute('aria-busy');
     document.getElementById('submit-text').textContent = submitText;
 });
 
 });
-@if ($errors->any())
-window.addEventListener('load', () => {
-    document.getElementById('remito-errors')?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center'
-    });
-});
-@endif
 </script>
 
 

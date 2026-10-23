@@ -93,11 +93,11 @@ class ElevatorHistory
         if (! $type || $type === 'work_order') {
             Report::interventionJobs()->where('building_id', $elevator->building_id)->where('elevator_number', $elevator->label)
                 ->when($since, fn ($q) => $q->where('created_at', '>=', $since))
-                ->with('user:id,name')->latest()->get()
+                ->with(['user:id,name', 'workOrder:id,type'])->latest()->get()
                 ->each(fn (Report $r) => $events->push([
                     'date' => $r->created_at,
                     'type' => 'work_order',
-                    'title' => 'Intervención del técnico: '.Str::limit($r->description, 90),
+                    'title' => 'Intervención del técnico'.($r->workOrder ? ' ('.WorkOrderLabels::type($r->workOrder->type).')' : '').': '.Str::limit($r->description, 90),
                     'detail' => trim(($r->user?->name ?? '').' · '.ElevatorComponents::label($r->component).' · Orden #'.$r->work_order_id.($r->work_done ? ' · Hecho: '.Str::limit($r->work_done, 80) : ''), ' ·'),
                     'badge' => $r->resultLabel() ?? 'Sin remito todavía',
                     'url' => ReportResource::canView($r) ? ReportResource::getUrl('view', ['record' => $r]) : null,
@@ -148,7 +148,7 @@ class ElevatorHistory
             'work_orders' => $elevator->workOrders()->count(),
             // Reclamos de la oficina + problemas atendidos en intervenciones del técnico (cada uno con su equipo).
             'claims' => $elevator->workOrders()->claimSignals()->count()
-                + Report::interventionJobs()->where('building_id', $elevator->building_id)->where('elevator_number', $elevator->label)->count(),
+                + Report::claimJobs()->where('building_id', $elevator->building_id)->where('elevator_number', $elevator->label)->count(),
             'last_visit' => BuildingVisit::where('building_id', $elevator->building_id)->where('visit_type', 'fixed')
                 ->where('assignment_type', 'maintenance')->latest('visited_at')->value('visited_at'),
         ];

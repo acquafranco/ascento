@@ -34,7 +34,7 @@ class HelpTopics
         'work_orders_intro' => ['Órdenes de trabajo', null, 'work_orders'],
         'delivery_notes_intro' => ['Remitos', null, 'delivery_notes'],
         'budgets_intro' => ['Presupuestos', null, 'quotes'],
-        'reports_intro' => ['Reportes', null, 'reports'],
+        'reports_intro' => ['Reportes de técnicos', null, 'reports'],
         'stock_intro' => ['Stock', 'Tus repuestos y materiales. Cargá las entradas cuando comprás; las salidas se descuentan solas cuando un técnico declara lo que usó al firmar el remito de una orden.', null],
         'emergency_intro' => ['Pedidos de ayuda (historial)', 'Los pedidos por posible atrapamiento que se registraron mientras esa opción existía. Ya no se reciben pedidos nuevos: hoy el QR ofrece «Reportar un problema». Si queda alguno abierto, verificalo y cerralo.', null],
         'on_call_intro' => ['Guardias', 'Quién cubre fuera del horario habitual. Arriba, quién está de guardia ahora y quién sigue. Si tus técnicos se turnan siempre en el mismo orden, armá la rotación una vez y se repite sola; si alguien falta, cargás la ausencia o lo reemplazás.', null],

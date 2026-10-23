@@ -11,6 +11,6 @@ class ListClientClaims extends ListRecords
 
     public function getSubheading(): ?string
     {
-        return 'Lo que tus clientes reportan desde el portal. No son emergencias: el portal les indica usar la alarma del ascensor y el 911.';
+        return 'Lo que llega desde afuera: reclamos y pedidos de las administraciones desde el portal, y avisos de quien usa el ascensor desde el QR. No son emergencias. Lo que cargan tus técnicos está en «Reportes de técnicos».';
     }
 }

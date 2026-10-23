@@ -22,13 +22,17 @@ use App\Support\Access\Access;
 use App\Support\DeliveryNotes\DeliveryNoteDocument;
 use App\Support\DeliveryNotes\SignatureImage;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class DeliveryNoteController extends Controller
 {
@@ -276,6 +280,10 @@ class DeliveryNoteController extends Controller
         // Firma dibujada en canvas: solo data URLs de imagen, con tope de tamaño.
         $signatureRule = 'regex:/^data:image\/(png|jpeg);base64,[A-Za-z0-9+\/=]+$/';
 
+        // Trabajos de la visita (intervenciones): se validan junto con el resto, así el técnico ve
+        // TODO lo que falta de una vez. InterventionService::closeJobs lo vuelve a exigir al guardar.
+        [$jobRules, $jobMessages] = $this->jobRules($request);
+
         $request->validate(
             [
                 'building_id' => 'required|integer',
@@ -322,6 +330,7 @@ class DeliveryNoteController extends Controller
                     'integer',
                     Rule::exists('users', 'id')->where('company_id', $companyId)->whereIn('role', ['admin', 'technician']),
                 ],
+                ...$jobRules,
             ],
             [
                 'description.required' => 'Debe escribir el trabajo realizado.',
@@ -341,6 +350,7 @@ class DeliveryNoteController extends Controller
                 'materials.*.quantity.numeric' => 'La cantidad tiene que ser un número.',
                 'materials.*.quantity.decimal' => 'La cantidad admite hasta 2 decimales.',
                 'materials.*.quantity.max' => 'La cantidad es demasiado grande.',
+                ...$jobMessages,
             ]
         );
 
@@ -367,6 +377,32 @@ class DeliveryNoteController extends Controller
             'year' => $request->filled('year') ? (int) $request->input('year') : now()->year,
         ]);
 
+        try {
+            return $this->storeInTransaction($request, (int) $companyId);
+        } catch (ValidationException|HttpExceptionInterface|ModelNotFoundException|AuthorizationException $e) {
+            // Datos que faltan o están mal, y estados de la orden (ya tiene remito, no está asignada…): como siempre.
+            throw $e;
+        } catch (\Throwable $e) {
+            // Error inesperado: la transacción ya se deshizo (no queda nada a medias). El detalle va al
+            // log, sin firmas ni datos del formulario; el técnico ve qué hacer y conserva lo que cargó.
+            Log::error('No se pudo generar un remito', [
+                'company_id' => $companyId,
+                'user_id' => auth()->id(),
+                'work_order_id' => $request->input('work_order_id'),
+                'building_id' => $request->input('building_id'),
+                'exception' => $e::class,
+                'message' => mb_substr($e->getMessage(), 0, 300),
+            ]);
+            report($e);
+
+            return back()->withInput($request->except(['signature', 'client_signature']))
+                ->withErrors(['general' => 'No se pudo generar el remito por un problema inesperado. No se guardó nada: revisá la conexión y tocá «Generar remito» de nuevo (vas a tener que volver a firmar). Si se repite, avisale a la oficina.']);
+        }
+    }
+
+    /** Crea el remito (y la visita, la orden completada, materiales y fotos) en una sola transacción. */
+    private function storeInTransaction(Request $request, int $companyId)
+    {
         return DB::transaction(function () use ($request, $companyId) {
 
             // Serializa la creación de remitos por empresa: el número se
@@ -659,6 +695,38 @@ class DeliveryNoteController extends Controller
                 ->with('success', 'Remito generado correctamente.');
         });
 
+    }
+
+    /**
+     * Reglas de los trabajos de la visita de la orden del formulario (solo de la
+     * empresa del usuario). Mismos textos que InterventionService::closeJobs.
+     *
+     * @return array{0: array<string, mixed>, 1: array<string, string>}
+     */
+    private function jobRules(Request $request): array
+    {
+        // Una orden cerrada (con remito o fuera de curso) no se valida acá: el guardado responde por qué (409).
+        $open = $request->filled('work_order_id') && WorkOrder::where('company_id', auth()->user()->company_id)
+            ->whereKey((int) $request->input('work_order_id'))->where('status', 'in_progress')->whereDoesntHave('deliveryNote')->exists();
+        if (! $open) {
+            return [[], []];
+        }
+        $ids = Report::withoutGlobalScopes()->where('company_id', auth()->user()->company_id)
+            ->where('work_order_id', (int) $request->input('work_order_id'))->where('kind', Report::KIND_INTERVENTION)
+            ->orderBy('id')->pluck('id')->values();
+
+        $rules = [];
+        $messages = [];
+        foreach ($ids as $i => $id) {
+            $n = $i + 1;
+            $rules["jobs.{$id}.work_done"] = ['required', 'string', 'min:3', 'max:5000'];
+            $rules["jobs.{$id}.result"] = ['required', Rule::in(array_keys(Report::RESULTS))];
+            $messages["jobs.{$id}.work_done.required"] = $messages["jobs.{$id}.work_done.min"] = "Contá qué hiciste en el trabajo {$n}.";
+            $messages["jobs.{$id}.work_done.max"] = "Lo que hiciste en el trabajo {$n} es demasiado largo.";
+            $messages["jobs.{$id}.result.required"] = $messages["jobs.{$id}.result.in"] = "Elegí cómo quedó el trabajo {$n}.";
+        }
+
+        return [$rules, $messages];
     }
 
     /** ¿La orden del formulario tiene trabajos de la visita? (solo de la empresa del usuario) */

@@ -53,11 +53,12 @@ class ClientClaimResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-chat-bubble-left-ellipsis';
 
-    protected static ?string $navigationLabel = 'Reclamos y reportes';
+    // «Externos»: llegan de afuera de la operación (portal de la administración y QR del edificio). Los internos son «Reportes de técnicos».
+    protected static ?string $navigationLabel = 'Reclamos y avisos externos';
 
-    protected static ?string $modelLabel = 'reclamo';
+    protected static ?string $modelLabel = 'reclamo o aviso';
 
-    protected static ?string $pluralModelLabel = 'Reclamos y reportes';
+    protected static ?string $pluralModelLabel = 'Reclamos y avisos externos';
 
     protected static bool $hasTitleCaseModelLabel = false;
 
@@ -92,7 +93,7 @@ class ClientClaimResource extends Resource
 
     public static function getNavigationBadgeTooltip(): ?string
     {
-        return 'Reclamos y reportes recibidos, sin revisar';
+        return 'Reclamos y avisos externos recibidos, sin revisar';
     }
 
     public static function infolist(Schema $schema): Schema

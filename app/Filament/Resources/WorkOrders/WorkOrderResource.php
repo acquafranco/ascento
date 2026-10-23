@@ -94,13 +94,7 @@ class WorkOrderResource extends Resource
                     ->label('Tipo')
                     ->badge()
                     ->formatStateUsing(fn ($state) => WorkOrderLabels::type($state))
-                    ->colors([
-                        'primary' => 'maintenance',
-                        'warning' => 'inspection',
-                        'danger' => 'claim',
-                        'success' => 'installation',
-                        'gray' => 'modernization',
-                    ]),
+                    ->color(fn ($state) => WorkOrderLabels::TYPE_COLORS[$state] ?? 'gray'),
 
                 Tables\Columns\TextColumn::make('priority')
                     ->label('Prioridad')
@@ -148,6 +142,9 @@ class WorkOrderResource extends Resource
             ])
 
             ->filters([
+                Tables\Filters\SelectFilter::make('type')
+                    ->label('Tipo')
+                    ->options(WorkOrderLabels::TYPES),
                 Tables\Filters\SelectFilter::make('origin')
                     ->label('Origen')
                     ->options(['office' => 'Creadas por la oficina', 'technician' => 'Iniciadas por técnicos'])

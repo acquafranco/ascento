@@ -41,7 +41,8 @@ class ReportResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'name';
 
-    protected static ?string $navigationLabel = 'Reportes';
+    // Internos: los cargan los técnicos de la empresa. Lo que llega de afuera es «Reclamos y avisos externos».
+    protected static ?string $navigationLabel = 'Reportes de técnicos';
 
     protected static string|\UnitEnum|null $navigationGroup = 'Operaciones';
 
@@ -49,7 +50,7 @@ class ReportResource extends Resource
 
     protected static ?string $modelLabel = 'reporte';
 
-    protected static ?string $pluralModelLabel = 'reportes';
+    protected static ?string $pluralModelLabel = 'reportes de técnicos';
 
     public static function form(Schema $schema): Schema
     {

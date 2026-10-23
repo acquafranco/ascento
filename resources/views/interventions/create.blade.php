@@ -53,7 +53,7 @@
                 <label for="buildingSearch" class="t-label">Edificio</label>
                 <div id="buildingPicker">
                     <input type="search" id="buildingSearch" class="t-input" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="buildingResults"
-                           placeholder="Nombre, calle y altura, barrio o cliente">
+                           placeholder="Nombre, calle y altura, barrio o cliente" data-field="building_id">
                     <p class="mt-1.5 text-xs text-ink-500">
                         @if($onCall)
                             Estás de guardia: podés elegir cualquier edificio de la empresa.
@@ -83,7 +83,7 @@
             @endif
 
             <label for="elevator_number" class="t-label mt-4">Equipo</label>
-            <select id="elevator_number" name="elevator_number" class="t-input" @if(! $workOrder) disabled @endif>
+            <select id="elevator_number" name="elevator_number" class="t-input" data-field="elevator_number" @if(! $workOrder) disabled @endif>
                 @if($workOrder)
                     @if(count($units) > 1)<option value="">Elegí el equipo</option>@endif
                     @foreach($units as $unit)<option value="{{ $unit }}" @selected(old('elevator_number', $workOrder->unit) === $unit)>{{ $unit }}</option>@endforeach
@@ -93,8 +93,26 @@
             </select>
         </section>
 
-        {{-- 2. El reclamo --}}
+        {{-- 2. El trabajo --}}
         <section class="t-card space-y-4 p-4">
+            @if($workOrder)
+                <div>
+                    <div class="t-label">Tipo de trabajo</div>
+                    <p class="text-sm font-semibold text-ink">{{ \App\Support\WorkOrderLabels::type($workOrder->type) }} <span class="font-normal text-ink-500">(el de esta orden)</span></p>
+                </div>
+            @else
+                <div>
+                    <label class="t-label" for="work_type">Tipo de trabajo</label>
+                    <select id="work_type" name="work_type" class="t-input @error('work_type') t-input-invalid @enderror" required data-field="work_type">
+                        <option value="">Elegí el tipo de trabajo</option>
+                        @foreach(\App\Support\WorkOrderLabels::TYPES as $value => $label)
+                            <option value="{{ $value }}" @selected(old('work_type') === $value)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                    <p class="mt-1.5 text-xs text-ink-500">Reclamo: un aviso que hay que atender. Reparación: un trabajo que hiciste (por ejemplo, cambiar un botón), con o sin repuestos.</p>
+                    @error('work_type')<p class="t-field-error" data-error-for="work_type">{{ $message }}</p>@enderror
+                </div>
+            @endif
             <fieldset>
                 <legend class="t-label">¿Qué es?</legend>
                 <div class="grid grid-cols-2 gap-2">
@@ -108,7 +126,7 @@
             </fieldset>
             <div>
                 <label class="t-label" for="channel">¿Cómo te llegó el reclamo?</label>
-                <select id="channel" name="channel" class="t-input">
+                <select id="channel" name="channel" class="t-input" data-field="channel">
                     @foreach(\App\Models\Report::CHANNELS as $value => $label)
                         <option value="{{ $value }}" @selected(old('channel', $workOrder ? 'detected' : 'whatsapp') === $value)>{{ $label }}</option>
                     @endforeach
@@ -125,7 +143,7 @@
             </div>
             <div>
                 <label class="t-label" for="description">Problema informado o encontrado</label>
-                <textarea id="description" name="description" rows="4" maxlength="5000" class="t-input" placeholder="Ej.: «El ascensor 2 no baja del piso 5», según el encargado">{{ old('description') }}</textarea>
+                <textarea id="description" name="description" rows="4" maxlength="5000" class="t-input" data-field="description" placeholder="Ej.: «El ascensor 2 no baja del piso 5», según el encargado">{{ old('description') }}</textarea>
                 <p class="mt-1.5 text-xs text-ink-500">Lo que hiciste y cómo quedó lo completás en el remito, junto con la firma.</p>
             </div>
         </section>
@@ -163,6 +181,35 @@ document.addEventListener('DOMContentLoaded', () => {
     const submit = document.getElementById('submitIntervention');
     const label = submit.textContent;
     const showError = (message) => { formError.textContent = message; formError.classList.remove('hidden'); formError.scrollIntoView({ block: 'center', behavior: 'smooth' }); };
+
+    // Errores por campo: borde rojo, mensaje debajo y foco en el primero (también los que devuelve el servidor).
+    const clearFieldErrors = () => {
+        form.querySelectorAll('.t-input-invalid').forEach((el) => { el.classList.remove('t-input-invalid'); el.removeAttribute('aria-invalid'); });
+        form.querySelectorAll('[data-error-for]').forEach((el) => el.remove());
+    };
+    const markField = (name, message) => {
+        const field = form.querySelector('[data-field="' + name + '"]');
+        if (!field) return null;
+        field.classList.add('t-input-invalid');
+        field.setAttribute('aria-invalid', 'true');
+        const note = document.createElement('p');
+        note.className = 't-field-error';
+        note.dataset.errorFor = name;
+        note.textContent = message; // mensaje del servidor o propio: siempre como texto
+        field.insertAdjacentElement('afterend', note);
+        return field;
+    };
+    const showFieldErrors = (errors) => {
+        clearFieldErrors();
+        let first = null;
+        Object.entries(errors).forEach(([name, messages]) => {
+            const field = markField(name.split('.')[0], Array.isArray(messages) ? messages[0] : String(messages));
+            first = first || field;
+        });
+        if (first) { first.scrollIntoView({ block: 'center', behavior: 'smooth' }); first.focus({ preventScroll: true }); }
+        return first;
+    };
+    form.addEventListener('change', (e) => { if (e.target.classList?.contains('t-input-invalid')) { e.target.classList.remove('t-input-invalid'); form.querySelector('[data-error-for="' + e.target.dataset.field + '"]')?.remove(); } });
 
     /* ---------- Edificio (solo al abrir la visita) ---------- */
     const buildings = @json($buildings);
@@ -309,12 +356,19 @@ document.addEventListener('DOMContentLoaded', () => {
         event.preventDefault();
         if (submit.disabled) return;
         formError.classList.add('hidden');
-        if (buildingSelect && !buildingSelect.value) { showError('Elegí el edificio.'); return; }
-        if (!elevatorSelect.value) { showError('Elegí el equipo.'); elevatorSelect.focus(); return; }
-        if (document.getElementById('description').value.trim().length < 5) { showError('Contá el problema en al menos 5 caracteres.'); return; }
+        // Todo lo que falta, marcado en su campo (el servidor lo vuelve a validar).
+        const missing = {};
+        if (buildingSelect && !buildingSelect.value) missing.building_id = 'Elegí el edificio.';
+        if (!elevatorSelect.value) missing.elevator_number = 'Elegí el equipo.';
+        const workType = document.getElementById('work_type');
+        if (workType && !workType.value) missing.work_type = 'Elegí el tipo de trabajo.';
+        if (document.getElementById('description').value.trim().length < 5) missing.description = 'Contá el problema en al menos 5 caracteres.';
+        if (Object.keys(missing).length) { showError('Faltan datos: revisá los campos marcados en rojo.'); showFieldErrors(missing); return; }
+        clearFieldErrors();
         if (navigator.onLine === false) { showError('No hay conexión. No se perdió nada: cuando tengas señal, tocá el botón de nuevo.'); return; }
 
         submit.disabled = true;
+        submit.setAttribute('aria-busy', 'true');
         submit.textContent = 'Enviando…';
         try {
             const transfer = new DataTransfer();
@@ -330,13 +384,13 @@ document.addEventListener('DOMContentLoaded', () => {
         xhr.setRequestHeader('Accept', 'application/json');
         xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
         xhr.upload.onprogress = (e) => { if (e.lengthComputable) bar.style.width = Math.round(e.loaded / e.total * 100) + '%'; };
-        const reset = () => { submit.disabled = false; submit.textContent = label; progress.classList.add('hidden'); };
+        const reset = () => { submit.disabled = false; submit.removeAttribute('aria-busy'); submit.textContent = label; progress.classList.add('hidden'); };
         xhr.onload = () => {
             let body = {};
             try { body = JSON.parse(xhr.responseText); } catch (e) {}
             if (xhr.status >= 200 && xhr.status < 300 && body.redirect) { window.location.assign(body.redirect); return; }
             reset();
-            if (xhr.status === 422) showError(body.message || 'Revisá los datos.');
+            if (xhr.status === 422) { showError('No se pudo registrar: revisá los campos marcados en rojo.'); if (!showFieldErrors(body.errors || {})) showError(body.message || 'Revisá los datos.'); }
             else if (xhr.status === 419) showError('La sesión venció. Recargá la página e intentá de nuevo.');
             else if (xhr.status === 403) showError('No podés registrar trabajos en esta orden.');
             else showError('No se pudo enviar. Probá de nuevo en un momento: no se va a duplicar.');

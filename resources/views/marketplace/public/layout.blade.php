@@ -39,6 +39,11 @@
         ::selection { background: #FFE8D6; color: #11161D; }
         :focus-visible { outline: 2px solid #2E4FBE; outline-offset: 2px; border-radius: 4px; }
         [x-cloak] { display: none !important; }
+        /* Selectores de filtros: flecha centrada a la derecha, con aire, en todos los navegadores. */
+        .mk-select { -webkit-appearance: none; -moz-appearance: none; appearance: none; cursor: pointer;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%2311161D' stroke-opacity='.55' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right .875rem center; background-size: 1rem 1rem; text-overflow: ellipsis; }
+        .mk-select::-ms-expand { display: none; }
         .no-scrollbar { scrollbar-width: none; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
 

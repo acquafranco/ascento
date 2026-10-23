@@ -12,7 +12,7 @@ Rama `mejora/intervenciones-tecnico`.
 
 | Concepto | Dónde vive | Notas |
 |---|---|---|
-| La **visita** | `work_orders`, tipo `claim`, `origin = 'technician'` y `created_by` = técnico | Se crea asignada a él y **en curso**. Las órdenes existentes tienen `origin = null` (oficina). |
+| La **visita** | `work_orders`, con el **tipo de trabajo** que elige el técnico (mantenimiento, inspección, reclamo, reparación, instalación o modernización), `origin = 'technician'` y `created_by` = técnico | Se crea asignada a él y **en curso**. Las órdenes existentes tienen `origin = null` (oficina). |
 | Cada **problema atendido** | `reports`, `kind = 'intervention'` y `work_order_id` = la orden | Guarda el problema informado, el canal (`channel`: WhatsApp, teléfono, encargado, detectado, otro), las fotos y, al firmar, `work_done` y `result`. |
 | La **documentación** | El remito de siempre (`DeliveryNoteController`) | Firma del técnico y del cliente, materiales y stock, participantes, visita. **Un remito por orden**, como antes. |
 
@@ -93,3 +93,14 @@ La oficina recibe el aviso en el momento en que se abre cada intervención: «Ur
 
 1. **Facturación:** ni las órdenes ni los remitos están vinculados a presupuestos o cobros; se cargan aparte, como con las órdenes de la oficina. Si se quiere «Generar cobro desde el remito», hay que definir la regla.
 2. **Reclamos del portal y del QR:** sin cambios. La oficina crea la orden desde el reclamo; no se vinculan solos con las intervenciones del técnico.
+
+## Tipo de trabajo y «Reparación» (rama `mejora/remitos-tipos-y-reclamos`)
+
+- **Al abrir una intervención:** el técnico elige el «Tipo de trabajo» (obligatorio, validado también en el servidor). Se guarda en `work_orders.type`, la misma columna que usa la oficina. La lista es única: `WorkOrderLabels::TYPES`.
+- **«Reparación» (`repair`)** es un tipo nuevo de orden, para la oficina y para los técnicos (migración `2027_01_25`, que solo agrega el valor al `enum`):
+  - es un **trabajo hecho**, que puede llevar repuestos y facturarse **fuera de Ascento**;
+  - **«Reclamo»** es un **aviso** que necesita atención;
+  - no tiene relación con el módulo «Reparaciones» (componentes enviados a taller), que no cambió.
+- **Indicadores y análisis de fallas:** solo cuentan como reclamos las órdenes de tipo «Reclamo» y los trabajos de intervenciones de tipo «Reclamo». Una reparación aparece en el historial del equipo con su tipo, pero no se suma como reclamo.
+- **Remito:** muestra el tipo («Intervención del técnico: Reparación»). Si falta algo, cada campo se marca en rojo con su mensaje y el formulario lleva al primero. El servidor valida todo junto, así se ve de una vez lo que falta. Ante un error inesperado no se guarda nada, se registra en el log (sin firmas) y se explica qué hacer.
+

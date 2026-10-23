@@ -66,13 +66,7 @@ class DeliveryNotesTable
 
                     return '-';
                 })
-                ->colors([
-                    'primary' => 'maintenance',
-                    'warning' => 'inspection',
-                    'danger' => 'claim',
-                    'success' => 'installation',
-                    'gray' => 'modernization',
-                ]),
+                ->color(fn ($record) => WorkOrderLabels::TYPE_COLORS[$record->workOrder?->type ?? $record->buildingVisit?->assignment_type] ?? 'gray'),
 
             TextColumn::make('equipos')
                 ->label('Equipos')

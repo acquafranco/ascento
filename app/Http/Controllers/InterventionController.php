@@ -8,6 +8,7 @@ use App\Models\WorkOrder;
 use App\Services\Interventions\InterventionService;
 use App\Services\Reports\ReportPhotoService;
 use App\Support\ElevatorComponents;
+use App\Support\WorkOrderLabels;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -120,7 +121,8 @@ class InterventionController extends Controller
     private function validated(Request $request, bool $withBuilding): array
     {
         return $request->validate([
-            ...($withBuilding ? ['building_id' => 'required|integer'] : []),
+            // Tipo de trabajo de la orden (solo al abrir la visita): la lista única de tipos.
+            ...($withBuilding ? ['building_id' => 'required|integer', 'work_type' => ['required', Rule::in(array_keys(WorkOrderLabels::TYPES))]] : []),
             'elevator_number' => 'required|string|max:255',
             'channel' => ['required', Rule::in(array_keys(Report::CHANNELS))],
             'kind' => ['required', Rule::in(array_keys(InterventionService::KINDS))],
@@ -130,6 +132,8 @@ class InterventionController extends Controller
             ...ReportPhotoService::rules(),
         ], [
             'building_id.required' => 'Elegí el edificio.',
+            'work_type.required' => 'Elegí el tipo de trabajo.',
+            'work_type.in' => 'Elegí un tipo de trabajo de la lista.',
             'elevator_number.required' => 'Elegí el equipo.',
             'channel.required' => 'Indicá por dónde llegó el reclamo.',
             'kind.required' => 'Indicá si es una urgencia.',

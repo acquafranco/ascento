@@ -73,7 +73,7 @@
 
                 <section class="asc-card" data-qr-sections>
                     <p class="asc-q" style="font-weight:600">Qué se publica</p>
-                    <p class="asc-c">Siempre se muestran el nombre de la empresa y el del edificio con su dirección. Nunca datos del cliente, técnicos, residentes, firmas, fotos, notas ni montos. Los documentos y las incidencias aparecen solo los que publiques uno por uno (en el legajo del ascensor y en «Reclamos y reportes»).</p>
+                    <p class="asc-c">Siempre se muestran el nombre de la empresa y el del edificio con su dirección. Nunca datos del cliente, técnicos, residentes, firmas, fotos, notas ni montos. Los documentos y las incidencias aparecen solo los que publiques uno por uno (en el legajo del ascensor y en «Reclamos y avisos externos»).</p>
                     <p class="asc-c">Si «Reportes de problemas desde el QR» está activo en «Mi empresa», la página muestra «Reportar un problema». Es un historial de documentos: no es una certificación de seguridad ni un servicio de emergencias.</p>
                     @foreach(\App\Models\BuildingPublicPage::SECTIONS as $key => $label)
                         <label class="asc-row" style="cursor:pointer">

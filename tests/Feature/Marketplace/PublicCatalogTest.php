@@ -67,6 +67,10 @@ class PublicCatalogTest extends TestCase
         $this->get(route('marketplace.catalog', ['marca' => 'Otis', 'disponibilidad' => 'to_order', 'precio' => 'quote']))->assertSee('Botonera de cabina')->assertDontSee('Operador de puerta VF5');
         // Valores inventados se ignoran (no rompen ni agregan nada).
         $this->get(route('marketplace.catalog', ['rubro' => "x' OR 1=1", 'disponibilidad' => 'nada', 'page' => 'abc']))->assertOk()->assertSee('Operador de puerta VF5');
+        // Selectores de filtros con su propia flecha alineada (mk-select), solo en el catálogo público.
+        $html = $this->get(route('marketplace.catalog'))->getContent();
+        $this->assertSame(4, substr_count($html, 'class="mk-select '));
+        $this->assertStringContainsString('.mk-select { -webkit-appearance: none;', $html);
         // Sin resultados: estado vacío claro.
         $this->get(route('marketplace.catalog', ['q' => 'inexistente-zzz']))->assertOk()->assertSee('data-empty-state', false)->assertSee('No encontramos repuestos');
     }

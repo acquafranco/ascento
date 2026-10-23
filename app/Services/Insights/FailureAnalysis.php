@@ -83,7 +83,7 @@ class FailureAnalysis
         $orders = WorkOrder::claimSignals()->whereNotNull('unit')->tap($window)
             ->when($elevator, fn ($q) => $q->where('building_id', $elevator->building_id)->where('unit', $elevator->label))
             ->toBase()->get(['id', 'building_id', 'unit', 'component', 'status']);
-        $jobs = Report::interventionJobs()->whereNotNull('elevator_number')->tap($window)
+        $jobs = Report::claimJobs()->whereNotNull('elevator_number')->tap($window)
             ->when($elevator, fn ($q) => $q->where('building_id', $elevator->building_id)->where('elevator_number', $elevator->label))
             ->toBase()->get(['id', 'building_id', 'elevator_number', 'component', 'result'])
             ->map(fn ($r) => (object) ['id' => 'job-'.$r->id, 'building_id' => $r->building_id, 'unit' => $r->elevator_number, 'component' => $r->component, 'status' => $r->result === 'resolved' ? 'completed' : 'open']);

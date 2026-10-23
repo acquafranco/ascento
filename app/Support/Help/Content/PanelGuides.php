@@ -314,7 +314,7 @@ final class PanelGuides
                 'El técnico entra con su correo y su contraseña desde el navegador del celular. No usa el panel.',
                 '«Visitas»: los mantenimientos e inspecciones del mes de los edificios que tiene asignados.',
                 '«Trabajos»: las órdenes que le asignaste. Las toma con «Tomar trabajo» y las cierra con «Hacer remito y finalizar».',
-                '«Reportes»: las fallas que detecta, con foto y prioridad.',
+                '«Reportes»: las fallas que detecta y las intervenciones o urgencias que atiende. En el panel los ves en «Reportes de técnicos».',
                 '«Guardias»: cuándo le toca cubrir fuera de horario (si tu plan incluye guardias).',
             ], [
                 'after' => 'Cada remito que firma queda en «Remitos» y actualiza la agenda. Los reportes te llegan como aviso.',
@@ -339,8 +339,8 @@ final class PanelGuides
                 'open' => WorkOrderResource::class,
             ]),
 
-            $a('ordenes', 'claims', 'Cómo gestionar reclamos y reportes', 'Lo que tus clientes presentan desde el portal y lo que cualquier persona reporta desde el QR de un edificio.', [
-                'Cuando llega un reclamo del portal o un reporte del QR, te llega un aviso y aparece en «Operaciones → Reclamos y reportes» como «Recibido». La columna «Origen» dice de dónde vino.',
+            $a('ordenes', 'claims', 'Cómo gestionar los reclamos y avisos externos', 'Lo que llega desde afuera: reclamos de las administraciones desde el portal y avisos de quien usa el ascensor desde el QR. No son los reportes de tus técnicos.', [
+                'Cuando llega un reclamo del portal o un reporte del QR, te llega un aviso y aparece en «Operaciones → Reclamos y avisos externos» como «Recibido». La columna «Origen» dice de dónde vino.',
                 'Abrilo: ves el edificio, el ascensor (si lo indicaron), la categoría, la descripción, las fotos y, en «Avisos», a quién se intentó avisar.',
                 'Con «Cambiar estado» lo pasás a «En revisión», «En gestión», «Resuelto» o «Cerrado». Para «Resuelto» o «Cerrado» tenés que escribir en qué te basás: queda en el historial con tu nombre.',
                 'Si hace falta un trabajo, en «Más» usá «Crear orden de trabajo»: queda vinculada y el estado pasa a «Asociado a una orden de trabajo».',
@@ -367,9 +367,9 @@ final class PanelGuides
                 'area' => Area::WorkOrders,
             ]),
 
-            $a('ordenes', 'reports', 'Reportes de fallas', 'Lo que detectan los técnicos en los equipos.', [
+            $a('ordenes', 'reports', 'Reportes de técnicos', 'Lo que registran tus técnicos: fallas que detectan e intervenciones que atienden. No son los reclamos externos.', [
                 'El técnico carga el reporte desde el celular: edificio, equipo, qué parte falla, prioridad y fotos.',
-                'Te llega un aviso. En «Operaciones → Reportes», abrilo.',
+                'Te llega un aviso. En «Operaciones → Reportes de técnicos», abrilo.',
                 'Cambiá el estado a «En revisión» o «Resuelto» a medida que lo atendés.',
                 'Los reportes de inspección se ven eligiendo el tipo «Inspección» en el filtro.',
             ], [
@@ -611,7 +611,7 @@ final class PanelGuides
                 'En «Reportes de problemas desde el QR», activá o desactivá «Recibir reportes de problemas desde el QR público». Se guarda al tocarlo.',
             ], [
                 'before' => ['Lo cambia solo el dueño de la cuenta.', 'Está en los planes Profesional y Empresa, y viene activado.'],
-                'after' => 'Activado, la página del QR de los edificios publicados muestra «Reportar un problema». Lo que se reporta llega a «Reclamos y reportes» y se avisa a tu empresa y a los técnicos asignados al edificio.',
+                'after' => 'Activado, la página del QR de los edificios publicados muestra «Reportar un problema». Lo que se reporta llega a «Reclamos y avisos externos» y se avisa a tu empresa y a los técnicos asignados al edificio.',
                 'notes' => ['Quien reporta elige qué notó (puertas, ruidos, detenciones, luces, daños u otro), lo describe y puede sumar una foto. No necesita cuenta.', 'No es un servicio de emergencias: la página lo dice y remite a la alarma del ascensor y al 911.', 'Desactivarlo no borra los reportes ya registrados.'],
                 'related' => ['claims', 'public_qr'],
                 'keywords' => ['reporte', 'reportar', 'problema', 'qr', 'activar', 'desactivar', 'vecinos', 'incidencia'],
