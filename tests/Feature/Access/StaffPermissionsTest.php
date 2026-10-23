@@ -19,6 +19,7 @@ use App\Filament\Pages\Subscription as SubscriptionPage;
 use App\Filament\Pages\SystemBackups;
 use App\Filament\Resources\Buildings\BuildingResource;
 use App\Filament\Resources\Buildings\Pages\ListBuildings;
+use App\Filament\Resources\Claims\ClientClaimResource;
 use App\Filament\Resources\ClientInteractions\ClientInteractionResource;
 use App\Filament\Resources\Clients\ClientResource;
 use App\Filament\Resources\Clients\Pages\EditClient;
@@ -29,12 +30,23 @@ use App\Filament\Resources\Emergency\EmergencyRequestResource;
 use App\Filament\Resources\Inspections\InspectionResource;
 use App\Filament\Resources\Maintenances\MaintenanceResource;
 use App\Filament\Resources\MaintenanceServices\MaintenanceServiceResource;
+use App\Filament\Resources\Marketplace\FeaturedPlacementResource;
+use App\Filament\Resources\Marketplace\MarketplaceReportResource;
+use App\Filament\Resources\Marketplace\MarketplaceRequestResource;
+use App\Filament\Resources\Marketplace\ServiceCategoryResource;
+use App\Filament\Resources\Marketplace\ServiceContactRequestResource;
+use App\Filament\Resources\Marketplace\ServiceProfileReportResource;
+use App\Filament\Resources\Marketplace\ServiceProfileResource;
+use App\Filament\Resources\Marketplace\SupplierPaymentResource;
+use App\Filament\Resources\Marketplace\SupplierProductResource;
+use App\Filament\Resources\Marketplace\SupplierResource;
 use App\Filament\Resources\OnCall\OnCallScheduleResource;
 use App\Filament\Resources\ParachuteTests\ParachuteTestResource;
 use App\Filament\Resources\Quotes\QuoteResource;
 use App\Filament\Resources\Receivables\ReceivableResource;
 use App\Filament\Resources\RepairComponents\RepairComponentResource;
 use App\Filament\Resources\Reports\ReportResource;
+use App\Filament\Resources\SalesLeads\SalesLeadResource;
 use App\Filament\Resources\ServiceCatalogItems\ServiceCatalogItemResource;
 use App\Filament\Resources\StaffUsers\StaffUserResource;
 use App\Filament\Resources\StockItems\StockItemResource;
@@ -96,7 +108,7 @@ class StaffPermissionsTest extends TestCase
         ServiceCatalogItemResource::class => PermissionArea::Receivables,
         OnCallScheduleResource::class => PermissionArea::OnCall,
         EmergencyRequestResource::class => PermissionArea::WorkOrders,
-        \App\Filament\Resources\Claims\ClientClaimResource::class => PermissionArea::WorkOrders,
+        ClientClaimResource::class => PermissionArea::WorkOrders,
         ReceivableResource::class => PermissionArea::Receivables,
         QuoteResource::class => PermissionArea::Quotes,
         StockItemResource::class => PermissionArea::Stock,
@@ -580,9 +592,10 @@ class StaffPermissionsTest extends TestCase
     public function test_every_panel_resource_declares_its_area_or_is_super_admin_only(): void
     {
         $panel = Filament::getPanel('ascensores_app');
-        $superAdminOnly = [CompanyResource::class, SubscriptionResource::class, \App\Filament\Resources\SalesLeads\SalesLeadResource::class,
-            \App\Filament\Resources\Marketplace\SupplierResource::class, \App\Filament\Resources\Marketplace\SupplierProductResource::class, \App\Filament\Resources\Marketplace\MarketplaceReportResource::class,
-            \App\Filament\Resources\Marketplace\MarketplaceRequestResource::class, \App\Filament\Resources\Marketplace\SupplierPaymentResource::class, \App\Filament\Resources\Marketplace\FeaturedPlacementResource::class];
+        $superAdminOnly = [CompanyResource::class, SubscriptionResource::class, SalesLeadResource::class,
+            SupplierResource::class, SupplierProductResource::class, MarketplaceReportResource::class,
+            MarketplaceRequestResource::class, SupplierPaymentResource::class, FeaturedPlacementResource::class,
+            ServiceProfileResource::class, ServiceProfileReportResource::class, ServiceCategoryResource::class, ServiceContactRequestResource::class];
         $ownerOnly = [StaffUserResource::class];
 
         foreach ($panel->getResources() as $resource) {

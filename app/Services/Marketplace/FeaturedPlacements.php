@@ -136,7 +136,15 @@ class FeaturedPlacements
         $this->notify->team('Pago de destacado devuelto', 'El pago del destacado #'.$placement->id.' («'.$placement->product_name.'») fue devuelto o desconocido. El destacado se canceló.', '/admin/marketplace/destacados', 'feat-refund:'.$payment->id, mail: true);
     }
 
-    /** SuperAdmin: destaca sin cobro hasta una fecha (queda en el historial y en la auditoría). */
+    /**
+     * SuperAdmin: destaca sin cobro hasta una fecha (queda en el historial y en la auditoría).
+     *
+     * - Solo productos que se pueden destacar: visibles en el catálogo (publicados, sin
+     *   ocultar, dentro del límite del plan y de un proveedor habilitado).
+     * - Sin superposición: si ya hay un destacado vigente o programado (pagado o asignado),
+     *   el período nuevo empieza cuando termina ese y llega hasta la fecha elegida; los
+     *   días pagados se conservan. Si la fecha no supera el fin vigente, no se crea nada.
+     */
     public function grant(User $admin, SupplierProduct $product, Carbon $until): FeaturedPlacement
     {
         abort_unless($admin->isSuperAdmin(), 403);
@@ -144,22 +152,30 @@ class FeaturedPlacements
             throw ValidationException::withMessages(['until' => 'Elegí una fecha dentro del próximo año.']);
         }
         $placement = DB::transaction(function () use ($admin, $product, $until) {
+            $row = SupplierProduct::whereKey($product->id)->lockForUpdate()->first();
+            if (! $row || ! $row->isVisible()) {
+                throw ValidationException::withMessages(['until' => 'Solo se puede destacar un producto publicado y visible en el catálogo (no oculto, pausado, retirado, fuera del límite ni de un proveedor suspendido).']);
+            }
+            $start = $this->nextStart($row, 0);
+            if ($until->lte($start)) {
+                throw ValidationException::withMessages(['until' => 'Ya está destacado hasta el '.$start->format('d/m/Y').'. Elegí una fecha posterior para extenderlo.']);
+            }
             $placement = FeaturedPlacement::create([
-                'supplier_id' => $product->supplier_id,
-                'supplier_product_id' => $product->id,
-                'product_name' => $product->name,
+                'supplier_id' => $row->supplier_id,
+                'supplier_product_id' => $row->id,
+                'product_name' => $row->name,
                 'source' => 'admin',
-                'days' => max(1, (int) ceil(now()->diffInDays($until))),
+                'days' => max(1, (int) ceil($start->diffInDays($until))),
                 'status' => FeaturedPlacement::ACTIVE,
-                'starts_at' => now(),
+                'starts_at' => $start,
                 'ends_at' => $until,
                 'created_by' => $admin->id,
             ]);
-            $this->recompute($product);
+            $this->recompute($row);
 
             return $placement;
         });
-        PlatformAudit::record('marketplace.product.featured', $product, ['until' => $until->toDateString(), 'placement' => $placement->id]);
+        PlatformAudit::record('marketplace.product.featured', $product, ['from' => $placement->starts_at->toDateString(), 'until' => $until->toDateString(), 'placement' => $placement->id]);
 
         return $placement;
     }

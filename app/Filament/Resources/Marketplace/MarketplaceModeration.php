@@ -195,13 +195,19 @@ final class MarketplaceModeration
                 ->visible(fn (SupplierProduct $record) => self::allowed() && ! $record->hidden_by_admin)
                 ->fillForm(fn () => ['until' => now()->addDays(30)->toDateString()])
                 ->schema([DatePicker::make('until')->label('Destacado hasta')->required()->native(false)->minDate(now()->addDay()->startOfDay())->maxDate(now()->addYear())])
-                ->modalDescription('Sin cobro (queda en el historial como «asignado por Ascento»). No saltea la moderación ni la relevancia de la búsqueda.')
+                ->modalDescription('Sin cobro (queda en el historial como «asignado por Ascento»). Solo productos visibles en el catálogo. Si ya tiene un destacado vigente, el período nuevo empieza cuando termina ese (no se pisan días pagados). No saltea la moderación ni la relevancia de la búsqueda.')
                 ->action(function (SupplierProduct $record, array $data) {
                     abort_unless(self::allowed(), 403);
                     $until = Carbon::parse($data['until'])->endOfDay();
                     abort_if($until->isPast() || $until->gt(now()->addYear()->endOfDay()), 422);
-                    app(FeaturedPlacements::class)->grant(auth()->user(), $record, $until);
-                    Notification::make()->title('Destacado hasta el '.$until->format('d/m/Y'))->success()->send();
+                    try {
+                        $placement = app(FeaturedPlacements::class)->grant(auth()->user(), $record, $until);
+                    } catch (ValidationException $e) {
+                        Notification::make()->title('No se destacó')->body(collect($e->errors())->flatten()->first())->danger()->persistent()->send();
+
+                        return;
+                    }
+                    Notification::make()->title('Destacado del '.$placement->starts_at->format('d/m/Y').' al '.$until->format('d/m/Y'))->success()->send();
                 }),
             Action::make('unfeature')->label('Quitar destacado')->icon('heroicon-o-star')->color('gray')
                 ->visible(fn (SupplierProduct $record) => self::allowed() && FeaturedPlacement::where('supplier_product_id', $record->id)->where('status', FeaturedPlacement::ACTIVE)->exists())
