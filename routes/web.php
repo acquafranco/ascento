@@ -130,6 +130,8 @@ Route::middleware(['auth', 'supplier'])->prefix('proveedores')->name('suppliers.
         Route::post('/{product}/conservar', 'keep')->middleware('throttle:60,1,suppliers.products.keep')->name('keep');
         Route::post('/fuera-del-limite/publicar', 'restoreOverLimit')->middleware('throttle:10,1,suppliers.products.restore')->name('restore');
         Route::post('/{product}/fotos', 'storePhoto')->middleware('throttle:30,1,suppliers.products.photo')->name('photos.store');
+        Route::post('/{product}/fotos/{photo}/principal', 'primaryPhoto')->middleware('throttle:60,1,suppliers.products.photo-order')->name('photos.primary');
+        Route::post('/{product}/fotos/{photo}/mover', 'movePhoto')->middleware('throttle:60,1,suppliers.products.photo-order')->name('photos.move');
         Route::delete('/{product}/fotos/{photo}', 'destroyPhoto')->middleware('throttle:30,1,suppliers.products.photo-delete')->name('photos.destroy');
     });
 

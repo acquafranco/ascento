@@ -10,7 +10,9 @@ use App\Services\Media\PhotoProcessor;
 use App\Support\Marketplace\Catalog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -123,41 +125,137 @@ class SupplierProductController extends Controller
         return back()->with('status', $n ? "Volviste a publicar {$n} ".($n === 1 ? 'producto' : 'productos').'.' : 'No hay lugar en tu plan o no hay productos fuera del límite.');
     }
 
+    /**
+     * Sube una o varias fotos (`fotos[]`; `foto` sigue funcionando). Cada archivo
+     * se vuelve a codificar (PhotoProcessor: contenido real, sin metadatos); el
+     * nombre que manda el navegador no se usa. Si una falla o se pasa del
+     * máximo, no queda ningún archivo nuevo ni ninguna fila.
+     */
     public function storePhoto(Request $request, int $product, PhotoProcessor $photos): RedirectResponse
     {
         SupplierAreaController::ensureCanEdit($request->user()->supplier);
         $model = $this->product($request, $product);
+        // Formulario anterior (un solo campo «foto»): mismo flujo y errores con su nombre.
+        $single = ! $request->exists('fotos') && $request->exists('foto');
+        $input = $single ? ['fotos' => $request->hasFile('foto') ? [$request->file('foto')] : null] : ['fotos' => $request->file('fotos')];
+        try {
+            return $this->storePhotos($input, $model, $photos);
+        } catch (ValidationException $e) {
+            throw $single ? ValidationException::withMessages(['foto' => collect($e->errors())->flatten()->first()]) : $e;
+        }
+    }
 
-        $request->validate(['foto' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:'.Catalog::MAX_PHOTO_KB]], [
-            'foto.required' => 'Elegí una foto.',
-            'foto.image' => 'El archivo tiene que ser una foto (JPG, PNG o WebP).',
-            'foto.mimes' => 'El archivo tiene que ser una foto (JPG, PNG o WebP).',
-            'foto.max' => 'La foto pesa demasiado (máximo '.(Catalog::MAX_PHOTO_KB / 1024).' MB).',
-        ]);
-        if ($model->photos()->count() >= Catalog::MAX_PHOTOS) {
-            throw ValidationException::withMessages(['foto' => 'Cada producto puede tener hasta '.Catalog::MAX_PHOTOS.' fotos.']);
+    private function storePhotos(array $input, SupplierProduct $model, PhotoProcessor $photos): RedirectResponse
+    {
+
+        $max = Catalog::MAX_PHOTOS;
+        $mb = Catalog::MAX_PHOTO_KB / 1024;
+        Validator::make($input, [
+            'fotos' => ['required', 'array', 'min:1', 'max:'.$max],
+            'fotos.*' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:'.Catalog::MAX_PHOTO_KB],
+        ], [
+            'fotos.required' => 'Elegí al menos una foto.',
+            'fotos.max' => 'Podés subir hasta '.$max.' fotos por producto.',
+            'fotos.*.image' => 'Cada archivo tiene que ser una foto (JPG, PNG o WebP).',
+            'fotos.*.mimes' => 'Cada archivo tiene que ser una foto (JPG, PNG o WebP).',
+            'fotos.*.max' => 'Una de las fotos pesa más de '.$mb.' MB.',
+            'fotos.*.uploaded' => 'Una de las fotos no se pudo subir (puede pesar más de '.$mb.' MB).',
+        ])->validate();
+        $files = array_values((array) $input['fotos']);
+        $free = $max - $model->photos()->count();
+        if (count($files) > $free) {
+            throw ValidationException::withMessages(['fotos' => $free > 0
+                ? 'Este producto ya tiene '.($max - $free).' fotos: podés agregar '.$free.' más (máximo '.$max.').'
+                : 'Este producto ya tiene las '.$max.' fotos permitidas. Quitá alguna para agregar otra.']);
         }
 
-        $stored = $photos->store($request->file('foto'), 'marketplace/'.$model->supplier_id.'/'.$model->id, 'foto', 'Foto de producto inválida');
-        $model->photos()->create([
-            'supplier_id' => $model->supplier_id,
-            'path' => $stored['path'],
-            'thumb_path' => $stored['thumb_path'],
-            'position' => (int) $model->photos()->max('position') + 1,
-        ]);
+        $stored = [];
+        try {
+            foreach ($files as $file) {
+                $stored[] = $photos->store($file, 'marketplace/'.$model->supplier_id.'/'.$model->id, 'fotos', 'Foto de producto inválida');
+            }
+            DB::transaction(function () use ($model, $stored, $max) {
+                // Con el producto bloqueado: dos subidas a la vez no pasan el máximo.
+                SupplierProduct::whereKey($model->id)->lockForUpdate()->first();
+                $count = $model->photos()->count();
+                if ($count + count($stored) > $max) {
+                    throw ValidationException::withMessages(['fotos' => 'Este producto ya tiene '.$count.' fotos (máximo '.$max.').']);
+                }
+                $position = (int) $model->photos()->max('position');
+                foreach ($stored as $file) {
+                    $model->photos()->create(['supplier_id' => $model->supplier_id, 'path' => $file['path'], 'thumb_path' => $file['thumb_path'], 'position' => ++$position]);
+                }
+            });
+        } catch (\Throwable $e) {
+            foreach ($stored as $file) {
+                Storage::disk('local')->delete([$file['path'], $file['thumb_path']]);
+            }
+            throw $e;
+        }
+        $this->renumber($model);
 
-        return back()->with('status', 'Foto agregada.');
+        return back()->with('status', count($stored) === 1 ? 'Foto agregada.' : count($stored).' fotos agregadas.');
+    }
+
+    /** La foto pasa a ser la principal (la primera: la que se ve en el catálogo). */
+    public function primaryPhoto(Request $request, int $product, int $photo): RedirectResponse
+    {
+        SupplierAreaController::ensureCanEdit($request->user()->supplier);
+        $model = $this->product($request, $product);
+        $row = $this->photo($model, $photo);
+        $ids = $model->photos()->pluck('id')->reject(fn ($id) => $id === $row->id)->prepend($row->id)->all();
+        $this->renumber($model, $ids);
+
+        return back()->with('status', 'Foto principal actualizada.');
+    }
+
+    /** Mueve la foto un lugar antes («antes») o después («despues»). */
+    public function movePhoto(Request $request, int $product, int $photo): RedirectResponse
+    {
+        SupplierAreaController::ensureCanEdit($request->user()->supplier);
+        $model = $this->product($request, $product);
+        $row = $this->photo($model, $photo);
+        $request->validate(['direccion' => ['required', Rule::in(['antes', 'despues'])]]);
+        $ids = $model->photos()->pluck('id')->all();
+        $i = array_search($row->id, $ids, true);
+        $j = $request->input('direccion') === 'antes' ? $i - 1 : $i + 1;
+        if (isset($ids[$j])) {
+            [$ids[$i], $ids[$j]] = [$ids[$j], $ids[$i]];
+            $this->renumber($model, $ids);
+        }
+
+        return back()->with('status', 'Orden de las fotos actualizado.');
     }
 
     public function destroyPhoto(Request $request, int $product, int $photo): RedirectResponse
     {
         SupplierAreaController::ensureCanEdit($request->user()->supplier);
         $model = $this->product($request, $product);
-        $row = SupplierProductPhoto::where('supplier_product_id', $model->id)->findOrFail($photo);
-        Storage::disk('local')->delete([$row->path, $row->thumb_path]);
+        $row = $this->photo($model, $photo);
+        $files = [$row->path, $row->thumb_path];
         $row->delete();
+        // Primero la fila y después los archivos: nunca queda una foto que apunte a un archivo borrado.
+        Storage::disk('local')->delete($files);
+        $this->renumber($model);
 
         return back()->with('status', 'Foto eliminada.');
+    }
+
+    /** Solo una foto de ESTE producto (que ya es del proveedor de quien pide): cualquier otra → 404. */
+    private function photo(SupplierProduct $model, int $photo): SupplierProductPhoto
+    {
+        return SupplierProductPhoto::where('supplier_product_id', $model->id)->where('supplier_id', $model->supplier_id)->findOrFail($photo);
+    }
+
+    /** Posiciones 1..n en el orden dado (por defecto, el actual). */
+    private function renumber(SupplierProduct $model, ?array $ids = null): void
+    {
+        $ids ??= $model->photos()->pluck('id')->all();
+        DB::transaction(function () use ($model, $ids) {
+            foreach (array_values($ids) as $i => $id) {
+                SupplierProductPhoto::where('supplier_product_id', $model->id)->whereKey($id)->update(['position' => $i + 1]);
+            }
+        });
     }
 
     private function validated(Request $request): array

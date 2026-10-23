@@ -175,6 +175,43 @@ Zona horaria: `America/Argentina/Buenos_Aires`. Una cotización vence a las 23:5
   - precios y venta de destacados.
 - **Auditoría:** todas las acciones quedan en `platform_audit_logs`.
 
+## 6b. Catálogo, fichas y fotos (rama mejora/marketplace-lanzamiento)
+
+**Fotos de cada producto**
+- Hasta `Catalog::MAX_PHOTOS` (6) por producto, de hasta 8 MB cada una (`Catalog::MAX_PHOTO_KB`), en JPG, PNG o WebP.
+- El proveedor puede:
+  - subir varias a la vez, con vista previa y aviso inmediato de formato, tamaño y cantidad en el navegador;
+  - elegir la principal, que es la primera y la que se ve en el catálogo;
+  - moverlas antes o después y quitarlas.
+- El servidor:
+  - vuelve a validar todo;
+  - vuelve a codificar cada imagen (contenido real, sin metadatos, nombre aleatorio; nunca el del navegador);
+  - con el producto bloqueado, no deja pasar del máximo;
+  - si un archivo falla, no guarda ninguno ni deja archivos sueltos.
+- Cada operación busca la foto dentro del producto y del proveedor de quien pide; cualquier otra combinación da 404.
+- Las fotos se sirven desde el disco privado, solo al proveedor dueño, al SuperAdmin o a una empresa compradora mientras el producto esté visible.
+- No hizo falta migración: `supplier_product_photos.position` ya existía, y las fotos anteriores mantienen su orden.
+
+**Catálogo de las empresas** (`/admin/repuestos`)
+- Tarjetas con:
+  - foto principal en 4:3 sin deformar, con la cantidad de fotos;
+  - rubro, nombre, marca y modelo, y código;
+  - compatibilidad declarada (abreviada), proveedor, precio (o «A cotizar») y disponibilidad;
+  - «Ver detalle» y «Agregar».
+- Favorito y comparar quedan como íconos sobre la foto.
+- En el celular, tarjetas horizontales y filtros en dos columnas.
+- Estados vacío y «Buscando…».
+
+**Ficha**
+- Galería deslizable con flechas, teclado, contador, miniaturas y «Ver en tamaño completo».
+- Datos ordenados y compatibilidad en un recuadro «declarada por el proveedor».
+- Cantidad con +/− y «Agregar al pedido de cotización».
+
+**Filtros**
+- La flecha cortada de los selectores venía de usar la apariencia nativa con el mismo relleno simétrico y los bordes redondeados de un campo de texto: el indicador quedaba pegado o recortado en el borde.
+- Ahora el selector (`.mk-select`) dibuja su propia flecha en SVG, con espacio reservado a la derecha y recorte «…» en textos largos.
+- `.mk-input` usa `background-color` para no borrar esa flecha.
+
 ## 7. Precios y decisiones comerciales
 
 Ventas: **apagadas**. Premium y los destacados no se ofrecen hasta que el SuperAdmin los encienda en «Configuración del marketplace» (y además el país del proveedor tenga cobro habilitado).

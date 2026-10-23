@@ -226,6 +226,10 @@ class MarketplaceOperationsTest extends TestCase
         // Con el token pero sin la clave del webhook: no se enciende; se nombra la variable sin mostrar ningún valor.
         config(['services.mercadopago.access_token' => 'APP_USR-123-SECRETO', 'services.mercadopago.webhook_secret' => null]);
         $this->get(MarketplaceSettingsPage::getUrl())->assertOk()->assertSee('MERCADOPAGO_WEBHOOK_SECRET')->assertDontSee('APP_USR-123-SECRETO');
+        $this->get(MarketplaceSettingsPage::getUrl())->assertSee('Estado de las ventas')->assertSee('apagado: no se ofrece')->assertSee('hasta 20 productos publicados, sin cobro');
+        MarketplaceSettings::current()->update(['premium_enabled' => true, 'premium_price' => 19900]); // encendida antes, sin credenciales
+        $this->get(MarketplaceSettingsPage::getUrl())->assertSee('encendido, pero no se ofrece hasta completar lo que falta en el servidor');
+        MarketplaceSettings::current()->update(['premium_enabled' => false, 'premium_price' => null]);
         Livewire::test(MarketplaceSettingsPage::class)->set('data.billing_countries', ['AR'])->set('data.premium_enabled', true)->set('data.premium_price', 19900)
             ->call('save')->assertNotified($blocked);
         $this->assertStringContainsString('MERCADOPAGO_WEBHOOK_SECRET', $text(['premium_enabled' => true, 'premium_price' => 19900]));

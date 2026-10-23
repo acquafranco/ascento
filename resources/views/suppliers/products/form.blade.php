@@ -3,6 +3,7 @@
     use App\Http\Controllers\Supplier\SupplierProductController;
     $isNew = ! $product->exists;
     $locked = in_array($supplier->status, ['rejected', 'suspended'], true);
+    $count = $isNew ? 0 : $product->photos->count();
     $actions = ['published' => 'Publicar', 'paused' => 'Pausar', 'retired' => 'Retirar', 'draft' => 'Volver a borrador'];
 @endphp
 <x-supplier-layout :title="$isNew ? 'Nuevo producto' : $product->name">
@@ -71,28 +72,77 @@
 
     @unless($isNew)
         <section class="s-card" data-product-photos>
-            <h2 class="s-h2">Fotos ({{ $product->photos->count() }}/{{ Catalog::MAX_PHOTOS }})</h2>
-            @if($product->photos->isNotEmpty())
-                <div class="s-photos">
+            <div class="s-row" style="align-items:baseline">
+                <h2 class="s-h2" style="margin:0">Fotos <span class="s-muted" style="font-weight:500">{{ $count }} de {{ Catalog::MAX_PHOTOS }}</span></h2>
+                @if($count > 1)<span class="s-muted">La primera es la principal: es la que ven las empresas en el catálogo.</span>@endif
+            </div>
+            @error('fotos')<p class="s-err" role="alert">{{ $message }}</p>@enderror
+            @error('fotos.*')<p class="s-err" role="alert">{{ $message }}</p>@enderror
+            @if($count > 0)
+                <ol class="sp-grid" aria-label="Fotos del producto, en orden">
                     @foreach($product->photos as $photo)
-                        <div>
-                            <img src="{{ route('marketplace.photo', ['photo' => $photo->id, 'thumb' => 1]) }}" alt="Foto {{ $loop->iteration }} de {{ $product->name }}" loading="lazy">
+                        <li class="sp-item" data-photo="{{ $photo->id }}">
+                            <div class="sp-frame">
+                                <img src="{{ route('marketplace.photo', ['photo' => $photo->id, 'thumb' => 1]) }}" alt="Foto {{ $loop->iteration }} de {{ $product->name }}" loading="lazy">
+                                @if($loop->first)<span class="sp-badge">Principal</span>@endif
+                                <span class="sp-num" aria-hidden="true">{{ $loop->iteration }}</span>
+                            </div>
                             @unless($locked)
-                                <form method="POST" action="{{ route('suppliers.products.photos.destroy', [$product->id, $photo->id]) }}" style="margin-top:6px">@csrf @method('DELETE')<button class="s-btn danger" type="submit" style="width:100%; min-height:36px; padding:6px">Quitar</button></form>
+                                <div class="sp-tools">
+                                    <div class="sp-move">
+                                        <form method="POST" action="{{ route('suppliers.products.photos.move', [$product->id, $photo->id]) }}">@csrf<input type="hidden" name="direccion" value="antes"><button class="sp-tool icon" type="submit" @disabled($loop->first) aria-label="Mover la foto {{ $loop->iteration }} antes" title="Mover antes">←</button></form>
+                                        <form method="POST" action="{{ route('suppliers.products.photos.move', [$product->id, $photo->id]) }}">@csrf<input type="hidden" name="direccion" value="despues"><button class="sp-tool icon" type="submit" @disabled($loop->last) aria-label="Mover la foto {{ $loop->iteration }} después" title="Mover después">→</button></form>
+                                        <form method="POST" action="{{ route('suppliers.products.photos.destroy', [$product->id, $photo->id]) }}" onsubmit="return confirm('¿Quitar esta foto? Se borra del producto.')" style="margin-left:auto">@csrf @method('DELETE')<button class="sp-tool danger" type="submit" aria-label="Quitar la foto {{ $loop->iteration }}">Quitar</button></form>
+                                    </div>
+                                    @unless($loop->first)
+                                        <form method="POST" action="{{ route('suppliers.products.photos.primary', [$product->id, $photo->id]) }}">@csrf<button class="sp-tool wide" type="submit" data-photo-primary>Hacer principal</button></form>
+                                    @endunless
+                                </div>
                             @endunless
-                        </div>
+                        </li>
                     @endforeach
-                </div>
+                </ol>
+            @else
+                <p class="s-muted" style="margin:10px 0 0">Todavía no tiene fotos. Los productos con fotos claras (de frente, con la etiqueta o el código visibles) se entienden mejor.</p>
             @endif
-            @if(! $locked && $product->photos->count() < Catalog::MAX_PHOTOS)
-                <form method="POST" action="{{ route('suppliers.products.photos.store', $product->id) }}" enctype="multipart/form-data" class="s-form" style="margin-top:12px">
+            @if(! $locked && $count < Catalog::MAX_PHOTOS)
+                <form method="POST" action="{{ route('suppliers.products.photos.store', $product->id) }}" enctype="multipart/form-data" class="s-form sp-upload" data-photo-upload data-free="{{ Catalog::MAX_PHOTOS - $count }}" data-max-kb="{{ Catalog::MAX_PHOTO_KB }}">
                     @csrf
-                    <label class="s-label" for="foto">Agregar una foto</label>
-                    <input id="foto" type="file" name="foto" accept="image/jpeg,image/png,image/webp" required>
-                    <p class="s-hint">JPG, PNG o WebP, hasta {{ Catalog::MAX_PHOTO_KB / 1024 }} MB. Le quitamos los datos de ubicación.</p>
-                    @error('foto')<p class="s-err">{{ $message }}</p>@enderror
-                    <button class="s-btn secondary" type="submit" style="margin-top:8px">Subir foto</button>
+                    <label class="s-label" for="fotos">Agregar fotos <span class="s-muted" style="font-weight:500">(hasta {{ Catalog::MAX_PHOTOS - $count }} más)</span></label>
+                    <input id="fotos" type="file" name="fotos[]" accept="image/jpeg,image/png,image/webp" multiple required aria-describedby="fotos-hint fotos-check">
+                    <p class="s-hint" id="fotos-hint">JPG, PNG o WebP, hasta {{ Catalog::MAX_PHOTO_KB / 1024 }} MB cada una. Podés elegir varias a la vez. Les quitamos los datos de ubicación.</p>
+                    <ul class="sp-preview" data-photo-preview hidden></ul>
+                    <p class="s-err" id="fotos-check" data-photo-check role="alert" hidden></p>
+                    <button class="s-btn secondary" type="submit" style="margin-top:8px" data-photo-submit>Subir fotos</button>
                 </form>
+                <script>
+                    (() => {
+                        const form = document.querySelector('[data-photo-upload]');
+                        if (!form) return;
+                        const input = form.querySelector('input[type=file]'), list = form.querySelector('[data-photo-preview]'), check = form.querySelector('[data-photo-check]'), submit = form.querySelector('[data-photo-submit]');
+                        const free = Number(form.dataset.free), maxKb = Number(form.dataset.maxKb), ok = ['image/jpeg', 'image/png', 'image/webp'];
+                        let urls = [];
+                        input.addEventListener('change', () => {
+                            urls.forEach(URL.revokeObjectURL); urls = []; list.replaceChildren();
+                            const files = [...input.files], problems = [];
+                            if (files.length > free) problems.push(`Elegiste ${files.length} fotos y podés agregar ${free}.`);
+                            files.forEach((f) => {
+                                const li = document.createElement('li');
+                                const bad = !ok.includes(f.type) ? 'formato no admitido' : (f.size > maxKb * 1024 ? `pesa ${(f.size / 1048576).toFixed(1)} MB` : '');
+                                if (bad) { problems.push(`«${f.name}»: ${bad}.`); li.className = 'bad'; li.textContent = f.name; }
+                                else { const img = document.createElement('img'); const u = URL.createObjectURL(f); urls.push(u); img.src = u; img.alt = 'Vista previa de ' + f.name; li.append(img); }
+                                list.append(li);
+                            });
+                            list.hidden = files.length === 0;
+                            check.textContent = problems.join(' '); check.hidden = problems.length === 0;
+                            submit.disabled = problems.length > 0;
+                            submit.textContent = files.length > 1 ? `Subir ${files.length} fotos` : 'Subir foto';
+                        });
+                        form.addEventListener('submit', () => { submit.disabled = true; submit.textContent = 'Subiendo…'; });
+                    })();
+                </script>
+            @elseif(! $locked)
+                <p class="s-muted" style="margin-top:12px">Llegaste al máximo de {{ Catalog::MAX_PHOTOS }} fotos. Quitá alguna para agregar otra.</p>
             @endif
         </section>
     @endunless
