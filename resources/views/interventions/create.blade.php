@@ -68,6 +68,12 @@
                     </div>
                     <button type="button" id="changeBuilding" class="t-btn-secondary t-btn-sm shrink-0">Cambiar</button>
                 </div>
+                {{-- Ya tiene una orden abierta en este edificio: seguirla evita duplicar el registro del mismo reclamo. --}}
+                <div id="openOrders" class="t-alert-warning mt-3 hidden" data-open-orders>
+                    <p class="font-semibold">Ya tenés órdenes abiertas en este edificio</p>
+                    <p class="text-sm">Si es el mismo reclamo, seguí esa orden (podés sumarle trabajos). Si es otro problema, registrá la intervención igual.</p>
+                    <ul id="openOrdersList" class="mt-1 space-y-1 text-sm font-semibold"></ul>
+                </div>
             @endif
 
             <label for="elevator_number" class="t-label mt-4">Equipo</label>
@@ -208,6 +214,19 @@ document.addEventListener('DOMContentLoaded', () => {
             selected.classList.remove('hidden');
             selected.classList.add('flex');
             hide();
+            const openBox = document.getElementById('openOrders');
+            const openList = document.getElementById('openOrdersList');
+            openList.innerHTML = '';
+            (b.open || []).forEach((o) => {
+                const li = document.createElement('li');
+                const a = document.createElement('a');
+                a.href = o.url;
+                a.className = 'underline';
+                a.textContent = o.label; // texto cargado por usuarios: siempre textContent
+                li.appendChild(a);
+                openList.appendChild(li);
+            });
+            openBox.classList.toggle('hidden', !(b.open || []).length);
             elevatorSelect.innerHTML = '';
             elevatorSelect.disabled = !b.units.length;
             if (!b.units.length) { elevatorSelect.add(new Option('Este edificio no tiene equipos cargados', '')); return; }
@@ -222,6 +241,7 @@ document.addEventListener('DOMContentLoaded', () => {
             picker.classList.remove('hidden');
             elevatorSelect.innerHTML = '<option value="">Elegí primero el edificio</option>';
             elevatorSelect.disabled = true;
+            document.getElementById('openOrders').classList.add('hidden');
             search.value = '';
             search.focus();
         });

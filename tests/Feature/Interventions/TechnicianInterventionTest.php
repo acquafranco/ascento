@@ -378,4 +378,58 @@ class TechnicianInterventionTest extends TestCase
         $this->open($tech)->assertSessionHasNoErrors()->assertRedirect();
         $this->assertSame(1, WorkOrder::withoutGlobalScopes()->count());
     }
+
+    public function test_each_attended_problem_counts_once_for_its_own_elevator_in_failure_indicators(): void
+    {
+        $tech = $this->a['technician'];
+        // Visita del técnico: ascensor 1 (urgencia) y, en la misma visita, ascensor 2.
+        $this->open($tech);
+        $order = WorkOrder::withoutGlobalScopes()->sole();
+        $this->addJob($tech, $order);
+        $jobs = Report::withoutGlobalScopes()->orderBy('id')->get();
+        $this->remito($tech, $order, [
+            $jobs[0]->id => ['work_done' => 'Contactor cambiado.', 'result' => 'resolved'],
+            $jobs[1]->id => ['work_done' => 'Falta repuesto.', 'result' => 'follow_up'],
+        ]);
+        auth()->logout();
+
+        // Un reclamo de la oficina y una falla reportada, para comparar.
+        $this->actingInPanel($this->a['admin']);
+        WorkOrder::factory()->create(['building_id' => $this->a['building']->id, 'type' => 'claim', 'unit' => 'Ascensor 1', 'status' => 'completed']);
+        Report::create(['building_id' => $this->a['building']->id, 'user_id' => $tech->id, 'elevator_number' => 'Ascensor 2', 'description' => 'Ruido en máquina', 'priority' => 'media']);
+
+        $elevator = fn (string $label) => \App\Models\Elevator::where('building_id', $this->a['building']->id)->where('label', $label)->sole();
+        $analysis = app(\App\Services\Insights\FailureAnalysis::class);
+        $one = $analysis->forElevator($elevator('Ascensor 1'));
+        $two = $analysis->forElevator($elevator('Ascensor 2'));
+
+        // Ascensor 1: el reclamo de la oficina + el problema de la intervención (la orden del técnico no se suma aparte).
+        $this->assertSame([0, 2, 2], [$one['reports'], $one['claims'], $one['done']]);
+        // Ascensor 2: la falla reportada + el problema atendido en la misma visita (antes se perdía: la orden decía «Ascensor 1»).
+        $this->assertSame([1, 1, 0], [$two['reports'], $two['claims'], $two['done']]);
+
+        $history = app(\App\Services\Insights\ElevatorHistory::class);
+        $this->assertSame(1, $history->counts($elevator('Ascensor 2'))['claims']);
+        $this->assertSame(2, $history->counts($elevator('Ascensor 1'))['claims']);
+        $events = $history->events($elevator('Ascensor 2'), advanced: true);
+        $this->assertTrue($events->contains(fn ($e) => str_contains($e['title'], 'Intervención del técnico') && $e['badge'] === 'Requiere otra visita'));
+
+        // Indicadores del período: 1 falla + 1 reclamo de oficina + 2 problemas atendidos = 4 (no 5).
+        $claims = (new \ReflectionMethod(\App\Services\Insights\Indicators::class, 'claims'))->invoke(app(\App\Services\Insights\Indicators::class), now()->subDay(), now()->addDay());
+        $this->assertSame(4, $claims);
+    }
+
+    public function test_the_form_warns_about_an_open_order_in_the_same_building_to_avoid_duplicates(): void
+    {
+        $tech = $this->a['technician'];
+        $this->actingAs($this->a['admin']);
+        $office = WorkOrder::factory()->create(['building_id' => $this->a['building']->id, 'type' => 'claim', 'status' => 'pending', 'notes' => 'Ascensor 1 detenido (reclamo del portal)']);
+        $office->users()->attach($tech->id);
+        $other = WorkOrder::factory()->create(['building_id' => $this->a['building']->id, 'type' => 'claim', 'status' => 'pending']); // de otro técnico
+        auth()->logout();
+
+        $this->actingAs($tech)->get(route('interventions.create', ['company' => $this->slug()]))->assertOk()
+            ->assertSee('Ya tenés órdenes abiertas en este edificio')
+            ->assertViewHas('buildings', fn ($list) => $list->first()['open']->pluck('url')->all() === [route('work-orders.show', ['company' => $this->slug(), 'workOrder' => $office->id])]);
+    }
 }

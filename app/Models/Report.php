@@ -183,6 +183,12 @@ class Report extends Model
         return $query->whereIn($query->qualifyColumn('kind'), [self::KIND_INCIDENT, self::KIND_INTERVENTION]);
     }
 
+    /** Trabajos de intervenciones (cada problema atendido, con su equipo). */
+    public function scopeInterventionJobs(Builder $query): Builder
+    {
+        return $query->where($query->qualifyColumn('kind'), self::KIND_INTERVENTION);
+    }
+
     /** Orden de la visita en la que se hizo este trabajo (solo intervenciones). */
     public function workOrder()
     {

@@ -36,6 +36,11 @@ class InterventionController extends Controller
         $this->authorizeUser($company);
         $user = Auth::user();
         $assigned = $user->buildings()->pluck('buildings.id')->flip();
+        // Órdenes abiertas asignadas a él, por edificio: si el reclamo ya tiene orden
+        // (p. ej. la cargó la oficina), conviene seguir esa en vez de abrir otra.
+        $open = WorkOrder::where('company_id', $company->id)->whereIn('status', ['pending', 'in_progress'])
+            ->whereHas('users', fn ($q) => $q->whereKey($user->id))->whereDoesntHave('deliveryNote')
+            ->latest()->get(['id', 'building_id', 'unit', 'status', 'notes'])->groupBy('building_id');
 
         $buildings = $this->interventions->buildingsQuery($user)
             ->with('client:id,name')->orderBy('name')
@@ -48,6 +53,10 @@ class InterventionController extends Controller
                 'client' => $b->client?->name ?? $b->client_name,
                 'units' => $b->unitLabels(),
                 'mine' => $assigned->has($b->id),
+                'open' => $open->get($b->id, collect())->take(3)->map(fn (WorkOrder $o) => [
+                    'url' => route('work-orders.show', ['company' => $company->slug, 'workOrder' => $o->id]),
+                    'label' => 'Orden #'.$o->id.($o->unit ? ' · '.$o->unit : '').' · '.($o->status === 'pending' ? 'pendiente' : 'en curso').($o->notes ? ': '.Str::limit($o->notes, 60) : ''),
+                ])->values(),
             ])->sortByDesc('mine')->values();
 
         return view('interventions.create', [

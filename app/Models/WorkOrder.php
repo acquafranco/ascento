@@ -6,6 +6,7 @@ use App\Models\Concerns\BelongsToCompany;
 use App\Services\Notifications\AssignmentNotifier;
 use App\Services\Stock\StockService;
 use App\Support\CompanyContext;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -199,6 +200,18 @@ class WorkOrder extends Model
     public function jobs()
     {
         return $this->hasMany(Report::class)->where('kind', Report::KIND_INTERVENTION)->orderBy('id');
+    }
+
+    /**
+     * Reclamos que cuentan como aviso de falla en indicadores y análisis: los
+     * de la oficina. La orden que abre el técnico no cuenta aparte: cada
+     * problema que atendió es un trabajo (Report::scopeInterventionJobs) con
+     * su propio equipo, así nada se cuenta dos veces ni se pierde.
+     */
+    public function scopeClaimSignals(Builder $query): Builder
+    {
+        return $query->where($query->qualifyColumn('type'), 'claim')
+            ->where(fn (Builder $q) => $q->whereNull($q->qualifyColumn('origin'))->orWhere($q->qualifyColumn('origin'), '!=', self::ORIGIN_TECHNICIAN));
     }
 
     /** Quién la creó (solo se registra desde las intervenciones del técnico). */
