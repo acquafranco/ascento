@@ -19,6 +19,11 @@ use Illuminate\Database\Eloquent\Model;
  */
 class MarketplaceSettings extends Model
 {
+    /** Identificadores comerciales de los planes de PROVEEDORES (nunca son slugs de SubscriptionPlan, que son de empresas). */
+    public const FREE_PLAN_CODE = 'proveedor-gratuito';
+
+    public const PREMIUM_PLAN_CODE = 'proveedor-premium';
+
     public const DEFAULT_FREE_LIMIT = 20;
 
     public const DEFAULT_PREMIUM_LIMIT = 1000;
@@ -45,6 +50,7 @@ class MarketplaceSettings extends Model
         'featured_enabled' => 'boolean',
         'featured_price_7' => 'decimal:2',
         'featured_price_30' => 'decimal:2',
+        'public_catalog_enabled' => 'boolean',
     ];
 
     public static function current(): self
@@ -57,7 +63,29 @@ class MarketplaceSettings extends Model
             'billing_countries' => ['AR'],
             'over_limit_rule' => 'recent',
             'featured_enabled' => false,
+            'public_catalog_enabled' => true,
         ]);
+    }
+
+    /** ¿El catálogo se puede explorar sin cuenta? (solo productos visibles; ver PublicCatalog) */
+    public function publicCatalog(): bool
+    {
+        return $this->public_catalog_enabled === null || (bool) $this->public_catalog_enabled;
+    }
+
+    /**
+     * Precios objetivo de config/marketplace.php, solo si la moneda coincide (nunca se convierten).
+     *
+     * @return array{premium_price: float, featured_price_7: float, featured_price_30: float}|null
+     */
+    public function targetPrices(): ?array
+    {
+        $target = (array) config('marketplace.target_prices', []);
+        if (strtoupper((string) ($target['currency'] ?? '')) !== strtoupper($this->pricing_currency ?: 'ARS')) {
+            return null;
+        }
+
+        return ['premium_price' => (float) $target['premium'], 'featured_price_7' => (float) $target['featured_7'], 'featured_price_30' => (float) $target['featured_30']];
     }
 
     public function freeLimit(): int

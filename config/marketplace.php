@@ -21,6 +21,17 @@ return [
         'AR' => MercadoPagoSupplierGateway::class,
     ],
 
+    // Precios comerciales OBJETIVO para proveedores de Argentina (definidos por el dueño el
+    // 23/10/2026). No se cargan solos ni encienden ninguna venta: en «Configuración del
+    // marketplace» el SuperAdmin los pasa al formulario con «Usar precios objetivo» y guarda.
+    // Solo ARS: no hay precio ni conversión para otras monedas.
+    'target_prices' => [
+        'currency' => 'ARS',
+        'premium' => 19900,
+        'featured_7' => 4900,
+        'featured_30' => 9900,
+    ],
+
     // Monedas por país: los precios de cada proveedor se guardan y muestran en la de su país.
     'currencies' => [
         'AR' => 'ARS', 'BO' => 'BOB', 'BR' => 'BRL', 'CL' => 'CLP', 'CO' => 'COP', 'CR' => 'CRC', 'CU' => 'CUP',

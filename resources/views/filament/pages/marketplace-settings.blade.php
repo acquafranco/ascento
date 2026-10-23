@@ -16,6 +16,14 @@
             <p style="margin-top:.6rem; opacity:.75">Credenciales de Mercado Pago cargadas. Una venta se ofrece solo encendida, con precio válido y con un país con cobro en su moneda. Apagarla no cancela las suscripciones Premium que ya existen.</p>
         @endif
     </div>
+    @if($target = $this->targetPrices())
+        <div data-target-prices class="text-sm" style="padding:1rem; border-radius:.75rem; border:1px solid rgba(100,116,139,.3)">
+            <p class="font-semibold">Precios objetivo (Argentina, ARS)</p>
+            <p style="margin-top:.3rem">Premium {{ \App\Support\Marketplace\Money::format($target['premium_price'], 'ARS') }} por mes · Destacado 7 días {{ \App\Support\Marketplace\Money::format($target['featured_price_7'], 'ARS') }} · Destacado 30 días {{ \App\Support\Marketplace\Money::format($target['featured_price_30'], 'ARS') }}</p>
+            <p style="margin-top:.3rem; opacity:.75">No se cargan solos. Los valores que trajo la migración inicial para los destacados (ARS 5.000 y 15.000) eran provisorios. «Usar precios objetivo» solo completa el formulario: revisalo y guardá. Ninguna venta se enciende sola.</p>
+            <div style="margin-top:.6rem"><x-filament::button color="gray" size="sm" wire:click="useTargetPrices">Usar precios objetivo</x-filament::button></div>
+        </div>
+    @endif
     {{ $this->form }}
     <div><x-filament::button wire:click="save" icon="heroicon-m-check">Guardar configuración</x-filament::button></div>
     <p class="text-sm" style="opacity:.7">Los proveedores ven precios y botones de pago solo cuando están cargados y habilitados. Una cuenta suspendida por moderación no se habilita pagando. Detalle en docs/marketplace-comercial.md.</p>

@@ -366,8 +366,28 @@ class DemoValidationSeeder extends Seeder
         return new UploadedFile($path, "{$name}.pdf", 'application/pdf', null, true);
     }
 
+    /** Firma FICTICIA dibujada (un trazo), como la que deja el pad del remito: PNG válido con fondo transparente. */
     private function signature(): string
     {
-        return 'data:image/png;base64,'.str_repeat('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ', 3);
+        $img = imagecreatetruecolor(360, 120);
+        imagesavealpha($img, true);
+        imagefill($img, 0, 0, imagecolorallocatealpha($img, 0, 0, 0, 127));
+        imagesetthickness($img, 3);
+        $ink = imagecolorallocate($img, 17, 22, 29);
+        $prev = null;
+        for ($x = 20; $x <= 330; $x += 4) {
+            $y = (int) (62 + 26 * sin($x / 17) * cos($x / 53) - ($x > 250 ? ($x - 250) / 3 : 0));
+            if ($prev) {
+                imageline($img, $prev[0], $prev[1], $x, $y, $ink);
+            }
+            $prev = [$x, $y];
+        }
+        imageline($img, 60, 96, 300, 90, $ink);
+        ob_start();
+        imagepng($img);
+        $png = (string) ob_get_clean();
+        imagedestroy($img);
+
+        return 'data:image/png;base64,'.base64_encode($png);
     }
 }

@@ -74,7 +74,7 @@ class CheckMercadoPago extends Command
             $this->problem("APP_URL es \"{$appUrl}\": Mercado Pago necesita una URL pública con https para volver a Ascento.");
         }
 
-        $this->line('• URL del webhook a configurar en Mercado Pago: '.rtrim($appUrl, '/').'/api/mercadopago/webhook (evento: Planes y suscripciones)');
+        $this->line('• URL del webhook a configurar en Mercado Pago: '.rtrim($appUrl, '/').'/api/mercadopago/webhook (eventos: Planes y suscripciones, y Pagos para los destacados del marketplace)');
 
         $plans = SubscriptionPlan::offered();
         if ($plans->isEmpty()) {

@@ -11,6 +11,7 @@ use App\Models\SubscriptionPlan;
 use App\Services\MercadoPagoApiException;
 use App\Services\MercadoPagoService;
 use App\Services\MercadoPagoSubscriptionSync;
+use App\Support\Billing\BillingStatus;
 use App\Support\ManualSubscriptionActivator;
 use App\Support\Plans\PlanGuard;
 use Filament\Actions\Action;
@@ -188,7 +189,8 @@ class Subscription extends Page
 
     public function canPayOnline(): bool
     {
-        return MercadoPagoService::isConfigured() && $this->getPlans()->isNotEmpty();
+        // Token cargado (y no de prueba en producción): ver BillingStatus::companyBlockers.
+        return BillingStatus::companyCanCharge() && $this->getPlans()->isNotEmpty();
     }
 
     /** @return Collection<int, SubscriptionPayment> */

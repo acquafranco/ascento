@@ -96,7 +96,9 @@ class CrossTenantMatrixTest extends TestCase
     /** Huella de toda la base (menos lo volátil): cualquier cambio la altera. */
     protected function fingerprint(): array
     {
-        $tables = collect(Schema::getTableListing())->map(fn ($t) => str_contains($t, '.') ? substr($t, strrpos($t, '.') + 1) : $t)
+        // Solo la base de esta conexión: en MySQL, sin esquema, se listan las tablas de TODAS las bases del servidor.
+        $schema = DB::connection()->getDriverName() === 'mysql' ? DB::connection()->getDatabaseName() : null;
+        $tables = collect(Schema::getTableListing($schema))->map(fn ($t) => str_contains($t, '.') ? substr($t, strrpos($t, '.') + 1) : $t)
             ->reject(fn ($t) => in_array($t, self::VOLATILE, true))->sort()->values();
 
         return $tables->mapWithKeys(function ($table) {

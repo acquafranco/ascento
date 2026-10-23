@@ -6,8 +6,10 @@ use App\Filament\Pages\CompanySettings;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Models\BuildingPublicPage;
 use App\Models\Company;
+use App\Models\PlatformSettings;
 use App\Models\User;
 use App\Services\PublicQr\PublicQrService;
+use App\Support\Countries;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\Concerns\InteractsWithTenants;
@@ -15,13 +17,25 @@ use Tests\Concerns\PassesRegistrationChallenge;
 use Tests\TestCase;
 
 /**
- * Empresas de Latinoamérica: el registro pide el país, la identificación
- * fiscal de ese país (CUIT, RUT, RFC, RUC…) y su división principal; Argentina
- * sigue igual (CUIT con dígito verificador y la lista de provincias).
+ * Empresas de Latinoamérica CON el registro internacional encendido y todos
+ * los países habilitados en «Configuración de la plataforma»: el registro pide
+ * el país, la identificación fiscal de ese país (CUIT, RUT, RFC, RUC…) y su
+ * división principal; Argentina sigue igual (CUIT con dígito verificador y la
+ * lista de provincias). El comportamiento por defecto (solo Argentina) está en
+ * RegistrationCountriesTest.
  */
 class LatamRegistrationTest extends TestCase
 {
     use InteractsWithTenants, PassesRegistrationChallenge, RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        PlatformSettings::row()->forceFill([
+            'international_registration_enabled' => true,
+            'registration_countries' => array_values(array_diff(array_keys(Countries::LATAM), ['AR'])),
+        ])->save();
+    }
 
     private function register(array $overrides = [])
     {
@@ -129,7 +143,9 @@ class LatamRegistrationTest extends TestCase
     {
         $this->withoutVite();
         $this->get(route('legal.terms'))->assertOk()
-            ->assertSee('otros países de Latinoamérica')
+            // Con el registro internacional encendido: nombra los países habilitados, sin prometer pagos ni cobertura.
+            ->assertSee('Hoy se aceptan registros nuevos de empresas y de proveedores desde estos países: Argentina, Bolivia')
+            ->assertSee('ni que Ascento tenga presencia, representación o cobertura legal propia en ese país')
             ->assertSee('El servicio lo presta su titular desde la República Argentina')
             ->assertSee('no excluyen las normas de ese país que no se puedan dejar de lado por contrato')
             ->assertSee('la conversión de moneda');

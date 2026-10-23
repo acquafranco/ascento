@@ -62,8 +62,30 @@ class MarketplaceSettingsPage extends Page implements Forms\Contracts\HasForms
         abort_unless(static::canAccess(), 403);
         $this->form->fill(MarketplaceSettings::current()->only([
             'free_product_limit', 'premium_product_limit', 'premium_enabled', 'premium_price', 'billing_countries', 'over_limit_rule',
-            'featured_enabled', 'featured_price_7', 'featured_price_30',
-        ]));
+            'featured_enabled', 'featured_price_7', 'featured_price_30', 'public_catalog_enabled',
+        ]) + ['public_catalog_enabled' => MarketplaceSettings::current()->publicCatalog()]);
+    }
+
+    /** Precios objetivo (config/marketplace.php) para mostrarlos junto a los guardados. */
+    public function targetPrices(): ?array
+    {
+        return MarketplaceSettings::current()->targetPrices();
+    }
+
+    /**
+     * Pasa los precios objetivo al formulario (no guarda nada ni enciende ventas:
+     * hace falta tocar «Guardar» y, para vender, encender cada venta).
+     */
+    public function useTargetPrices(): void
+    {
+        abort_unless(static::canAccess(), 403);
+        if (! ($target = $this->targetPrices())) {
+            Notification::make()->title('No hay precios objetivo para esta moneda')->warning()->send();
+
+            return;
+        }
+        $this->data = array_merge($this->data ?? [], $target);
+        Notification::make()->title('Precios objetivo cargados en el formulario')->body('Todavía no se guardaron. Revisalos y tocá «Guardar configuración». Las ventas siguen como estaban.')->info()->send();
     }
 
     /** Lo que falta en el servidor para poder vender (solo nombres de variables). */
@@ -100,6 +122,7 @@ class MarketplaceSettingsPage extends Page implements Forms\Contracts\HasForms
                 default => 'se ofrecen: '.collect($settings->featuredOffers())->map(fn ($p, $d) => $d.' días a '.$money($p))->implode(', '),
             },
             'Países con cobro' => $countries->isEmpty() ? 'ninguno' : $countries->implode(', '),
+            'Catálogo público' => $settings->publicCatalog() ? 'se puede explorar sin cuenta' : 'apagado: solo empresas con cuenta',
         ];
     }
 
@@ -121,6 +144,10 @@ class MarketplaceSettingsPage extends Page implements Forms\Contracts\HasForms
                     Select::make('over_limit_rule')->label('Si vuelve al plan gratuito y no eligió')->options(MarketplaceSettings::OVER_LIMIT_RULES)->required()->native(false)
                         ->helperText('Primero quedan las que marcó «conservar» y las que tienen un destacado vigente. Nada se borra.'),
                 ]),
+            Section::make('Catálogo público')->schema([
+                Toggle::make('public_catalog_enabled')->label('Mostrar el catálogo sin cuenta en /marketplace')
+                    ->helperText('Cualquier visitante ve los productos visibles (publicados, aprobados y dentro del límite), sus fotos y el perfil comercial del proveedor, sin correos, teléfonos ni pedidos. Pedir cotizaciones y favoritos siguen pidiendo cuenta.'),
+            ]),
             Section::make('Premium (suscripción mensual con Mercado Pago)')->columns(['default' => 1, 'md' => 2])->schema([
                 $money('premium_price', 'Precio mensual'),
                 Toggle::make('premium_enabled')->label('Vender Premium')->helperText('Apagado o sin precio: no se muestra ni se cobra.'),

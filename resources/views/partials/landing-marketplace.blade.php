@@ -3,7 +3,9 @@
      que sigue siendo el producto principal. Las capturas son del marketplace real con datos
      ficticios (docs/marketplace-comercial.md, «Capturas»). El detalle está en /marketplace. --}}
 @php
-    $mkFree = \App\Models\Marketplace\MarketplaceSettings::current()->freeLimit();
+    $mkSettingsTeaser = \App\Models\Marketplace\MarketplaceSettings::current();
+    $mkFree = $mkSettingsTeaser->freeLimit();
+    $mkPublic = $mkSettingsTeaser->publicCatalog();
 @endphp
 <section id="marketplace" class="relative overflow-hidden border-t border-ink/10 bg-white py-20 sm:py-28" data-marketplace-teaser>
     <div class="pointer-events-none absolute inset-0 [background:radial-gradient(45%_55%_at_100%_100%,rgba(255,102,0,0.07),transparent_60%)]" aria-hidden="true"></div>
@@ -46,8 +48,11 @@
                         Conocé el marketplace
                         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     </a>
-                    <p class="text-xs leading-relaxed text-ink/45 sm:max-w-xs">Ascento no cobra comisiones por las ventas: el pago y la entrega se acuerdan con cada proveedor.</p>
+                    @if ($mkPublic)
+                        <a href="{{ route('marketplace.catalog') }}" data-marketplace-catalog class="inline-flex items-center justify-center whitespace-nowrap px-2 py-2 text-sm font-semibold text-ink/65 transition-colors hover:text-ink">Ver repuestos sin cuenta</a>
+                    @endif
                 </div>
+                <p class="mt-4 max-w-md text-xs leading-relaxed text-ink/45">Ascento no cobra comisiones por las ventas: el pago y la entrega se acuerdan con cada proveedor.</p>
             </div>
 
             {{-- Vista previa: capturas del marketplace real (catálogo y ficha en el celular), datos de ejemplo. --}}

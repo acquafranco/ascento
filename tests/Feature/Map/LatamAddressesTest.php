@@ -5,6 +5,7 @@ namespace Tests\Feature\Map;
 use App\Filament\Pages\CompanySettings;
 use App\Filament\Resources\Buildings\Pages\CreateBuilding;
 use App\Models\Building;
+use App\Models\PlatformSettings;
 use App\Services\Geocoding\AddressAutocomplete;
 use App\Services\Geocoding\BuildingGeocoder;
 use App\Support\Countries;
@@ -118,6 +119,8 @@ class LatamAddressesTest extends TestCase
     public function test_the_company_chooses_its_country_and_region(): void
     {
         $this->actingInPanel($this->a['admin']);
+        // Pasarse a otro país requiere que esté habilitado para registrarse (RegistrationCountriesTest).
+        PlatformSettings::row()->forceFill(['international_registration_enabled' => true, 'registration_countries' => ['CL']])->save();
 
         Livewire::test(CompanySettings::class)->assertSet('data.country', 'AR')
             ->set('data.country', 'CL')->set('data.province', 'Región Metropolitana')->call('save')->assertHasNoErrors();
