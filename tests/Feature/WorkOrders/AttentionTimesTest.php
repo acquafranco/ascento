@@ -92,6 +92,16 @@ class AttentionTimesTest extends TestCase
 
         Carbon::setTestNow('2026-10-24 14:00:00');
         $this->arrive($tech, $order, ['arrived_at' => '2026-10-24 13:11:00'])->assertRedirect($show)->assertSessionHas('success', 'Llegada registrada: 24/10 14:00.');
+        // La llegada no cerró la orden. El remito la termina (y no registra la salida).
+        $this->assertSame('in_progress', $order->fresh()->status);
+        Carbon::setTestNow('2026-10-24 14:30:00');
+        $job = Report::withoutGlobalScopes()->sole();
+        $this->post("/{$this->slug()}/delivery-notes/store", [
+            'building_id' => $order->building_id, 'work_order_id' => $order->id, 'assignment_type' => 'work_order', 'elevator_quantity' => 2,
+            'freight_elevator_quantity' => 0, 'signature_name' => 'Lucas', 'signature' => $this->validSignature(), 'visit_flow' => 1,
+            'jobs' => [$job->id => ['work_done' => 'Listo.', 'result' => 'resolved', 'elevator_state' => 'in_service']],
+        ])->assertSessionHasNoErrors();
+        $this->assertNull($order->fresh()->left_at);
         Carbon::setTestNow('2026-10-24 14:40:00');
         $this->leave($tech, $order)->assertSessionHas('success', 'Visita finalizada. Salida registrada: 24/10 14:40.');
 
@@ -104,9 +114,9 @@ class AttentionTimesTest extends TestCase
         foreach (['data-duration="response">50 min', 'data-duration="on_site">40 min', 'data-duration="total">1 h 30 min', 'Cargado por el técnico'] as $text) {
             $this->assertStringContainsString($text, $html, $text);
         }
-        // Ni la llegada ni la salida cerraron la orden.
-        $this->assertSame('in_progress', $order->status);
-        $this->assertSame(0, DeliveryNote::withoutGlobalScopes()->count());
+        // Un solo remito; la orden la cerró el remito, no la salida.
+        $this->assertSame('completed', $order->status);
+        $this->assertSame(1, DeliveryNote::withoutGlobalScopes()->count());
     }
 
     public function test_incomplete_records_show_sin_registrar_and_never_invent_durations(): void
@@ -149,7 +159,9 @@ class AttentionTimesTest extends TestCase
         $this->leave($tech, $order);
         Carbon::setTestNow('2026-10-24 15:30:00');
         $this->leave($tech, $order)->assertSessionHas('warning', 'La salida ya estaba registrada: 24/10 14:30.');
-        $this->assertSame('14:30', $order->fresh()->left_at->format('H:i'));
+        // La salida es de la visita; la orden sigue pendiente, así que no la recibe («Sin registrar»).
+        $this->assertSame('14:30', $order->fresh()->siteVisit->left_at->format('H:i'));
+        $this->assertNull($order->fresh()->left_at);
 
         // Las horas no son asignables desde ningún formulario.
         $order->fill(['arrived_at' => now(), 'left_at' => now(), 'call_received_at' => now()]);

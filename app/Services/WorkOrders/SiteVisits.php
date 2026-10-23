@@ -4,6 +4,7 @@ namespace App\Services\WorkOrders;
 
 use App\Enums\PermissionArea;
 use App\Models\Building;
+use App\Models\BuildingVisit;
 use App\Models\SiteVisit;
 use App\Models\User;
 use App\Models\WorkOrder;
@@ -39,6 +40,24 @@ class SiteVisits
     /** Salida: hasta cuántas horas después de la llegada. Después, cierre sin salida con motivo. */
     public const LEAVE_WINDOW_HOURS = 24;
 
+    /** Marca de un remito firmado con un formulario sin el paso de llegada (anterior a las visitas técnicas). */
+    public const LEGACY_FORM_EXCEPTION = 'Sin llegada registrada: formulario sin el paso de llegada (anterior a las visitas técnicas).';
+
+    /**
+     * Visita abierta más allá del plazo de salida (se olvidó de finalizarla):
+     * no suma trabajos ni remitos de otro día. Solo se cierra, con motivo.
+     */
+    public static function isStale(SiteVisit $visit): bool
+    {
+        return $visit->closed_at === null && $visit->arrived_at->lt(now()->subHours(self::LEAVE_WINDOW_HOURS));
+    }
+
+    /** Orden con llegada propia, registrada antes de las visitas técnicas (sin visita). */
+    public static function hasLegacyArrival(?WorkOrder $order): bool
+    {
+        return $order !== null && $order->arrived_at !== null && $order->site_visit_id === null;
+    }
+
     /** Visita abierta del técnico (como mucho una). */
     public static function openFor(User $user): ?SiteVisit
     {
@@ -46,12 +65,12 @@ class SiteVisits
             ->where('user_id', $user->id)->open()->latest('arrived_at')->first();
     }
 
-    /** Visita abierta del técnico en ESE edificio. */
+    /** Visita abierta y vigente del técnico en ESE edificio (una olvidada de otro día no cuenta). */
     public static function openIn(User $user, Building|int $building): ?SiteVisit
     {
         $visit = self::openFor($user);
 
-        return $visit && (int) $visit->building_id === (int) ($building instanceof Building ? $building->id : $building) ? $visit : null;
+        return $visit && ! self::isStale($visit) && (int) $visit->building_id === (int) ($building instanceof Building ? $building->id : $building) ? $visit : null;
     }
 
     /**
@@ -93,11 +112,15 @@ class SiteVisits
             User::withoutGlobalScopes()->whereKey($user->id)->lockForUpdate()->first();
 
             if ($open = self::openFor($user)) {
+                if (self::isStale($open)) {
+                    throw ValidationException::withMessages(['attendance' => 'Quedó abierta tu visita a '.($open->building?->name ?? 'otro edificio')
+                        .' del '.AttendanceTimes::time($open->arrived_at).', sin salida. Cerrala desde Inicio indicando el motivo y después registrá la llegada.']);
+                }
                 if ((int) $open->building_id !== (int) $building->id) {
                     throw ValidationException::withMessages(['attendance' => 'Tenés una visita abierta en '.($open->building?->name ?? 'otro edificio')
                         .' desde las '.AttendanceTimes::time($open->arrived_at).'. Finalizala antes de registrar la llegada a otro edificio.']);
                 }
-                $this->linkOpenOrders($open);
+                $this->linkOpenOrders($open, now());
 
                 return [$open, false];
             }
@@ -109,7 +132,7 @@ class SiteVisits
                 'user_id' => $user->id,
                 'arrived_at' => now(),
             ])->save();
-            $this->linkOpenOrders($visit);
+            $this->linkOpenOrders($visit, $visit->arrived_at);
 
             return [$visit, true];
         });
@@ -119,7 +142,7 @@ class SiteVisits
     public function attach(User $user, WorkOrder $order): void
     {
         if ($visit = self::openIn($user, (int) $order->building_id)) {
-            $this->link($visit, $order);
+            $this->link($visit, $order, now());
         }
     }
 
@@ -143,8 +166,15 @@ class SiteVisits
             $now = now();
             $locked->forceFill(['left_at' => $now, 'closed_at' => $now, 'closed_by' => $user->id])->save();
 
-            // Cada orden de la visita lleva la misma salida (si no tenía una).
-            WorkOrder::withoutGlobalScopes()->where('site_visit_id', $locked->id)->whereNotNull('arrived_at')->whereNull('left_at')
+            // La salida de una orden es la de la visita que la cerró: la del remito
+            // (aunque la orden haya entrado en la visita de otro técnico o de otro
+            // día) o, sin remito, la de su visita si ya no está en curso. Una orden
+            // que sigue pendiente no recibe salida: queda «Sin registrar» hasta
+            // que se termine.
+            WorkOrder::withoutGlobalScopes()->where('company_id', $locked->company_id)->whereNotNull('arrived_at')->whereNull('left_at')
+                ->where(fn ($q) => $q
+                    ->whereIn('id', BuildingVisit::withoutGlobalScopes()->where('site_visit_id', $locked->id)->whereNotNull('work_order_id')->select('work_order_id'))
+                    ->orWhere(fn ($w) => $w->where('site_visit_id', $locked->id)->where('status', '!=', 'in_progress')->whereDoesntHave('deliveryNote')))
                 ->update(['left_at' => $now, 'left_by' => $user->id]);
 
             return [$locked, true];
@@ -228,19 +258,20 @@ class SiteVisits
             ->whereHas('users', fn ($q) => $q->whereKey($user->id));
     }
 
-    private function linkOpenOrders(SiteVisit $visit): void
+    private function linkOpenOrders(SiteVisit $visit, \DateTimeInterface $at): void
     {
         $user = User::withoutGlobalScopes()->find($visit->user_id);
         self::openOrders($user, (int) $visit->building_id)->whereNull('site_visit_id')->get()
-            ->each(fn (WorkOrder $order) => $this->link($visit, $order));
+            ->each(fn (WorkOrder $order) => $this->link($visit, $order, $at));
     }
 
     /**
-     * La orden entra en la visita. Su llegada es la de la visita; si la orden
-     * es posterior (la tomó o la abrió ya estando ahí), la hora en que entró:
-     * nunca una llegada anterior al trabajo. Una llegada ya registrada no se toca.
+     * La orden entra en la visita. Su llegada ($at) es la de la visita si ya
+     * estaba en curso al llegar; si la tomó o la abrió estando ahí, la hora en
+     * que entró: nunca una llegada anterior al trabajo. Una llegada ya
+     * registrada (la del primer técnico) no se toca.
      */
-    private function link(SiteVisit $visit, WorkOrder $order): void
+    private function link(SiteVisit $visit, WorkOrder $order, \DateTimeInterface $at): void
     {
         if ($order->site_visit_id !== null || (int) $order->building_id !== (int) $visit->building_id || (int) $order->company_id !== (int) $visit->company_id
             || $order->status !== 'in_progress' || ! $order->users()->whereKey($visit->user_id)->exists()) {
@@ -248,10 +279,7 @@ class SiteVisits
         }
         $changes = ['site_visit_id' => $visit->id];
         if ($order->arrived_at === null) {
-            $changes += [
-                'arrived_at' => $order->created_at && $order->created_at->gt($visit->arrived_at) ? now() : $visit->arrived_at,
-                'arrived_by' => $visit->user_id,
-            ];
+            $changes += ['arrived_at' => $at, 'arrived_by' => $visit->user_id];
         }
         $order->forceFill($changes)->saveQuietly();
     }

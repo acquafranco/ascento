@@ -11,6 +11,7 @@ use App\Filament\Resources\DeliveryNotes\Tables\DeliveryNotesTable;
 use App\Filament\Resources\WorkOrders\WorkOrderResource;
 use App\Filament\Support\ClientSharing;
 use App\Models\DeliveryNote;
+use App\Services\WorkOrders\AttendanceTimes;
 use App\Support\DeliveryNotes\DeliveryNoteShare;
 use App\Support\WorkOrderLabels;
 use BackedEnum;
@@ -102,6 +103,15 @@ class DeliveryNoteResource extends Resource
                             : null)
                         ->visible(fn (DeliveryNote $record) => (bool) $record->workOrder?->on_call_shift_id),
                     TextEntry::make('created_at')->label('Registrado')->dateTime('d/m/Y H:i'),
+                    // Visita técnica: llegada del técnico al edificio, o por qué se firmó sin ella.
+                    TextEntry::make('site_visit')->label('Llegada al edificio')
+                        ->state(fn (DeliveryNote $record) => match (true) {
+                            (bool) $record->buildingVisit?->siteVisit => AttendanceTimes::time($record->buildingVisit->siteVisit->arrived_at)
+                                .' · salida '.AttendanceTimes::time($record->buildingVisit->siteVisit->left_at),
+                            filled($record->buildingVisit?->arrival_exception) => 'Sin llegada registrada: '.$record->buildingVisit->arrival_exception,
+                            default => null,
+                        })
+                        ->visible(fn (DeliveryNote $record) => (bool) ($record->buildingVisit?->site_visit_id || filled($record->buildingVisit?->arrival_exception))),
                     TextEntry::make('portal')->label('Portal del cliente')->badge()
                         ->state(fn (DeliveryNote $record) => $record->shared_with_client ? 'Compartido' : 'No compartido')
                         ->color(fn (string $state) => $state === 'Compartido' ? 'success' : 'gray')

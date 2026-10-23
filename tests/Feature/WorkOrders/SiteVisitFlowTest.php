@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\WorkOrders;
 
+use App\Filament\Resources\DeliveryNotes\Pages\ViewDeliveryNote;
 use App\Filament\Resources\WorkOrders\Pages\EditWorkOrder;
 use App\Filament\Resources\WorkOrders\Schemas\WorkOrderForm;
 use App\Models\ActivityLog;
@@ -14,6 +15,7 @@ use App\Models\SiteVisit;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Services\OnCall\OnCallService;
+use App\Services\Technicians\TechnicianSheet;
 use App\Services\WorkOrders\AttendanceTimes;
 use App\Services\WorkOrders\SiteVisits;
 use Illuminate\Database\Eloquent\MassAssignmentException;
@@ -214,7 +216,9 @@ class SiteVisitFlowTest extends TestCase
         $this->get(route('dashboard', ['company' => $this->slug()]))->assertSee('Queda un trabajo sin remito')->assertSee('Orden #'.$urgent->id);
         $this->leave($tech, $visit)->assertSessionHas('success', fn ($m) => str_contains($m, 'Una orden quedó en curso, sin remito.'));
         $this->assertSame('in_progress', $urgent->fresh()->status);
-        $this->assertSame(3, WorkOrder::withoutGlobalScopes()->whereNotNull('left_at')->count());
+        // Las terminadas llevan la salida; la pendiente, no («Sin registrar» hasta que se termine).
+        $this->assertSame(2, WorkOrder::withoutGlobalScopes()->whereNotNull('left_at')->count());
+        $this->assertNull($urgent->fresh()->left_at);
     }
 
     // 6 · Dos edificios, visitas y horarios independientes (y nunca dos abiertas a la vez).
@@ -238,6 +242,7 @@ class SiteVisitFlowTest extends TestCase
         // El remito del otro edificio tampoco entra en esta visita.
         $this->remitoForOrder($tech, $there)->assertSessionHasErrors('arrival_exception');
 
+        $this->remitoForOrder($tech, $here)->assertSessionHasNoErrors();
         Carbon::setTestNow('2026-10-24 10:00:00');
         $this->leave($tech, $first);
         Carbon::setTestNow('2026-10-24 10:30:00');
@@ -316,6 +321,8 @@ class SiteVisitFlowTest extends TestCase
         $this->take($tech, $known);
         $this->take($tech, $unknown);
         $this->arrive($tech, $this->a['building']);
+        $this->remitoForOrder($tech, $known)->assertSessionHasNoErrors();
+        $this->remitoForOrder($tech, $unknown)->assertSessionHasNoErrors();
         Carbon::setTestNow('2026-10-24 10:00:00');
         $this->leave($tech, $this->visit());
 
@@ -384,6 +391,15 @@ class SiteVisitFlowTest extends TestCase
         $this->actingAs($foreign)->post(route('site-visits.leave', ['company' => $this->b['company']->slug, 'siteVisit' => $visit->id]))->assertNotFound();
         $this->assertContains($this->actingAs($foreign)->post(route('site-visits.leave', ['company' => $this->slug(), 'siteVisit' => $visit->id]))->status(), [302, 403, 404]);
         $this->assertContains($this->actingAs($foreign)->post(route('site-visits.close', ['company' => $this->slug(), 'siteVisit' => $visit->id]), ['close_note' => 'Intento de otra empresa.'])->status(), [302, 403, 404]);
+
+        // El motivo «sin llegada» no saltea permisos: sin asignación, nada se firma.
+        auth()->logout();
+        $this->flushSession();
+        $intruder = User::factory()->technician()->create(['company_id' => $this->a['company']->id]);
+        $this->remitoForOrder($intruder, $order, ['arrival_exception' => 'Quiero firmar una orden que no es mía.'])->assertForbidden();
+        $this->periodicRemito($intruder, $this->a['building'], overrides: ['arrival_exception' => 'Edificio que no tengo asignado.'])->assertForbidden();
+        $this->periodicRemito($intruder, $this->a['building'], overrides: ['visit_flow' => null])->assertForbidden();
+        $this->assertSame(0, DeliveryNote::withoutGlobalScopes()->count());
 
         // Otro técnico de la misma empresa: no cierra ni finaliza una visita ajena.
         auth()->logout(); // (crear un usuario con sesión iniciada lo deja en la empresa de esa sesión)
@@ -530,15 +546,132 @@ class SiteVisitFlowTest extends TestCase
         $this->actingAs($tech)->post(route('work-orders.leave', ['company' => $this->slug(), 'workOrder' => $legacy->id]))->assertSessionHas('success', 'Salida registrada: 24/10 09:30.');
         $this->assertSame(0, SiteVisit::withoutGlobalScopes()->count());
 
-        // Formulario anterior a las visitas (sin visit_flow): se acepta como antes, sin visita ni motivo.
+        // Formulario anterior a las visitas (sin visit_flow): se acepta como antes, sin visita,
+        // pero nunca en silencio: queda marcado (quién y cuándo: los de la visita del remito).
         $this->periodicRemito($tech, $this->a['building'], overrides: ['visit_flow' => null])->assertSessionHasNoErrors();
         $note = BuildingVisit::withoutGlobalScopes()->latest('id')->first();
         $this->assertNull($note->site_visit_id);
-        $this->assertNull($note->arrival_exception);
+        $this->assertSame(SiteVisits::LEGACY_FORM_EXCEPTION, $note->arrival_exception);
+        $this->assertSame([$tech->id, '2026-10-24 09:30'], [$note->user_id, $note->created_at->format('Y-m-d H:i')]);
+        $this->assertNull(SiteVisit::withoutGlobalScopes()->first());
 
         // Remitos y órdenes viejas se ven igual en el panel y en el listado.
         $this->get(route('delivery-notes.index', ['company' => $this->slug()]))->assertOk();
         $this->assertSame(2, DeliveryNote::withoutGlobalScopes()->count());
         $this->assertSame('Llegada registrada en la orden (antes de las visitas técnicas).', WorkOrderForm::siteVisitSummary($legacy->fresh()));
+    }
+
+    // Revisión · dos técnicos en la misma orden: cada uno su visita; la orden guarda la llegada
+    // del primero y la salida de quien la cerró; la planilla no le atribuye al otro horarios ajenos.
+    public function test_two_technicians_on_the_same_order_never_take_each_others_times(): void
+    {
+        [$first, $second] = [$this->a['technician'], $this->secondTechnician()];
+        $order = $this->officeOrder();
+        $order->users()->attach($second->id);
+        $this->take($first, $order);
+
+        $this->arrive($first, $this->a['building'])->assertSessionHas('success');
+        $firstVisit = $this->visit();
+        Carbon::setTestNow('2026-10-24 09:30:00');
+        $this->arrive($second, $this->a['building'])->assertSessionHas('success');
+        $secondVisit = $this->visit();
+        $this->assertNotSame($firstVisit->id, $secondVisit->id);
+        $this->assertSame($firstVisit->id, $order->fresh()->site_visit_id); // entra una sola vez, en la del primero
+
+        // El primero se va con la orden pendiente: la orden NO recibe su salida.
+        Carbon::setTestNow('2026-10-24 10:00:00');
+        $this->leave($first, $firstVisit)->assertSessionHas('success');
+        $this->assertNull($order->fresh()->left_at);
+
+        // El segundo firma y se va: la salida de la orden es la suya.
+        Carbon::setTestNow('2026-10-24 11:00:00');
+        $this->remitoForOrder($second, $order)->assertSessionHasNoErrors();
+        $this->assertSame($secondVisit->id, BuildingVisit::withoutGlobalScopes()->where('work_order_id', $order->id)->value('site_visit_id'));
+        Carbon::setTestNow('2026-10-24 11:15:00');
+        $this->leave($second, $secondVisit)->assertSessionHas('success');
+        $order->refresh();
+        $this->assertSame(['09:00', $first->id, '11:15', $second->id], [$order->arrived_at->format('H:i'), $order->arrived_by, $order->left_at->format('H:i'), $order->left_by]);
+        $this->assertSame('10:00', $firstVisit->fresh()->left_at->format('H:i'));
+
+        // Planillas: cada uno con SUS horarios.
+        $sheet = app(TechnicianSheet::class);
+        $this->assertSame(['09:30 a 11:15'], $sheet->day($second, now())->pluck('time')->all());
+        $this->assertNotContains('09:00 a 11:15', $sheet->day($first, now())->pluck('time')->all());
+    }
+
+    // Revisión · una orden pendiente al salir no recibe salida y, otro día, pide la nueva llegada.
+    public function test_a_job_left_pending_has_no_exit_and_needs_the_next_arrival(): void
+    {
+        $tech = $this->a['technician'];
+        $order = $this->officeOrder();
+        $this->take($tech, $order);
+        $this->arrive($tech, $this->a['building']);
+        Carbon::setTestNow('2026-10-24 10:00:00');
+        $this->leave($tech, $this->visit());
+        $this->assertSame('in_progress', $order->fresh()->status);
+        $this->assertNull($order->fresh()->left_at);
+
+        // Al día siguiente, sin llegada: ni el remito ni la llegada «vieja» alcanzan.
+        Carbon::setTestNow('2026-10-25 09:00:00');
+        $this->remitoForOrder($tech, $order)->assertSessionHasErrors('arrival_exception');
+        $this->get(route('work-orders.show', ['company' => $this->slug(), 'workOrder' => $order->id]))->assertSee('data-slide-confirm="arrive"', false);
+        $this->arrive($tech, $this->a['building'], $order)->assertSessionHas('success');
+        $next = $this->visit();
+        $this->remitoForOrder($tech, $order)->assertSessionHasNoErrors();
+        Carbon::setTestNow('2026-10-25 09:40:00');
+        $this->leave($tech, $next);
+        $order->refresh();
+        // Respuesta: la primera llegada. Salida: la de la visita que la terminó.
+        $this->assertSame(['24 09:00', '25 09:40'], [$order->arrived_at->format('d H:i'), $order->left_at->format('d H:i')]);
+        $this->assertSame($next->id, BuildingVisit::withoutGlobalScopes()->where('work_order_id', $order->id)->value('site_visit_id'));
+    }
+
+    // Revisión · una visita olvidada abierta no suma trabajos de otro día ni recibe una llegada nueva.
+    public function test_a_forgotten_open_visit_does_not_absorb_work_from_other_days(): void
+    {
+        $tech = $this->a['technician'];
+        $this->arrive($tech, $this->a['building'])->assertSessionHas('success');
+        $forgotten = $this->visit();
+
+        Carbon::setTestNow('2026-10-26 15:00:00');
+        $order = $this->officeOrder();
+        $this->take($tech, $order);
+        $this->assertNull($order->fresh()->site_visit_id);
+        $this->assertNull($order->fresh()->arrived_at);
+        $this->periodicRemito($tech, $this->a['building'])->assertSessionHasErrors('arrival_exception');
+        $this->arrive($tech, $this->a['building'], $order)->assertSessionHas('warning', fn ($m) => str_contains($m, 'Cerrala desde Inicio'));
+        $this->get(route('dashboard', ['company' => $this->slug()]))->assertSee('No puedo registrar la salida')->assertDontSee('data-slide-confirm="leave-visit-', false);
+
+        $this->actingAs($tech)->post(route('site-visits.close', ['company' => $this->slug(), 'siteVisit' => $forgotten->id]), ['close_note' => 'Me olvidé de finalizarla el sábado.']);
+        $this->arrive($tech, $this->a['building'], $order)->assertSessionHas('success');
+        $this->assertSame('26 15:00', $order->fresh()->arrived_at->format('d H:i'));
+        $this->assertNotSame($forgotten->id, $order->fresh()->site_visit_id);
+        $this->assertNull($forgotten->fresh()->left_at);
+    }
+
+    // Revisión · el remito sin llegada se ve en el panel: motivo, quién y cuándo.
+    public function test_the_office_sees_why_a_remito_was_signed_without_arrival(): void
+    {
+        $tech = $this->a['technician'];
+        $order = $this->officeOrder();
+        $this->take($tech, $order);
+        $this->remitoForOrder($tech, $order, ['arrival_exception' => 'Llegué sin señal y no pude registrarla.'])->assertSessionHasNoErrors();
+        $summary = WorkOrderForm::siteVisitSummary($order->fresh());
+        $this->assertStringContainsString('Remito sin llegada registrada ('.$tech->name.', 24/10 09:00): Llegué sin señal y no pude registrarla.', $summary);
+
+        $note = DeliveryNote::withoutGlobalScopes()->sole();
+        auth()->logout();
+        $this->flushSession();
+        $this->actingInPanel($this->a['admin']);
+        Livewire::test(ViewDeliveryNote::class, ['record' => $note->getRouteKey()])
+            ->assertSee('Sin llegada registrada: Llegué sin señal y no pude registrarla.');
+    }
+
+    private function secondTechnician(): User
+    {
+        $second = User::factory()->technician()->create(['company_id' => $this->a['company']->id]);
+        $this->a['building']->users()->attach($second->id, ['type' => 'maintenance']);
+
+        return $second;
     }
 }
