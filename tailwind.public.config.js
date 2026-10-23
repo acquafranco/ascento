@@ -9,6 +9,7 @@
 export default {
     content: [
         './resources/views/welcome.blade.php',
+        './resources/views/marketplace/**/*.blade.php',
         './resources/views/layouts/guest.blade.php',
         './resources/views/legal/**/*.blade.php',
         './resources/views/auth/**/*.blade.php',

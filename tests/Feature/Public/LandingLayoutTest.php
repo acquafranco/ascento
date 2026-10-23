@@ -108,14 +108,12 @@ class LandingLayoutTest extends TestCase
         $this->assertStringNotContainsString('garant', mb_strtolower($faq));
     }
 
-    public function test_the_hero_has_no_heavy_animation_and_respects_reduced_motion(): void
+    public function test_the_hero_doors_respect_reduced_motion(): void
     {
         $html = $this->home();
 
-        // Rediseño del marketplace (23/10/2026): sin puertas animadas; el indicador solo cambia el texto y se detiene con «reducir movimiento».
-        $this->assertStringNotContainsString('class="elevator-doors"', $html);
-        $this->assertStringContainsString("if (floorDigit && !window.matchMedia('(prefers-reduced-motion: reduce)').matches)", $html);
-        $this->assertStringContainsString('motion-safe:animate-pulse', $this->section($html, 'inicio'));
+        $this->assertStringContainsString('class="elevator-doors" aria-hidden="true"', $html);
+        $this->assertMatchesRegularExpression('#@media \(prefers-reduced-motion: reduce\) \{\s*\.elevator-doors \{ display: none; \}#', $html);
     }
 
     public function test_the_hero_stays_clean_and_the_anywhere_argument_has_its_own_section(): void
@@ -123,15 +121,12 @@ class LandingLayoutTest extends TestCase
         $html = $this->home();
         $hero = $this->section($html, 'inicio');
 
-        // Portada (rediseño del 23/10/2026): propuesta para empresas y proveedores, con un botón para cada uno;
-        // sin el recuadro «desde casa» (pedido del dueño, 14/10/2026).
-        $this->assertStringContainsString('Donde las empresas de ascensores encuentran sus repuestos', $hero);
-        $this->assertMatchesRegularExpression('#<a href="'.preg_quote(route('register'), '#').'" data-cta-company#', $hero);
-        $this->assertMatchesRegularExpression('#<a href="'.preg_quote(route('suppliers.register'), '#').'" data-cta-supplier#', $hero);
+        // Portada: título, propuesta y botones; sin el recuadro «desde casa» (pedido del dueño, 14/10/2026).
+        $this->assertStringContainsString('Gestioná tu empresa de ascensores', $hero);
         $this->assertStringNotContainsString('data-home-message', $hero);
         $this->assertStringNotContainsString('Incluso desde casa', $html);
 
-        // La gestión sigue, en su propia sección, después del marketplace y antes de Beneficios.
+        // La idea sigue, desarrollada en su propia sección, justo después de la portada y antes de Beneficios.
         $anywhere = $this->section($html, 'desde-cualquier-lugar');
         $this->assertStringContainsString('aunque no estés en la oficina.', $anywhere);
         $this->assertStringContainsString('images/landing/admin-inicio.jpg', $anywhere);
@@ -149,7 +144,8 @@ class LandingLayoutTest extends TestCase
 
         $this->assertMatchesRegularExpression('#<img src="[^"]*/images/brand/logo-128\.png" alt="" width="40" height="40" data-indicator-logo#', $html);
         $this->assertFileExists(public_path('images/brand/logo-128.png'));
-        // El indicador animado sigue (como tarjeta sobre la ilustración del catálogo).
-        $this->assertStringContainsString('id="floorDigit"', $this->section($html, 'inicio'));
+        // Las puertas y el indicador animado siguen.
+        $this->assertStringContainsString('class="elevator-doors" aria-hidden="true"', $html);
+        $this->assertStringContainsString('id="floorDigit"', $html);
     }
 }

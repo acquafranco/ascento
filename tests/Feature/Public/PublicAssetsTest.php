@@ -17,7 +17,7 @@ class PublicAssetsTest extends TestCase
     {
         $this->withoutVite(); // no depende de que exista public/build
 
-        foreach (['/', '/login', '/register', '/forgot-password', '/legal/terminos', '/legal/cookies'] as $url) {
+        foreach (['/', '/marketplace', '/login', '/register', '/forgot-password', '/legal/terminos', '/legal/cookies'] as $url) {
             $html = $this->get($url)->assertOk()->getContent();
 
             foreach (['cdn.tailwindcss.com', 'fonts.googleapis.com', 'fonts.gstatic.com', 'fonts.bunny.net', 'cdn.jsdelivr.net', 'unpkg.com'] as $host) {
@@ -26,7 +26,7 @@ class PublicAssetsTest extends TestCase
         }
 
         // Y los estilos vienen del build propio.
-        foreach (['welcome', 'layouts/guest', 'legal/layout'] as $view) {
+        foreach (['welcome', 'marketplace/landing', 'layouts/guest', 'legal/layout'] as $view) {
             $this->assertStringContainsString('resources/css/public.css', (string) file_get_contents(resource_path("views/{$view}.blade.php")));
         }
         $this->assertStringContainsString('resources/css/public.css', (string) file_get_contents(base_path('vite.config.js')));

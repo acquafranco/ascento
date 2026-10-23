@@ -84,6 +84,10 @@ Route::get('/', function () {
 
 });
 
+// Marketplace de repuestos: página comercial pública (la Welcome sigue presentando la gestión
+// y lo enlaza desde su propia sección). Sin lógica propia: usa las rutas reales del catálogo y los registros.
+Route::get('/marketplace', fn () => view('marketplace.landing'))->name('marketplace');
+
 Route::get('/legal/terminos', fn () => view('legal.terms'))->name('legal.terms');
 Route::get('/legal/privacidad', fn () => view('legal.privacy'))->name('legal.privacy');
 Route::get('/legal/eliminacion-de-datos', fn () => view('legal.data-deletion'))->name('legal.data-deletion');

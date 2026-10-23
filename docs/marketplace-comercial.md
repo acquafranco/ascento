@@ -212,6 +212,15 @@ Zona horaria: `America/Argentina/Buenos_Aires`. Una cotización vence a las 23:5
 - Ahora el selector (`.mk-select`) dibuja su propia flecha en SVG, con espacio reservado a la derecha y recorte «…» en textos largos.
 - `.mk-input` usa `background-color` para no borrar esa flecha.
 
+**Presentación pública**
+- La Welcome (`/`) sigue presentando la gestión de la empresa: es la versión de `df9085a`, anterior al rediseño del 23/10/2026, que se revirtió a pedido del dueño. Solo suma la sección «Marketplace de repuestos» (`partials/landing-marketplace.blade.php`, después de «Vista previa» y antes de los planes) y un enlace en el pie.
+- La página comercial del marketplace es `/marketplace` (ruta `marketplace`, vista `marketplace/landing.blade.php`). Sus botones van a rutas reales:
+  - «Explorar repuestos»: el catálogo del panel (`/admin/repuestos`); sin sesión, pasa por el ingreso;
+  - «Publicar mi catálogo»: `suppliers.register`;
+  - «Ya tengo cuenta»: `login`.
+- El límite gratuito sale de `MarketplaceSettings`; Premium solo aparece si está a la venta y `SalesReadiness::gatewayReady()`.
+- Capturas reales con datos ficticios: ver `docs/landing-capturas.md`, «Marketplace de repuestos».
+
 ## 7. Precios y decisiones comerciales
 
 Ventas: **apagadas**. Premium y los destacados no se ofrecen hasta que el SuperAdmin los encienda en «Configuración del marketplace» (y además el país del proveedor tenga cobro habilitado).

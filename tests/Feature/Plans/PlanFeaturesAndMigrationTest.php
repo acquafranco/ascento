@@ -271,7 +271,7 @@ class PlanFeaturesAndMigrationTest extends TestCase
 
         $this->get('/')
             ->assertOk()
-            ->assertSee('Donde las empresas de ascensores encuentran sus repuestos')
+            ->assertSee('Gestioná tu empresa de ascensores')
             ->assertSee('Desde $69.000/mes')
             ->assertSeeInOrder(['Inicial', '$69.000', 'Recomendado', 'Profesional', '$119.000', 'Empresa', '$169.000'])
             ->assertSee('Hasta 20 edificios')

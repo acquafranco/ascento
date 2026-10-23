@@ -5,15 +5,15 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title>Ascento — Repuestos y gestión para empresas de ascensores</title>
-        <meta name="description" content="En Ascento las empresas de ascensores buscan, comparan y cotizan repuestos de proveedores aprobados, y los proveedores publican su catálogo gratis. Además, la gestión completa del mantenimiento en un solo lugar.">
+        <title>Ascento — Software de gestión para empresas de mantenimiento de ascensores</title>
+        <meta name="description" content="Ascento es la plataforma para administrar clientes, edificios, técnicos, órdenes de trabajo, mantenimientos e inspecciones de tu empresa de ascensores, todo en un solo lugar.">
 
         {{-- Favicon (ícono de la pestaña) --}}
         @include('partials.brand-head')
 
         {{-- WhatsApp / redes sociales --}}
-        <meta property="og:title" content="Ascento | Repuestos y gestión para empresas de ascensores">
-        <meta property="og:description" content="Buscá y cotizá repuestos de proveedores aprobados, o publicá tu catálogo gratis. Y gestioná tu empresa de ascensores en un solo lugar.">
+        <meta property="og:title" content="Ascento | Gestión para empresas de ascensores">
+        <meta property="og:description" content="Toda la gestión de tu empresa de ascensores, en un solo lugar.">
         <meta property="og:image" content="https://ascento.online/images/brand/og-1200x630.jpg">
         <meta property="og:image:secure_url" content="https://ascento.online/images/brand/og-1200x630.jpg">
         <meta property="og:image:type" content="image/jpeg">
@@ -24,8 +24,8 @@
         <meta property="og:type" content="website">
 
         <meta name="twitter:card" content="summary_large_image">
-        <meta name="twitter:title" content="Ascento | Repuestos y gestión para empresas de ascensores">
-        <meta name="twitter:description" content="Buscá y cotizá repuestos de proveedores aprobados, o publicá tu catálogo gratis. Y gestioná tu empresa de ascensores en un solo lugar.">
+        <meta name="twitter:title" content="Ascento | Gestión para empresas de ascensores">
+        <meta name="twitter:description" content="Toda la gestión de tu empresa de ascensores, en un solo lugar.">
         <meta name="twitter:image" content="https://ascento.online/images/brand/og-1200x630.jpg">
 
 
@@ -48,9 +48,21 @@
             * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
         }
 
+        /* Puertas de ascensor sobre la ilustración de la portada: se abren una sola vez. */
+        .elevator-doors { position: absolute; inset: 0; z-index: 5; display: flex; overflow: hidden; border-radius: inherit; pointer-events: none; }
+        .elevator-doors span { flex: 1; background: linear-gradient(90deg, #1A212B 0%, #232B36 45%, #1A212B 100%); animation: door-open-left .95s cubic-bezier(.65, 0, .35, 1) .45s forwards; }
+        .elevator-doors span:first-child { box-shadow: inset -1px 0 0 rgba(255, 102, 0, .55); }
+        .elevator-doors span:last-child { box-shadow: inset 1px 0 0 rgba(255, 102, 0, .55); animation-name: door-open-right; }
+        @keyframes door-open-left { to { transform: translateX(-101%); } }
+        @keyframes door-open-right { to { transform: translateX(101%); } }
+
         /* Carruseles: sin barra de desplazamiento visible (se mueven con el dedo, la rueda o los botones). */
         .no-scrollbar { scrollbar-width: none; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .elevator-doors { display: none; }
+        }
 
         ::selection { background: #FFE8D6; color: #14171C; }
         :focus-visible { outline: 2px solid #2E4FBE; outline-offset: 2px; border-radius: 4px; }
@@ -72,9 +84,8 @@
             </a>
 
             <div class="hidden lg:flex items-center gap-8 text-sm font-medium text-ink/70">
-                <a href="#repuestos" class="hover:text-ink transition-colors">Repuestos</a>
-                <a href="#proveedores" class="hover:text-ink transition-colors">Proveedores</a>
-                <a href="#beneficios" class="hover:text-ink transition-colors">Gestión</a>
+                <a href="#beneficios" class="hover:text-ink transition-colors">Beneficios</a>
+                <a href="#como-funciona" class="hover:text-ink transition-colors">Cómo funciona</a>
                 <a href="#planes" class="hover:text-ink transition-colors">Planes</a>
                 <a href="#faq" class="hover:text-ink transition-colors">Preguntas frecuentes</a>
             </div>
@@ -96,9 +107,7 @@
 
         <div x-show="open" x-cloak x-transition class="lg:hidden bg-paper border-b border-ink/10 px-5 pb-5 pt-1">
             <div class="flex flex-col gap-1 text-[15px] font-medium">
-                <a @click="open=false" href="#repuestos" class="py-2.5 text-ink/75">Repuestos</a>
-                <a @click="open=false" href="#proveedores" class="py-2.5 text-ink/75">Proveedores</a>
-                <a @click="open=false" href="#beneficios" class="py-2.5 text-ink/75">Gestión</a>
+                <a @click="open=false" href="#beneficios" class="py-2.5 text-ink/75">Beneficios</a>
                 <a @click="open=false" href="#como-funciona" class="py-2.5 text-ink/75">Cómo funciona</a>
                 <a @click="open=false" href="#planes" class="py-2.5 text-ink/75">Planes</a>
                 <a @click="open=false" href="#faq" class="py-2.5 text-ink/75">Preguntas frecuentes</a>
@@ -123,221 +132,117 @@
 
     <main>
         {{-- ============ HERO ============ --}}
-        @php
-            // Datos reales de la configuración comercial (nunca números fijos): límite gratuito y, solo si se vende de verdad, Premium.
-            $mkSettings = \App\Models\Marketplace\MarketplaceSettings::current();
-            $mkFree = $mkSettings->freeLimit();
-            $mkPremiumOnSale = $mkSettings->sellsPremium() && $mkSettings->chargesIn('AR') && \App\Support\Marketplace\SalesReadiness::gatewayReady();
-            $mkCategories = count(\App\Support\Marketplace\Catalog::CATEGORIES);
-        @endphp
-        <section class="relative overflow-hidden pt-24 pb-16 sm:pt-28 sm:pb-20 xl:pt-32 xl:pb-24" data-floor="PB" id="inicio">
-            <div class="pointer-events-none absolute inset-0 -z-10 [background:radial-gradient(55%_55%_at_85%_10%,rgba(255,102,0,0.10),transparent_60%),radial-gradient(45%_45%_at_0%_30%,rgba(17,22,29,0.05),transparent_60%)]"></div>
+        <section class="relative overflow-hidden pt-24 pb-16 sm:pt-32 sm:pb-24 xl:pt-40 xl:pb-28" data-floor="PB" id="inicio">
+            <div class="pointer-events-none absolute inset-0 -z-10 [background:radial-gradient(60%_60%_at_80%_0%,rgba(255,106,26,0.07),transparent_60%),radial-gradient(50%_50%_at_0%_20%,rgba(46,79,190,0.06),transparent_60%)]"></div>
 
             <div class="mx-auto max-w-7xl px-5 sm:px-8">
-                <div class="grid lg:grid-cols-[1.02fr_0.98fr] gap-12 lg:gap-12 items-center">
+                <div class="grid lg:grid-cols-[1.05fr_0.95fr] gap-14 lg:gap-10 items-center">
                     <div data-reveal>
                         <span class="inline-flex items-center gap-2 rounded-full bg-white border border-ink/10 shadow-sm px-3.5 py-1.5 text-xs font-semibold tracking-wide text-ink/70">
                             <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500"></span>
-                            Repuestos y gestión para la industria del ascensor
+                            Software para empresas de mantenimiento de ascensores
                         </span>
 
-                        <h1 class="mt-5 sm:mt-6 font-display font-semibold text-[1.95rem] leading-[1.1] sm:text-[2.6rem] sm:leading-[1.08] xl:text-[3.05rem] tracking-tight text-ink">
-                            Donde las empresas de ascensores encuentran sus repuestos<span class="text-amber-500">.</span>
-                            <span class="block text-ink/45">Y los proveedores, a sus próximos clientes.</span>
+                        <h1 class="mt-5 sm:mt-6 font-display font-semibold text-[2.25rem] leading-[1.08] sm:text-6xl sm:leading-[1.05] lg:text-[3.25rem] xl:text-6xl tracking-tight text-ink">
+                            Gestioná tu empresa de ascensores
+                            <span class="block text-ink/40">desde un solo lugar<span class="text-amber-500">.</span></span>
                         </h1>
 
-                        <p class="mt-4 sm:mt-5 text-base sm:text-[1.075rem] text-ink/65 max-w-xl leading-relaxed">
-                            Buscá por marca, modelo o código, compará entre proveedores y pedí cotizaciones sin salir de Ascento. Si vendés repuestos, mostrá tu catálogo a empresas del sector con fotos, compatibilidad y datos claros.
+                        <p class="mt-4 sm:mt-6 text-base sm:text-lg text-ink/60 max-w-xl leading-relaxed">
+                            Clientes, edificios, técnicos y órdenes de trabajo en tiempo real. Ascento centraliza cada mantenimiento, inspección y reclamo, piso por piso, para que nada se pierda entre planillas.
                         </p>
 
-                        <div class="mt-6 sm:mt-8 grid gap-3 sm:grid-cols-2 max-w-2xl" data-audience-ctas>
-                            <div class="rounded-2xl bg-graphite text-white p-5 shadow-cardHover flex flex-col">
-                                <p class="text-[11px] font-mono tracking-widest uppercase text-amber-400">Empresas de ascensores</p>
-                                <p class="mt-2 font-display font-semibold text-lg leading-snug">Encontrá y cotizá repuestos sin dar vueltas.</p>
-                                <a href="{{ route('register') }}" data-cta-company
-                                   class="mt-4 inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full bg-amber-500 text-ink text-[15px] font-semibold px-4 py-3 hover:bg-amber-400 transition-colors">
-                                    Crear cuenta de empresa
-                                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                                </a>
-                                <a href="{{ Route::has('login') ? route('login') : '/login' }}" class="mt-2.5 text-center text-sm text-white/70 hover:text-white underline-offset-4 hover:underline">Ya tengo cuenta: entrar</a>
-                            </div>
-                            <div class="rounded-2xl bg-white border border-ink/10 p-5 shadow-card flex flex-col">
-                                <p class="text-[11px] font-mono tracking-widest uppercase text-amber-700">Proveedores de repuestos</p>
-                                <p class="mt-2 font-display font-semibold text-lg leading-snug text-ink">Publicá tu catálogo gratis, hasta {{ $mkFree }} productos.</p>
-                                <a href="{{ route('suppliers.register') }}" data-cta-supplier
-                                   class="mt-4 inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full border-2 border-ink text-ink text-[15px] font-semibold px-4 py-[10px] hover:bg-ink hover:text-white transition-colors">
-                                    Publicar mi catálogo
-                                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                                </a>
-                                <a href="#proveedores" class="mt-2.5 text-center text-sm text-ink/60 hover:text-ink underline-offset-4 hover:underline">Cómo funciona para proveedores</a>
-                            </div>
+                        <div class="mt-6 sm:mt-9 flex flex-col min-[360px]:flex-row gap-3">
+                            <a href="{{ Route::has('login') ? route('login') : '/login' }}"
+                               class="inline-flex items-center justify-center gap-2 rounded-full bg-graphite text-white font-semibold px-5 sm:px-6 py-3.5 shadow-card hover:shadow-cardHover hover:-translate-y-0.5 transition-all duration-200">
+                                Entrar
+                                <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            </a>
+                            <a href="#prueba-gratis"
+                               class="inline-flex items-center justify-center gap-2 rounded-full border border-ink/15 bg-white font-semibold px-5 sm:px-6 py-3.5 text-ink hover:border-ink/30 hover:-translate-y-0.5 transition-all duration-200">
+                                Probar gratis 30 días
+                            </a>
                         </div>
 
-                        <ul class="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-ink/60">
-                            <li class="flex items-center gap-2"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="#C24800" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Proveedores aprobados por Ascento</li>
-                            <li class="flex items-center gap-2"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="#C24800" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Sin comisiones por venta</li>
-                            <li class="flex items-center gap-2"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="#C24800" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Pago y entrega, directo con el proveedor</li>
-                        </ul>
+                        <div class="mt-6 sm:mt-9 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-ink/50">
+                            @php
+                                $fromPrice = \App\Models\SubscriptionPlan::offered()->min('price');
+                            @endphp
+                            @if ($fromPrice)
+                                <a href="#planes" class="font-semibold text-ink hover:text-amber-600 transition-colors" data-price-anchor>Desde ${{ number_format((float) $fromPrice, 0, ',', '.') }}/mes</a>
+                            @endif
+                            <span class="flex items-center gap-2"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="#2E4FBE" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Sin tarjeta de crédito</span>
+                            <span class="flex items-center gap-2"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="#2E4FBE" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Empezá a organizar tu empresa desde el primer día</span>
+                        </div>
                     </div>
 
-                    {{-- Ilustración del catálogo (HTML liviano, sin imágenes): así se busca y se ve un repuesto. Datos de ejemplo. --}}
-                    <figure data-reveal style="transition-delay:.1s" class="relative" data-hero-catalog>
-                        <div class="relative mx-auto max-w-[34rem] rounded-2xl bg-white border border-ink/10 shadow-cardHover overflow-hidden" aria-hidden="true">
-                            <div class="flex items-center gap-1.5 px-4 py-2.5 bg-graphite">
-                                <span class="h-2.5 w-2.5 rounded-full bg-white/20"></span><span class="h-2.5 w-2.5 rounded-full bg-white/20"></span><span class="h-2.5 w-2.5 rounded-full bg-amber-500"></span>
-                                <span class="ml-3 font-mono text-[11px] text-white/50">Ascento · Repuestos</span>
+                    {{-- Floor indicator + mockup --}}
+                    <div data-reveal style="transition-delay:.1s" class="relative">
+                        <div class="relative mx-auto max-w-sm rounded-2xl bg-graphite p-5 shadow-cardHover">
+                            {{-- Puertas de cabina que se abren una vez al cargar (solo la ilustración; el texto no espera). --}}
+                            <div class="elevator-doors" aria-hidden="true"><span></span><span></span></div>
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <span class="h-2 w-2 rounded-full bg-amber-500"></span>
+                                    <span class="font-mono text-[11px] tracking-wider text-white/50 uppercase">Indicador de posición</span>
+                                </div>
+                                <span class="font-mono text-[11px] text-white/30">EN SERVICIO</span>
                             </div>
-                            <div class="p-4 sm:p-5">
-                                <div class="flex items-center gap-2 rounded-xl border border-ink/15 bg-paper px-3.5 py-2.5 text-sm text-ink/80">
-                                    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" class="text-ink/40"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.45 4.39l3.08 3.08a.75.75 0 11-1.06 1.06l-3.08-3.08A7 7 0 012 9z" clip-rule="evenodd"/></svg>
-                                    operador de puerta fermator<span class="ml-0.5 h-4 w-px bg-amber-500 motion-safe:animate-pulse"></span>
+
+                            <div class="mt-5 flex items-end justify-between rounded-xl bg-graphite2 border border-white/5 p-6">
+                                <div>
+                                    <div id="floorDigit" class="font-mono font-semibold text-7xl text-amber-500 font-tabular leading-none">PB</div>
+                                    <div class="mt-3 text-xs text-white/40 tracking-wide">Ascendiendo</div>
                                 </div>
-                                <div class="mt-3 flex flex-wrap gap-1.5 text-[11px] font-semibold">
-                                    <span class="rounded-full bg-amber-500/15 text-amber-700 px-2.5 py-1">Puertas y operadores</span>
-                                    <span class="rounded-full bg-ink/5 text-ink/70 px-2.5 py-1">En stock</span>
-                                    <span class="rounded-full bg-ink/5 text-ink/70 px-2.5 py-1">Con precio</span>
-                                </div>
-                                <div class="mt-4 grid grid-cols-2 gap-3">
-                                    @foreach ([['Operador de puerta VVVF', 'Fermator · VF5+', 'Cód. FM-VF5', 'Repuestos del Plata', 'En stock', true], ['Operador de puerta 2 hojas', 'Fermator · VVVF4', 'Cód. FM-V4', 'Elevación Norte', 'A pedido', false]] as [$n, $bm, $code, $sup, $av, $feat])
-                                        <div class="rounded-xl border {{ $feat ? 'border-amber-500/60' : 'border-ink/10' }} overflow-hidden bg-white">
-                                            <div class="relative aspect-[4/3] bg-[#F1F0EC] grid place-items-center">
-                                                <svg viewBox="0 0 120 90" class="h-3/4 w-3/4"><rect x="14" y="20" width="92" height="44" rx="6" fill="#11161D"/><rect x="22" y="28" width="30" height="28" rx="3" fill="#2A313C"/><circle cx="76" cy="42" r="12" fill="#FF6600"/><circle cx="76" cy="42" r="4" fill="#11161D"/><rect x="10" y="66" width="100" height="6" rx="3" fill="#A6ACB8"/></svg>
-                                                @if($feat)<span class="absolute left-2 top-2 rounded-full bg-amber-500 text-ink text-[10px] font-bold px-2 py-0.5">Destacado</span>@endif
-                                                <span class="absolute right-2 bottom-2 rounded-full bg-graphite/80 text-white text-[10px] font-semibold px-2 py-0.5">{{ $feat ? '4 fotos' : '2 fotos' }}</span>
-                                            </div>
-                                            <div class="p-3">
-                                                <p class="text-[10px] font-bold uppercase tracking-wider text-amber-700">Puertas</p>
-                                                <p class="mt-0.5 text-[13px] font-semibold leading-tight text-ink">{{ $n }}</p>
-                                                <p class="mt-1 text-[11px] text-ink/60">{{ $bm }}</p>
-                                                <p class="text-[11px] text-ink/60 font-mono">{{ $code }}</p>
-                                                <p class="mt-1.5 text-[11px] font-semibold text-amber-700 truncate">{{ $sup }}</p>
-                                                <div class="mt-2 flex items-center justify-between gap-1">
-                                                    <span class="text-[12px] font-bold text-ink">A cotizar</span>
-                                                    <span class="rounded-full {{ $av === 'En stock' ? 'bg-emerald-100 text-emerald-800' : 'bg-ink/5 text-ink/70' }} text-[10px] font-semibold px-2 py-0.5">{{ $av }}</span>
-                                                </div>
-                                                <div class="mt-2.5 rounded-lg bg-amber-500 text-ink text-[11px] font-bold text-center py-1.5">Pedir cotización</div>
-                                            </div>
-                                        </div>
-                                    @endforeach
+                                <div class="flex flex-col items-end gap-4">
+                                    {{-- Placa de marca del indicador: el logo real de Ascento (decorativo; la marca ya se lee en la barra superior). --}}
+                                    <img src="{{ asset('images/brand/logo-128.png') }}" alt="" width="40" height="40" data-indicator-logo
+                                         class="h-10 w-10 rounded-[10px] ring-1 ring-white/10 shadow-[0_0_18px_rgba(255,106,26,0.18)]">
+                                    <div class="flex flex-col-reverse gap-1.5">
+                                        <div class="h-1.5 w-8 rounded-full bg-white/10"></div>
+                                        <div class="h-1.5 w-8 rounded-full bg-white/10"></div>
+                                        <div class="h-1.5 w-8 rounded-full bg-white/10"></div>
+                                        <div class="h-1.5 w-8 rounded-full bg-amber-500"></div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        {{-- Indicador de posición (identidad de Ascento, decisión del 13/10/2026): liviano, solo cambia el texto. --}}
-                        <div class="hidden md:flex absolute -right-3 -bottom-7 items-center gap-3 rounded-xl bg-graphite text-white shadow-cardHover px-4 py-3 rotate-2" aria-hidden="true" data-hero-indicator>
-                            <img src="{{ asset('images/brand/logo-128.png') }}" alt="" width="40" height="40" data-indicator-logo class="h-10 w-10 rounded-[10px] ring-1 ring-white/10">
-                            <div>
-                                <div class="font-mono text-[10px] uppercase tracking-widest text-white/50">Indicador de posición</div>
-                                <div id="floorDigit" class="font-mono font-semibold text-3xl text-amber-500 font-tabular leading-none">PB</div>
+
+                            <div class="mt-4 grid grid-cols-2 gap-3">
+                                <div class="rounded-xl bg-graphite2 border border-white/5 p-4">
+                                    <div class="text-[11px] text-white/40">En proceso</div>
+                                    <div class="mt-1 font-display text-2xl font-semibold text-white">18</div>
+                                </div>
+                                <div class="rounded-xl bg-graphite2 border border-white/5 p-4">
+                                    <div class="text-[11px] text-white/40">Completadas</div>
+                                    <div class="mt-1 font-display text-2xl font-semibold text-white">6</div>
+                                </div>
                             </div>
                         </div>
-                        <figcaption class="mt-10 sm:mt-12 text-center text-xs text-ink/45">Ilustración con datos de ejemplo.</figcaption>
-                    </figure>
+
+                        <div class="hidden sm:block absolute -right-6 -bottom-8 w-44 rounded-xl bg-white border border-ink/10 shadow-card p-4 rotate-3">
+                            <div class="flex items-center gap-2">
+                                <span class="h-6 w-6 rounded-md bg-rail-100 flex items-center justify-center text-rail-500">
+                                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 13V5.5L8 2L14 5.5V13H2Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+                                </span>
+                                <span class="text-xs font-semibold">Edificio Alsina 1420</span>
+                            </div>
+                            <div class="mt-2 text-[11px] text-ink/50">Mantenimiento completado</div>
+                            <div class="mt-1 h-1.5 w-full rounded-full bg-ink/5"><div class="h-1.5 w-full rounded-full bg-amber-500"></div></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
 
-        {{-- ============ FRANJA DE CONFIANZA ============ --}}
+        {{-- ============ LOGO / TRUST STRIP ============ --}}
         <section class="border-y border-ink/10 bg-white/60">
-            <div class="mx-auto max-w-7xl px-5 sm:px-8 py-6 flex flex-wrap items-center justify-center sm:justify-between gap-x-10 gap-y-3 text-ink/55 text-sm font-medium tracking-wide">
-                <span>{{ $mkCategories }} rubros: de máquinas y puertas a botoneras y seguridad</span>
-                <span>Precios, stock y compatibilidad los declara cada proveedor</span>
-                <span>Además, la gestión completa de tu empresa de mantenimiento</span>
-            </div>
-        </section>
-
-        {{-- ============ REPUESTOS (EMPRESAS) ============ --}}
-        <section id="repuestos" class="relative overflow-hidden py-20 sm:py-28 scroll-mt-16">
-            <div class="mx-auto max-w-7xl px-5 sm:px-8">
-                <div data-reveal class="max-w-2xl">
-                    <span class="font-mono text-xs tracking-widest text-amber-700 uppercase">Para empresas de ascensores</span>
-                    <h2 class="mt-3 font-display font-semibold text-3xl sm:text-[2.6rem] sm:leading-[1.1] tracking-tight">El repuesto que necesitás, sin una tarde de llamados.</h2>
-                    <p class="mt-4 text-ink/65 text-base sm:text-lg leading-relaxed">Cuando un ascensor espera una pieza, cada vuelta cuesta. En Ascento buscás en los catálogos de varios proveedores a la vez y pedís cotización en el mismo lugar donde ya gestionás tu trabajo.</p>
+            <div class="mx-auto max-w-7xl px-5 sm:px-8 py-6 flex flex-wrap items-center justify-center sm:justify-between gap-x-10 gap-y-3 text-ink/35 text-sm font-medium tracking-wide">
+                <span>Para empresas de mantenimiento de ascensores</span>
+                <span>En la computadora y en el celular</span>
+                <span>Los datos de cada empresa, separados y privados</span>
+                <div class="hidden sm:flex items-center gap-8 font-display">
+                    <!-- <span>Elevatek</span><span>SubeCorp</span><span>NivelPro</span><span>Ascensores del Sur</span><span>VertiMant</span> -->
                 </div>
-
-                <ol class="mt-12 grid gap-5 md:grid-cols-3">
-                    @foreach ([
-                        ['Buscá', 'Por nombre, marca, modelo, código o equipo compatible. Filtrá por rubro, marca, disponibilidad y precio.', 'M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.45 4.39l3.08 3.08a.75.75 0 11-1.06 1.06l-3.08-3.08A7 7 0 012 9z'],
-                        ['Compará', 'Fotos, precio publicado, stock declarado y compatibilidad, lado a lado. Guardá favoritos para la próxima.', 'M4 3a1 1 0 011 1v12a1 1 0 11-2 0V4a1 1 0 011-1zm6 0a1 1 0 011 1v12a1 1 0 11-2 0V4a1 1 0 011-1zm6 0a1 1 0 011 1v12a1 1 0 11-2 0V4a1 1 0 011-1z'],
-                        ['Pedí cotización', 'Armá un pedido por proveedor y seguí su estado: enviado, cotizado, aceptado, recibido. Todo queda en tu historial.', 'M3 4a1 1 0 011-1h12a1 1 0 011 1v9a1 1 0 01-1 1H8l-4 3v-3H4a1 1 0 01-1-1V4z'],
-                    ] as $i => [$t, $d, $path])
-                        <li data-reveal style="transition-delay: {{ $i * 0.08 }}s" class="rounded-2xl bg-white border border-ink/10 shadow-card p-6">
-                            <div class="flex items-center gap-3">
-                                <span class="grid h-10 w-10 place-items-center rounded-xl bg-amber-500 text-ink"><svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="{{ $path }}" clip-rule="evenodd"/></svg></span>
-                                <span class="font-mono text-xs text-ink/45">0{{ $i + 1 }}</span>
-                            </div>
-                            <h3 class="mt-4 font-display font-semibold text-xl tracking-tight">{{ $t }}</h3>
-                            <p class="mt-2 text-sm text-ink/65 leading-relaxed">{{ $d }}</p>
-                        </li>
-                    @endforeach
-                </ol>
-
-                <div data-reveal class="mt-10 grid gap-4 rounded-2xl bg-graphite text-white p-6 sm:p-8 md:grid-cols-[1fr_auto] md:items-center">
-                    <div>
-                        <p class="font-display font-semibold text-xl">Ascento conecta; la compra la acordás vos.</p>
-                        <p class="mt-1.5 text-sm text-white/70 max-w-2xl">Una cotización no es una compra. El pago, la factura, el envío y la garantía se acuerdan directamente con cada proveedor. Ascento no cobra comisiones ni procesa esos pagos.</p>
-                    </div>
-                    <a href="{{ route('register') }}" class="inline-flex items-center justify-center gap-2 rounded-full bg-amber-500 text-ink font-semibold px-6 py-3 hover:bg-amber-400 transition-colors">Crear cuenta de empresa</a>
-                </div>
-            </div>
-        </section>
-
-        {{-- ============ PROVEEDORES ============ --}}
-        <section id="proveedores" class="relative overflow-hidden bg-white border-y border-ink/10 py-20 sm:py-28 scroll-mt-16">
-            <div class="mx-auto max-w-7xl px-5 sm:px-8 grid gap-12 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
-                <div data-reveal>
-                    <span class="font-mono text-xs tracking-widest text-amber-700 uppercase">Para proveedores de repuestos</span>
-                    <h2 class="mt-3 font-display font-semibold text-3xl sm:text-[2.6rem] sm:leading-[1.1] tracking-tight">Tu catálogo, presentado como se merece.</h2>
-                    <p class="mt-4 text-ink/65 text-base sm:text-lg leading-relaxed">Las empresas que mantienen ascensores buscan repuestos en Ascento. Mostrales tus productos con varias fotos, marca, modelo, código y la compatibilidad que declares, y respondé sus pedidos de cotización desde tu área.</p>
-                    <ul class="mt-6 space-y-3 text-[15px] text-ink/80">
-                        @foreach ([
-                            'Hasta '.\App\Support\Marketplace\Catalog::MAX_PHOTOS.' fotos por producto, con una principal y galería en la ficha.',
-                            'Pedidos de cotización ordenados, con avisos en tu área y por correo.',
-                            'Cuenta revisada por Ascento antes de publicar: las empresas saben con quién hablan.',
-                            'Sin comisiones sobre tus ventas: el precio y el cobro los manejás vos.',
-                        ] as $line)
-                            <li class="flex gap-3"><svg class="mt-1 shrink-0" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="#C24800" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>{{ $line }}</span></li>
-                        @endforeach
-                    </ul>
-
-                    <div class="mt-8 rounded-2xl border-2 border-amber-500 bg-amber-100/40 p-5" data-supplier-plan>
-                        <p class="font-display font-semibold text-lg text-ink">Gratis, para siempre: hasta {{ $mkFree }} productos publicados a la vez.</p>
-                        <p class="mt-1 text-sm text-ink/70">Sin tarjeta y desde cualquier país. Los borradores y los productos pausados no cuentan.@if($mkPremiumOnSale) ¿Necesitás más? Premium amplía el límite hasta {{ number_format($mkSettings->premiumLimit(), 0, ',', '.') }} productos por {{ \App\Support\Marketplace\Money::format((float) $mkSettings->premium_price, $mkSettings->pricing_currency ?: 'ARS') }} por mes.@endif</p>
-                    </div>
-                    <div class="mt-6 flex flex-wrap gap-3">
-                        <a href="{{ route('suppliers.register') }}" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full bg-graphite text-white font-semibold px-6 py-3.5 shadow-card hover:shadow-cardHover transition-shadow">Registrarme como proveedor</a>
-                        <a href="{{ route('legal.terms') }}#proveedores" class="inline-flex items-center justify-center whitespace-nowrap rounded-full border border-ink/15 bg-white font-semibold px-6 py-3.5 text-ink hover:border-ink/30 transition-colors">Condiciones para proveedores</a>
-                    </div>
-                </div>
-
-                {{-- Cómo se ve una ficha publicada (ilustración, datos de ejemplo). --}}
-                <figure data-reveal style="transition-delay:.1s" aria-hidden="true">
-                    <div class="rounded-2xl border border-ink/10 bg-paper shadow-cardHover p-4 sm:p-5">
-                        <div class="grid gap-4 sm:grid-cols-[1.05fr_1fr]">
-                            <div>
-                                <div class="relative aspect-[4/3] rounded-xl bg-[#ECEBE6] grid place-items-center overflow-hidden">
-                                    <svg viewBox="0 0 160 120" class="h-[70%] w-[70%]"><rect x="30" y="18" width="100" height="70" rx="8" fill="#11161D"/><rect x="40" y="28" width="48" height="50" rx="4" fill="#2A313C"/><circle cx="108" cy="40" r="9" fill="#FF6600"/><circle cx="108" cy="64" r="9" fill="#A6ACB8"/><rect x="22" y="94" width="116" height="8" rx="4" fill="#A6ACB8"/></svg>
-                                    <span class="absolute left-2.5 top-1/2 -translate-y-1/2 grid h-7 w-7 place-items-center rounded-full bg-graphite/75 text-white text-sm">‹</span>
-                                    <span class="absolute right-2.5 top-1/2 -translate-y-1/2 grid h-7 w-7 place-items-center rounded-full bg-graphite/75 text-white text-sm">›</span>
-                                    <span class="absolute right-2.5 bottom-2.5 rounded-full bg-graphite/80 text-white text-[10px] font-bold px-2 py-0.5">1 / 4</span>
-                                </div>
-                                <div class="mt-2 grid grid-cols-4 gap-2">
-                                    @foreach (['#FF6600', '#ECEBE6', '#ECEBE6', '#ECEBE6'] as $k => $c)
-                                        <div class="aspect-square rounded-lg border-2 {{ $k === 0 ? 'border-amber-500' : 'border-transparent' }}" style="background: {{ $c === '#FF6600' ? '#E7E5DF' : $c }}"></div>
-                                    @endforeach
-                                </div>
-                            </div>
-                            <div class="flex flex-col gap-2.5">
-                                <div class="flex flex-wrap gap-1.5"><span class="rounded-full bg-ink/5 px-2 py-0.5 text-[10px] font-semibold text-ink/70">Controladores y placas</span><span class="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">En stock (declarada)</span></div>
-                                <p class="font-display font-semibold text-lg leading-tight text-ink">Placa de maniobra microprocesada</p>
-                                <p class="font-display text-xl font-bold text-ink">A cotizar</p>
-                                <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[12px]"><dt class="text-ink/50">Marca</dt><dd class="text-ink">Arkel</dd><dt class="text-ink/50">Modelo</dt><dd class="text-ink">Arcode</dd><dt class="text-ink/50">Código</dt><dd class="font-mono text-ink">ARK-ARC-01</dd></dl>
-                                <div class="rounded-lg border border-dashed border-ink/20 p-2.5 text-[11px] text-ink/70"><span class="font-semibold text-ink">Compatibilidad declarada por el proveedor:</span> ascensores de hasta 16 paradas.</div>
-                                <div class="mt-auto rounded-lg bg-amber-500 text-ink text-[12px] font-bold text-center py-2">Agregar al pedido de cotización</div>
-                            </div>
-                        </div>
-                    </div>
-                    <figcaption class="mt-3 text-center text-xs text-ink/45">Así ven las empresas una ficha publicada. Ilustración con datos de ejemplo.</figcaption>
-                </figure>
             </div>
         </section>
 
@@ -349,7 +254,7 @@
             <div class="relative mx-auto max-w-7xl px-5 sm:px-8">
                 <div class="grid items-center gap-12 lg:grid-cols-[1fr_1.05fr] lg:gap-16">
                     <div data-reveal>
-                        <span class="font-mono text-xs uppercase tracking-widest text-amber-500">Además: la gestión de tu empresa, desde cualquier lugar</span>
+                        <span class="font-mono text-xs uppercase tracking-widest text-amber-500">Desde cualquier lugar</span>
                         <h2 class="mt-3 font-display text-3xl font-semibold tracking-tight sm:text-[2.75rem] sm:leading-[1.1]">
                             Tu empresa en orden, <span class="text-amber-500">aunque no estés en la oficina.</span>
                         </h2>
@@ -384,14 +289,7 @@
                             </a>
                             <a href="#demo" class="inline-flex items-center justify-center px-2 py-3 text-sm font-semibold text-white/70 transition-colors hover:text-white">Ver cómo se ve el panel</a>
                         </div>
-                        @php
-                            $fromPrice = \App\Models\SubscriptionPlan::offered()->min('price');
-                        @endphp
-                        <p class="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-white/55 sm:justify-start">
-                            @if ($fromPrice)<a href="#planes" class="font-semibold text-white hover:text-amber-400 transition-colors" data-price-anchor>Desde ${{ number_format((float) $fromPrice, 0, ',', '.') }}/mes</a>@endif
-                            <span>Sin tarjeta de crédito.</span>
-                            <span>Empezá a organizar tu empresa desde el primer día.</span>
-                        </p>
+                        <p class="mt-3 text-center text-xs text-white/40 sm:text-left">Sin tarjeta de crédito.</p>
                     </div>
 
                     {{-- Captura real del panel (datos de ejemplo), en una ventana de navegador. --}}
@@ -764,6 +662,8 @@
             </div>
         </section>
 
+        @include('partials.landing-marketplace')
+
         {{-- ============ PLANES ============ --}}
         @php
             $plans = \App\Models\SubscriptionPlan::offered();
@@ -928,9 +828,7 @@
                         $portalCheapest = \App\Models\SubscriptionPlan::cheapestWith(\App\Enums\PlanFeature::ClientPortal);
                         $portalFrom = $portalCheapest && ! $portalCheapest->is(\App\Models\SubscriptionPlan::offered()->first()) ? $portalCheapest->shortName() : null;
                         $faqs = [
-['¿Cómo funciona el marketplace de repuestos?', 'Las empresas con cuenta en Ascento buscan repuestos de proveedores aprobados, los comparan y les piden cotización. Precio, stock y compatibilidad los declara cada proveedor. Si aceptás una cotización, el pago, la factura y la entrega se acuerdan directamente con el proveedor: Ascento no cobra comisiones ni procesa esos pagos.'],
-['¿Cuánto cuesta publicar como proveedor?', 'Nada: publicar es gratis y por tiempo indefinido, hasta '.\App\Models\Marketplace\MarketplaceSettings::current()->freeLimit().' productos publicados a la vez, sin tarjeta y desde cualquier país. Tu cuenta la revisa Ascento antes de que tus productos se vean en el catálogo.'],
-['¿Para quién es Ascento?', 'Para empresas de mantenimiento de ascensores, que gestionan su trabajo y consiguen repuestos, y para proveedores de repuestos, que publican su catálogo. En las empresas, la oficina trabaja en el panel desde la computadora, los técnicos desde el celular y '.($portalFrom ? 'desde el plan '.$portalFrom.' ' : '').'tus clientes pueden entrar a su propio portal.'],
+['¿Para quién es Ascento?', 'Para empresas de mantenimiento de ascensores. La oficina trabaja en el panel desde la computadora, los técnicos desde el celular y '.($portalFrom ? 'desde el plan '.$portalFrom.' ' : '').'tus clientes pueden entrar a su propio portal.'],
 ['¿Necesito instalar algo?', 'No. Ascento funciona desde el navegador, en la computadora y en el celular. Los técnicos pueden agregarlo a la pantalla de inicio como una app.'],
 ['¿Mis técnicos pueden usarlo desde el celular?', 'Sí. Cada técnico tiene su usuario, ve solo lo que tiene asignado, firma remitos y carga informes con fotos desde el teléfono.'],
 ['¿Mis clientes pueden ver la información?', ($portalFrom ? 'Desde el plan '.$portalFrom.', cada' : 'Cada').' consorcio o administración entra al portal con su usuario y ve solo lo que vos le compartís de sus edificios.'],
@@ -998,6 +896,7 @@
                         <li><a href="#como-funciona" class="hover:text-white transition-colors">Cómo funciona</a></li>
                         <li><a href="#planes" class="hover:text-white transition-colors">Planes</a></li>
                         <li><a href="#faq" class="hover:text-white transition-colors">Preguntas frecuentes</a></li>
+                        <li><a href="{{ route('marketplace') }}" class="hover:text-white transition-colors">Marketplace de repuestos</a></li>
                     </ul>
                 </div>
                 <div>
@@ -1044,7 +943,7 @@
 
         // Hero floor-indicator count-up animation
         const floorDigit = document.getElementById('floorDigit');
-        if (floorDigit && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        if (floorDigit) {
             const sequence = ['PB', '1', '2', '3', '4', '5', '6', '7', '8'];
             let idx = 0;
             setInterval(() => {

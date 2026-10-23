@@ -53,3 +53,35 @@ Para agregar o quitar una pantalla, editá la lista `shots` del script y los
 arreglos `$phoneShots` y la lista de escritorio en `resources/views/welcome.blade.php`.
 `tests/Feature/Public/LandingScreenshotsTest.php` falla si falta una imagen
 referenciada o si pesa más de 200 KB.
+
+## Marketplace de repuestos (`public/images/marketplace/`)
+
+La sección «Marketplace de repuestos» de la Welcome y la página `/marketplace`
+usan capturas **reales** del catálogo, la ficha y el área del proveedor, tomadas
+de una base de demo local con **datos ficticios**: «Ascensores Demo», tres
+proveedores «Demo» y la marca «Marca Demo». Las imágenes de los productos son
+**dibujos** generados para la demo (no fotos de productos reales) y se cargan con
+el mismo procesador de fotos de la app (JPEG sin metadatos, miniatura).
+
+| Archivo | Qué muestra | Tamaño |
+|---|---|---|
+| `catalogo.jpg` | Buscador, filtros y tarjetas | 1080×860 |
+| `catalogo-filtros.jpg` | Filtro por rubro activo y «Limpiar filtros» | 1080×690 |
+| `ficha.jpg` | Ficha con galería (4 fotos), datos y compatibilidad | 1080×640 |
+| `ficha-movil.jpg` | La misma ficha en el celular (390 px, 2x) | 780×1440 |
+| `proveedor-fotos.jpg` | Fotos del producto en el área del proveedor | 1080×468 |
+
+Cada una pesa menos de 200 KB (lo verifica `MarketplaceLandingTest`).
+
+Para regenerarlas, con una base de demo local (nunca producción):
+
+```bash
+CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" node tools/marketplace-screenshots/product-images.cjs /tmp/mk-img
+php artisan migrate:fresh --seed
+DEMO_IMG=/tmp/mk-img php artisan tinker --execute="require 'tools/marketplace-screenshots/seed.php';"
+php artisan serve --port=8766
+BASE_URL=http://127.0.0.1:8766 CHROME="…" node tools/marketplace-screenshots/capture.cjs public/images/marketplace
+```
+
+El seeder se niega a correr en producción. Usuarios de la demo: `demo@empresa.test`
+(empresa) y `demo@norte.test` (proveedor), con la contraseña que figura en `seed.php`.
