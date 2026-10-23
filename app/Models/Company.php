@@ -21,8 +21,8 @@ class Company extends Model
      */
     public const RESERVED_SLUGS = [
         'admin', 'api', 'broadcasting', 'build', 'confirm-password', 'css', 'dashboard', 'email', 'files', 'filament',
-        'forgot-password', 'images', 'js', 'legal', 'livewire', 'login', 'logout', 'manifest.webmanifest', 'mercadopago',
-        'notificaciones', 'password', 'portal', 'register', 'reset-password', 'storage', 'sw.js', 'telegram', 'up',
+        'forgot-password', 'images', 'js', 'legal', 'livewire', 'login', 'logout', 'manifest.webmanifest', 'marketplace', 'mercadopago',
+        'notificaciones', 'password', 'portal', 'register', 'reset-password', 'sitemap.xml', 'storage', 'sw.js', 'telegram', 'up',
         'verify-email', 'whatsapp',
     ];
 

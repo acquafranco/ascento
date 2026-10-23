@@ -12,11 +12,16 @@ app** con **datos ficticios** de la base de demo, nunca de producción. Están e
 ## Qué se captura
 
 - **Teléfono:**
-  - inicio, trabajos, visitas y nuevo reporte del técnico;
+  - inicio, trabajos, detalle de una orden, remito digital firmado, visitas, pruebas de paracaídas (con Carla, que es la inspectora) y nuevo reporte del técnico;
   - inicio y documentos del portal;
   - el QR público de Torre Libertador. El script toma el enlace del panel, porque el token es aleatorio, y lo abre sin sesión.
 - **Escritorio:** inicio del panel, mapa, un presupuesto, componentes en reparación, pruebas de paracaídas e indicadores.
 - **Datos de demostración:** `DemoValidationSeeder` crea también, con datos ficticios, el QR con sus bloques, las pruebas de paracaídas (una próxima y otra al día) y dos componentes en reparación.
+- **Bienvenidas:** la del técnico y la del portal salen una sola vez; el script las descarta con «Entendido» antes de capturar.
+- **Firma del remito:** el seeder dibuja una firma ficticia (un trazo con GD), así el remito se ve como uno real.
+- **No se captura** el detalle de un reporte con fotos: las fotos de la demo son marcadores grises y no representan el producto.
+- **Mapa:** en la demo no hay geocodificación (no se usa la clave de Geoapify), así que el mapa sale sin puntos, igual que en las capturas anteriores.
+- **Actualización del 23/10/2026:** se recapturaron todas; ahora reflejan la barra inferior del técnico con «Guardias» y la pestaña «Reclamos e incidencias» del portal.
 - **Login:** el script espera 3,5 segundos antes de enviar el formulario, porque la protección contra bots rechaza los envíos instantáneos.
 
 ## Cuándo actualizarlas

@@ -4,13 +4,16 @@ namespace App\Support\Marketplace;
 
 use App\Models\Marketplace\Supplier;
 use App\Services\Marketplace\Billing\SupplierBilling;
+use App\Support\Billing\MercadoPagoAccount;
 
 /**
  * ¿Se puede vender Premium o destacados a proveedores? Lo que falta, en
  * palabras y SIN valores secretos (solo el nombre de cada variable).
  *
  * - gatewayProblems(): credenciales del servidor para cobrar y confirmar
- *   pagos. Sin la clave del webhook no se podría confirmar ningún pago, así
+ *   pagos, APP_URL con https en producción y la cuenta verificada (de prueba
+ *   fuera de producción, real en producción; ver MercadoPagoAccount). Sin
+ *   la clave del webhook no se podría confirmar ningún pago, así
  *   que tampoco se empieza un cobro nuevo. Cancelar o consultar un cobro que
  *   ya existe solo necesita el token (ver SupplierSubscriptions::cancel).
  * - problems(): además, lo que el SuperAdmin quiere guardar en
@@ -34,8 +37,12 @@ final class SalesReadiness
         if (blank(config('services.mercadopago.webhook_secret'))) {
             $problems[] = 'Falta MERCADOPAGO_WEBHOOK_SECRET: sin la clave secreta del webhook no se pueden confirmar los pagos.';
         }
+        if (app()->isProduction() && ! str_starts_with((string) config('app.url'), 'https://')) {
+            $problems[] = 'APP_URL no empieza con https://: Mercado Pago no puede volver a Ascento ni avisar los pagos.';
+        }
 
-        return $problems;
+        // Cuenta de prueba o real: se verifica con Mercado Pago, no por el prefijo del token.
+        return array_merge($problems, MercadoPagoAccount::problems());
     }
 
     public static function gatewayReady(): bool

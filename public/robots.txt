@@ -1,2 +1,14 @@
 User-agent: *
-Disallow:
+Allow: /proveedores/registro
+Disallow: /admin
+Disallow: /api/
+Disallow: /portal
+Disallow: /proveedores/
+Disallow: /notificaciones
+Disallow: /marketplace/fotos/
+Disallow: /qr/
+Disallow: /calculadora/resultado
+Disallow: /livewire
+Disallow: /*/public/
+
+Sitemap: https://ascento.online/sitemap.xml

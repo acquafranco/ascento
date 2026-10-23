@@ -7,8 +7,11 @@
     @include('auth.partials.account-type', ['current' => 'supplier'])
 
     @php
+        // Solo los países habilitados para registrarse (RegistrationCountries; por defecto, Argentina).
+        $countryOptions = \App\Support\RegistrationCountries::options();
         $country = \App\Support\Countries::normalize(old('country', 'AR'));
-        $countryInfo = collect(\App\Support\Countries::LATAM)->map(fn ($c) => ['tax' => $c[2], 'example' => $c[3]]);
+        $country = array_key_exists($country, $countryOptions) ? $country : 'AR';
+        $countryInfo = collect(\App\Support\Countries::LATAM)->only(array_keys($countryOptions))->map(fn ($c) => ['tax' => $c[2], 'example' => $c[3]]);
         $field = 'w-full rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink shadow-sm outline-none transition focus:border-rail-500 focus:ring-4 focus:ring-rail-100';
     @endphp
 
@@ -53,21 +56,29 @@
                     </div>
                 </div>
                 <div class="grid sm:grid-cols-2 gap-4">
-                    <div>
-                        <x-input-label for="country" value="País" />
-                        <select id="country" name="country" required data-supplier-country class="{{ $field }}">
-                            @foreach(\App\Support\Countries::options() as $code => $name)
-                                <option value="{{ $code }}" @selected($country === $code)>{{ $name }}</option>
-                            @endforeach
-                        </select>
-                        <x-input-error :messages="$errors->get('country')" class="mt-1.5" />
-                    </div>
+                    @if (count($countryOptions) > 1)
+                        <div>
+                            <x-input-label for="country" value="País" />
+                            <select id="country" name="country" required data-supplier-country class="{{ $field }}">
+                                @foreach($countryOptions as $code => $name)
+                                    <option value="{{ $code }}" @selected($country === $code)>{{ $name }}</option>
+                                @endforeach
+                            </select>
+                            <x-input-error :messages="$errors->get('country')" class="mt-1.5" />
+                        </div>
+                    @endif
                     <div>
                         <x-input-label for="tax_id" :value="\App\Support\Countries::taxIdLabel($country)" data-supplier-tax-label />
                         <x-text-input id="tax_id" type="text" name="tax_id" :value="old('tax_id')" required :placeholder="\App\Support\Countries::taxIdExample($country)" />
                         <x-input-error :messages="$errors->get('tax_id')" class="mt-1.5" />
                     </div>
                 </div>
+                @if (count($countryOptions) > 1)
+                    <p class="text-xs text-ink/45">Registro disponible solo para los países de la lista. Que tu país esté habilitado no implica que Premium, los destacados o la facturación estén disponibles ahí.</p>
+                @else
+                    <p class="text-xs text-ink/45" data-supplier-home-only>Por ahora el registro de proveedores está disponible para Argentina.</p>
+                    <x-input-error :messages="$errors->get('country')" class="mt-1.5" />
+                @endif
                 <div class="grid sm:grid-cols-2 gap-4">
                     <div>
                         <x-input-label for="phone" value="Teléfono de ventas" />

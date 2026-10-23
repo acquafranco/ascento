@@ -48,21 +48,30 @@
                     <x-input-error :messages="$errors->get('company_name')" class="mt-1.5" />
                 </div>
 
-                {{-- País (Latinoamérica): define cómo se llama la identificación fiscal y la división principal. --}}
+                {{-- País: solo los habilitados para registrarse (RegistrationCountries). Con uno solo
+                     (Argentina, por defecto) no hay selector: el servidor asigna Argentina. --}}
                 @php
+                    $countryOptions = \App\Support\RegistrationCountries::options();
                     $country = \App\Support\Countries::normalize(old('country', 'AR'));
-                    $countryInfo = collect(\App\Support\Countries::LATAM)->map(fn ($c) => ['tax' => $c[2], 'example' => $c[3], 'region' => $c[1]]);
+                    $country = array_key_exists($country, $countryOptions) ? $country : 'AR';
+                    $countryInfo = collect(\App\Support\Countries::LATAM)->only(array_keys($countryOptions))->map(fn ($c) => ['tax' => $c[2], 'example' => $c[3], 'region' => $c[1]]);
                 @endphp
-                <div>
-                    <x-input-label for="country" value="País" />
-                    <select id="country" name="country" required data-register-country
-                        class="w-full rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink shadow-sm outline-none transition focus:border-rail-500 focus:ring-4 focus:ring-rail-100">
-                        @foreach(\App\Support\Countries::options() as $code => $name)
-                            <option value="{{ $code }}" @selected($country === $code)>{{ $name }}</option>
-                        @endforeach
-                    </select>
+                @if (count($countryOptions) > 1)
+                    <div>
+                        <x-input-label for="country" value="País" />
+                        <select id="country" name="country" required data-register-country
+                            class="w-full rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink shadow-sm outline-none transition focus:border-rail-500 focus:ring-4 focus:ring-rail-100">
+                            @foreach($countryOptions as $code => $name)
+                                <option value="{{ $code }}" @selected($country === $code)>{{ $name }}</option>
+                            @endforeach
+                        </select>
+                        <p class="mt-1.5 text-xs text-ink/45">Registro disponible solo para los países de la lista. Que tu país esté habilitado no implica que el pago de la suscripción o la facturación estén disponibles ahí.</p>
+                        <x-input-error :messages="$errors->get('country')" class="mt-1.5" />
+                    </div>
+                @else
+                    <p class="text-xs text-ink/45" data-register-home-only>Por ahora el registro está disponible para empresas de Argentina.</p>
                     <x-input-error :messages="$errors->get('country')" class="mt-1.5" />
-                </div>
+                @endif
 
                 <div class="grid sm:grid-cols-2 gap-4">
                     <div>

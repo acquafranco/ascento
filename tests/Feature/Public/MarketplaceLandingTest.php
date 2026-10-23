@@ -6,6 +6,7 @@ use App\Filament\Pages\Marketplace\PartsCatalog;
 use App\Models\Marketplace\MarketplaceSettings;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\VerifiesMercadoPagoAccount;
 use Tests\TestCase;
 
 /**
@@ -15,7 +16,7 @@ use Tests\TestCase;
  */
 class MarketplaceLandingTest extends TestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabase, VerifiesMercadoPagoAccount;
 
     private function section(string $html, string $id): string
     {
@@ -33,7 +34,9 @@ class MarketplaceLandingTest extends TestCase
         $this->assertStringContainsString('El punto de encuentro entre las empresas de ascensores', $hero);
         $this->assertStringContainsString('y los proveedores de repuestos', $hero);
         $this->assertStringContainsString('Descubrí productos, explorá catálogos y conectá con proveedores del sector.', $hero);
-        $this->assertStringContainsString('href="'.PartsCatalog::getUrl(panel: 'ascensores_app').'" data-cta-explore', $hero);
+        // Explorar va al catálogo sin cuenta; si el SuperAdmin lo apaga, al del panel (pide ingresar).
+        $this->assertStringContainsString('href="'.route('marketplace.catalog').'" data-cta-explore', $hero);
+        $this->assertStringContainsString('action="'.route('marketplace.catalog').'"', $hero);
         $this->assertStringContainsString('href="'.route('suppliers.register').'" data-cta-publish', $hero);
         $this->assertStringContainsString('href="'.route('login').'" data-cta-login', $hero);
         foreach (['Explorar repuestos', 'Publicar mi catálogo', 'Ya tengo cuenta'] as $cta) {
@@ -55,9 +58,16 @@ class MarketplaceLandingTest extends TestCase
         $this->assertStringContainsString('href="'.url('/').'"', $html);
     }
 
-    public function test_the_explore_button_asks_for_an_account_and_logged_users_can_see_the_page(): void
+    public function test_the_explore_button_asks_for_an_account_only_when_the_public_catalog_is_off(): void
     {
+        $this->get(route('marketplace.catalog'))->assertOk();
         $this->get(PartsCatalog::getUrl(panel: 'ascensores_app'))->assertRedirect(route('login'));
+
+        MarketplaceSettings::current()->update(['public_catalog_enabled' => false]);
+        $hero = $this->section($this->get(route('marketplace'))->getContent(), 'inicio');
+        $this->assertStringContainsString('href="'.PartsCatalog::getUrl(panel: 'ascensores_app').'" data-cta-explore', $hero);
+        $this->assertStringNotContainsString('data-hero-search', $hero);
+        $this->get(route('marketplace.catalog'))->assertRedirect(route('marketplace'));
 
         $owner = User::factory()->admin()->create();
         $this->actingAs($owner)->get('/marketplace')->assertOk();
@@ -96,6 +106,8 @@ class MarketplaceLandingTest extends TestCase
 
         // Con todo lo necesario para cobrar: se informa con el límite y el precio configurados.
         config(['services.mercadopago.access_token' => 'APP_USR-x', 'services.mercadopago.webhook_secret' => 'clave']);
+        $this->assertStringNotContainsString('Premium', $this->get('/marketplace')->getContent()); // cuenta sin verificar
+        $this->markMercadoPagoVerified();
         $this->assertStringContainsString('Premium amplía el límite hasta 1.000 productos por ARS 19.900 por mes.', $this->section($this->get('/marketplace')->getContent(), 'proveedores'));
     }
 

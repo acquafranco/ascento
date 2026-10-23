@@ -31,6 +31,7 @@ use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\Concerns\InteractsWithTenants;
+use Tests\Concerns\VerifiesMercadoPagoAccount;
 use Tests\Feature\Marketplace\Concerns\MakesMarketplace;
 use Tests\TestCase;
 
@@ -42,7 +43,7 @@ use Tests\TestCase;
  */
 class MarketplaceOperationsTest extends TestCase
 {
-    use InteractsWithTenants, MakesMarketplace, RefreshDatabase;
+    use InteractsWithTenants, MakesMarketplace, RefreshDatabase, VerifiesMercadoPagoAccount;
 
     public function test_parties_talk_report_incidents_and_the_super_admin_intervenes_without_rewriting_history(): void
     {
@@ -205,6 +206,7 @@ class MarketplaceOperationsTest extends TestCase
         $this->makeProduct($supplier, ['name' => 'Uno']);
         $this->makeProduct($supplier, ['name' => 'Dos']);
         config(['services.mercadopago.access_token' => 'APP_USR-TEST', 'services.mercadopago.webhook_secret' => 'clave-del-webhook']);
+        $this->markMercadoPagoVerified();
         // Un país sin pasarela no se puede habilitar.
         Livewire::test(MarketplaceSettingsPage::class)->set('data.billing_countries', ['AR', 'CL'])->call('save')->assertHasErrors('data.billing_countries.1');
         Livewire::test(MarketplaceSettingsPage::class)->set('data.premium_enabled', true)->set('data.premium_price', 25000)->set('data.free_product_limit', 1)
@@ -238,6 +240,7 @@ class MarketplaceOperationsTest extends TestCase
 
         // Con las credenciales: un precio con más de dos decimales, un país sin pasarela o en otra moneda, o ningún país, tampoco.
         config(['services.mercadopago.webhook_secret' => 'clave-ultrasecreta']);
+        $this->markMercadoPagoVerified();
         $this->assertSame('', $text(['premium_enabled' => true, 'premium_price' => 19900]));
         $this->assertStringContainsString('destacado por 7 días no es válido', $text(['featured_enabled' => true, 'featured_price_7' => '4900.555']));
         $this->assertStringContainsString('al menos un precio', $text(['featured_enabled' => true]));
@@ -254,12 +257,16 @@ class MarketplaceOperationsTest extends TestCase
         $this->app['env'] = 'production';
         $problems = SalesReadiness::gatewayProblems();
         $this->app['env'] = 'testing';
-        $this->assertCount(1, $problems);
+        // Además, sin https en APP_URL y con la cuenta de ese token sin verificar.
+        $this->assertCount(3, $problems);
         $this->assertStringContainsString('credencial de prueba', $problems[0]);
-        $this->assertStringNotContainsString('TEST-abc', $problems[0]);
+        $this->assertStringContainsString('APP_URL', $problems[1]);
+        $this->assertStringContainsString('Falta verificar la cuenta', $problems[2]);
+        $this->assertStringNotContainsString('TEST-abc', implode(' ', $problems));
 
         // Con todo lo obligatorio se guarda, y los precios quedan en la configuración central.
         config(['services.mercadopago.access_token' => 'APP_USR-123-SECRETO']);
+        $this->markMercadoPagoVerified();
         Livewire::test(MarketplaceSettingsPage::class)->set('data.billing_countries', ['AR'])->set('data.featured_enabled', true)
             ->set('data.featured_price_7', 4900)->set('data.featured_price_30', 9900)->call('save')->assertNotified('Configuración guardada');
         $this->assertSame([7 => 4900.0, 30 => 9900.0], MarketplaceSettings::current()->featuredOffers());

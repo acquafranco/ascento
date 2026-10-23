@@ -11,6 +11,7 @@ use App\Support\Countries;
 use App\Support\Help\HelpTopics;
 use App\Support\Plans\PlanUpsell;
 use App\Support\Provinces;
+use App\Support\RegistrationCountries;
 use Filament\Forms;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\FileUpload;
@@ -133,11 +134,13 @@ class CompanySettings extends Page implements Forms\Contracts\HasForms
                             // para un selector: la fila se parte en dos hasta xl.
                             ->columnSpan(['lg' => 12, 'xl' => 6]),
 
-                        // País de la empresa (Latinoamérica): es el que usan por defecto sus edificios.
+                        // País de la empresa: es el que usan por defecto sus edificios. Se puede pasar
+                        // solo a un país habilitado para registrarse (RegistrationCountries) o quedarse
+                        // con el que ya tiene; nunca se cambia solo.
                         Forms\Components\Select::make('country')
                             ->label('País')
-                            ->options(Countries::options())
-                            ->in(array_keys(Countries::LATAM))
+                            ->options(fn () => RegistrationCountries::optionsForExisting(Auth::user()?->company?->country))
+                            ->in(fn () => array_keys(RegistrationCountries::optionsForExisting(Auth::user()?->company?->country)))
                             ->required()
                             ->searchable()
                             ->native(false)
