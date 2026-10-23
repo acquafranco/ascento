@@ -63,6 +63,8 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
         'pending_email_expires_at' => 'datetime',
         'password' => 'hashed',
         'is_super_admin' => 'boolean',
+        // Autorización para registrar urgencias en cualquier edificio de su empresa (UrgentCoverage). No es asignable.
+        'urgent_coverage_granted_at' => 'datetime',
         'onboarding_completed_at' => 'datetime',
         'onboarding_step' => 'integer',
         'onboarding_skipped_at' => 'datetime',
@@ -412,6 +414,21 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     public function isAdmin(): bool
     {
         return $this->role === 'admin';
+    }
+
+    /**
+     * ¿Puede registrar urgencias (intervenciones) en cualquier edificio de su
+     * empresa? Solo técnicos activos con la autorización vigente. Se lee de la
+     * base en cada pedido: revocarla corta el acceso en el siguiente.
+     */
+    public function hasUrgentCoverage(): bool
+    {
+        return $this->role === 'technician' && ! $this->trashed() && $this->urgent_coverage_granted_at !== null;
+    }
+
+    public function urgentCoverageGrantedBy()
+    {
+        return $this->belongsTo(self::class, 'urgent_coverage_granted_by')->withTrashed();
     }
 
     public function buildings()

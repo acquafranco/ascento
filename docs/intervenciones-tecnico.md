@@ -56,7 +56,7 @@ La oficina recibe el aviso en el momento en que se abre cada intervención: «Ur
 - **Quién puede usarlo:** solo los técnicos y el dueño de la empresa. Nunca los usuarios del portal, los proveedores, el SuperAdmin ni los administrativos.
 - **Edificios permitidos:**
   - los activos de su empresa que tiene asignados;
-  - todos los de su empresa mientras está **de guardia** en ese momento;
+  - todos los de su empresa mientras está **de guardia** en ese momento, o si tiene la **autorización de urgencias** (ver más abajo);
   - el dueño, todos.
 - **Lo que sale del servidor, nunca del navegador:** empresa, autor, tipo, origen, orden y prioridad. El equipo se valida contra el edificio.
 - **Sumar trabajos:** solo si la orden es de su empresa, está en curso, está **asignada a él** y no tiene remito, con bloqueo de fila.
@@ -68,16 +68,28 @@ La oficina recibe el aviso en el momento en que se abre cada intervención: «Ur
 - **Fotos:** se guardan con el mismo servicio y los mismos permisos que las de los reportes.
 - **Sin permisos administrativos nuevos** para el técnico.
 
-## Decisiones a confirmar
+## Edificios, guardias y autorización de urgencias (aprobado el 23/10/2026)
 
-1. **Edificios no asignados:**
-   - Un técnico que no está de guardia solo ve sus edificios asignados.
-   - Si las urgencias de fin de semana las atiende alguien sin guardia cargada, conviene cargar la guardia en «Guardias».
-   - La otra opción es habilitar todos los edificios de la empresa.
-2. **Cupo del plan:** las intervenciones no consumen el cupo mensual de reportes, para que una urgencia nunca quede bloqueada por el plan. Tampoco cuentan como «fallas» en los indicadores; sí cuentan como órdenes completadas.
-3. **Revisión de la oficina:** no hay aprobación previa (no frena la urgencia). Lo que no quedó «Resuelto» pasa a «En revisión» y la oficina lo ve en Reportes y en el filtro de documentación pendiente.
-4. **Prioridad:**
-   - una urgencia crea la orden con prioridad urgente;
-   - una intervención no programada, con prioridad media;
-   - sumar una urgencia a una visita sube su prioridad y nunca la baja.
-5. **Reclamos del portal y del QR:** siguen igual, con «Crear orden» desde el reclamo. No se vinculan con las intervenciones del técnico.
+- **Edificios donde un técnico puede abrir una intervención:**
+  - los activos de su empresa que tiene asignados;
+  - todos los de su empresa **mientras está de guardia** (turno vigente y horario de la guardia que cubre ese momento);
+  - todos los de su empresa si tiene la **autorización de urgencias**;
+  - el dueño, todos.
+- **Autorización de urgencias** (`UrgentCoverage`, columnas `users.urgent_coverage_granted_at` / `_by`, migración 2027_01_24):
+  - **Dónde:** en la ficha del técnico (Técnicos → ver), con «Autorizar urgencias en cualquier edificio» o «Revocar». También figura en el listado (columna «Urgencias») y en el subtítulo de la ficha, con quién la otorgó y cuándo.
+  - **Quién la cambia:** el dueño, o un administrativo activo con permiso para **gestionar Guardias** que además vea Técnicos. Nunca el propio técnico, otro técnico, el dueño de otra empresa ni el SuperAdmin. Las columnas no son asignables desde formularios.
+  - **Alcance:** solo abrir intervenciones. No cambia mantenimientos, inspecciones, edificios asignados, clientes ni órdenes ajenas, ni lo que ve en la app.
+  - **Revocar:** vale desde el pedido siguiente, también para pedidos directos al backend. Las intervenciones ya registradas siguen siendo suyas.
+  - **Historial:** cada alta y cada baja queda en la actividad de la empresa (`technician.urgent_coverage.granted` / `.revoked`).
+- **Guardias:** sin cambios en su funcionamiento. Una intervención abierta mientras el técnico está de guardia queda vinculada a ese turno (`work_orders.on_call_shift_id`) y aparece en «Trabajos durante la guardia». Fuera del horario de la guardia no se vincula, aunque tenga la autorización.
+
+## Indicadores
+
+- Cada problema atendido en una intervención cuenta **una vez y en su propio equipo** en los indicadores («reclamos»), en el análisis de fallas recurrentes y en el historial del ascensor.
+- La orden que abre el técnico no se suma aparte (`WorkOrder::scopeClaimSignals`).
+- No consumen el cupo de reportes ni cuentan como «fallas reportadas».
+
+## Decisiones pendientes
+
+1. **Facturación:** ni las órdenes ni los remitos están vinculados a presupuestos o cobros; se cargan aparte, como con las órdenes de la oficina. Si se quiere «Generar cobro desde el remito», hay que definir la regla.
+2. **Reclamos del portal y del QR:** sin cambios. La oficina crea la orden desde el reclamo; no se vinculan solos con las intervenciones del técnico.

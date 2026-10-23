@@ -64,6 +64,7 @@ class InterventionController extends Controller
             'workOrder' => null,
             'buildings' => $buildings,
             'onCall' => $this->interventions->isOnCallNow($user),
+            'coverage' => $user->hasUrgentCoverage(),
             'token' => $this->token(),
         ]);
     }
@@ -96,6 +97,7 @@ class InterventionController extends Controller
             'workOrder' => $workOrder,
             'buildings' => collect(),
             'onCall' => false,
+            'coverage' => false,
             'token' => $this->token(),
         ]);
     }
