@@ -5,6 +5,7 @@ namespace App\Support\DeliveryNotes;
 use App\Models\Company;
 use App\Models\DeliveryNote;
 use App\Models\ParachuteTest;
+use App\Models\Report;
 use App\Support\CompanyLogo;
 use App\Support\WorkOrderLabels;
 use Carbon\Carbon;
@@ -34,6 +35,7 @@ final class DeliveryNoteDocument
         $color = self::color($company?->primary_color);
 
         $kind = match (true) {
+            $order?->isTechnicianInitiated() => ['label' => 'Intervención del técnico: '.WorkOrderLabels::type((string) $order->type), 'icon' => '🛠️', 'tone' => 'order'],
             $order !== null => ['label' => 'Orden de trabajo: '.WorkOrderLabels::type((string) $order->type), 'icon' => '🔧', 'tone' => 'order'],
             $visit?->assignment_type === 'maintenance' => ['label' => 'Mantenimiento mensual', 'icon' => '🔄', 'tone' => 'maintenance'],
             $visit?->assignment_type === 'inspection' => ['label' => 'Inspección', 'icon' => '🔍', 'tone' => 'inspection'],
@@ -70,6 +72,17 @@ final class DeliveryNoteDocument
             'technician' => $note->user?->name,
             'performed' => (bool) $note->performed,
             'description' => (string) $note->description,
+            // Trabajos de la visita (intervenciones), cada uno con su resultado. Sin scopes:
+            // el remito también se abre por el enlace público (siempre de la empresa del remito).
+            'jobs' => $order ? Report::withoutGlobalScopes()->where('company_id', $note->company_id)->where('work_order_id', $order->id)
+                ->where('kind', Report::KIND_INTERVENTION)->orderBy('id')->get()
+                ->values()->map(fn (Report $job, int $i) => [
+                    'title' => 'Trabajo '.($i + 1).($job->elevator_number ? ' · '.$job->elevator_number : ''),
+                    'problem' => (string) $job->description,
+                    'done' => (string) $job->work_done,
+                    'result' => $job->resultLabel(),
+                    'ok' => $job->result === 'resolved',
+                ])->all() : [],
             'materials' => $order?->materials?->map(fn ($m) => [
                 'name' => $m->stockItem?->name ?? 'Material',
                 'quantity' => $m->stockItem?->formatQuantity($m->quantity) ?? (string) $m->quantity,

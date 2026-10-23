@@ -27,7 +27,11 @@ class ReportsTable
                     ->label('Tipo')
                     ->badge()
                     ->formatStateUsing(fn (?string $state) => Report::KIND_LABELS[$state] ?? 'Falla')
-                    ->color(fn (?string $state) => $state === Report::KIND_INSPECTION ? 'info' : 'gray'),
+                    ->color(fn (?string $state) => match ($state) {
+                        Report::KIND_INSPECTION => 'info',
+                        Report::KIND_INTERVENTION => 'warning',
+                        default => 'gray',
+                    }),
 
                 TextColumn::make('building.name')
                     ->label('Edificio')
@@ -74,12 +78,14 @@ class ReportsTable
                     ->sortable(),
             ])
             ->filters([
-                // Por defecto, los reportes de falla (como siempre); los de inspección, eligiéndolos.
+                // Por defecto, fallas e intervenciones de técnicos; los de inspección, eligiéndolos.
                 SelectFilter::make('kind')
                     ->label('Tipo')
-                    ->options(Report::KIND_LABELS)
-                    ->visible(fn () => CompanyContext::currentId() && Company::hasWorkPhotosById((int) CompanyContext::currentId()))
-                    ->default(Report::KIND_INCIDENT),
+                    ->multiple()
+                    ->options(fn () => CompanyContext::currentId() && Company::hasWorkPhotosById((int) CompanyContext::currentId())
+                        ? Report::KIND_LABELS
+                        : collect(Report::KIND_LABELS)->except(Report::KIND_INSPECTION)->all())
+                    ->default([Report::KIND_INCIDENT, Report::KIND_INTERVENTION]),
 
                 SelectFilter::make('priority')
                     ->options([

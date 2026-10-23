@@ -37,7 +37,7 @@ class WorkOrderController extends Controller
             ], 410);
         }
 
-        $workOrder->load(['building.client', 'users', 'participants', 'deliveryNote']);
+        $workOrder->load(['building.client', 'users', 'participants', 'deliveryNote', 'jobs.photos', 'creator']);
 
         $isAssigned = $workOrder->users->contains($user->id)
             || $workOrder->participants->contains($user->id);

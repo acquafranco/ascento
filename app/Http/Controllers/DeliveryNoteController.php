@@ -9,9 +9,11 @@ use App\Models\BuildingVisit;
 use App\Models\Company;
 use App\Models\DeliveryNote;
 use App\Models\ParachuteTest;
+use App\Models\Report;
 use App\Models\StockItem;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderMaterial;
+use App\Services\Interventions\InterventionService;
 use App\Services\Parachute\ParachuteService;
 use App\Services\Visits\VisitPhotoService;
 use App\Services\Visits\VisitSchedule;
@@ -278,7 +280,9 @@ class DeliveryNoteController extends Controller
             [
                 'building_id' => 'required|integer',
                 'work_order_id' => 'nullable|integer',
-                'description' => 'required|string|max:5000',
+                // Con trabajos de la visita (intervenciones) el resumen es opcional: se arma con los trabajos.
+                'description' => [$this->orderHasJobs($request) ? 'nullable' : 'required', 'string', 'max:5000'],
+                'jobs' => 'nullable|array|max:50',
                 'month' => 'nullable|integer|between:1,12',
                 'year' => 'nullable|integer|between:2000,2100',
                 'elevator_quantity' => 'required|integer|min:0|max:500',
@@ -397,6 +401,15 @@ class DeliveryNoteController extends Controller
                 // El remito solo puede crearse mientras la orden está en progreso.
                 if ($workOrder->status !== 'in_progress') {
                     abort(409, 'Esta orden de trabajo ya no está en progreso.');
+                }
+            }
+
+            // Trabajos de la visita (intervenciones): qué se hizo y cómo quedó cada uno.
+            // Todos los de ESTA orden, ninguno de otra; sin eso no se firma el remito.
+            if ($workOrder && $workOrder->jobs()->exists()) {
+                app(InterventionService::class)->closeJobs($workOrder, (array) $request->input('jobs', []));
+                if (blank($request->input('description'))) {
+                    $request->merge(['description' => InterventionService::summary($workOrder)]);
                 }
             }
 
@@ -646,6 +659,16 @@ class DeliveryNoteController extends Controller
                 ->with('success', 'Remito generado correctamente.');
         });
 
+    }
+
+    /** ¿La orden del formulario tiene trabajos de la visita? (solo de la empresa del usuario) */
+    private function orderHasJobs(Request $request): bool
+    {
+        return $request->filled('work_order_id') && Report::withoutGlobalScopes()
+            ->where('company_id', auth()->user()->company_id)
+            ->where('work_order_id', (int) $request->input('work_order_id'))
+            ->where('kind', Report::KIND_INTERVENTION)
+            ->exists();
     }
 
     /** ¿Este formulario de remito (submission_token) ya se guardó, por este mismo usuario? */

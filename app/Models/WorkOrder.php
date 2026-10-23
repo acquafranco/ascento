@@ -2,17 +2,20 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Auth;
 use App\Models\Concerns\BelongsToCompany;
+use App\Services\Notifications\AssignmentNotifier;
 use App\Services\Stock\StockService;
+use App\Support\CompanyContext;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 class WorkOrder extends Model
 {
-    use HasFactory, SoftDeletes;
     use BelongsToCompany;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'company_id',
@@ -28,6 +31,9 @@ class WorkOrder extends Model
         'notes',
         'delivery_note',
     ];
+
+    /** Abierta por el técnico desde Reportes (urgencia o trabajo no programado). null = la creó la oficina. */
+    public const ORIGIN_TECHNICIAN = 'technician';
 
     protected $casts = [
         'started_at' => 'datetime',
@@ -58,7 +64,7 @@ class WorkOrder extends Model
         });
 
         // Eliminar una orden abierta es cancelarla: se avisa a sus técnicos.
-        static::deleted(fn (WorkOrder $workOrder) => app(\App\Services\Notifications\AssignmentNotifier::class)->workOrderCancelled($workOrder));
+        static::deleted(fn (WorkOrder $workOrder) => app(AssignmentNotifier::class)->workOrderCancelled($workOrder));
 
         // Guardia de origen: solo un turno de la misma empresa, y una vez que la
         // orden tiene remito no se cambia (el remito firmado no se reescribe).
@@ -72,10 +78,10 @@ class WorkOrder extends Model
                 return;
             }
             if ($workOrder->on_call_shift_id) {
-                $companyId = $workOrder->company_id ?? (\App\Support\CompanyContext::currentId());
+                $companyId = $workOrder->company_id ?? (CompanyContext::currentId());
                 $ok = OnCallShift::withoutGlobalScopes()->whereKey($workOrder->on_call_shift_id)->where('company_id', $companyId)->exists();
                 if (! $ok) {
-                    throw \Illuminate\Validation\ValidationException::withMessages(['on_call_shift_id' => 'Esa guardia no es de tu empresa.']);
+                    throw ValidationException::withMessages(['on_call_shift_id' => 'Esa guardia no es de tu empresa.']);
                 }
             }
         });
@@ -113,15 +119,14 @@ class WorkOrder extends Model
             User::class,
             'work_order_user'
         )
-        ->withTrashed()
-        ->withTimestamps();
+            ->withTrashed()
+            ->withTimestamps();
     }
 
     /**
      * Compatibilidad con código viejo.
      * Devuelve el primer técnico asignado.
      */
-
 
     /** Turno de guardia en el que se originó (si lo indicó quien la cargó). */
     public function onCallShift()
@@ -180,13 +185,43 @@ class WorkOrder extends Model
             User::class,
             'work_order_participants'
         )
-        ->withTrashed()
-        ->withPivot('role')
-        ->withTimestamps();
+            ->withTrashed()
+            ->withPivot('role')
+            ->withTimestamps();
     }
 
     public function materials()
     {
         return $this->hasMany(WorkOrderMaterial::class);
+    }
+
+    /** Trabajos de esta visita (intervenciones registradas por el técnico), en orden. */
+    public function jobs()
+    {
+        return $this->hasMany(Report::class)->where('kind', Report::KIND_INTERVENTION)->orderBy('id');
+    }
+
+    /** Quién la creó (solo se registra desde las intervenciones del técnico). */
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by')->withTrashed();
+    }
+
+    public function isTechnicianInitiated(): bool
+    {
+        return $this->origin === self::ORIGIN_TECHNICIAN;
+    }
+
+    /**
+     * ¿Este técnico puede sumarle trabajos de la visita? Asignado a la orden,
+     * en curso y sin remito (el remito firmado no se reescribe).
+     */
+    public function acceptsJobsFrom(User $user): bool
+    {
+        return (int) $this->company_id === (int) $user->company_id
+            && $this->status === 'in_progress'
+            && ! $this->trashed()
+            && $this->users()->whereKey($user->id)->exists()
+            && ! $this->deliveryNote()->exists();
     }
 }

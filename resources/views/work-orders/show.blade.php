@@ -17,6 +17,42 @@
 
     @include('work-orders.partials.card', ['workOrder' => $workOrder])
 
+    {{-- Trabajos de esta visita (intervenciones): cada problema por separado, en el mismo remito. --}}
+    @php
+        $canAddJobs = $workOrder->acceptsJobsFrom(auth()->user());
+    @endphp
+    @if($workOrder->jobs->isNotEmpty() || $canAddJobs)
+        <section class="t-card mt-3 overflow-hidden" data-visit-jobs>
+            <div class="px-4 pt-3">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-ink-500">Trabajos de esta visita ({{ $workOrder->jobs->count() }})</h2>
+            </div>
+            @foreach($workOrder->jobs as $i => $job)
+                <div class="border-t border-ink-100 px-4 py-3 first:border-t-0" data-visit-job="{{ $job->id }}">
+                    <div class="flex flex-wrap items-center gap-1.5 text-xs">
+                        <span class="font-bold text-ink">Trabajo {{ $i + 1 }}</span>
+                        <span class="t-chip-neutral">{{ $job->elevator_number }}</span>
+                        @if($job->priority === 'critica')<span class="t-chip-failed">Urgencia</span>@endif
+                        @if($job->channelLabel())<span class="text-ink-500">Reclamo: {{ $job->channelLabel() }}</span>@endif
+                        @if($job->resultLabel())<span class="{{ $job->result === 'resolved' ? 't-chip-done' : 't-chip-progress' }}">{{ $job->resultLabel() }}</span>@endif
+                    </div>
+                    <p class="mt-1 whitespace-pre-line text-sm text-ink-700">{{ $job->description }}</p>
+                    @if($job->work_done)
+                        <p class="mt-1 whitespace-pre-line text-sm text-ink"><span class="font-semibold">Hecho:</span> {{ $job->work_done }}</p>
+                    @endif
+                    @if($job->photos->isNotEmpty())<p class="mt-1 text-xs text-ink-500">{{ $job->photos->count() }} {{ $job->photos->count() === 1 ? 'foto' : 'fotos' }}</p>@endif
+                </div>
+            @endforeach
+            @if($canAddJobs)
+                <div class="border-t border-ink-100 bg-ink-50/60 p-3">
+                    <a href="{{ route('interventions.job.create', ['company' => auth()->user()->company->slug, 'workOrder' => $workOrder->id]) }}" class="t-btn-secondary w-full" data-add-job>
+                        Agregar otro trabajo de esta visita
+                    </a>
+                    <p class="mt-2 text-xs text-ink-500">¿Resolviste otro problema en este edificio? Sumalo antes de hacer el remito: va en el mismo, como un trabajo aparte.</p>
+                </div>
+            @endif
+        </section>
+    @endif
+
     {{-- Fotos del trabajo (si la empresa las habilitó para órdenes, o si ya tiene) --}}
     @if($photoManager)
         <div class="mt-3" data-work-order-photos>

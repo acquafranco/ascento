@@ -14,6 +14,7 @@ use App\Http\Controllers\DeliveryNoteController;
 use App\Http\Controllers\ElevatorDocumentController;
 use App\Http\Controllers\HelpController;
 use App\Http\Controllers\InspectionReportController;
+use App\Http\Controllers\InterventionController;
 use App\Http\Controllers\Marketplace\SupplierPhotoController;
 use App\Http\Controllers\NotificationInboxController;
 use App\Http\Controllers\OnCallController;
@@ -335,6 +336,16 @@ Route::prefix('{company:slug}')
             ReportController::class,
             'show',
         ])->name('reports.show');
+
+        // Intervenciones del técnico (urgencias y trabajos no programados): abre la
+        // orden de la visita sin esperar a la oficina y suma los trabajos de esa
+        // visita antes del remito (InterventionController / InterventionService).
+        Route::controller(InterventionController::class)->group(function () {
+            Route::get('/intervenciones/nueva', 'create')->name('interventions.create');
+            Route::post('/intervenciones', 'store')->middleware('throttle:20,1,interventions.store')->name('interventions.store');
+            Route::get('/work-orders/{workOrder}/trabajos/nuevo', 'createJob')->whereNumber('workOrder')->name('interventions.job.create');
+            Route::post('/work-orders/{workOrder}/trabajos', 'storeJob')->whereNumber('workOrder')->middleware('throttle:30,1,interventions.job')->name('interventions.job.store');
+        });
 
         // Fotos y video se procesan en el servidor: tope por usuario (Etapa 11, H4).
         Route::post('/reports', [
