@@ -125,9 +125,8 @@ class LandingContentTest extends TestCase
 
     public function test_the_hero_keeps_the_animated_floor_indicator(): void
     {
-        // Decisión del dueño (13/10/2026): la portada conserva el indicador de piso
-        // animado, en lugar de una captura. Desde el rediseño del marketplace
-        // (23/10/2026) acompaña a la ilustración del catálogo.
+        // Decisión del dueño (13/10/2026): la portada vuelve a la ilustración
+        // animada original (indicador de piso), en lugar de la captura.
         $html = $this->home();
 
         $this->assertStringContainsString('id="floorDigit"', $html);
