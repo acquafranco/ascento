@@ -8,7 +8,9 @@ use App\Filament\Resources\OnCall\RelationManagers\WorkOrdersRelationManager;
 use App\Filament\Resources\Users\Pages\ViewUser;
 use App\Models\ActivityLog;
 use App\Models\Building;
+use App\Models\DeliveryNote;
 use App\Models\OnCallSchedule;
+use App\Models\Report;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Services\Interventions\UrgentCoverage;
@@ -20,6 +22,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Tests\Concerns\InteractsWithTenants;
+use Tests\Concerns\MakesSignatures;
 use Tests\TestCase;
 
 /**
@@ -30,7 +33,7 @@ use Tests\TestCase;
  */
 class UrgentCoverageTest extends TestCase
 {
-    use InteractsWithTenants, RefreshDatabase;
+    use InteractsWithTenants, MakesSignatures, RefreshDatabase;
 
     private array $a;
 
@@ -122,6 +125,7 @@ class UrgentCoverageTest extends TestCase
         $first = WorkOrder::withoutGlobalScopes()->sole();
         auth()->logout();
 
+        $before = [WorkOrder::withoutGlobalScopes()->get()->toArray(), Report::withoutGlobalScopes()->get()->toArray()];
         $this->actingInPanel($this->a['admin']);
         Livewire::test(ViewUser::class, ['record' => $tech->getRouteKey()])->callAction('revokeUrgentCoverage');
         $this->assertFalse($tech->fresh()->hasUrgentCoverage());
@@ -139,9 +143,18 @@ class UrgentCoverageTest extends TestCase
         ])->assertStatus(422);
         $this->assertSame(1, WorkOrder::withoutGlobalScopes()->count());
 
-        // Lo que ya registró no cambia (sigue siendo su orden, en curso).
-        $this->assertSame('in_progress', $first->fresh()->status);
+        // Lo que ya registró no cambia: la orden, su trabajo, sus fotos y su asignación quedan
+        // igual, y puede terminar de documentarla (remito con firma) aunque ya no esté autorizado.
+        $this->assertSame($before, [WorkOrder::withoutGlobalScopes()->get()->toArray(), Report::withoutGlobalScopes()->get()->toArray()]);
         $this->assertTrue($first->users()->whereKey($tech->id)->exists());
+        $job = Report::withoutGlobalScopes()->sole();
+        $this->actingAs($tech)->post("/{$this->slug()}/delivery-notes/store", [
+            'building_id' => $first->building_id, 'work_order_id' => $first->id, 'assignment_type' => 'work_order',
+            'elevator_quantity' => 2, 'freight_elevator_quantity' => 0, 'signature_name' => $tech->name, 'signature' => $this->validSignature(),
+            'jobs' => [$job->id => ['work_done' => 'Se liberó el freno y se probó.', 'result' => 'resolved']],
+        ])->assertSessionHasNoErrors();
+        $this->assertSame('completed', $first->fresh()->status);
+        $this->assertSame([$first->id, $tech->id], [DeliveryNote::withoutGlobalScopes()->sole()->work_order_id, DeliveryNote::withoutGlobalScopes()->sole()->user_id]);
     }
 
     public function test_only_the_owner_or_staff_managing_on_call_can_change_it(): void
@@ -237,6 +250,24 @@ class UrgentCoverageTest extends TestCase
 
         // El dueño de A no puede tocar la autorización del técnico de B.
         $this->assertFalse(UrgentCoverage::canManage($this->a['admin'], $techB));
+
+        // Técnico de A autorizado, manipulando pedidos con ids de B desde la URL de SU empresa.
+        $techA = $this->a['technician'];
+        app(UrgentCoverage::class)->grant($this->a['admin'], $techA);
+        $orderB = WorkOrder::withoutGlobalScopes()->where('company_id', $this->b['company']->id)->sole();
+        $slugA = $this->a['company']->slug;
+        $this->actingAs($techA->fresh())->post(route('interventions.job.store', ['company' => $slugA, 'workOrder' => $orderB->id]), [
+            'elevator_number' => 'Ascensor 1', 'channel' => 'other', 'kind' => 'urgent', 'description' => 'Intento con orden ajena', 'submission_token' => (string) Str::uuid(),
+        ])->assertNotFound();
+        $this->get(route('interventions.job.create', ['company' => $slugA, 'workOrder' => $orderB->id]))->assertNotFound();
+        $this->get(route('work-orders.show', ['company' => $slugA, 'workOrder' => $orderB->id]))->assertNotFound();
+        $this->post("/{$slugA}/delivery-notes/store", [
+            'building_id' => $this->b['building']->id, 'work_order_id' => $orderB->id, 'assignment_type' => 'work_order',
+            'elevator_quantity' => 1, 'freight_elevator_quantity' => 0, 'signature_name' => 'X', 'signature' => $this->validSignature(),
+            'description' => 'Firma sobre orden ajena',
+        ])->assertNotFound();
+        $this->assertSame(1, Report::withoutGlobalScopes()->where('work_order_id', $orderB->id)->count());
+        $this->assertSame(0, DeliveryNote::withoutGlobalScopes()->count());
     }
 
     private function slug(): string
