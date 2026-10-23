@@ -19,7 +19,7 @@
             </div>
             <div class="s-field"><label class="s-label" for="coverage">Zonas a las que vendés o enviás</label><input id="coverage" type="text" name="coverage" value="{{ old('coverage', $supplier->coverage) }}" required maxlength="255">@error('coverage')<p class="s-err">{{ $message }}</p>@enderror</div>
             <fieldset class="s-field" style="border:0; padding:0">
-                <legend class="s-label">Rubros{{ $supplier->sellsProducts() ? '' : ' (opcional)' }}</legend>
+                <legend class="s-label">Rubros</legend>
                 <div class="s-cols">
                     @foreach(\App\Support\Marketplace\Catalog::CATEGORIES as $key => $label)
                         <label style="display:flex; gap:8px; align-items:center; font-size:14px; padding:3px 0"><input type="checkbox" name="categories[]" value="{{ $key }}" @checked(in_array($key, (array) old('categories', $supplier->categories ?? []), true))> {{ $label }}</label>
@@ -28,20 +28,8 @@
                 @error('categories')<p class="s-err">{{ $message }}</p>@enderror
             </fieldset>
             <div class="s-field"><label class="s-label" for="brands">Marcas</label><input id="brands" type="text" name="brands" value="{{ old('brands', implode(', ', $supplier->brands ?? [])) }}"><p class="s-hint">Separadas por coma.</p></div>
-            <p class="s-muted">{{ \App\Support\Countries::name($supplier->country) }} · {{ \App\Support\Countries::taxIdLabel($supplier->country) }} {{ $supplier->tax_id ?? 'sin cargar' }}@if($supplier->tax_id) (para cambiarlo, escribinos)@endif.</p>
+            <p class="s-muted">{{ \App\Support\Countries::name($supplier->country) }} · {{ \App\Support\Countries::taxIdLabel($supplier->country) }} {{ $supplier->tax_id }} (para cambiarlo, escribinos).</p>
             @unless($locked)<button class="s-btn" type="submit" style="margin-top:8px">Guardar</button>@endunless
         </fieldset>
     </form>
-
-    @unless($supplier->sellsProducts() || $locked)
-        <form method="POST" action="{{ route('suppliers.profile.enable-products') }}" class="s-card s-form" data-enable-products>
-            @csrf
-            <h2 class="s-h2">¿También querés vender productos?</h2>
-            <p class="s-muted">Tu cuenta todavía no tiene habilitada la venta de productos. Para publicarlos con esta misma cuenta, cargá tu {{ \App\Support\Countries::taxIdLabel($supplier->country) }} (obligatorio para vender).</p>
-            @unless($supplier->tax_id)
-                <div class="s-field"><label class="s-label" for="tax_id">{{ \App\Support\Countries::taxIdLabel($supplier->country) }}</label><input id="tax_id" type="text" name="tax_id" value="{{ old('tax_id') }}" required maxlength="25" placeholder="{{ \App\Support\Countries::taxIdExample($supplier->country) }}">@error('tax_id')<p class="s-err">{{ $message }}</p>@enderror</div>
-            @endunless
-            <button class="s-btn" type="submit">Habilitar la venta de productos</button>
-        </form>
-    @endunless
 </x-supplier-layout>

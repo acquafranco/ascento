@@ -27,10 +27,7 @@ use Illuminate\Validation\ValidationException;
  *   contable);
  * - los pedidos y cotizaciones (copias de los productos incluidas): son
  *   también historial de cada empresa compradora;
- * - los cobros y destacados (supplier_payments, featured_placements);
- * - las solicitudes de contacto a su perfil profesional, si quedaron de la
- *   función retirada «Profesionales y servicios» (cerradas; el perfil
- *   queda archivado y sin descripción ni datos).
+ * - los cobros y destacados (supplier_payments, featured_placements).
  *
  * No se puede cerrar con una suscripción que la pasarela pueda seguir
  * cobrando: primero se cancela.
@@ -61,17 +58,6 @@ class SupplierEraser
 
             FeaturedPlacement::where('supplier_id', $supplier->id)->whereIn('status', [FeaturedPlacement::ACTIVE, FeaturedPlacement::PENDING_PAYMENT])
                 ->update(['status' => FeaturedPlacement::CANCELLED, 'status_reason' => 'Cuenta del proveedor cerrada.', 'checkout_url' => null]);
-            // Perfil profesional (función retirada; si quedó alguno): archivado y sin datos; las solicitudes de las empresas se conservan cerradas.
-            if ($profileId = DB::table('service_profiles')->where('supplier_id', $supplier->id)->value('id')) {
-                $received = DB::table('service_contact_requests')->where('service_profile_id', $profileId)->pluck('id')->all();
-                DB::table('service_contact_messages')->whereIn('service_contact_request_id', $received ?: [0])->where('side', 'professional')->update(['user_id' => null, 'author_name' => null, 'updated_at' => now()]);
-                DB::table('service_contact_requests')->whereIn('id', $received ?: [0])->where('status', '!=', 'closed')->update(['status' => 'closed', 'closed_by' => 'ascento', 'closed_at' => now(), 'updated_at' => now()]);
-                DB::table('service_profile_terms')->where('service_profile_id', $profileId)->delete();
-                DB::table('service_profiles')->where('id', $profileId)->update([
-                    'status' => 'archived', 'headline' => null, 'description' => '—', 'experience' => null, 'brands' => null, 'services' => null,
-                    'provinces' => null, 'localities' => null, 'website' => null, 'search_text' => null, 'updated_at' => now(),
-                ]);
-            }
             DB::table('marketplace_favorites')->whereIn('supplier_product_id', $products ?: [0])->delete();
             DB::table('marketplace_reports')->whereIn('supplier_product_id', $products ?: [0])->delete();
             DB::table('supplier_product_photos')->where('supplier_id', $supplier->id)->delete();

@@ -6,7 +6,6 @@ use App\Http\Middleware\AdminMiddleware;
 use App\Http\Middleware\EnsureActiveSubscription;
 use App\Http\Middleware\EnsurePortalUser;
 use App\Http\Middleware\EnsureSuperAdminTwoFactor;
-use App\Http\Middleware\EnsureSupplierSellsProducts;
 use App\Http\Middleware\EnsureSupplierUser;
 use App\Http\Middleware\KeepStaffInPanel;
 use App\Http\Middleware\RequireVerifiedOwner;
@@ -44,7 +43,6 @@ return Application::configure(basePath: dirname(__DIR__))
             'verified.owner' => RequireVerifiedOwner::class,
             // Área de proveedores de repuestos (marketplace).
             'supplier' => EnsureSupplierUser::class,
-            'supplier.products' => EnsureSupplierSellsProducts::class,
         ]);
 
         // Cabeceras de seguridad en todas las respuestas web.

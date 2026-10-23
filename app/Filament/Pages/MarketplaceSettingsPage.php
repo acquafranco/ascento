@@ -7,8 +7,8 @@ use App\Models\Marketplace\Supplier;
 use App\Services\Activity\PlatformAudit;
 use App\Services\Marketplace\Billing\SupplierBilling;
 use App\Services\Marketplace\PublicationLimits;
-use App\Services\MercadoPagoService;
 use App\Support\Countries;
+use App\Support\Marketplace\SalesReadiness;
 use Filament\Forms;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Select;
@@ -65,6 +65,12 @@ class MarketplaceSettingsPage extends Page implements Forms\Contracts\HasForms
         ]));
     }
 
+    /** Lo que falta en el servidor para poder vender (solo nombres de variables). */
+    public function gatewayProblems(): array
+    {
+        return SalesReadiness::gatewayProblems();
+    }
+
     public function form(Schema $schema): Schema
     {
         $settings = MarketplaceSettings::current();
@@ -105,18 +111,9 @@ class MarketplaceSettingsPage extends Page implements Forms\Contracts\HasForms
         $data = $this->form->getState();
         $data['billing_countries'] = array_values(array_intersect((array) ($data['billing_countries'] ?? []), SupplierBilling::countries()));
 
-        if (($data['premium_enabled'] ?? false) && blank($data['premium_price'] ?? null)) {
-            Notification::make()->title('Falta el precio')->body('Para vender Premium, cargá el precio mensual.')->warning()->send();
-
-            return;
-        }
-        if (($data['featured_enabled'] ?? false) && blank($data['featured_price_7'] ?? null) && blank($data['featured_price_30'] ?? null)) {
-            Notification::make()->title('Falta el precio')->body('Para vender destacados, cargá al menos un precio.')->warning()->send();
-
-            return;
-        }
-        if ((($data['premium_enabled'] ?? false) || ($data['featured_enabled'] ?? false)) && ! MercadoPagoService::isConfigured()) {
-            Notification::make()->title('Mercado Pago no está configurado')->body('Sin MERCADOPAGO_ACCESS_TOKEN no se puede cobrar: dejá las ventas apagadas.')->danger()->send();
+        // Ninguna venta se enciende si falta algo obligatorio (credenciales, precio, país o moneda). Sin valores secretos.
+        if ($problems = SalesReadiness::problems($data, MarketplaceSettings::current()->pricing_currency ?: 'ARS')) {
+            Notification::make()->title('No se guardó: falta configuración para vender')->body(implode(' ', $problems))->danger()->persistent()->send();
 
             return;
         }
