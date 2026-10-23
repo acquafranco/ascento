@@ -18,8 +18,8 @@
     // (anterior a las visitas) sigue como antes.
     $visitFlow = ! \App\Support\Access\Access::can(auth()->user(), \App\Enums\PermissionArea::Documents);
     $openSiteVisit = $visitFlow ? \App\Services\WorkOrders\SiteVisits::openFor(auth()->user()) : null;
-    $siteVisitHere = $openSiteVisit && (int) $openSiteVisit->building_id === (int) $building->id ? $openSiteVisit : null;
-    $needsArrival = $visitFlow && ! $siteVisitHere && ! $workOrder?->arrived_at;
+    $siteVisitHere = $visitFlow ? \App\Services\WorkOrders\SiteVisits::openIn(auth()->user(), $building) : null; // vigente, en este edificio
+    $needsArrival = $visitFlow && ! $siteVisitHere && ! \App\Services\WorkOrders\SiteVisits::hasLegacyArrival($workOrder);
     $exceptionOpen = $needsArrival && (filled(old('arrival_exception')) || $errors->has('arrival_exception'));
 @endphp
 <x-app-layout>
@@ -63,8 +63,8 @@
             <h2 class="font-bold text-ink">Primero, la llegada</h2>
             @if($openSiteVisit)
                 <p class="mt-1 rounded-xl bg-amber-50 p-3 text-sm text-amber-900" data-other-visit>
-                    Tenés una visita abierta en <strong>{{ $openSiteVisit->building?->name }}</strong>.
-                    <a class="font-semibold underline" href="{{ route('dashboard', ['company' => auth()->user()->company->slug]) }}">Finalizala</a> antes de registrar la llegada acá.
+                    Tenés una visita abierta en <strong>{{ $openSiteVisit->building?->name }}</strong> (desde {{ \App\Services\WorkOrders\AttendanceTimes::time($openSiteVisit->arrived_at) }}).
+                    <a class="font-semibold underline" href="{{ route('dashboard', ['company' => auth()->user()->company->slug]) }}">{{ \App\Services\WorkOrders\SiteVisits::isStale($openSiteVisit) ? 'Cerrala' : 'Finalizala' }}</a> antes de registrar la llegada acá.
                 </p>
             @else
                 <p class="mt-1 text-sm text-ink-700">Registrá que estás en {{ $building->name }}. Se guarda la hora de ahora; después completás el remito.</p>

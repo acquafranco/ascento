@@ -75,7 +75,8 @@ final class TechnicianSheet
                 'user' => fn ($q) => $q->withoutGlobalScopes()->withTrashed()->select('id', 'name'),
                 'participants' => fn ($q) => $q->withoutGlobalScopes()->select('users.id', 'users.name'),
                 'deliveryNote' => fn ($q) => $q->withoutGlobalScopes()->select('id', 'company_id', 'building_visit_id', 'number', 'user_id', 'public_token'),
-                'workOrder' => fn ($q) => $q->withoutGlobalScopes()->select('id', 'company_id', 'started_at', 'finished_at', 'arrived_at', 'left_at'),
+                'workOrder' => fn ($q) => $q->withoutGlobalScopes()->select('id', 'company_id', 'started_at', 'finished_at', 'arrived_at', 'arrived_by', 'left_at', 'left_by'),
+                'siteVisit' => fn ($q) => $q->withoutGlobalScopes()->select('id', 'user_id', 'arrived_at', 'left_at'),
                 'workOrder.deliveryNote' => fn ($q) => $q->withoutGlobalScopes()->select('id', 'company_id', 'work_order_id', 'number', 'user_id', 'public_token'),
             ])
             ->orderBy('visited_at')->orderBy('id')
@@ -133,14 +134,19 @@ final class TechnicianSheet
     /** Un trabajo, en palabras (sin notas internas ni costos). */
     private function job(BuildingVisit $visit, User $technician): array
     {
+        $id = (int) $technician->id;
         $kind = $visit->source === 'work_order' ? 'work_order' : (string) $visit->assignment_type;
         $note = $visit->deliveryNote ?? $visit->workOrder?->deliveryNote;
         $mine = (int) $visit->user_id === (int) $technician->id;
         $others = $visit->participants->reject(fn ($p) => (int) $p->id === (int) $technician->id)->pluck('name');
 
-        // Llegada y salida del edificio si se registraron; si no, como antes (tomar trabajo y remito).
-        $started = $visit->workOrder?->arrived_at ?? $visit->workOrder?->started_at ?? $visit->started_at;
-        $finished = $visit->workOrder?->left_at ?? $visit->workOrder?->finished_at ?? $visit->finished_at;
+        // Llegada y salida del edificio si las registró ESTE técnico (con dos técnicos,
+        // la orden guarda la llegada de uno y la salida de quien la cerró: no se le
+        // atribuyen al otro); si no, como antes (tomar trabajo y remito).
+        $order = $visit->workOrder;
+        $own = $visit->siteVisit && (int) $visit->siteVisit->user_id === $id ? $visit->siteVisit : null; // su visita, si firmó él
+        $started = ($order && (int) $order->arrived_by === $id ? $order->arrived_at : null) ?? $own?->arrived_at ?? $order?->started_at ?? $visit->started_at;
+        $finished = ($order && (int) $order->left_by === $id ? $order->left_at : null) ?? $own?->left_at ?? $order?->finished_at ?? $visit->finished_at;
 
         return [
             'id' => $visit->id,

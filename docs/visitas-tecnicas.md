@@ -20,7 +20,12 @@ Siempre son del **mismo técnico**, la **misma empresa** y el **mismo edificio**
 - **Remitos**: los que firma mientras la visita está abierta (`building_visits.site_visit_id`).
 - **Otros técnicos**: las órdenes de otro técnico nunca entran. Si dos técnicos van juntos, cada uno registra su llegada.
 - **Una sola visita abierta por técnico.** Para llegar a otro edificio, primero tiene que finalizar la que tiene. No se cierra sola ni se inventa una salida.
-- **Copia de horarios a cada orden.** La llegada y la salida de la visita se copian a cada orden (`arrived_at`, `left_at`). Así los tiempos de atención, el historial del ascensor, la planilla y el panel siguen funcionando igual. Una llegada que la orden ya tenía no se pisa.
+- **Copia de horarios a cada orden.** Así los tiempos de atención, el historial del ascensor y el panel siguen funcionando igual.
+  - **Llegada** (`arrived_at`): la de la visita en la que entró por primera vez; si la tomó o la abrió ya estando ahí, la hora en que entró. Una llegada ya registrada (la del primer técnico) no se pisa.
+  - **Salida** (`left_at`): la de la visita que la **terminó**, es decir, donde se firmó su remito (aunque sea de otro técnico o de otro día), o, sin remito, la de su visita si ya no está en curso. **Una orden que sigue pendiente al salir no recibe salida**: queda «Sin registrar» hasta que se termine.
+- **Visita olvidada.** Una visita abierta hace más de 24 h no suma órdenes ni remitos de otro día y no admite una llegada nueva: primero se cierra sin salida, con motivo.
+- **Dos técnicos en la misma orden.** Cada uno tiene su visita. La orden entra en la del primero que llega (su llegada = respuesta) y toma la salida de quien la cierra con el remito. La planilla de cada técnico muestra solo los horarios que registró él (su llegada y su salida); nunca los del otro.
+- **Orden pendiente de una visita anterior.** Conserva su primera llegada (el tiempo de respuesta), pero su remito pide la llegada de la visita de ese día. La llegada «vieja» no alcanza.
 
 ## Qué ve el técnico en cada paso
 
@@ -50,7 +55,8 @@ Una orden con llegada propia, de antes de las visitas, conserva su «Terminé y 
 | Oficina (permiso Documentos) | No registra llegadas | Como siempre | — |
 
 - **Guardia.** Estar de guardia **no** permite abrir visitas en cualquier edificio. La llegada exige tener el edificio asignado o una orden en curso asignada ahí. Su intervención de guardia (regla de guardias existente) le da esa orden.
-- **Formularios viejos.** Un formulario abierto antes del despliegue (sin `visit_flow`) se acepta como antes: el remito queda sin visita y con la llegada «Sin registrar».
+- **Formularios viejos.** Un formulario abierto antes del despliegue (sin `visit_flow`) se acepta como antes, para no perder remitos firmados. Pero nunca en silencio: queda marcado «Sin llegada registrada: formulario sin el paso de llegada», con quién (`user_id`) y cuándo (`created_at`).
+- **Remito sin llegada: todas las vías.** (a) el motivo escrito por el técnico; (b) la marca automática de un formulario viejo. En ningún caso se registra ni se inventa una llegada, y ninguna saltea permisos: empresa, asignación a la orden o al edificio y tipo de trabajo se validan antes. La oficina lo ve en la orden («Visita técnica») y en el remito («Datos internos → Llegada al edificio»).
 
 ## Administrador
 

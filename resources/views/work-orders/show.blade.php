@@ -23,11 +23,15 @@
     {{-- Tiempos de atención: aviso, llegada y salida (hora del servidor; no se editan). Sin dato: «Sin registrar». --}}
     @php
         $times = \App\Services\WorkOrders\AttendanceTimes::summary($workOrder);
-        $canArrive = \App\Services\WorkOrders\AttendanceTimes::canArrive(auth()->user(), $workOrder);
         // Visita técnica: la llegada y la salida son de la visita al edificio (SiteVisits).
+        // La llegada se ofrece a quien tiene la orden en curso y no está en el edificio
+        // ahora (también si quedó pendiente de una visita anterior); nunca a una orden
+        // con llegada propia anterior a las visitas.
         $openVisit = \App\Services\WorkOrders\SiteVisits::openFor(auth()->user());
-        $otherVisit = $openVisit && (int) $openVisit->building_id !== (int) $workOrder->building_id ? $openVisit : null;
-        $visitHere = $openVisit && (int) $openVisit->id === (int) $workOrder->site_visit_id ? $openVisit : null;
+        $visitHere = \App\Services\WorkOrders\SiteVisits::openIn(auth()->user(), (int) $workOrder->building_id);
+        $otherVisit = $openVisit && ! $visitHere ? $openVisit : null; // otro edificio, u olvidada de otro día
+        $canArrive = ! $visitHere && $workOrder->status === 'in_progress' && ! $workOrder->trashed() && ! $workOrder->deliveryNote
+            && ! \App\Services\WorkOrders\SiteVisits::hasLegacyArrival($workOrder) && $workOrder->users->contains(auth()->id());
         $canLegacyLeave = $workOrder->site_visit_id === null && \App\Services\WorkOrders\AttendanceTimes::canLeave(auth()->user(), $workOrder);
         $fmt = fn ($at) => \App\Services\WorkOrders\AttendanceTimes::time($at);
         $dur = fn ($m) => \App\Services\WorkOrders\AttendanceTimes::duration($m);
@@ -50,7 +54,7 @@
         @if($canArrive && $otherVisit)
             <p class="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900" data-other-visit>
                 Tenés una visita abierta en <strong>{{ $otherVisit->building?->name }}</strong> (desde {{ $fmt($otherVisit->arrived_at) }}).
-                <a class="font-semibold underline" href="{{ route('dashboard', ['company' => auth()->user()->company->slug]) }}">Finalizala</a> antes de registrar la llegada acá.
+                <a class="font-semibold underline" href="{{ route('dashboard', ['company' => auth()->user()->company->slug]) }}">{{ \App\Services\WorkOrders\SiteVisits::isStale($otherVisit) ? 'Cerrala' : 'Finalizala' }}</a> antes de registrar la llegada acá.
             </p>
         @elseif($canArrive)
             <div class="mt-4" id="llegada">

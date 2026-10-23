@@ -5,6 +5,8 @@ namespace App\Filament\Resources\WorkOrders\Schemas;
 use App\Enums\PlanFeature;
 use App\Filament\Support\JobDetail;
 use App\Models\Building;
+use App\Models\BuildingVisit;
+use App\Models\SiteVisit;
 use App\Models\WorkOrder;
 use App\Services\Visits\WorkPhotoGallery;
 use App\Services\WorkOrders\AttendanceTimes;
@@ -282,12 +284,19 @@ class WorkOrderForm
             ]);
     }
 
-    /** «Llegada 10/03 09:12 · salida 10/03 11:40 · 3 órdenes, 2 remitos», o el cierre sin salida con su motivo. */
+    /**
+     * «Juan · llegada 10/03 09:12 · salida 10/03 11:40 · 3 órdenes, 2 remitos», el
+     * cierre sin salida con su motivo y, si el remito se firmó sin llegada, quién,
+     * cuándo y por qué.
+     */
     public static function siteVisitSummary(?WorkOrder $record): string
     {
-        $visit = $record?->site_visit_id ? \App\Models\SiteVisit::with(['user', 'closedBy'])->withCount(['workOrders', 'buildingVisits'])->find($record->site_visit_id) : null;
+        $visit = $record?->site_visit_id ? SiteVisit::with(['user', 'closedBy'])->withCount(['workOrders', 'buildingVisits'])->find($record->site_visit_id) : null;
+        $remito = $record ? BuildingVisit::with('user')->where('work_order_id', $record->id)->whereNotNull('arrival_exception')->first() : null;
+        $exception = $remito ? ' Remito sin llegada registrada ('.($remito->user?->name ?? 'técnico').', '.AttendanceTimes::time($remito->created_at).'): '.$remito->arrival_exception : '';
+
         if (! $visit) {
-            return $record?->arrived_at ? 'Llegada registrada en la orden (antes de las visitas técnicas).' : 'Sin visita registrada.';
+            return ($record?->arrived_at ? 'Llegada registrada en la orden (antes de las visitas técnicas).' : 'Sin visita registrada.').$exception;
         }
         $text = ($visit->user?->name ?? 'Técnico').' · llegada '.AttendanceTimes::time($visit->arrived_at).' · salida '.AttendanceTimes::time($visit->left_at)
             .' · '.$visit->work_orders_count.' '.($visit->work_orders_count === 1 ? 'orden' : 'órdenes').', '.$visit->building_visits_count.' '.($visit->building_visits_count === 1 ? 'remito' : 'remitos');
@@ -296,7 +305,7 @@ class WorkOrderForm
             $visit->closed_at === null => $text.' · en curso',
             $visit->left_at === null => $text.' · cerrada sin salida por '.($visit->closedBy?->name ?? '—').' ('.AttendanceTimes::time($visit->closed_at).'): '.$visit->close_note,
             default => $text,
-        };
+        }.$exception;
     }
 
     public static function typeField(): Forms\Components\Select

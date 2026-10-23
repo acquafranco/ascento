@@ -494,11 +494,14 @@ class DeliveryNoteController extends Controller
             |--------------------------------------------------------------------------
             | El técnico firma remitos DESPUÉS de «Llegué al edificio»: el remito
             | queda en su visita abierta (SiteVisits) y NO registra la salida ni la
-            | cierra. Sin llegada, solo con un motivo explícito (queda guardado y la
-            | oficina lo ve). La oficina (Documentos) no registra llegadas. Una orden
-            | con llegada propia (anterior a las visitas) sigue como antes. Un
-            | formulario anterior a este flujo (sin visit_flow) se acepta igual que
-            | antes: sin visita y sin llegada («Sin registrar»).
+            | cierra. La oficina (Documentos) no registra llegadas. Una orden con
+            | llegada propia (anterior a las visitas, sin visita) sigue como antes.
+            | Sin llegada, el remito queda SIEMPRE marcado (arrival_exception, con
+            | quién: user_id, y cuándo: created_at de la visita del remito):
+            | - formulario actual (visit_flow): solo con el motivo que escribe el técnico;
+            | - formulario anterior a este flujo (sin visit_flow, p. ej. abierto antes
+            |   del despliegue): se acepta como antes, con una marca automática.
+            | Nunca se registra ni se inventa una llegada.
             */
             if ($this->alreadySubmitted($request)) {
                 return $this->submittedResponse();
@@ -510,9 +513,11 @@ class DeliveryNoteController extends Controller
                 if ($siteVisit && $workOrder) {
                     app(SiteVisits::class)->attach(auth()->user(), $workOrder);
                 }
-                if (! $siteVisit && ! $workOrder?->arrived_at && $request->boolean('visit_flow')) {
+                if (! $siteVisit && ! SiteVisits::hasLegacyArrival($workOrder)) {
                     $arrivalException = trim((string) $request->input('arrival_exception'));
-                    if (mb_strlen($arrivalException) < 10) {
+                    if (! $request->boolean('visit_flow') && mb_strlen($arrivalException) < 10) {
+                        $arrivalException = SiteVisits::LEGACY_FORM_EXCEPTION;
+                    } elseif (mb_strlen($arrivalException) < 10) {
                         throw ValidationException::withMessages(['arrival_exception' => 'Primero registrá la llegada al edificio («Llegué al edificio», arriba). Si no pudiste, contá por qué (al menos 10 caracteres).']);
                     }
                     $arrivalException = mb_substr($arrivalException, 0, 500);
