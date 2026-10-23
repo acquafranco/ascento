@@ -88,6 +88,7 @@
                 <a href="#como-funciona" class="hover:text-ink transition-colors">Cómo funciona</a>
                 <a href="#planes" class="hover:text-ink transition-colors">Planes</a>
                 <a href="#faq" class="hover:text-ink transition-colors">Preguntas frecuentes</a>
+                <a href="{{ route('services.index') }}" class="hover:text-ink transition-colors">Profesionales</a>
             </div>
 
             <div class="hidden lg:flex items-center gap-3">
@@ -111,6 +112,7 @@
                 <a @click="open=false" href="#como-funciona" class="py-2.5 text-ink/75">Cómo funciona</a>
                 <a @click="open=false" href="#planes" class="py-2.5 text-ink/75">Planes</a>
                 <a @click="open=false" href="#faq" class="py-2.5 text-ink/75">Preguntas frecuentes</a>
+                <a href="{{ route('services.index') }}" class="py-2.5 text-ink/75">Profesionales y servicios</a>
                 <button type="button" data-whatsapp-open @click="open=false" class="py-2.5 text-left text-ink/75">Hablemos por WhatsApp</button>
                 <div class="flex gap-2 pt-3">
                     <a href="{{ Route::has('login') ? route('login') : '/login' }}" class="flex-1 text-center rounded-full bg-graphite text-white px-4 py-2.5 text-sm font-semibold">Entrar</a>
@@ -894,6 +896,7 @@
                         <li><a href="#como-funciona" class="hover:text-white transition-colors">Cómo funciona</a></li>
                         <li><a href="#planes" class="hover:text-white transition-colors">Planes</a></li>
                         <li><a href="#faq" class="hover:text-white transition-colors">Preguntas frecuentes</a></li>
+                        <li><a href="{{ route('services.index') }}" class="hover:text-white transition-colors">Profesionales y servicios</a></li>
                     </ul>
                 </div>
                 <div>

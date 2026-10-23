@@ -6,7 +6,10 @@ use App\Http\Middleware\AdminMiddleware;
 use App\Http\Middleware\EnsureActiveSubscription;
 use App\Http\Middleware\EnsurePortalUser;
 use App\Http\Middleware\EnsureSuperAdminTwoFactor;
+use App\Http\Middleware\EnsureSupplierSellsProducts;
+use App\Http\Middleware\EnsureSupplierUser;
 use App\Http\Middleware\KeepStaffInPanel;
+use App\Http\Middleware\RequireVerifiedOwner;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetCompany;
 use App\Http\Middleware\SetCompanyRouteDefaults;
@@ -38,9 +41,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'portal' => EnsurePortalUser::class,
             'staff.panel' => KeepStaffInPanel::class,
             // Dueño de empresa nueva sin correo confirmado: a «Verificá tu email» (EmailGate).
-            'verified.owner' => \App\Http\Middleware\RequireVerifiedOwner::class,
+            'verified.owner' => RequireVerifiedOwner::class,
             // Área de proveedores de repuestos (marketplace).
-            'supplier' => \App\Http\Middleware\EnsureSupplierUser::class,
+            'supplier' => EnsureSupplierUser::class,
+            'supplier.products' => EnsureSupplierSellsProducts::class,
         ]);
 
         // Cabeceras de seguridad en todas las respuestas web.

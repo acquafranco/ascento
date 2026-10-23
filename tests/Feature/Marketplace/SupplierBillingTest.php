@@ -15,6 +15,7 @@ use App\Support\Marketplace\SupplierStanding;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\Feature\Marketplace\Concerns\MakesMarketplace;
@@ -390,6 +391,86 @@ class SupplierBillingTest extends TestCase
         $this->webhook('payment', '701')->assertOk();
         $this->assertSame(FeaturedPlacement::CANCELLED, $placement->fresh()->status);
         $this->assertSame(SupplierPayment::APPROVED, SupplierPayment::sole()->status);
+    }
+
+    public function test_proposed_prices_come_only_from_the_settings_and_each_purchase_keeps_its_own(): void
+    {
+        // Precios propuestos cargados en la configuración (como lo haría el SuperAdmin desde el panel).
+        MarketplaceSettings::current()->update(['premium_price' => 19900, 'featured_price_7' => 4900, 'featured_price_30' => 9900]);
+        [$supplier, $user] = $this->makeSupplier();
+        $product = $this->makeProduct($supplier);
+
+        // El navegador no elige el importe: un «precio» enviado se ignora y la duración debe ser 7 o 30.
+        $this->actingAs($user)->post(route('suppliers.featured.purchase'), ['producto' => $product->id, 'dias' => 7, 'precio' => 1, 'amount' => 1])->assertRedirect();
+        $placement = FeaturedPlacement::sole();
+        $this->assertSame([4900.0, 7, 'ARS'], [(float) $placement->amount, $placement->days, $placement->currency]);
+        $this->assertSame(4900.0, (float) $this->api['preferences'][0]['items'][0]['unit_price']);
+        $this->get(route('suppliers.featured'))->assertSee('4.900')->assertSee('9.900');
+
+        // Premium: el preapproval sale con el precio de la configuración.
+        $this->post(route('suppliers.billing.subscribe'));
+        $this->assertSame(19900.0, (float) $this->api['created_preapprovals'][0]['auto_recurring']['transaction_amount']);
+
+        // Si cambia la tarifa, la compra ya creada conserva su precio y se valida contra él.
+        MarketplaceSettings::current()->update(['featured_price_7' => 6000]);
+        $this->api['/v1/payments/950'] = ['id' => 950, 'status' => 'approved', 'external_reference' => $placement->external_reference, 'transaction_amount' => 6000, 'currency_id' => 'ARS'];
+        $this->webhook('payment', '950')->assertOk()->assertJson(['status' => 'featured_amount_mismatch']);
+        $this->assertSame(FeaturedPlacement::PENDING_PAYMENT, $placement->fresh()->status);
+        $this->api['/v1/payments/951'] = ['id' => 951, 'status' => 'approved', 'external_reference' => $placement->external_reference, 'transaction_amount' => 4900, 'currency_id' => 'ARS'];
+        $this->webhook('payment', '951')->assertOk()->assertJson(['status' => 'featured_approved']);
+        $this->assertSame(FeaturedPlacement::ACTIVE, $placement->fresh()->status);
+        $this->assertSame('4900.00', (string) SupplierPayment::where('mp_payment_id', '951')->value('amount'));
+
+        // Los términos muestran los precios solo mientras se venden.
+        $this->get(route('legal.terms'))->assertSee('Precio vigente: ARS 19.900 por mes')->assertSee('7 días, ARS 6.000; 30 días, ARS 9.900');
+        MarketplaceSettings::current()->update(['premium_enabled' => false, 'featured_enabled' => false]);
+        $this->get(route('legal.terms'))->assertDontSee('Precio vigente')->assertDontSee('Precios vigentes');
+    }
+
+    public function test_the_super_admin_only_features_visible_products_and_never_overlaps_paid_days(): void
+    {
+        $super = User::factory()->superAdmin()->create();
+        [$supplier, $user] = $this->makeSupplier();
+        $product = $this->makeProduct($supplier);
+        $features = app(FeaturedPlacements::class);
+        $this->actingAs($super);
+
+        foreach ([['status' => 'paused'], ['status' => 'retired'], ['status' => 'draft'], ['hidden_by_admin' => true]] as $state) {
+            $other = $this->makeProduct($supplier, ['name' => 'No visible '.json_encode($state)] + $state);
+            try {
+                $features->grant($super, $other, now()->addDays(10));
+                $this->fail('Destacó un producto no visible: '.json_encode($state));
+            } catch (ValidationException) {
+            }
+        }
+        [$suspended] = $this->makeSupplier(Supplier::SUSPENDED, 'Suspendido');
+        $blocked = $this->makeProduct($suspended);
+        $this->expectsValidation(fn () => $features->grant($super, $blocked, now()->addDays(10)));
+        $this->assertSame(0, FeaturedPlacement::count());
+
+        // Destacado pagado vigente: la asignación empieza al terminar ese período (no pisa días pagados).
+        $this->actingAs($user)->post(route('suppliers.featured.purchase'), ['producto' => $product->id, 'dias' => 7]);
+        $paid = FeaturedPlacement::sole();
+        $this->api['/v1/payments/960'] = ['id' => 960, 'status' => 'approved', 'external_reference' => $paid->external_reference, 'transaction_amount' => 5000, 'currency_id' => 'ARS'];
+        $this->webhook('payment', '960')->assertOk();
+        $paid->refresh();
+        $this->actingAs($super);
+        $this->expectsValidation(fn () => $features->grant($super, $product->fresh(), now()->addDays(3))); // no extiende nada
+        $granted = $features->grant($super, $product->fresh(), now()->addDays(20)->endOfDay());
+        $this->assertTrue($granted->starts_at->equalTo($paid->ends_at));
+        $this->assertSame(FeaturedPlacement::ACTIVE, $paid->fresh()->status);
+        $this->assertTrue($paid->fresh()->ends_at->equalTo($paid->ends_at));
+        $this->assertSame(2, FeaturedPlacement::count());
+    }
+
+    private function expectsValidation(callable $call): void
+    {
+        try {
+            $call();
+            $this->fail('Se esperaba un error de validación');
+        } catch (ValidationException) {
+            $this->addToAssertionCount(1);
+        }
     }
 
     public function test_company_subscriptions_are_not_mixed_with_suppliers(): void

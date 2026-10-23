@@ -2,14 +2,18 @@
 @php
     $user = auth()->user();
     $supplier = $user?->supplier;
-    $tabs = [
-        ['suppliers.home', 'Inicio', route('suppliers.home')],
-        ['suppliers.products.*', 'Mi catálogo', route('suppliers.products.index')],
-        ['suppliers.requests.*', 'Pedidos', route('suppliers.requests.index')],
-        ['suppliers.billing*', 'Plan', route('suppliers.billing')],
-        ['suppliers.featured*', 'Destacados', route('suppliers.featured')],
-        ['suppliers.profile.*', 'Mi perfil', route('suppliers.profile.edit')],
-    ];
+    // Productos (catálogo, pedidos, plan y destacados) y servicios (perfil profesional y consultas): áreas separadas.
+    $tabs = array_merge([['suppliers.home', 'Inicio', route('suppliers.home')]],
+        $supplier?->sellsProducts() === false ? [] : [
+            ['suppliers.products.*', 'Mi catálogo', route('suppliers.products.index')],
+            ['suppliers.requests.*', 'Pedidos', route('suppliers.requests.index')],
+            ['suppliers.billing*', 'Plan', route('suppliers.billing')],
+            ['suppliers.featured*', 'Destacados', route('suppliers.featured')],
+        ], [
+            ['suppliers.service-profile.*', 'Perfil profesional', route('suppliers.service-profile.edit')],
+            ['suppliers.service-requests.*', 'Consultas', route('suppliers.service-requests.index')],
+            ['suppliers.profile.*', 'Mi cuenta', route('suppliers.profile.edit')],
+        ]);
     $unreadCount = $user ? $user->unreadNotifications()->count() : 0;
 @endphp
 <!DOCTYPE html>
@@ -111,7 +115,7 @@
         <div class="s-top-in">
             <a class="s-brand" href="{{ route('suppliers.home') }}">
                 <img src="{{ asset('images/brand/logo-64.png') }}" alt="">
-                <span style="min-width:0"><b>{{ $supplier?->name ?? 'Ascento' }}</b><small>Ascento · Proveedores de repuestos</small></span>
+                <span style="min-width:0"><b>{{ $supplier?->name ?? 'Ascento' }}</b><small>Ascento · Proveedores y profesionales</small></span>
             </a>
             <span style="display:flex; gap:8px; align-items:center">
                 <a class="s-bell" href="{{ route('suppliers.notifications.index') }}" aria-label="Avisos">🔔 <span class="s-count" data-unread-count @if($unreadCount === 0) hidden @endif>{{ $unreadCount > 99 ? '99+' : $unreadCount }}</span></a>

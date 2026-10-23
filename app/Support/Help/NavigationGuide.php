@@ -12,8 +12,10 @@ use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\HelpCenter;
 use App\Filament\Pages\ImplementationRates;
 use App\Filament\Pages\IndicatorsPage;
+use App\Filament\Pages\Marketplace\MyServiceProfile;
 use App\Filament\Pages\Marketplace\PartsCatalog;
 use App\Filament\Pages\Marketplace\PartsRequests;
+use App\Filament\Pages\Marketplace\ServiceRequests;
 use App\Filament\Pages\MarketplaceSettingsPage;
 use App\Filament\Pages\ParachuteTestsPage;
 use App\Filament\Pages\PlanFeatures;
@@ -33,6 +35,10 @@ use App\Filament\Resources\Maintenances\MaintenanceResource;
 use App\Filament\Resources\Marketplace\FeaturedPlacementResource;
 use App\Filament\Resources\Marketplace\MarketplaceReportResource;
 use App\Filament\Resources\Marketplace\MarketplaceRequestResource;
+use App\Filament\Resources\Marketplace\ServiceCategoryResource;
+use App\Filament\Resources\Marketplace\ServiceContactRequestResource;
+use App\Filament\Resources\Marketplace\ServiceProfileReportResource;
+use App\Filament\Resources\Marketplace\ServiceProfileResource;
 use App\Filament\Resources\Marketplace\SupplierPaymentResource;
 use App\Filament\Resources\Marketplace\SupplierProductResource;
 use App\Filament\Resources\Marketplace\SupplierResource;
@@ -63,7 +69,7 @@ final class NavigationGuide
     /** Categoría → [para qué sirve, orden sugerido]. */
     private const GROUPS = [
         'Gestión' => ['Tu cartera: los clientes, sus edificios y sus equipos, el mapa, el QR público y el seguimiento con cada cliente.', ['Clientes', 'Edificios', 'Ascensores']],
-        'Operaciones' => ['El trabajo de todos los días: la agenda del mes, las visitas, las órdenes y sus remitos, los reportes de fallas, las guardias, el stock y los pedidos de repuestos.', ['Agenda', 'Visitas', 'Remitos']],
+        'Operaciones' => ['El trabajo de todos los días: la agenda del mes, las visitas, las órdenes y sus remitos, los reportes de fallas, las guardias, el stock y los pedidos de repuestos y las solicitudes a profesionales.', ['Agenda', 'Visitas', 'Remitos']],
         'Comercial' => ['Lo que vendés y cobrás: presupuestos, servicios contratados y la cuenta corriente de tus clientes.', ['Presupuestos', 'Servicios', 'Cobranzas']],
         'Administración' => ['Tu equipo, tu plan y la copia de tus datos.', null],
         'Plataforma' => ['Herramientas del SuperAdmin para todas las empresas.', null],
@@ -98,6 +104,8 @@ final class NavigationGuide
             StockItemResource::class => ['Tus repuestos y materiales: entradas, salidas y lo que se usó en cada orden.', 'stock'],
             PartsCatalog::class => ['Repuestos de proveedores aprobados: buscá, compará, guardá favoritos y sumalos a un pedido de cotización.', null],
             PartsRequests::class => ['Tus pedidos de cotización de repuestos: enviarlos, ver la cotización, aceptarla y confirmar que llegaron. Ascento no cobra.', null],
+            ServiceRequests::class => ['Contactá especialistas (placas, variadores, asistencia, inspecciones) y seguí tus solicitudes. Gratis.', null],
+            MyServiceProfile::class => ['Si tu empresa ofrece servicios especializados a otras empresas, publicá tu perfil gratis y respondé las consultas.', null],
             QuoteResource::class => ['Presupuestos con tu logo, para enviar por correo o WhatsApp.', 'quotes'],
             ServicesCluster::class => ['Lo que ofrecés (catálogo) y lo que tiene contratado cada cliente, que genera los cobros.', 'services_overview'],
             ReceivableResource::class => ['Lo que te deben tus clientes y los pagos que vas registrando.', 'receivables'],
@@ -118,6 +126,10 @@ final class NavigationGuide
             MarketplaceRequestResource::class => ['Todos los pedidos de cotización entre empresas y proveedores: estados, importes cotizados, historial e incidencias para resolver.', null],
             SupplierPaymentResource::class => ['Lo que Mercado Pago cobró a los proveedores (Premium y destacados). Solo los cobros aprobados son ingresos.', null],
             FeaturedPlacementResource::class => ['Las publicaciones destacadas compradas o asignadas, con su período y estado.', null],
+            ServiceProfileResource::class => ['Los perfiles profesionales: revisar, aprobar, ocultar, suspender y reactivar.', null],
+            ServiceProfileReportResource::class => ['Los reportes de perfiles profesionales que hacen las empresas.', null],
+            ServiceCategoryResource::class => ['Las especialidades y servicios que se ofrecen en «Profesionales y servicios».', null],
+            ServiceContactRequestResource::class => ['Las solicitudes a profesionales (solo datos administrativos; el contenido se abre con un motivo auditado).', null],
             MarketplaceSettingsPage::class => ['Límites de publicaciones (gratuito y Premium), precio de Premium, países con cobro y precios de destacados (sin habilitar, no se cobra nada).', null],
         ];
     }

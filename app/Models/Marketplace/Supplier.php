@@ -44,6 +44,7 @@ class Supplier extends Model
         'approved_at' => 'datetime',
         'commercial_state_at' => 'datetime',
         'closed_at' => 'datetime',
+        'sells_products' => 'boolean',
     ];
 
     /** Moneda de los precios según el país registrado (config/marketplace.php). */
@@ -65,6 +66,18 @@ class Supplier extends Model
     public function requests(): HasMany
     {
         return $this->hasMany(MarketplaceRequest::class);
+    }
+
+    /** Perfil profesional de la misma cuenta («Profesionales y servicios»), si lo creó. */
+    public function serviceProfile(): HasOne
+    {
+        return $this->hasOne(ServiceProfile::class);
+    }
+
+    /** ¿Vende productos? (las cuentas solo de servicios no tienen catálogo ni identificación fiscal obligatoria). */
+    public function sellsProducts(): bool
+    {
+        return $this->sells_products !== false;
     }
 
     public function subscription(): HasOne

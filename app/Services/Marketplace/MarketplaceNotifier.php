@@ -3,11 +3,14 @@
 namespace App\Services\Marketplace;
 
 use App\Models\Marketplace\MarketplaceRequest;
+use App\Models\Marketplace\ServiceContactRequest;
+use App\Models\Marketplace\ServiceProfile;
 use App\Models\Marketplace\Supplier;
 use App\Models\User;
 use App\Notifications\Marketplace\MarketplaceNotice;
 use App\Services\Notifications\Notifier;
 use App\Support\Marketplace\BuyerAccess;
+use App\Support\Marketplace\ServiceAccess;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -52,6 +55,41 @@ class MarketplaceNotifier
         $notice = new MarketplaceNotice($title, $body, $path, 'team:'.$key, $mail, null, true, false);
 
         return $this->each(User::where('is_super_admin', true)->get(), fn (User $u) => $this->notifier->sendToAccount($u, $notice, $mail), ['key' => $key]);
+    }
+
+    /**
+     * Dueño de un perfil profesional: los usuarios de esa cuenta de proveedor
+     * o los dueños de esa empresa de mantenimiento (nunca otra cuenta).
+     */
+    public function serviceOwner(ServiceProfile $profile, string $title, string $body, string $key, bool $mail = true, ?ServiceContactRequest $request = null): int
+    {
+        if ($profile->supplier_id !== null) {
+            return $this->supplier((int) $profile->supplier_id, $title, $body, '/proveedores/solicitudes'.($request ? '/'.$request->reference : ''), 'svc:'.$key, $mail);
+        }
+        if ($profile->company_id === null) {
+            return 0; // empresa dada de baja
+        }
+        $companyId = (int) $profile->company_id;
+        $notice = new MarketplaceNotice($title, $body, '/admin/mi-perfil-profesional'.($request ? '?solicitud='.$request->id : ''), 'c'.$companyId.':svc:'.$key, $mail);
+
+        return $this->each(User::where('company_id', $companyId)->where('role', 'admin')->where('is_super_admin', false)->get(),
+            fn (User $u) => $this->notifier->sendTo($u, $notice, $companyId, $mail), ['service_profile_id' => $profile->id]);
+    }
+
+    /** Lado empresa de una solicitud a un profesional: quien la envió si sigue pudiendo verla; si no, los dueños. */
+    public function serviceBuyer(ServiceContactRequest $request, string $title, string $body, string $key, bool $mail = true): int
+    {
+        if ($request->company_id === null) {
+            return 0;
+        }
+        $companyId = (int) $request->company_id;
+        $creator = $request->creator;
+        $users = $creator && (int) $creator->company_id === $companyId && ServiceAccess::canSeeSent($creator)
+            ? collect([$creator])
+            : User::where('company_id', $companyId)->where('role', 'admin')->where('is_super_admin', false)->get();
+        $notice = new MarketplaceNotice($title, $body, '/admin/profesionales?solicitud='.$request->id, 'sr'.$request->id.':'.$key, $mail);
+
+        return $this->each($users, fn (User $u) => $this->notifier->sendTo($u, $notice, $companyId, $mail), ['service_contact_request_id' => $request->id]);
     }
 
     /**
