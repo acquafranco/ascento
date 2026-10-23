@@ -53,6 +53,8 @@ class MarketplaceModerationTest extends TestCase
         $this->assertSame(Supplier::APPROVED, $supplier->fresh()->status);
         $this->assertTrue($product->fresh()->isVisible());
 
+        // Un segundo después, para que el orden de los avisos (created_at, en segundos) sea determinista.
+        $this->travel(1)->seconds();
         Livewire::test(ListSuppliers::class)->callTableAction('suspend', $supplier, ['reason' => 'Datos fiscales inconsistentes'])->assertNotified('Proveedor suspendido');
         $supplier->refresh();
         $this->assertSame([Supplier::SUSPENDED, 'Datos fiscales inconsistentes'], [$supplier->status, $supplier->status_reason]);
@@ -62,7 +64,7 @@ class MarketplaceModerationTest extends TestCase
         $this->assertSame($super->id, PlatformAuditLog::first()->user_id);
 
         // El proveedor se entera en su área y por correo (con el motivo, si lo hay).
-        $titles = $supplierUser->notifications()->orderBy('created_at')->get()->pluck('data.title')->all();
+        $titles = $supplierUser->notifications()->reorder('created_at')->get()->pluck('data.title')->all();
         $this->assertSame(['Tu cuenta de proveedor está aprobada', 'Suspendimos tu cuenta de proveedor'], $titles);
         $this->assertStringContainsString('Datos fiscales inconsistentes', $supplierUser->notifications()->where('data->title', 'Suspendimos tu cuenta de proveedor')->value('data')['body']);
         $this->assertSame(2, $supplierUser->notifications()->whereNotNull('mailed_at')->count());
