@@ -19,6 +19,13 @@
     @if(session('warning'))
         <div class="t-alert-warning mb-4" role="status">{{ session('warning') }}</div>
     @endif
+    {{-- Salida sin registrar: firmar el remito no la registra (puede ser antes o después de irse). --}}
+    @foreach($pendingExits ?? [] as $order)
+        <a href="{{ route('work-orders.show', ['company' => auth()->user()->company->slug, 'workOrder' => $order->id]) }}" class="t-alert-warning mb-4 flex items-center justify-between gap-3" data-pending-exit>
+            <span>¿Ya te fuiste de {{ $order->building?->name ?? 'el edificio' }}? Registrá la salida.</span>
+            <span class="shrink-0 underline">Registrar</span>
+        </a>
+    @endforeach
 
     <details class="t-card mb-4" @if($hasDate) open @endif>
         <summary class="flex min-h-[48px] cursor-pointer list-none items-center justify-between px-4 text-sm font-semibold text-ink-700">

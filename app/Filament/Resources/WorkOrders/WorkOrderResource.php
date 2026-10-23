@@ -9,6 +9,7 @@ use App\Filament\Resources\WorkOrders\Pages\EditWorkOrder;
 use App\Filament\Resources\WorkOrders\Pages\ListWorkOrders;
 use App\Filament\Resources\WorkOrders\Schemas\WorkOrderForm;
 use App\Models\WorkOrder;
+use App\Services\WorkOrders\AttendanceTimes;
 use App\Support\WorkOrderLabels;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -128,6 +129,12 @@ class WorkOrderResource extends Resource
                     ->state(fn ($record) => $record->isTechnicianInitiated() ? 'Técnico: '.($record->creator?->name ?? '—') : 'Oficina')
                     ->color(fn ($record) => $record->isTechnicianInitiated() ? 'warning' : 'gray')
                     ->description(fn ($record) => $record->jobs_count ? $record->jobs_count.' '.($record->jobs_count === 1 ? 'trabajo' : 'trabajos') : null),
+                // Tiempo de respuesta (aviso → llegada), solo si los dos horarios están registrados.
+                Tables\Columns\TextColumn::make('response_time')
+                    ->label('Respuesta')
+                    ->state(fn ($record) => ($m = AttendanceTimes::durations($record)['response']) !== null ? AttendanceTimes::duration($m) : null)
+                    ->placeholder('Sin registrar')
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('delivery_note_number')
                     ->label('Remito')
                     ->state(fn ($record) => $record->deliveryNote ? 'N.º '.$record->deliveryNote->number : null)

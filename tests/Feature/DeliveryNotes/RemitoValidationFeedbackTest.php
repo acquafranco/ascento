@@ -61,7 +61,7 @@ class RemitoValidationFeedbackTest extends TestCase
             ->post("/{$this->slug()}/delivery-notes/store", [
                 'building_id' => $this->order->building_id, 'work_order_id' => $this->order->id, 'assignment_type' => 'work_order',
                 'elevator_quantity' => 2, 'freight_elevator_quantity' => 0, 'signature_name' => 'Lucas', 'signature' => $this->validSignature(),
-                'jobs' => [$this->job->id => ['work_done' => 'Contactor cambiado.', 'result' => 'resolved']],
+                'jobs' => [$this->job->id => ['work_done' => 'Contactor cambiado.', 'result' => 'resolved', 'elevator_state' => 'in_service']],
                 ...$overrides,
             ]);
     }

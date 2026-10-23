@@ -48,10 +48,12 @@
             </div>
         @endif
 
-        @if($workOrder->started_at || $workOrder->finished_at || $workOrder->deliveryNote)
+        {{-- «Tomado» es «Tomar trabajo»; llegada y salida del edificio se registran aparte (AttendanceTimes). --}}
+        @if($workOrder->started_at || $workOrder->arrived_at || $workOrder->left_at || $workOrder->deliveryNote)
             <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-500">
-                @if($workOrder->started_at)<span>Entrada <strong class="text-ink">{{ $workOrder->started_at->format('H:i') }}</strong></span>@endif
-                @if($workOrder->finished_at)<span>Salida <strong class="text-ink">{{ $workOrder->finished_at->format('H:i') }}</strong></span>@endif
+                @if($workOrder->started_at)<span>Tomado <strong class="text-ink">{{ $workOrder->started_at->format('H:i') }}</strong></span>@endif
+                @if($workOrder->arrived_at)<span>Llegada <strong class="text-ink">{{ $workOrder->arrived_at->format('H:i') }}</strong></span>@endif
+                @if($workOrder->left_at)<span>Salida <strong class="text-ink">{{ $workOrder->left_at->format('H:i') }}</strong></span>@endif
                 @if($workOrder->deliveryNote)
                     <a href="{{ route('delivery-notes.show', ['company' => $slug, 'deliveryNote' => $workOrder->deliveryNote]) }}" class="font-semibold text-brand-700">Remito {{ $workOrder->deliveryNote->number }}</a>
                 @endif

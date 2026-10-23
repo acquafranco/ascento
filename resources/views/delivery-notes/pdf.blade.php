@@ -86,6 +86,8 @@
                             <strong>{{ $job['title'] }}</strong><br>
                             Problema: {{ $job['problem'] }}
                             @if ($job['done'])<br>Realizado: {{ $job['done'] }}@endif
+                            @if ($job['state'] ?? null)<br>Estado del equipo: {{ $job['state'] }}@endif
+                            @if ($job['pending'] ?? null)<br>Pendiente: {{ $job['pending'] }}@endif
                         </td>
                         <td style="padding: 4px 0; text-align: right; font-weight: bold; white-space: nowrap; vertical-align: top; color: {{ $job['ok'] ? '#166534' : '#92400E' }};">{{ $job['result'] }}</td>
                     </tr>

@@ -6,9 +6,11 @@ use App\Models\Company;
 use App\Models\WorkOrder;
 use App\Services\Visits\PhotoTarget;
 use App\Services\Visits\VisitPhotoService;
+use App\Services\WorkOrders\AttendanceTimes;
 use App\Services\WorkOrderService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 class WorkOrderController extends Controller
 {
@@ -37,7 +39,7 @@ class WorkOrderController extends Controller
             ], 410);
         }
 
-        $workOrder->load(['building.client', 'users', 'participants', 'deliveryNote', 'jobs.photos', 'creator']);
+        $workOrder->load(['building.client', 'users', 'participants', 'deliveryNote', 'jobs.photos', 'creator', 'arrivedBy', 'leftBy', 'callRecordedBy']);
 
         $isAssigned = $workOrder->users->contains($user->id)
             || $workOrder->participants->contains($user->id);
@@ -260,5 +262,46 @@ class WorkOrderController extends Controller
                 'Trabajo finalizado correctamente.'
             );
 
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | TIEMPOS DE ATENCIÓN (llegada y salida del edificio)
+    |--------------------------------------------------------------------------
+    | Solo el técnico asignado, con la hora del servidor y una vez cada una
+    | (AttendanceTimes). No cambian el estado de la orden ni el remito.
+    */
+
+    public function arrive($company, WorkOrder $workOrder)
+    {
+        return $this->attendance($workOrder, 'arrive');
+    }
+
+    public function leave($company, WorkOrder $workOrder)
+    {
+        return $this->attendance($workOrder, 'leave');
+    }
+
+    private function attendance(WorkOrder $workOrder, string $action)
+    {
+        $user = Auth::user();
+        abort_unless((int) $workOrder->company_id === (int) $user->company_id, 404);
+        $back = route('work-orders.show', ['company' => $user->company->slug, 'workOrder' => $workOrder->id]);
+
+        try {
+            [$order, $now] = app(AttendanceTimes::class)->$action($user, $workOrder);
+        } catch (ValidationException $e) {
+            return redirect()->to($back)->with('warning', collect($e->errors())->flatten()->first());
+        }
+
+        $at = AttendanceTimes::time($action === 'arrive' ? $order->arrived_at : $order->left_at);
+        $message = match (true) {
+            $action === 'arrive' && $now => 'Llegada registrada: '.$at.'.',
+            $action === 'arrive' => 'La llegada ya estaba registrada: '.$at.'.',
+            $now => 'Salida registrada: '.$at.'.',
+            default => 'La salida ya estaba registrada: '.$at.'.',
+        };
+
+        return redirect()->to($back)->with($now ? 'success' : 'warning', $message);
     }
 }

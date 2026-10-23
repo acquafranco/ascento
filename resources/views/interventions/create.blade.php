@@ -124,6 +124,16 @@
                     @endforeach
                 </div>
             </fieldset>
+            @unless($workOrder)
+                {{-- Aviso (opcional): la hora en que le avisaron, si la sabe (p. ej. la del mensaje de WhatsApp). No se completa sola. --}}
+                <div>
+                    <label class="t-label" for="call_received_at">¿Cuándo te avisaron? <span class="font-normal text-ink-500">(opcional)</span></label>
+                    <input id="call_received_at" type="datetime-local" name="call_received_at" value="{{ old('call_received_at') }}" max="{{ now()->format('Y-m-d\TH:i') }}"
+                           class="t-input @error('call_received_at') t-input-invalid @enderror" data-field="call_received_at">
+                    <p class="mt-1.5 text-xs text-ink-500">La hora del mensaje o de la llamada. Si no la sabés, dejalo vacío: queda «Sin registrar» y la oficina la puede cargar.</p>
+                    @error('call_received_at')<p class="t-field-error" data-error-for="call_received_at">{{ $message }}</p>@enderror
+                </div>
+            @endunless
             <div>
                 <label class="t-label" for="channel">¿Cómo te llegó el reclamo?</label>
                 <select id="channel" name="channel" class="t-input" data-field="channel">
