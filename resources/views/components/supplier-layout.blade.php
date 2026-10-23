@@ -68,6 +68,28 @@
         .s-btn:hover { background: #FF7A22; }
         .s-btn.secondary { background: #fff; color: var(--ink); border: 1px solid #D3D1C8; font-weight: 600; }
         .s-btn.danger { background: #fff; color: #9B1C1C; border: 1px solid #F3C4C4; font-weight: 600; }
+        /* Fotos del producto: grilla ordenada, la primera es la principal. */
+        .sp-grid { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); }
+        .sp-item { display: flex; flex-direction: column; gap: 6px; }
+        .sp-frame { position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden; background: #EFEEE8; border: 1px solid var(--line); }
+        .sp-item:first-child .sp-frame { border: 2px solid var(--orange); }
+        .sp-frame img { width: 100%; height: 100%; object-fit: contain; display: block; }
+        .sp-badge { position: absolute; left: 6px; top: 6px; background: var(--orange); color: var(--dark); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+        .sp-num { position: absolute; right: 6px; bottom: 6px; background: rgba(17,22,29,.75); color: #fff; font-size: 11px; font-weight: 700; min-width: 20px; height: 20px; border-radius: 999px; display: grid; place-items: center; }
+        .sp-tools { display: flex; flex-direction: column; gap: 4px; }
+        .sp-tools form { margin: 0; }
+        .sp-move { display: flex; gap: 4px; }
+        .sp-tool.wide { width: 100%; }
+        .sp-tool { min-height: 34px; padding: 4px 10px; border-radius: 8px; border: 1px solid #D3D1C8; background: #fff; color: var(--ink); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+        .sp-tool.icon { min-width: 34px; padding: 4px; font-size: 14px; }
+        .sp-tool.danger { color: #9B1C1C; border-color: #F3C4C4; }
+        .sp-tool:hover:not(:disabled) { border-color: var(--orange); }
+        .sp-tool:disabled { opacity: .35; cursor: default; }
+        .sp-upload { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+        .sp-preview { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+        .sp-preview li { width: 72px; height: 72px; border-radius: 10px; overflow: hidden; background: #EFEEE8; border: 1px solid var(--line); }
+        .sp-preview li img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .sp-preview li.bad { border-color: #F3C4C4; color: #9B1C1C; font-size: 10px; padding: 4px; overflow-wrap: anywhere; }
         .s-link { color: var(--orange-ink); font-weight: 600; text-decoration: none; }
         .s-link:hover { text-decoration: underline; }
         .s-notice { border-radius: 14px; padding: 14px 16px; border: 1px solid; margin-bottom: 16px; font-size: 14px; }

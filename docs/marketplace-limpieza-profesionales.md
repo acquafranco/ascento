@@ -1,6 +1,11 @@
 # Limpieza definitiva de «Profesionales y servicios»
 
-La función se retiró del código en el PR #122 (`19eb80d`). Esta etapa borra lo que quedó en la base: la migración `2027_01_21_100000_drop_service_profiles_tables`.
+La función se retiró del código en el PR #122 (`19eb80d`). Lo que quedó en la base lo borran dos migraciones:
+- `2027_01_21_100000_drop_service_profiles_tables`, ya en `main` (PR #124). No se edita más.
+- `2027_01_20_200000_check_service_cleanup_dependencies`, de la rama `mejora/marketplace-lanzamiento`. Es una comprobación previa de solo lectura.
+  - Su fecha es anterior a la limpieza a propósito: en un deploy corre primero y lo detiene **antes de borrar nada** si hay una cuenta «solo servicios» o si una tabla ajena depende de alguna de las 7 tablas.
+  - MySQL no deshace un `DROP`, así que sin esta comprobación la limpieza podría quedar a medias.
+  - Si la limpieza ya corrió, la comprobación no hace nada.
 
 ## 1. Inventario y por qué cada cosa es exclusiva de la función retirada
 
@@ -56,12 +61,17 @@ Se usa el despliegue habitual de Forge, cuyo script ya incluye `php artisan migr
    - Guardá todo fuera del servidor.
 
 **Despliegue**
-4. Merge del PR de `mejora/marketplace-cierre` y deploy normal de Forge. `migrate --force` aplica 2027_01_21.
+4. Merge del PR de `mejora/marketplace-lanzamiento` y deploy normal de Forge. `migrate --force` corre, en orden:
+   - la comprobación 2027_01_20_200000;
+   - la limpieza 2027_01_21, si todavía no se había aplicado.
 
 **Validación posterior**
 5. Revisar el registro del deploy:
-   - si figura `2027_01_21 … DONE`, la migración se aplicó;
-   - si figura «Hay proveedores registrados “solo servicios”», no se borró nada, y se decide caso por caso antes de volver a desplegar.
+   - si figuran `2027_01_20_200000 … DONE` y `2027_01_21 … DONE`, se aplicaron las dos;
+   - si figura `2027_01_20_200000 … FAIL` con «no se borró nada», no se tocó nada y el mensaje dice qué resolver: ids de cuentas «solo servicios» o tablas que dependen de las de servicios. La base queda sin limpiar y el código nuevo funciona igual.
+     - **Atención:** desde el PR #124 el código ya no restringe las cuentas «solo servicios», así que, mientras se decide, esas cuentas verían el catálogo sin haber cargado su CUIT.
+     - Por eso la consulta C se corre **antes** del deploy, y con cualquier fila no se despliega hasta decidir cada caso (por ejemplo, suspenderlas desde el panel).
+     - Si #124 ya está desplegado, eso ya pasa hoy: conviene correr la consulta C cuanto antes.
 6. `php artisan migrate:status`: 2027_01_21 debe figurar como `Ran`.
 7. Repetir el inventario. Las consultas sobre tablas ya borradas fallan, y es lo esperado. El bloque I debe ser **idéntico** al de `inventario-antes.txt`.
 8. La consulta 12 de `docs/sql/auditoria-marketplace.sql` debe dar `0 | 0`.
@@ -87,6 +97,10 @@ Se usa el despliegue habitual de Forge, cuyo script ya incluye `php artisan migr
   - las 14 tablas comerciales quedan idénticas fila por fila;
   - se detiene ante una cuenta «solo servicios» sin borrar nada;
   - funciona de ida y vuelta.
+- **Orden del deploy con la comprobación previa** (MySQL 8 local, rama `mejora/marketplace-lanzamiento`):
+  - con la limpieza ya aplicada, la comprobación no hace nada;
+  - con una cuenta «solo servicios» o una tabla ajena con clave foránea hacia `service_profiles`, se detiene: ninguna de las dos migraciones queda registrada y las tablas, los avisos y la auditoría siguen intactos;
+  - sin impedimentos, corren las dos en el mismo deploy y los totales y checksums comerciales quedan idénticos.
 - **MySQL 8 local** (`ascento_migcheck`, con 4 proveedores, 16 productos, 3 pedidos, 3 Premium, 6 cobros, destacados y los restos de servicios):
   1. inventario;
   2. copia de seguridad, verificada restaurándola en `ascento_restorecheck` y con `SHA256SUMS`;

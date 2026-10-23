@@ -8,6 +8,7 @@ use App\Services\Activity\PlatformAudit;
 use App\Services\Marketplace\Billing\SupplierBilling;
 use App\Services\Marketplace\PublicationLimits;
 use App\Support\Countries;
+use App\Support\Marketplace\Money;
 use App\Support\Marketplace\SalesReadiness;
 use Filament\Forms;
 use Filament\Forms\Components\CheckboxList;
@@ -69,6 +70,37 @@ class MarketplaceSettingsPage extends Page implements Forms\Contracts\HasForms
     public function gatewayProblems(): array
     {
         return SalesReadiness::gatewayProblems();
+    }
+
+    /**
+     * Estado real de cada venta, con lo guardado (no lo que se está editando).
+     *
+     * @return array<string, string>
+     */
+    public function salesStatus(): array
+    {
+        $settings = MarketplaceSettings::current();
+        $ready = SalesReadiness::gatewayReady();
+        $countries = collect((array) $settings->billing_countries)->filter(fn ($c) => $settings->chargesIn($c))->map(fn ($c) => Countries::name($c).' ('.Supplier::currencyFor($c).')');
+        $pending = 'encendido, pero no se ofrece hasta completar lo que falta en el servidor';
+        $money = fn ($v) => Money::format((float) $v, $settings->pricing_currency ?: 'ARS');
+
+        return [
+            'Plan gratuito' => 'hasta '.$settings->freeLimit().' productos publicados, sin cobro',
+            'Premium' => match (true) {
+                ! $settings->premium_enabled => 'apagado: no se ofrece',
+                ! $settings->sellsPremium() => 'encendido sin precio: no se ofrece',
+                ! $ready || $countries->isEmpty() => $pending,
+                default => 'se ofrece a '.$money($settings->premium_price).' por mes (hasta '.number_format($settings->premiumLimit(), 0, ',', '.').' productos)',
+            },
+            'Destacados' => match (true) {
+                ! $settings->featured_enabled => 'apagados: no se ofrecen',
+                $settings->featuredOffers() === [] => 'encendidos sin precio: no se ofrecen',
+                ! $ready || $countries->isEmpty() => $pending,
+                default => 'se ofrecen: '.collect($settings->featuredOffers())->map(fn ($p, $d) => $d.' días a '.$money($p))->implode(', '),
+            },
+            'Países con cobro' => $countries->isEmpty() ? 'ninguno' : $countries->implode(', '),
+        ];
     }
 
     public function form(Schema $schema): Schema

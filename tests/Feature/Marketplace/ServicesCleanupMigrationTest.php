@@ -143,4 +143,40 @@ class ServicesCleanupMigrationTest extends TestCase
         $this->assertSame(1, DB::table('service_profiles')->count());
         $this->assertSame(1, DB::table('service_contact_requests')->count());
     }
+
+    public function test_a_previous_check_stops_the_deploy_before_anything_is_deleted(): void
+    {
+        $check = require base_path('database/migrations/2027_01_20_200000_check_service_cleanup_dependencies.php');
+        $this->assertLessThan(0, strcmp('2027_01_20_200000_check_service_cleanup_dependencies', '2027_01_21_100000_drop_service_profiles_tables')); // corre antes
+        $check->up(); // limpieza ya aplicada: no hace nada
+
+        $migration = require base_path(self::MIGRATION);
+        $migration->down();
+        $check->up(); // estructuras presentes y sin dependencias: deja seguir
+
+        // Una tabla ajena que apunta a una tabla de la función retirada: se detiene antes de borrar.
+        Schema::create('tabla_ajena', function ($table) {
+            $table->id();
+            $table->foreignId('service_profile_id')->constrained();
+        });
+        try {
+            $check->up();
+            $this->fail('Debía detenerse.');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('tabla_ajena.service_profile_id → service_profiles', $e->getMessage());
+            $this->assertStringContainsString('no se borró nada', $e->getMessage());
+        }
+        Schema::drop('tabla_ajena');
+
+        // Una cuenta «solo servicios»: también.
+        [$supplier] = $this->makeSupplier();
+        DB::table('suppliers')->where('id', $supplier->id)->update(['sells_products' => false]);
+        $this->expectExceptionMessage('proveedores «solo servicios» (ids: '.$supplier->id.')');
+        try {
+            $check->up();
+        } finally {
+            $this->assertTrue(Schema::hasTable('service_profiles'));
+            $this->assertSame(11, DB::table('service_categories')->count());
+        }
+    }
 }

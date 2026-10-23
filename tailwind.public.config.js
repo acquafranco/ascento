@@ -19,11 +19,11 @@ export default {
     theme: {
         extend: {
             colors: {
-                ink: '#14171C',
+                ink: '#11161D',
                 paper: '#F7F7F4',
                 graphite: '#12151C',
                 graphite2: '#1B1F29',
-                amber: { 100: '#FFE8D6', 400: '#FF8A3D', 500: '#FF6A1A', 600: '#E85A0A', 700: '#C24800' },
+                amber: { 100: '#FFE8D6', 400: '#FF8533', 500: '#FF6600', 600: '#E85C00', 700: '#B84700' },
                 rail: { 100: '#E7ECFB', 400: '#5A78D6', 500: '#2E4FBE', 600: '#233D99' },
             },
             fontFamily: {
