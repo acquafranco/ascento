@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\WorkOrder;
 use App\Models\User;
 use App\Models\BuildingVisit;
+use App\Services\WorkOrders\SiteVisits;
 use Illuminate\Support\Facades\DB;
 
 class WorkOrderService
@@ -36,6 +37,9 @@ class WorkOrderService
                 'started_at' => $workOrder->started_at ?? now(),
             ]);
         });
+
+        // Si ya está en el edificio (visita abierta), la orden entra en la visita sin repetir la llegada.
+        app(SiteVisits::class)->attach($user, $workOrder->fresh());
     }
 
     /**

@@ -1,5 +1,7 @@
 # Tiempos de atención (aviso, llegada y salida)
 
+> **Actualización:** la llegada y la salida ahora son de la **visita técnica** (un técnico en un edificio, con varios trabajos y remitos). Ver [visitas-tecnicas.md](visitas-tecnicas.md). Los campos de la orden (`arrived_at`, `left_at`) se siguen llenando, copiados de la visita; la salida por orden («Terminé y me retiro») queda solo para órdenes con llegada propia anteriores a las visitas.
+
 Rama `mejora/tiempos-de-atencion`. Migración `2027_01_26_100000_add_attention_times`: solo agrega columnas que pueden quedar vacías.
 
 ## Qué había antes (auditoría)

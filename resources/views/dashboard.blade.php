@@ -28,6 +28,24 @@
     {{-- Bienvenida breve, una sola vez por técnico. --}}
     @include('help.technician-welcome')
 
+    @if(session('warning'))
+        <div class="t-alert-warning mb-4" role="alert">{{ session('warning') }}</div>
+    @endif
+
+    {{-- Visita técnica en curso: dónde está, qué le falta y «Finalizar visita y retirarme». --}}
+    @if($siteVisit)
+        <div class="mb-4">@include('partials.site-visit-card', ['siteVisit' => $siteVisit])</div>
+    @endif
+
+    {{-- Trabajos tomados sin llegada: el siguiente paso es «Llegué al edificio» (en la orden). --}}
+    @foreach($awaitingArrival as $order)
+        @continue($siteVisit && (int) $siteVisit->building_id === (int) $order->building_id)
+        <a href="{{ route('work-orders.show', ['company' => $slug, 'workOrder' => $order->id]) }}#llegada" class="t-alert-warning mb-3 flex items-center justify-between gap-3" data-awaiting-arrival="{{ $order->id }}">
+            <span>Tomaste la orden #{{ $order->id }} en {{ $order->building?->name ?? 'un edificio' }}. Cuando llegues, registrá la llegada.</span>
+            <span class="shrink-0 underline">Ir</span>
+        </a>
+    @endforeach
+
     {{-- Guardia en curso (si la tiene): el detalle está en la pestaña «Guardias». --}}
     @php $onCallNow = \App\Services\OnCall\TechnicianOnCall::activeNow(auth()->user()); @endphp
     @if($onCallNow)

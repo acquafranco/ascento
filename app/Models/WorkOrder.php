@@ -55,6 +55,7 @@ class WorkOrder extends Model
         'call_received_at' => 'datetime',
         'arrived_at' => 'datetime',
         'left_at' => 'datetime',
+        'arrival_reminded_at' => 'datetime',
     ];
 
     protected static function booted(): void
@@ -228,6 +229,12 @@ class WorkOrder extends Model
     {
         return $query->where($query->qualifyColumn('type'), 'claim')
             ->where(fn (Builder $q) => $q->whereNull($q->qualifyColumn('origin'))->orWhere($q->qualifyColumn('origin'), '!=', self::ORIGIN_TECHNICIAN));
+    }
+
+    /** Visita técnica (llegada y salida del edificio) en la que se hizo esta orden. */
+    public function siteVisit()
+    {
+        return $this->belongsTo(SiteVisit::class);
     }
 
     public function arrivedBy()

@@ -3,8 +3,10 @@
     Opcional $linkToDetail (true en el listado): el encabezado abre el detalle.
     Opcional $quickPhotos (listado): «Tomar foto» / «Elegir de la galería» en
     la tarjeta, si la empresa habilitó las fotos de órdenes.
-    Acciones: "Tomar trabajo" (pendiente) y "Hacer remito y finalizar" (en
-    curso y asignado). Las reglas las vuelve a validar el servidor.
+    Acciones, en orden: "Tomar trabajo" (pendiente), "Llegué al edificio" (en
+    curso, sin llegada: lleva al detalle) y "Hacer remito de esta orden" (con
+    llegada). La salida es de la visita, no de la orden (Inicio). Las reglas las
+    vuelve a validar el servidor.
 --}}
 @php
     use App\Support\WorkOrderLabels;
@@ -80,8 +82,13 @@
                     @csrf
                     <button type="submit" class="t-btn-primary w-full">Tomar trabajo</button>
                 </form>
+            @elseif($workOrder->arrived_at === null && $workOrder->users->contains(auth()->id()))
+                {{-- Paso 2 antes que el remito: la llegada al edificio (en el detalle). --}}
+                @if($linkToDetail)
+                    <a href="{{ $detail }}#llegada" class="t-btn-primary w-full" data-next-step="arrive">Llegué al edificio</a>
+                @endif
             @else
-                <a href="{{ route('delivery-notes.work-order', ['company' => $slug, 'workOrder' => $workOrder]) }}" class="t-btn-dark w-full">Hacer remito y finalizar</a>
+                <a href="{{ route('delivery-notes.work-order', ['company' => $slug, 'workOrder' => $workOrder]) }}" class="t-btn-dark w-full" data-next-step="remito">Hacer remito de esta orden</a>
             @endif
         </div>
     @endif

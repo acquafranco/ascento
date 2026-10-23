@@ -11,6 +11,7 @@ use App\Models\WorkOrder;
 use App\Services\OnCall\OnCallService;
 use App\Services\Reports\ReportPhotoService;
 use App\Services\WorkOrders\AttendanceTimes;
+use App\Services\WorkOrders\SiteVisits;
 use App\Support\Access\Access;
 use App\Support\WorkOrderLabels;
 use Illuminate\Database\Eloquent\Builder;
@@ -169,6 +170,9 @@ class InterventionService
         }
 
         NotifyCompanyAdmins::reportCreated($report);
+
+        // Abierta estando en el edificio (visita abierta): entra en la visita, sin repetir la llegada.
+        app(SiteVisits::class)->attach($user, $order);
 
         return $order;
     }

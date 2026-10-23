@@ -6,7 +6,9 @@ use App\Models\Company;
 use App\Models\WorkOrder;
 use App\Services\Visits\PhotoTarget;
 use App\Services\Visits\VisitPhotoService;
+use App\Models\SiteVisit;
 use App\Services\WorkOrders\AttendanceTimes;
+use App\Services\WorkOrders\SiteVisits;
 use App\Services\WorkOrderService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -282,6 +284,12 @@ class WorkOrderController extends Controller
         return $this->attendance($workOrder, 'leave');
     }
 
+    /**
+     * Llegada y salida desde la orden. La llegada es la de la VISITA al
+     * edificio (SiteVisits): la orden y las demás del técnico ahí entran en
+     * ella. La salida finaliza la visita; solo una orden anterior a las
+     * visitas (con llegada propia, sin visita) usa la salida por orden.
+     */
     private function attendance(WorkOrder $workOrder, string $action)
     {
         $user = Auth::user();
@@ -289,19 +297,31 @@ class WorkOrderController extends Controller
         $back = route('work-orders.show', ['company' => $user->company->slug, 'workOrder' => $workOrder->id]);
 
         try {
-            [$order, $now] = app(AttendanceTimes::class)->$action($user, $workOrder);
+            if ($action === 'arrive') {
+                if ($workOrder->arrived_at !== null && $workOrder->site_visit_id === null) {
+                    return redirect()->to($back)->with('warning', 'La llegada ya estaba registrada: '.AttendanceTimes::time($workOrder->arrived_at).'.');
+                }
+                [$visit, $now] = app(SiteVisits::class)->arrive($user, $workOrder->building()->withTrashed()->firstOrFail(), $workOrder);
+                $at = AttendanceTimes::time($visit->arrived_at);
+
+                return redirect()->to($back)->with($now ? 'success' : 'warning', $now ? 'Llegada registrada: '.$at.'.' : 'La llegada ya estaba registrada: '.$at.'.');
+            }
+
+            if ($workOrder->site_visit_id !== null) {
+                $visit = SiteVisit::withoutGlobalScopes()->where('company_id', $user->company_id)->findOrFail($workOrder->site_visit_id);
+                [$visit, $now] = app(SiteVisits::class)->leave($user, $visit);
+                $at = AttendanceTimes::time($visit->left_at);
+
+                return redirect()->to($back)->with($now ? 'success' : 'warning', $now ? 'Visita finalizada. Salida registrada: '.$at.'.' : 'La salida ya estaba registrada: '.$at.'.');
+            }
+
+            [$order, $now] = app(AttendanceTimes::class)->leave($user, $workOrder);
         } catch (ValidationException $e) {
             return redirect()->to($back)->with('warning', collect($e->errors())->flatten()->first());
         }
 
-        $at = AttendanceTimes::time($action === 'arrive' ? $order->arrived_at : $order->left_at);
-        $message = match (true) {
-            $action === 'arrive' && $now => 'Llegada registrada: '.$at.'.',
-            $action === 'arrive' => 'La llegada ya estaba registrada: '.$at.'.',
-            $now => 'Salida registrada: '.$at.'.',
-            default => 'La salida ya estaba registrada: '.$at.'.',
-        };
+        $at = AttendanceTimes::time($order->left_at);
 
-        return redirect()->to($back)->with($now ? 'success' : 'warning', $message);
+        return redirect()->to($back)->with($now ? 'success' : 'warning', $now ? 'Salida registrada: '.$at.'.' : 'La salida ya estaba registrada: '.$at.'.');
     }
 }

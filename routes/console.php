@@ -48,6 +48,9 @@ Schedule::command('parachute:remind')->dailyAt('08:15')->withoutOverlapping();
 Schedule::command('oncall:rotations')->dailyAt('02:30')->withoutOverlapping();
 Schedule::command('oncall:remind')->hourly()->withoutOverlapping();
 
+// Visita técnica: recordar la llegada (trabajo tomado hace 1 h) y la salida (trabajos terminados). Una vez cada uno.
+Schedule::command('site-visits:remind')->everyFifteenMinutes()->withoutOverlapping(10);
+
 // Pedidos de ayuda desde el QR: reintento de los correos que fallaron (hasta 3 intentos por aviso).
 Schedule::command('emergency:retry-mail')->everyTwoMinutes()->withoutOverlapping();
 // Ubicación de técnicos: sin historial; la última posición se borra tras unas horas sin novedades.

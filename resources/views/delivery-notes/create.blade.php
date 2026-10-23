@@ -13,6 +13,14 @@
     if ($participants->isEmpty()) {
         $participants = collect([auth()->user()]);
     }
+    // Visita técnica: el técnico firma remitos después de «Llegué al edificio».
+    // La oficina (Documentos) no registra llegadas; una orden con llegada propia
+    // (anterior a las visitas) sigue como antes.
+    $visitFlow = ! \App\Support\Access\Access::can(auth()->user(), \App\Enums\PermissionArea::Documents);
+    $openSiteVisit = $visitFlow ? \App\Services\WorkOrders\SiteVisits::openFor(auth()->user()) : null;
+    $siteVisitHere = $openSiteVisit && (int) $openSiteVisit->building_id === (int) $building->id ? $openSiteVisit : null;
+    $needsArrival = $visitFlow && ! $siteVisitHere && ! $workOrder?->arrived_at;
+    $exceptionOpen = $needsArrival && (filled(old('arrival_exception')) || $errors->has('arrival_exception'));
 @endphp
 <x-app-layout>
 <div class="t-page max-w-2xl lg:max-w-2xl">
@@ -40,6 +48,39 @@
         </div>
     @endif
 
+    @if(session('success'))
+        <div class="t-alert-success mb-4" role="status">{{ session('success') }}</div>
+    @endif
+    @if(session('warning'))
+        <div class="t-alert-warning mb-4" role="alert">{{ session('warning') }}</div>
+    @endif
+
+    {{-- Paso 2: la llegada al edificio, antes del remito (fuera del formulario del remito). --}}
+    @if($siteVisitHere)
+        <p class="mb-4 text-sm text-ink-700" data-arrived-chip><span class="t-chip-progress">En el edificio</span> desde {{ \App\Services\WorkOrders\AttendanceTimes::time($siteVisitHere->arrived_at) }}. El remito no registra la salida: al terminar todo, «Finalizar visita y retirarme» en Inicio.</p>
+    @elseif($needsArrival)
+        <section class="t-card mb-4 p-4" data-arrival-step>
+            <h2 class="font-bold text-ink">Primero, la llegada</h2>
+            @if($openSiteVisit)
+                <p class="mt-1 rounded-xl bg-amber-50 p-3 text-sm text-amber-900" data-other-visit>
+                    Tenés una visita abierta en <strong>{{ $openSiteVisit->building?->name }}</strong>.
+                    <a class="font-semibold underline" href="{{ route('dashboard', ['company' => auth()->user()->company->slug]) }}">Finalizala</a> antes de registrar la llegada acá.
+                </p>
+            @else
+                <p class="mt-1 text-sm text-ink-700">Registrá que estás en {{ $building->name }}. Se guarda la hora de ahora; después completás el remito.</p>
+                <div class="mt-3">
+                    @include('partials.slide-confirm', ['action' => route('site-visits.arrive', ['company' => auth()->user()->company->slug, 'building_id' => $building->id, 'work_order_id' => $workOrder?->id]), 'label' => 'Llegué al edificio', 'name' => 'arrive-remito'])
+                </div>
+            @endif
+            <details class="mt-3 text-sm" id="arrival-exception-box" @if($exceptionOpen) open @endif>
+                <summary class="cursor-pointer text-ink-500">No pude registrar la llegada (hacer el remito igual)</summary>
+                <label for="arrival_exception" class="mt-2 block text-xs text-ink-700">Motivo (la oficina lo ve). La llegada queda «Sin registrar».</label>
+                <textarea id="arrival_exception" name="arrival_exception" form="remito-form" rows="2" maxlength="500" class="t-input mt-1" data-arrival-exception data-field="arrival_exception"
+                          data-required-message="Contá por qué no registraste la llegada (al menos 10 caracteres)." placeholder="Ej.: llegué sin señal y me olvidé de deslizarlo">{{ old('arrival_exception') }}</textarea>
+            </details>
+        </section>
+    @endif
+
     {{-- Sin fotos en el remito: las de antes y después se cargan y se ven en su trabajo (Visitas o Trabajos). --}}
     @if(! $workOrder && ($assignmentType ?? null) === 'inspection' && auth()->user()->company?->hasWorkPhotos() && ! ($visitInfo['blocked'] ?? null))
         {{-- Inspección (plan Empresa): acceso al reporte antes de firmar. Fuera del formulario del remito. --}}
@@ -63,8 +104,10 @@
     {{-- Borrador por trabajo: una orden, o un tipo de visita de UN período (un borrador viejo de otro mes no se recupera en este remito). --}}
     {{-- novalidate: la validación la hace este formulario (marca cada campo y lleva al primero) y la repite el servidor. --}}
     <form method="POST" action="{{ route('delivery-notes.store', ['company' => auth()->user()->company->slug]) }}" id="remito-form" class="space-y-4" novalidate
+          @if($needsArrival && ! $exceptionOpen) hidden @endif
           data-draft="remito.{{ auth()->id() }}.{{ $building->id }}.{{ $workOrder ? 'ot'.$workOrder->id : $assignmentType.'.'.$year.'-'.$month }}" @if($errors->any()) data-draft-restore="off" @endif>
         @csrf
+        @if($visitFlow)<input type="hidden" name="visit_flow" value="1">@endif
         @include('partials.draft-notice', ['media' => 'Las firmas y los materiales se vuelven a cargar.'])
         @if($workOrder)
             <input type="hidden" name="work_order_id" value="{{ $workOrder->id }}">
@@ -618,6 +661,17 @@ document.addEventListener('DOMContentLoaded', function () {
         formError.classList.remove('hidden');
     }
 
+    // Sin llegada: «No pude registrar la llegada» muestra el remito (con el motivo obligatorio).
+    const exceptionBox = document.getElementById('arrival-exception-box');
+    if (exceptionBox) {
+        exceptionBox.addEventListener('toggle', function () { form.hidden = !exceptionBox.open; });
+        exceptionBox.addEventListener('input', function (e) {
+            e.target.classList.remove('t-input-invalid');
+            const next = e.target.nextElementSibling;
+            if (next && next.dataset && next.dataset.clientError) next.remove();
+        });
+    }
+
     // Al corregir un campo, deja de estar en rojo.
     form.addEventListener('input', function (e) {
         if (!e.target.classList || !e.target.classList.contains('t-input-invalid')) return;
@@ -656,6 +710,10 @@ document.addEventListener('DOMContentLoaded', function () {
             if (!(amount > 0)) add(qty, 'Indicá una cantidad mayor que cero en el renglón ' + (i + 1) + '.');
         });
 
+        // Sin llegada registrada: el motivo es obligatorio (lo repite el servidor).
+        const exception = document.querySelector('[data-arrival-exception]');
+        if (exception && exception.value.trim().length < 10) add(exception, exception.dataset.requiredMessage);
+
         if (!pads.tech.dataURL) add(pads.tech.trigger, 'Falta tu firma: tocá el recuadro y firmá.');
         const techName = document.getElementById('tech-name');
         if (!techName.value.trim()) add(techName, techName.dataset.requiredMessage);
@@ -668,7 +726,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (Object.keys(serverErrors).length) {
         let first = null;
         Object.entries(serverErrors).forEach(function ([name, messages]) {
-            const el = form.querySelector('[data-field="' + name + '"]');
+            const el = document.querySelector('[data-field="' + name + '"]'); // el motivo sin llegada está fuera del formulario
             if (!el) return;
             fieldError(el, messages[0]);
             first = first || el;
@@ -716,17 +774,32 @@ form.addEventListener('submit', function (e) {
     pads.client.hiddenInput.value = pads.client.dataURL || '';
 });
 
+// Un solo toque. Con un campo enfocado (p. ej. la aclaración, justo arriba
+// del botón), el toque le quitaba el foco: el celular cerraba el teclado, la
+// página se reacomodaba y el «click» caía fuera del botón; había que tocar
+// otra vez. Se conserva el foco hasta el click (el teclado se cierra al
+// navegar): el botón no se mueve bajo el dedo.
+document.getElementById('submit-remito').addEventListener('pointerdown', function (e) {
+    const active = document.activeElement;
+    if (e.pointerType !== 'mouse' && active && active !== this && active.matches('input, textarea, select')) e.preventDefault();
+});
+
 // Volver atrás después de enviar (p. ej. desde una página de error sin
 // señal): el navegador puede restaurar esta página desde su caché con el
 // botón deshabilitado. Se rehabilita; el token del formulario evita duplicar.
 const submitText = document.getElementById('submit-text').textContent;
-window.addEventListener('pageshow', function (e) {
-    if (!e.persisted) return;
+function readyAgain() {
     sending = false;
     document.getElementById('submit-remito').disabled = false;
     document.getElementById('submit-remito').removeAttribute('aria-busy');
     document.getElementById('submit-text').textContent = submitText;
+}
+window.addEventListener('pageshow', function (e) {
+    if (e.persisted) readyAgain();
 });
+// Sin respuesta en 15 s (señal débil): el botón vuelve a andar, con su texto.
+// Reintentar es seguro: el mismo formulario (submission_token) no duplica el remito.
+form.addEventListener('ascento:released', readyAgain);
 
 });
 </script>

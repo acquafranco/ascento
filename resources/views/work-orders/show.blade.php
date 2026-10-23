@@ -24,7 +24,11 @@
     @php
         $times = \App\Services\WorkOrders\AttendanceTimes::summary($workOrder);
         $canArrive = \App\Services\WorkOrders\AttendanceTimes::canArrive(auth()->user(), $workOrder);
-        $canLeave = \App\Services\WorkOrders\AttendanceTimes::canLeave(auth()->user(), $workOrder);
+        // Visita técnica: la llegada y la salida son de la visita al edificio (SiteVisits).
+        $openVisit = \App\Services\WorkOrders\SiteVisits::openFor(auth()->user());
+        $otherVisit = $openVisit && (int) $openVisit->building_id !== (int) $workOrder->building_id ? $openVisit : null;
+        $visitHere = $openVisit && (int) $openVisit->id === (int) $workOrder->site_visit_id ? $openVisit : null;
+        $canLegacyLeave = $workOrder->site_visit_id === null && \App\Services\WorkOrders\AttendanceTimes::canLeave(auth()->user(), $workOrder);
         $fmt = fn ($at) => \App\Services\WorkOrders\AttendanceTimes::time($at);
         $dur = fn ($m) => \App\Services\WorkOrders\AttendanceTimes::duration($m);
     @endphp
@@ -43,12 +47,20 @@
             <div><dt class="text-ink-500">En el lugar</dt><dd class="mt-0.5 font-bold text-ink" data-duration="on_site">{{ $dur($times['on_site']) }}</dd></div>
             <div><dt class="text-ink-500">Total</dt><dd class="mt-0.5 font-bold text-ink" data-duration="total">{{ $dur($times['total']) }}</dd></div>
         </dl>
-        @if($canArrive)
-            <div class="mt-4">
+        @if($canArrive && $otherVisit)
+            <p class="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900" data-other-visit>
+                Tenés una visita abierta en <strong>{{ $otherVisit->building?->name }}</strong> (desde {{ $fmt($otherVisit->arrived_at) }}).
+                <a class="font-semibold underline" href="{{ route('dashboard', ['company' => auth()->user()->company->slug]) }}">Finalizala</a> antes de registrar la llegada acá.
+            </p>
+        @elseif($canArrive)
+            <div class="mt-4" id="llegada">
                 @include('partials.slide-confirm', ['action' => route('work-orders.arrive', ['company' => auth()->user()->company->slug, 'workOrder' => $workOrder->id]), 'label' => 'Llegué al edificio', 'name' => 'arrive'])
-                <p class="mt-1.5 text-xs text-ink-500">Deslizalo cuando estés en el edificio. Se guarda la hora de ahora y no se puede cambiar.</p>
+                <p class="mt-1.5 text-xs text-ink-500">Deslizalo cuando estés en el edificio. Se guarda la hora de ahora y no se puede cambiar. Después vas a poder hacer los trabajos y los remitos.</p>
             </div>
-        @elseif($canLeave)
+        @elseif($visitHere && $workOrder->status === 'in_progress' && ! $workOrder->deliveryNote)
+            <p class="mt-3 text-sm text-ink-700" data-next-step-hint>Siguiente paso: hacé el trabajo y su remito (botón de arriba). La salida se registra al final de la visita, con «Finalizar visita y retirarme».</p>
+        @elseif($canLegacyLeave)
+            {{-- Orden con llegada propia, anterior a las visitas técnicas. --}}
             <div class="mt-4">
                 @include('partials.slide-confirm', ['action' => route('work-orders.leave', ['company' => auth()->user()->company->slug, 'workOrder' => $workOrder->id]), 'label' => 'Terminé y me retiro', 'name' => 'leave'])
                 <p class="mt-1.5 text-xs text-ink-500">Cuando termines y te vayas del edificio. No cierra la orden ni reemplaza el remito con la firma.</p>
@@ -58,9 +70,15 @@
         @endif
     </section>
 
+    {{-- Visita en curso: con el remito de esta orden ya hecho, el paso final. --}}
+    @if($visitHere && $workOrder->status !== 'in_progress')
+        @include('partials.site-visit-card', ['siteVisit' => $visitHere])
+    @endif
+
     {{-- Trabajos de esta visita (intervenciones): cada problema por separado, en el mismo remito. --}}
     @php
-        $canAddJobs = $workOrder->acceptsJobsFrom(auth()->user());
+        // Los trabajos se suman después de la llegada (paso 3 de la visita).
+        $canAddJobs = $workOrder->acceptsJobsFrom(auth()->user()) && $workOrder->arrived_at !== null;
     @endphp
     @if($workOrder->jobs->isNotEmpty() || $canAddJobs)
         <section class="t-card mt-3 overflow-hidden" data-visit-jobs>

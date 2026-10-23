@@ -19,6 +19,10 @@
     @if(session('warning'))
         <div class="t-alert-warning mb-4" role="status">{{ session('warning') }}</div>
     @endif
+    {{-- Visita en curso: el remito no la cierra; acá está el paso final. --}}
+    @if($siteVisit ?? null)
+        <div class="mb-4">@include('partials.site-visit-card', ['siteVisit' => $siteVisit])</div>
+    @endif
     {{-- Salida sin registrar: firmar el remito no la registra (puede ser antes o después de irse). --}}
     @foreach($pendingExits ?? [] as $order)
         <a href="{{ route('work-orders.show', ['company' => auth()->user()->company->slug, 'workOrder' => $order->id]) }}" class="t-alert-warning mb-4 flex items-center justify-between gap-3" data-pending-exit>
