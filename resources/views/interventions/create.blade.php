@@ -55,7 +55,13 @@
                     <input type="search" id="buildingSearch" class="t-input" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="buildingResults"
                            placeholder="Nombre, calle y altura, barrio o cliente">
                     <p class="mt-1.5 text-xs text-ink-500">
-                        {{ $onCall ? 'Estás de guardia: podés elegir cualquier edificio de la empresa.' : 'Aparecen los edificios que tenés asignados.' }}
+                        @if($onCall)
+                            Estás de guardia: podés elegir cualquier edificio de la empresa.
+                        @elseif($coverage)
+                            Tenés autorización para urgencias: podés elegir cualquier edificio de la empresa.
+                        @else
+                            Aparecen los edificios que tenés asignados (o todos, mientras estés de guardia).
+                        @endif
                     </p>
                     <div id="buildingResults" role="listbox" class="mt-2 hidden max-h-80 overflow-y-auto rounded-xl border border-ink-100 bg-white"></div>
                 </div>

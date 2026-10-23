@@ -80,6 +80,15 @@ class UsersTable
                     ->color(fn ($state, $record) => $record->role !== 'technician' ? 'gray' : ($state > 0 ? 'success' : 'warning'))
                     ->tooltip('El técnico los activa desde Ascento en su celular (Inicio o Perfil).'),
 
+                // Autorización para registrar urgencias en cualquier edificio (se cambia en la ficha).
+                TextColumn::make('urgent_coverage_granted_at')
+                    ->label('Urgencias')
+                    ->state(fn ($record) => $record->hasUrgentCoverage() ? 'Cualquier edificio' : null)
+                    ->badge()
+                    ->color('warning')
+                    ->placeholder('—')
+                    ->toggleable(),
+
                 TextColumn::make('created_at')
                     ->label('Creado')
                     ->dateTime('d/m/Y H:i')

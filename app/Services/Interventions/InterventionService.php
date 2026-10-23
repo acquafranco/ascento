@@ -2,9 +2,9 @@
 
 namespace App\Services\Interventions;
 
-use App\Enums\PermissionArea;
 use App\Jobs\NotifyCompanyAdmins;
 use App\Models\Building;
+use App\Models\OnCallShift;
 use App\Models\Report;
 use App\Models\User;
 use App\Models\WorkOrder;
@@ -36,9 +36,10 @@ use Illuminate\Validation\ValidationException;
  * - Un remito firmado no se reescribe: un trabajo posterior es otra intervención.
  *
  * Reglas: solo dentro de la empresa del técnico; edificios asignados al
- * técnico (o cualquiera de la empresa mientras está de guardia, o si es el
- * dueño); nunca órdenes de otros técnicos; un reenvío del mismo formulario
- * (idempotency_key) no duplica nada.
+ * técnico (o cualquiera de la empresa mientras está de guardia, con la
+ * autorización de urgencias o si es el dueño); nunca órdenes de otros
+ * técnicos; un reenvío del mismo formulario (idempotency_key) no duplica
+ * nada. Abierta durante una guardia, la orden queda vinculada a ese turno.
  */
 class InterventionService
 {
@@ -60,25 +61,35 @@ class InterventionService
     /** ¿Está de guardia ahora? (cubre edificios que no tiene asignados) */
     public function isOnCallNow(User $user): bool
     {
+        return $this->currentShift($user) !== null;
+    }
+
+    /**
+     * Su turno de guardia vigente AHORA (turno activo y horario de la guardia
+     * que cubre este momento), o null. Si está en dos guardias, la primera.
+     */
+    public function currentShift(User $user): ?OnCallShift
+    {
         foreach ($this->onCall->onDutyAt((int) $user->company_id, now()) as $row) {
-            if ($row['shifts']->contains(fn ($shift) => (int) $shift->user_id === (int) $user->id)) {
-                return true;
+            if ($shift = $row['shifts']->first(fn ($shift) => (int) $shift->user_id === (int) $user->id)) {
+                return $shift;
             }
         }
 
-        return false;
+        return null;
     }
 
     /**
      * Edificios donde puede abrir una intervención: los activos de su empresa
-     * que tiene asignados; todos los de la empresa si es el dueño o si está de
-     * guardia en este momento.
+     * que tiene asignados; todos los de la empresa si es el dueño, si está de
+     * guardia en este momento o si tiene la autorización de urgencias
+     * (UrgentCoverage). Nunca de otra empresa.
      */
     public function buildingsQuery(User $user): Builder
     {
         $query = Building::withoutGlobalScopes()->where('company_id', $user->company_id)->where('is_active', true);
 
-        if (Access::isOwner($user) || Access::can($user, PermissionArea::WorkOrders, PermissionArea::MANAGE) || $this->isOnCallNow($user)) {
+        if (Access::isOwner($user) || $user->hasUrgentCoverage() || $this->isOnCallNow($user)) {
             return $query;
         }
 
@@ -111,7 +122,10 @@ class InterventionService
         $kind = self::KINDS[$data['kind']];
 
         try {
-            [$order, $report] = DB::transaction(function () use ($user, $building, $data, $photos, $idempotencyKey, $kind) {
+            // De guardia ahora: la orden queda en «Trabajos durante la guardia» de ese turno.
+            $shift = $this->currentShift($user);
+
+            [$order, $report] = DB::transaction(function () use ($user, $building, $data, $photos, $idempotencyKey, $kind, $shift) {
                 $order = new WorkOrder;
                 $order->forceFill([
                     'company_id' => $user->company_id,
@@ -124,6 +138,7 @@ class InterventionService
                     'unit' => $data['elevator_number'],
                     'component' => $data['component'] ?? null,
                     'started_at' => now(),
+                    'on_call_shift_id' => $shift?->id,
                     'notes' => $kind['label'].' ('.Report::CHANNELS[$data['channel']].'): '.$data['description'],
                 ])->save();
                 // Asignada a quien la abrió (las reglas del remito exigen la asignación).
