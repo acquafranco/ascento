@@ -23,6 +23,7 @@ use App\Services\Companies\CompanyEraser;
 use App\Services\Marketplace\MarketplaceRequests;
 use App\Services\Marketplace\SupplierEraser;
 use App\Support\Marketplace\Money;
+use App\Support\Marketplace\SalesReadiness;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -193,17 +194,17 @@ class MarketplaceOperationsTest extends TestCase
     {
         $super = User::factory()->superAdmin()->create();
         $this->actingInPanel($super);
-        config(['services.mercadopago.access_token' => null]);
+        config(['services.mercadopago.access_token' => null, 'services.mercadopago.webhook_secret' => null]);
         Livewire::test(MarketplaceSettingsPage::class)->assertSet('data.free_product_limit', 20)->assertSet('data.premium_product_limit', 1000)
-            ->set('data.premium_enabled', true)->call('save')->assertNotified('Falta el precio');
-        Livewire::test(MarketplaceSettingsPage::class)->set('data.premium_enabled', true)->set('data.premium_price', 25000)->call('save')->assertNotified('Mercado Pago no está configurado');
+            ->set('data.premium_enabled', true)->call('save')->assertNotified('No se guardó: falta configuración para vender');
+        Livewire::test(MarketplaceSettingsPage::class)->set('data.premium_enabled', true)->set('data.premium_price', 25000)->call('save')->assertNotified('No se guardó: falta configuración para vender');
         $this->assertFalse(MarketplaceSettings::current()->sellsPremium());
 
         // Bajar el límite gratuito deja fuera del límite lo que sobra (sin borrar) y queda auditado.
         [$supplier] = $this->makeSupplier();
         $this->makeProduct($supplier, ['name' => 'Uno']);
         $this->makeProduct($supplier, ['name' => 'Dos']);
-        config(['services.mercadopago.access_token' => 'APP_USR-TEST']);
+        config(['services.mercadopago.access_token' => 'APP_USR-TEST', 'services.mercadopago.webhook_secret' => 'clave-del-webhook']);
         // Un país sin pasarela no se puede habilitar.
         Livewire::test(MarketplaceSettingsPage::class)->set('data.billing_countries', ['AR', 'CL'])->call('save')->assertHasErrors('data.billing_countries.1');
         Livewire::test(MarketplaceSettingsPage::class)->set('data.premium_enabled', true)->set('data.premium_price', 25000)->set('data.free_product_limit', 1)
@@ -214,5 +215,49 @@ class MarketplaceOperationsTest extends TestCase
         $this->assertSame(1, SupplierProduct::where('status', SupplierProduct::PUBLISHED)->count());
         $this->assertSame(2, SupplierProduct::count());
         $this->assertSame('marketplace.settings.updated', PlatformAuditLog::latest('id')->value('action'));
+    }
+
+    public function test_sales_only_turn_on_with_every_required_setting_and_never_show_secrets(): void
+    {
+        $this->actingInPanel(User::factory()->superAdmin()->create());
+        $blocked = 'No se guardó: falta configuración para vender';
+        $text = fn (array $data) => implode(' ', SalesReadiness::problems($data + ['billing_countries' => ['AR']], 'ARS'));
+
+        // Con el token pero sin la clave del webhook: no se enciende; se nombra la variable sin mostrar ningún valor.
+        config(['services.mercadopago.access_token' => 'APP_USR-123-SECRETO', 'services.mercadopago.webhook_secret' => null]);
+        $this->get(MarketplaceSettingsPage::getUrl())->assertOk()->assertSee('MERCADOPAGO_WEBHOOK_SECRET')->assertDontSee('APP_USR-123-SECRETO');
+        Livewire::test(MarketplaceSettingsPage::class)->set('data.billing_countries', ['AR'])->set('data.premium_enabled', true)->set('data.premium_price', 19900)
+            ->call('save')->assertNotified($blocked);
+        $this->assertStringContainsString('MERCADOPAGO_WEBHOOK_SECRET', $text(['premium_enabled' => true, 'premium_price' => 19900]));
+        $this->assertStringNotContainsString('APP_USR-123-SECRETO', $text(['premium_enabled' => true, 'premium_price' => 19900]));
+        $this->assertFalse(MarketplaceSettings::current()->sellsPremium());
+
+        // Con las credenciales: un precio con más de dos decimales, un país sin pasarela o en otra moneda, o ningún país, tampoco.
+        config(['services.mercadopago.webhook_secret' => 'clave-ultrasecreta']);
+        $this->assertSame('', $text(['premium_enabled' => true, 'premium_price' => 19900]));
+        $this->assertStringContainsString('destacado por 7 días no es válido', $text(['featured_enabled' => true, 'featured_price_7' => '4900.555']));
+        $this->assertStringContainsString('al menos un precio', $text(['featured_enabled' => true]));
+        $this->assertStringContainsString('CL no tiene una pasarela', implode(' ', SalesReadiness::problems(['premium_enabled' => true, 'premium_price' => 19900, 'billing_countries' => ['CL']], 'ARS')));
+        $this->assertStringContainsString('no es la de ningún país', implode(' ', SalesReadiness::problems(['premium_enabled' => true, 'premium_price' => 19900, 'billing_countries' => ['AR']], 'XXX')));
+        $this->assertStringContainsString('al menos un país', implode(' ', SalesReadiness::problems(['premium_enabled' => true, 'premium_price' => 19900, 'billing_countries' => []], 'ARS')));
+        $this->assertStringNotContainsString('clave-ultrasecreta', $text(['featured_enabled' => true]));
+        Livewire::test(MarketplaceSettingsPage::class)->set('data.billing_countries', [])->set('data.premium_enabled', true)->set('data.premium_price', 19900)
+            ->call('save')->assertNotified($blocked);
+        $this->assertFalse(MarketplaceSettings::current()->sellsPremium());
+
+        // En producción, una credencial de prueba (TEST-) no sirve para cobrar.
+        config(['services.mercadopago.access_token' => 'TEST-abc']);
+        $this->app['env'] = 'production';
+        $problems = SalesReadiness::gatewayProblems();
+        $this->app['env'] = 'testing';
+        $this->assertCount(1, $problems);
+        $this->assertStringContainsString('credencial de prueba', $problems[0]);
+        $this->assertStringNotContainsString('TEST-abc', $problems[0]);
+
+        // Con todo lo obligatorio se guarda, y los precios quedan en la configuración central.
+        config(['services.mercadopago.access_token' => 'APP_USR-123-SECRETO']);
+        Livewire::test(MarketplaceSettingsPage::class)->set('data.billing_countries', ['AR'])->set('data.featured_enabled', true)
+            ->set('data.featured_price_7', 4900)->set('data.featured_price_30', 9900)->call('save')->assertNotified('Configuración guardada');
+        $this->assertSame([7 => 4900.0, 30 => 9900.0], MarketplaceSettings::current()->featuredOffers());
     }
 }

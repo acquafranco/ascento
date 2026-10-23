@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Marketplace;
 
+use App\Filament\Pages\Marketplace\PartsCatalog;
 use App\Models\User;
 use App\Notifications\Marketplace\MarketplaceNotice;
 use App\Services\Marketplace\FeaturedPlacements;
@@ -11,6 +12,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Livewire\Livewire;
 use RuntimeException;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\Feature\Marketplace\Concerns\MakesMarketplace;
@@ -102,6 +104,15 @@ class ServicesCleanupMigrationTest extends TestCase
         $this->assertSame($before, $this->snapshot());
         $this->assertSame($commercialNotices, DB::table('notifications')->orderBy('id')->pluck('dedupe_key')->all());
         $this->assertSame($commercialAudit, DB::table('platform_audit_logs')->orderBy('id')->pluck('action')->all());
+
+        // Después de la limpieza, el catálogo y los pedidos siguen funcionando.
+        $this->actingInPanel($t['admin']);
+        Livewire::test(PartsCatalog::class)->assertOk()->assertSee($product->name);
+        $order = app(MarketplaceRequests::class)->create($t['admin'], $supplier->id, [$product->id => 3], ['contact_name' => 'Ana', 'contact_email' => 'ana@e.test'], 'pedido-despues');
+        $this->assertSame(3, (int) $order->items()->value('quantity'));
+        $this->actingAs($supplierUser)->get(route('suppliers.requests.show', $order->reference))->assertOk()->assertSee($product->name);
+        $this->get(route('suppliers.products.index'))->assertOk()->assertSee($product->name);
+        $before = $this->snapshot();
 
         // Ida y vuelta: down recrea la estructura vacía y up vuelve a limpiar.
         $migration->down();

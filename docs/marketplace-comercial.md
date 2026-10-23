@@ -211,18 +211,32 @@ Qué se verificó en el código y con pruebas automatizadas (respuestas simulada
 - **Conciliación:** `marketplace:reconcile-payments` (cada 6 h) relee lo que pudo perderse.
 - **Proveedores de otros países:** usan el plan gratuito sin ver opciones de pago ni poder contratar.
 
-Pasos, en orden (con aprobación expresa para cada uno):
+**Bloqueos automáticos** (`App\Support\Marketplace\SalesReadiness`):
+- «Configuración del marketplace» no guarda una venta encendida si falta alguno de estos requisitos:
+  - `MERCADOPAGO_ACCESS_TOKEN`; en producción, además, que no sea `TEST-`;
+  - `MERCADOPAGO_WEBHOOK_SECRET`;
+  - un precio válido: mayor a cero y con 2 decimales como máximo;
+  - al menos un país con pasarela;
+  - la moneda de los precios igual a la de esos países.
+- La misma página muestra qué falta en el servidor, con el nombre de cada variable y nunca su valor.
+- Aunque la venta quede encendida, si después falta el token o la clave, no se ofrece ni se empieza ningún cobro nuevo. Cancelar un Premium ya pagado sigue funcionando solo con el token, para que nadie quede cobrado sin poder darse de baja.
 
-1. **Credenciales de prueba.** En un entorno que NO sea producción, configurar las credenciales de un **usuario de prueba vendedor** de Mercado Pago (las de usuarios de prueba también empiezan con `APP_USR-`: confirmarlo en el panel de Mercado Pago antes de usarlas) y `MERCADOPAGO_TEST_PAYER_EMAIL` con el correo exacto del usuario de prueba comprador. `APP_URL` debe ser una dirección pública con https (Mercado Pago la exige para volver y para los webhooks).
-2. **Webhooks de la app de prueba:** temas «Planes y suscripciones» y «Pagos», con su clave secreta en `MERCADOPAGO_WEBHOOK_SECRET`.
-3. **Sandbox, con resultados esperados:**
-   - Premium: contratar → cuota aprobada → «Premium» y límite 1.000; cuota rechazada → sigue gratuito y se avisa; cancelar → Premium hasta el fin del período y sin cobros nuevos.
-   - Destacado: comprar 7 y 30 días → pago aprobado → activo con la etiqueta; pago rechazado → no se activa; devolución desde Mercado Pago → se cancela y queda «devuelto».
-   - Volver del checkout sin pagar (o tocando la URL) → no se activa nada.
-   - Repetir un webhook → sin cambios.
-4. **Producción:** `MERCADOPAGO_WEBHOOK_SECRET` cargada, webhooks «Planes y suscripciones» y «Pagos» activos en la app productiva con la URL `https://ascento.online/api/mercadopago/webhook`.
-5. **Panel:** cargar los precios aprobados y recién entonces encender «Vender Premium» y «Vender destacados» (el panel no deja encenderlos sin Mercado Pago configurado ni sin precio).
-6. **Comprobar** con la consulta 2 de `docs/sql/auditoria-marketplace.sql` y una primera compra real de bajo importe, devuelta después, si se decide.
+**Qué falta hoy para cobrar:**
+1. **Saber de qué cuenta es la credencial de tu `.env` local.** Empieza con `APP_USR-`, igual que las de usuarios de prueba. Lo dice `php artisan mercadopago:check`, que solo consulta la cuenta.
+2. **`MERCADOPAGO_WEBHOOK_SECRET`:** no está en el `.env` local. En producción no lo sé.
+3. **Webhook «Pagos» activo en la app de Mercado Pago:** lo necesitan los destacados.
+4. **Las pruebas de sandbox** de `docs/marketplace-pruebas-sandbox.md`.
+5. **Los precios aprobados**, cargados en el panel.
+
+**Pasos, en orden** (con aprobación expresa para cada uno):
+1. Sandbox completo según `docs/marketplace-pruebas-sandbox.md`, en un entorno que no sea producción.
+2. En producción:
+   - `php artisan mercadopago:check`: debe decir que la cuenta **no** es de prueba, y no debe marcar problemas;
+   - `MERCADOPAGO_WEBHOOK_SECRET` cargada;
+   - webhooks «Planes y suscripciones» y «Pagos» activos con `https://ascento.online/api/mercadopago/webhook`;
+   - `php artisan optimize`.
+3. En el panel, cargar los precios aprobados y recién entonces encender «Vender Premium» y «Vender destacados».
+4. Comprobar con la consulta 2 de `docs/sql/auditoria-marketplace.sql`.
 
 ## 9. Cláusulas que requieren revisión profesional (`LEGAL_REVIEWED=false`)
 

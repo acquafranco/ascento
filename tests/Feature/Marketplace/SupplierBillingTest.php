@@ -186,6 +186,36 @@ class SupplierBillingTest extends TestCase
         $this->assertSame(SupplierSubscription::CANCELED, SupplierSubscription::sole()->status);
     }
 
+    public function test_without_the_webhook_secret_nothing_new_is_offered_or_started(): void
+    {
+        // Sin la clave del webhook no se podría confirmar un pago: no se ofrece ni se empieza ningún cobro nuevo.
+        config(['services.mercadopago.webhook_secret' => null]);
+        [$supplier, $user] = $this->makeSupplier();
+        $product = $this->makeProduct($supplier);
+        $this->actingAs($user)->get(route('suppliers.billing'))->assertOk()->assertDontSee('Contratar Premium con Mercado Pago');
+        $this->post(route('suppliers.billing.subscribe'))->assertSessionHasErrors('suscripcion');
+        $this->get(route('suppliers.featured'))->assertOk()->assertDontSee('Pagar con Mercado Pago');
+        $this->post(route('suppliers.featured.purchase'), ['producto' => $product->id, 'dias' => 7])->assertSessionHasErrors('destacado');
+        $this->assertArrayNotHasKey('created_preapprovals', $this->api);
+        $this->assertArrayNotHasKey('preferences', $this->api);
+        $this->assertTrue($product->fresh()->isVisible()); // el plan gratuito sigue igual
+    }
+
+    public function test_without_the_webhook_secret_a_paid_premium_can_still_be_cancelled(): void
+    {
+        [$supplier, $user] = $this->makeSupplier();
+        $this->actingAs($user)->post(route('suppliers.billing.subscribe'));
+        $this->preapproval('PRE1', $supplier, 'authorized');
+        $this->installment('AP1', 'PRE1', $supplier, 'approved');
+        $this->webhook('subscription_authorized_payment', 'AP1');
+        $this->assertSame(SupplierSubscription::AUTHORIZED, SupplierSubscription::sole()->status);
+
+        // Si después falta la clave, quien ya pagó puede cancelar igual (para que no se le siga cobrando).
+        config(['services.mercadopago.webhook_secret' => null]);
+        $this->post(route('suppliers.billing.cancel'))->assertSessionHasNoErrors();
+        $this->assertSame(SupplierSubscription::CANCELED, SupplierSubscription::sole()->status);
+    }
+
     public function test_featured_listings_activate_only_after_payment_and_end_when_not_eligible(): void
     {
         $super = User::factory()->superAdmin()->create();
@@ -410,11 +440,18 @@ class SupplierBillingTest extends TestCase
         // Premium: el preapproval sale con el precio de la configuración.
         $this->post(route('suppliers.billing.subscribe'));
         $this->assertSame(19900.0, (float) $this->api['created_preapprovals'][0]['auto_recurring']['transaction_amount']);
+        $this->assertSame([19900.0, 'ARS'], [(float) SupplierSubscription::sole()->amount, SupplierSubscription::sole()->currency]);
+        MarketplaceSettings::current()->update(['premium_price' => 25000]);
+        $this->assertSame(19900.0, (float) SupplierSubscription::sole()->fresh()->amount); // la suscripción creada no cambia
 
         // Si cambia la tarifa, la compra ya creada conserva su precio y se valida contra él.
         MarketplaceSettings::current()->update(['featured_price_7' => 6000]);
         $this->api['/v1/payments/950'] = ['id' => 950, 'status' => 'approved', 'external_reference' => $placement->external_reference, 'transaction_amount' => 6000, 'currency_id' => 'ARS'];
         $this->webhook('payment', '950')->assertOk()->assertJson(['status' => 'featured_amount_mismatch']);
+        $this->assertSame(FeaturedPlacement::PENDING_PAYMENT, $placement->fresh()->status);
+        // El mismo importe en otra moneda tampoco cuenta.
+        $this->api['/v1/payments/952'] = ['id' => 952, 'status' => 'approved', 'external_reference' => $placement->external_reference, 'transaction_amount' => 4900, 'currency_id' => 'USD'];
+        $this->webhook('payment', '952')->assertOk()->assertJson(['status' => 'featured_amount_mismatch']);
         $this->assertSame(FeaturedPlacement::PENDING_PAYMENT, $placement->fresh()->status);
         $this->api['/v1/payments/951'] = ['id' => 951, 'status' => 'approved', 'external_reference' => $placement->external_reference, 'transaction_amount' => 4900, 'currency_id' => 'ARS'];
         $this->webhook('payment', '951')->assertOk()->assertJson(['status' => 'featured_approved']);
@@ -422,7 +459,7 @@ class SupplierBillingTest extends TestCase
         $this->assertSame('4900.00', (string) SupplierPayment::where('mp_payment_id', '951')->value('amount'));
 
         // Los términos muestran los precios solo mientras se venden.
-        $this->get(route('legal.terms'))->assertSee('Precio vigente: ARS 19.900 por mes')->assertSee('7 días, ARS 6.000; 30 días, ARS 9.900');
+        $this->get(route('legal.terms'))->assertSee('Precio vigente: ARS 25.000 por mes')->assertSee('7 días, ARS 6.000; 30 días, ARS 9.900');
         MarketplaceSettings::current()->update(['premium_enabled' => false, 'featured_enabled' => false]);
         $this->get(route('legal.terms'))->assertDontSee('Precio vigente')->assertDontSee('Precios vigentes');
     }

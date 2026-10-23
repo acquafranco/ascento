@@ -30,32 +30,46 @@ La función se retiró del código en el PR #122 (`19eb80d`). Esta etapa borra l
 - Si hay alguna, la migración **se detiene sin borrar nada**: sin la columna, esa cuenta pasaría a vender repuestos sin haber cargado su CUIT.
 - Hay que decidir caso por caso: pedirle el CUIT y que lo valide el SuperAdmin, o cerrar la cuenta.
 
-## 2. Procedimiento en producción (cada paso con aprobación)
+## 2. Procedimiento en producción (nada se ejecuta sin aprobación)
 
-1. **Inventario (solo lectura):**
+Se usa el despliegue habitual de Forge, cuyo script ya incluye `php artisan migrate --force`; ver `docs/operacion-produccion.md` §7. No se borra nada con SQL manual.
+
+**Antes del despliegue**
+1. **Punto de vuelta atrás:** anotá el commit desplegado hoy (Forge → Deployments).
+2. **Comprobaciones previas** (solo lectura):
    ```
    mysql <conexión> <base> < docs/sql/limpieza-profesionales-inventario.sql > inventario-antes.txt
    ```
-   - La consulta C debe dar 0 filas.
-   - La E también debe dar 0 filas.
-   - Guardá el archivo: el bloque I (totales y `CHECKSUM TABLE`) se compara al final.
-   - Si la consulta A no devuelve filas, 2027_01_20 nunca corrió: las consultas C, D y F fallan porque esas tablas no existen. Es normal.
-2. **Copias de seguridad:**
-   - **Completa:** la de Forge o un `mysqldump` completo, como indica `docs/backups.md`.
+   - **A**, ¿se aplicó 2027_01_20?: si no devuelve filas, nunca se desplegó. Las consultas C, D y F fallan porque esas tablas no existen, y la migración solo borra avisos y auditoría, si los hay.
+   - **C**, cuentas «solo servicios»: **debe dar 0 filas**. Si devuelve alguna, se frena acá y se decide qué hacer con cada cuenta. La migración también se detendría sola.
+   - **E**, otras tablas que dependan de las de servicios: debe dar 0 filas.
+   - **D, G y H:** cuánto se va a borrar.
+   - **I:** totales y `CHECKSUM TABLE` comerciales, para comparar al final.
+3. **Copias de seguridad:**
+   - **Completa:** la de Forge o `php artisan backup:run`, verificada con `php artisan backup:verify <id>` (ver `docs/backups.md`).
    - **De lo que se borra:**
      ```
      bash docs/sql/limpieza-profesionales-backup.sh <base> ~/backup-limpieza-AAAAMMDD <opciones de conexión>
      ```
-     Comprobá que `conteos.txt` coincide con las consultas D, G y H del inventario. Guardá también `SHA256SUMS`.
-   - **Verificar la copia:** restaurala en una base aparte y contá las filas:
-     ```
-     (echo "SET FOREIGN_KEY_CHECKS=0;"; cat 2-suppliers.sql 1-tablas-servicios.sql) | mysql <conexión> <base_de_prueba>
-     ```
-3. **Despliegue** del PR de esta etapa. El paso `php artisan migrate --force` de Forge aplica 2027_01_21.
-4. **Verificación:**
-   - Repetí el inventario; las consultas que fallan porque las tablas ya no existen son esperables.
-   - El bloque I debe ser idéntico al de `inventario-antes.txt`.
-   - La consulta 12 de `docs/sql/auditoria-marketplace.sql` debe dar `0 | 0`.
+     `conteos.txt` debe coincidir con D, G y H del inventario.
+   - **Restaurabilidad:** importá `2-suppliers.sql` y `1-tablas-servicios.sql` en una base aparte, contá las filas y corré `shasum -a 256 -c SHA256SUMS`.
+   - Guardá todo fuera del servidor.
+
+**Despliegue**
+4. Merge del PR de `mejora/marketplace-cierre` y deploy normal de Forge. `migrate --force` aplica 2027_01_21.
+
+**Validación posterior**
+5. Revisar el registro del deploy:
+   - si figura `2027_01_21 … DONE`, la migración se aplicó;
+   - si figura «Hay proveedores registrados “solo servicios”», no se borró nada, y se decide caso por caso antes de volver a desplegar.
+6. `php artisan migrate:status`: 2027_01_21 debe figurar como `Ran`.
+7. Repetir el inventario. Las consultas sobre tablas ya borradas fallan, y es lo esperado. El bloque I debe ser **idéntico** al de `inventario-antes.txt`.
+8. La consulta 12 de `docs/sql/auditoria-marketplace.sql` debe dar `0 | 0`.
+9. Pruebas manuales:
+   - una empresa abre «Repuestos», busca, ve un producto y envía un pedido;
+   - el proveedor lo ve en «Pedidos»;
+   - `/profesionales` da 404.
+10. `php artisan ascento:check-production`: sin ✗.
 
 ## 3. Recuperación
 
@@ -81,16 +95,33 @@ La función se retiró del código en el PR #122 (`19eb80d`). Esta etapa borra l
   5. rollback, recuperación desde la copia, totales idénticos y migración de nuevo;
   6. bloqueo ante una cuenta «solo servicios».
 
-## 5. Cuestiones legales pendientes (requieren abogado o decisión comercial; `LEGAL_REVIEWED=false`)
+## 5. Textos legales: qué está corregido y qué falta (`LEGAL_REVIEWED=false`)
 
-1. **Titular:** razón social, CUIT y domicilio (`LEGAL_OWNER_*`). Hoy se muestran como «pendiente de completar».
-2. **Términos 17:** rol de intermediario sin comisión y exclusión de responsabilidad por la compraventa, el pago, el envío, la garantía y la compatibilidad declarada por el proveedor. Además, el alcance de la «mediación» ante incidencias.
-3. **Términos 18:**
-   - **Premium:** renovación automática, cancelación sin reintegro del período iniciado («salvo que corresponda por ley») y aviso previo de cambios de tarifa: ¿qué plazo es «anticipación razonable»?
-   - **Destacados:** el período corre aunque el proveedor pause la publicación, y se cancela por moderación, por quedar fuera del límite o por suspensión de la cuenta. Hay que definir si en esos casos corresponde devolver los días no usados. Hoy la devolución es a pedido y se revisa caso por caso.
-   - **Botón de arrepentimiento y derecho de revocación** en contrataciones a distancia, si a algún proveedor se lo considera consumidor.
-   - **Facturación** de Premium y destacados: comprobantes e impuestos, que no están implementados en Ascento.
-4. **Términos 20 y Privacidad 01/05:** ley aplicable, jurisdicción y transferencias internacionales para usuarios de otros países.
-5. **Conservación de datos:** plazo de conservación de los cobros a proveedores (plazo fiscal) y del historial de la otra parte después de un borrado.
-6. **Datos de «Profesionales y servicios» que se borran con 2027_01_21:** confirmar que no hay obligación de conservarlos, y que borrar sus registros de auditoría es aceptable.
-7. **Fecha de versión** (`config/legal.php`, hoy 2026-10-22): cambiarla solo cuando se publique esta versión, a la fecha real de publicación.
+Los datos del titular no se inventan: se muestran como «pendiente de completar» hasta cargar `LEGAL_OWNER_*`. La fecha de versión (`config/legal.php`, 2026-10-22) se cambia recién al publicar, a la fecha real de publicación.
+
+**Ya corregido en los textos**
+- No queda ninguna referencia a «Profesionales y servicios» en términos, privacidad, eliminación de datos ni cookies.
+  - Términos: se quitó la sección 19 y se renumeró; calculadora pasó a ser la 19 y ley aplicable, la 20.
+  - Privacidad: se quitó la fila de perfiles y solicitudes.
+- Términos 17: Ascento conecta compradores y proveedores, no vende, no cobra comisiones ni procesa pagos de repuestos. El pago, la factura, el envío, la entrega, la garantía y las devoluciones se acuerdan directamente entre las partes. Coincide con el código: no hay carrito ni pagos de repuestos, y ningún pedido se marca como pagado.
+- Términos 18: plan gratuito permanente, Premium, qué pasa al vencer o cancelar, destacados (activación, vencimiento, cancelación por moderación o fuera del límite, pausa, destacados de Ascento sin pisar días pagados), devoluciones a pedido y suspensión.
+  - Los precios se muestran solo mientras se venden.
+  - Los países con cobro salen de la configuración (antes había un texto fijo).
+- Privacidad y eliminación de datos: describen qué se guarda de proveedores, pedidos y cobros, qué se conserva al cerrar una cuenta y que el medio de pago se carga en Mercado Pago.
+
+**Decisiones comerciales pendientes**
+1. Precios de Premium y de los destacados (propuesta: ARS 19.900, 4.900 y 9.900), y cuándo encender las ventas.
+2. Si se devuelven los días no usados de un destacado cancelado por moderación, por quedar fuera del límite o por suspensión. Hoy la devolución es a pedido y se revisa caso por caso.
+3. Qué plazo concreto es «anticipación razonable» para avisar un cambio de tarifa.
+4. La regla al volver al plan gratuito sin elegir: «más recientes» o «más antiguas».
+5. Cobrar en otros países, lo que requiere una pasarela y precios en su moneda.
+6. Facturación de Premium y destacados (comprobantes), que no está implementada.
+
+**Requieren revisión profesional (abogado o contador)**
+1. Datos del titular (razón social, CUIT y domicilio) y su publicación.
+2. Términos 17: alcance de la exclusión de responsabilidad por la compraventa entre partes, la compatibilidad declarada por el proveedor y la «mediación» ante incidencias.
+3. Términos 18: renovación automática, cancelación sin reintegro del período iniciado, botón de arrepentimiento y derecho de revocación si algún proveedor cuenta como consumidor, y validez del aviso de cambios de tarifa.
+4. Términos 20 y Privacidad 01/05: ley aplicable, jurisdicción y transferencias internacionales para usuarios de otros países.
+5. Plazos de conservación de los cobros (obligación fiscal) y del historial de la otra parte después de un borrado.
+6. Que borrar los datos y la auditoría de «Profesionales y servicios» (2027_01_21) no choque con ninguna obligación de conservación.
+7. Obligaciones fiscales de facturar Premium y destacados.

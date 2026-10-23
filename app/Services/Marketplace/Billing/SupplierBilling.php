@@ -3,6 +3,7 @@
 namespace App\Services\Marketplace\Billing;
 
 use App\Models\Marketplace\Supplier;
+use App\Support\Marketplace\SalesReadiness;
 
 /**
  * Qué pasarela cobra a cada proveedor, según el país REGISTRADO y validado
@@ -30,9 +31,13 @@ final class SupplierBilling
         return $class ? app($class) : null;
     }
 
-    /** ¿Se le puede cobrar hoy (país con pasarela configurada)? */
+    /**
+     * ¿Se le puede empezar un cobro NUEVO hoy? País con pasarela configurada y,
+     * además, todo lo necesario para confirmar el pago (SalesReadiness). Cancelar
+     * o consultar un cobro existente usa solo isConfigured() de la pasarela.
+     */
     public static function canCharge(Supplier $supplier): bool
     {
-        return (bool) self::for($supplier)?->isConfigured();
+        return (bool) self::for($supplier)?->isConfigured() && SalesReadiness::gatewayReady();
     }
 }

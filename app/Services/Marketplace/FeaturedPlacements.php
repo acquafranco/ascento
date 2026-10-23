@@ -45,7 +45,7 @@ class FeaturedPlacements
         $why = match (true) {
             $price === null => 'Los destacados no están disponibles por ahora.',
             // Nunca se cobra en una moneda o con una pasarela que no corresponde al país del proveedor.
-            ! $settings->chargesIn($supplier->country) || ! $gateway?->isConfigured() => 'Los pagos no están disponibles en tu país todavía.',
+            ! $settings->chargesIn($supplier->country) || ! SupplierBilling::canCharge($supplier) => 'Los pagos no están disponibles en tu país todavía.',
             ! $supplier->isOperating() => 'Tu cuenta no está habilitada.',
             ! $product->isVisible() => 'Solo se puede destacar un producto publicado y visible en el catálogo.',
             default => null,
