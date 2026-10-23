@@ -133,12 +133,42 @@
             </div>
         </section>
 
+        {{-- 2a. Trabajos de la visita (intervenciones): qué se hizo en cada uno y cómo quedó. --}}
+        @php
+            $jobs = $workOrder ? $workOrder->jobs()->get() : collect();
+        @endphp
+        @if($jobs->isNotEmpty())
+            <section class="t-card space-y-4 p-4" data-remito-jobs>
+                <div>
+                    <h2 class="t-label mb-0">Trabajos de esta visita ({{ $jobs->count() }})</h2>
+                    <p class="text-xs text-ink-500">Cada uno queda por separado en el remito, con su resultado.</p>
+                </div>
+                @foreach($jobs as $i => $job)
+                    <div class="rounded-xl border border-ink-100 p-3" data-remito-job="{{ $job->id }}">
+                        <div class="text-sm font-bold text-ink">Trabajo {{ $i + 1 }} · {{ $job->elevator_number }}</div>
+                        <p class="mt-0.5 text-sm text-ink-700">{{ $job->description }}</p>
+                        <label class="t-label mt-3" for="job-{{ $job->id }}-done">Qué hiciste</label>
+                        <textarea id="job-{{ $job->id }}-done" name="jobs[{{ $job->id }}][work_done]" rows="3" maxlength="5000" required class="t-input resize-y" data-job-done>{{ old('jobs.'.$job->id.'.work_done') }}</textarea>
+                        @error('jobs.'.$job->id.'.work_done')<p class="mt-1 text-sm font-semibold text-red-600">{{ $message }}</p>@enderror
+                        <label class="t-label mt-3" for="job-{{ $job->id }}-result">Cómo quedó</label>
+                        <select id="job-{{ $job->id }}-result" name="jobs[{{ $job->id }}][result]" required class="t-input" data-job-result>
+                            <option value="">Elegí el resultado</option>
+                            @foreach(\App\Models\Report::RESULTS as $value => $label)
+                                <option value="{{ $value }}" @selected(old('jobs.'.$job->id.'.result') === $value)>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                        @error('jobs.'.$job->id.'.result')<p class="mt-1 text-sm font-semibold text-red-600">{{ $message }}</p>@enderror
+                    </div>
+                @endforeach
+            </section>
+        @endif
+
         {{-- 2. Trabajo --}}
         <section class="t-card space-y-4 p-4">
             <div>
-                <label class="t-label" for="description">Trabajo realizado</label>
-                <textarea name="description" id="description" data-draft-field rows="6" required maxlength="5000" class="t-input resize-y"
-                          placeholder="Detallá todo el trabajo realizado durante la visita">{{ old('description') }}</textarea>
+                <label class="t-label" for="description">{{ $jobs->isNotEmpty() ? 'Resumen de la visita (opcional)' : 'Trabajo realizado' }}</label>
+                <textarea name="description" id="description" data-draft-field rows="{{ $jobs->isNotEmpty() ? 3 : 6 }}" @if($jobs->isEmpty()) required @endif maxlength="5000" class="t-input resize-y" @if($jobs->isNotEmpty()) data-optional @endif
+                          placeholder="{{ $jobs->isNotEmpty() ? 'Si lo dejás vacío, el remito lista los trabajos de arriba' : 'Detallá todo el trabajo realizado durante la visita' }}">{{ old('description') }}</textarea>
                 @error('description')<p class="mt-1 text-sm font-semibold text-red-600">{{ $message }}</p>@enderror
             </div>
 
@@ -523,7 +553,17 @@ form.addEventListener('submit', function (e) {
 
     const description = document.getElementById('description');
 
-    if (!description.value.trim()) {
+    // Trabajos de la visita: cada uno con lo que se hizo y su resultado.
+    for (const field of document.querySelectorAll('[data-job-done], [data-job-result]')) {
+        if (!field.value.trim()) {
+            e.preventDefault();
+            showFormError('Completá qué hiciste y cómo quedó cada trabajo de la visita.');
+            field.focus();
+            return;
+        }
+    }
+
+    if (!description.value.trim() && !description.hasAttribute('data-optional')) {
         e.preventDefault();
         showFormError('Completá el campo "Trabajo realizado".');
         description.focus();

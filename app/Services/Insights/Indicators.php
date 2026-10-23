@@ -129,8 +129,10 @@ class Indicators
 
     private function claims(CarbonInterface $from, CarbonInterface $to): int
     {
+        // Fallas reportadas + reclamos de la oficina + cada problema atendido en una intervención del técnico.
         return Report::incidents()->whereBetween('created_at', [$from, $to])->count()
-            + WorkOrder::where('type', 'claim')->whereBetween('created_at', [$from, $to])->count();
+            + WorkOrder::claimSignals()->whereBetween('created_at', [$from, $to])->count()
+            + Report::interventionJobs()->whereBetween('created_at', [$from, $to])->count();
     }
 
     /**

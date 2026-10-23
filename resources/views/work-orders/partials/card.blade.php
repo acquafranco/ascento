@@ -21,6 +21,7 @@
             <span class="{{ $statusChip[$workOrder->status] ?? 't-chip-neutral' }}">{{ WorkOrderLabels::status($workOrder->status) }}</span>
             <span class="{{ $priorityChip[$workOrder->priority] ?? 't-chip-neutral' }}">Prioridad {{ mb_strtolower(WorkOrderLabels::priority($workOrder->priority)) }}</span>
             <span class="t-chip-neutral">{{ WorkOrderLabels::type($workOrder->type) }}</span>
+            @if($workOrder->isTechnicianInitiated())<span class="t-chip-neutral" data-technician-initiated>Iniciada por {{ (int) $workOrder->created_by === (int) auth()->id() ? 'vos' : 'un técnico' }}</span>@endif
             <span class="ml-auto text-xs font-semibold text-ink-500">{{ $workOrder->created_at->format('d/m/Y') }}</span>
         </div>
 

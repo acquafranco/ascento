@@ -76,9 +76,27 @@
         </table>
     </div>
 
+    @if ($doc['jobs'] ?? [])
+        <div class="box">
+            <div class="label" style="margin-bottom: 4px;">Trabajos realizados en la visita</div>
+            <table>
+                @foreach ($doc['jobs'] as $job)
+                    <tr class="keep" style="border-top: 1px solid #F1F2F5;">
+                        <td style="padding: 4px 0;">
+                            <strong>{{ $job['title'] }}</strong><br>
+                            Problema: {{ $job['problem'] }}
+                            @if ($job['done'])<br>Realizado: {{ $job['done'] }}@endif
+                        </td>
+                        <td style="padding: 4px 0; text-align: right; font-weight: bold; white-space: nowrap; vertical-align: top; color: {{ $job['ok'] ? '#166534' : '#92400E' }};">{{ $job['result'] }}</td>
+                    </tr>
+                @endforeach
+            </table>
+        </div>
+    @endif
+
     {{-- Trabajo realizado: puede seguir en la hoja siguiente --}}
     <div class="box">
-        <div class="label" style="margin-bottom: 4px;">Trabajo realizado</div>
+        <div class="label" style="margin-bottom: 4px;">{{ ($doc['jobs'] ?? []) ? 'Resumen' : 'Trabajo realizado' }}</div>
         <div class="text">{{ $doc['description'] ?: '—' }}</div>
     </div>
 

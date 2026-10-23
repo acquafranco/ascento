@@ -55,7 +55,7 @@ class WorkOrderResource extends Resource
     {
         return $table
             // Eager loading de lo que usan las columnas/acciones (evita N+1).
-            ->modifyQueryUsing(fn (Builder $query) => $query->with(['building', 'users', 'onCallShift.user', 'onCallShift.schedule']))
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['building', 'users', 'onCallShift.user', 'onCallShift.schedule', 'creator', 'deliveryNote'])->withCount('jobs'))
             ->columns([
 
                 Tables\Columns\TextColumn::make('building.name')
@@ -127,6 +127,18 @@ class WorkOrderResource extends Resource
                     ->label('Creado')
                     ->dateTime('d/m/Y H:i')
                     ->sortable(),
+                // Quién la originó: la oficina o un técnico desde su app (urgencia / no programada).
+                Tables\Columns\TextColumn::make('origin')
+                    ->label('Origen')
+                    ->badge()
+                    ->state(fn ($record) => $record->isTechnicianInitiated() ? 'Técnico: '.($record->creator?->name ?? '—') : 'Oficina')
+                    ->color(fn ($record) => $record->isTechnicianInitiated() ? 'warning' : 'gray')
+                    ->description(fn ($record) => $record->jobs_count ? $record->jobs_count.' '.($record->jobs_count === 1 ? 'trabajo' : 'trabajos') : null),
+                Tables\Columns\TextColumn::make('delivery_note_number')
+                    ->label('Remito')
+                    ->state(fn ($record) => $record->deliveryNote ? 'N.º '.$record->deliveryNote->number : null)
+                    ->placeholder('Sin remito')
+                    ->toggleable(),
                 // Trabajo originado durante una guardia (lo indica quien carga la orden).
                 Tables\Columns\TextColumn::make('on_call')
                     ->label('Guardia')
@@ -136,6 +148,18 @@ class WorkOrderResource extends Resource
             ])
 
             ->filters([
+                Tables\Filters\SelectFilter::make('origin')
+                    ->label('Origen')
+                    ->options(['office' => 'Creadas por la oficina', 'technician' => 'Iniciadas por técnicos'])
+                    ->query(fn (Builder $query, array $data) => match ($data['value'] ?? null) {
+                        'technician' => $query->where('origin', WorkOrder::ORIGIN_TECHNICIAN),
+                        'office' => $query->whereNull('origin'),
+                        default => $query,
+                    }),
+                // Documentación pendiente: en curso y sin remito (p. ej. una urgencia que todavía no se firmó).
+                Tables\Filters\Filter::make('pending_documentation')
+                    ->label('Documentación pendiente (en curso sin remito)')
+                    ->query(fn (Builder $query) => $query->where('status', 'in_progress')->whereDoesntHave('deliveryNote')),
                 Tables\Filters\TernaryFilter::make('on_call_shift_id')
                     ->label('Trabajos de guardia')
                     ->nullable()
@@ -156,6 +180,7 @@ class WorkOrderResource extends Resource
     {
         return [
             RelationManagers\MaterialsRelationManager::class,
+            RelationManagers\JobsRelationManager::class,
         ];
     }
 

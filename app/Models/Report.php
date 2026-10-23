@@ -34,7 +34,32 @@ class Report extends Model
 
     public const KIND_INSPECTION = 'inspection';
 
-    public const KIND_LABELS = [self::KIND_INCIDENT => 'Falla', self::KIND_INSPECTION => 'Inspección'];
+    /**
+     * Un trabajo de una intervención que abrió el técnico (urgencia o trabajo
+     * no programado): va vinculado a la orden de esa visita (work_order_id) y
+     * se documenta en su remito. No consume el cupo de reportes: una urgencia
+     * nunca se bloquea por el plan (ver InterventionService).
+     */
+    public const KIND_INTERVENTION = 'intervention';
+
+    public const KIND_LABELS = [self::KIND_INCIDENT => 'Falla', self::KIND_INSPECTION => 'Inspección', self::KIND_INTERVENTION => 'Intervención'];
+
+    /** Por dónde llegó el reclamo que atendió el técnico. */
+    public const CHANNELS = [
+        'whatsapp' => 'WhatsApp',
+        'phone' => 'Llamada telefónica',
+        'building' => 'Encargado o vecino en el edificio',
+        'detected' => 'Detectado durante la visita',
+        'other' => 'Otro',
+    ];
+
+    /** Cómo quedó cada trabajo (se indica al firmar el remito). */
+    public const RESULTS = [
+        'resolved' => 'Resuelto',
+        'partial' => 'Resuelto parcialmente',
+        'follow_up' => 'Requiere otra visita',
+        'not_resolved' => 'No se pudo resolver',
+    ];
 
     use BelongsToCompany;
     use ConsumesPlanLimit;
@@ -139,12 +164,45 @@ class Report extends Model
      */
     public function planLimit(): ?PlanLimit
     {
-        return $this->exists || $this->isInspection() ? null : PlanLimit::ReportsPerMonth;
+        return $this->exists || $this->isInspection() || $this->isIntervention() ? null : PlanLimit::ReportsPerMonth;
     }
 
     public function isInspection(): bool
     {
         return $this->kind === self::KIND_INSPECTION;
+    }
+
+    public function isIntervention(): bool
+    {
+        return $this->kind === self::KIND_INTERVENTION;
+    }
+
+    /** Lo que ve el técnico en «Reportes»: sus fallas y sus intervenciones (las inspecciones van por Visitas). */
+    public function scopeTechnicianVisible(Builder $query): Builder
+    {
+        return $query->whereIn($query->qualifyColumn('kind'), [self::KIND_INCIDENT, self::KIND_INTERVENTION]);
+    }
+
+    /** Trabajos de intervenciones (cada problema atendido, con su equipo). */
+    public function scopeInterventionJobs(Builder $query): Builder
+    {
+        return $query->where($query->qualifyColumn('kind'), self::KIND_INTERVENTION);
+    }
+
+    /** Orden de la visita en la que se hizo este trabajo (solo intervenciones). */
+    public function workOrder()
+    {
+        return $this->belongsTo(WorkOrder::class)->withTrashed();
+    }
+
+    public function channelLabel(): ?string
+    {
+        return self::CHANNELS[$this->channel] ?? null;
+    }
+
+    public function resultLabel(): ?string
+    {
+        return self::RESULTS[$this->result] ?? null;
     }
 
     /** Solo reportes de falla (los de siempre). */

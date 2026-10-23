@@ -52,8 +52,7 @@ class FailureAnalysis
             Report::incidents()->where('created_at', '>', $since)->where('created_at', '<=', $until)->whereNotNull('elevator_number')
                 ->toBase()->get(['id', 'building_id', 'elevator_number', 'component'])
                 ->groupBy(fn ($r) => $r->building_id.'|'.$r->elevator_number),
-            WorkOrder::where('type', 'claim')->where('created_at', '>', $since)->where('created_at', '<=', $until)->whereNotNull('unit')
-                ->toBase()->get(['id', 'building_id', 'unit', 'component', 'status'])
+            $this->claimRows(fn ($q) => $q->where('created_at', '>', $since)->where('created_at', '<=', $until))
                 ->groupBy(fn ($o) => $o->building_id.'|'.$o->unit),
         ];
 
@@ -72,6 +71,27 @@ class FailureAnalysis
     }
 
     /**
+     * Reclamos atendidos de la ventana: los de la oficina (órdenes de tipo
+     * reclamo) y cada problema de las intervenciones del técnico, con SU
+     * equipo. La orden que abrió el técnico no se suma aparte (sería el mismo
+     * problema dos veces). Un trabajo cuenta como resuelto si quedó «Resuelto».
+     *
+     * @return Collection<int, object{id: int, building_id: int, unit: string, component: ?string, status: string}>
+     */
+    private function claimRows(\Closure $window, ?Elevator $elevator = null): Collection
+    {
+        $orders = WorkOrder::claimSignals()->whereNotNull('unit')->tap($window)
+            ->when($elevator, fn ($q) => $q->where('building_id', $elevator->building_id)->where('unit', $elevator->label))
+            ->toBase()->get(['id', 'building_id', 'unit', 'component', 'status']);
+        $jobs = Report::interventionJobs()->whereNotNull('elevator_number')->tap($window)
+            ->when($elevator, fn ($q) => $q->where('building_id', $elevator->building_id)->where('elevator_number', $elevator->label))
+            ->toBase()->get(['id', 'building_id', 'elevator_number', 'component', 'result'])
+            ->map(fn ($r) => (object) ['id' => 'job-'.$r->id, 'building_id' => $r->building_id, 'unit' => $r->elevator_number, 'component' => $r->component, 'status' => $r->result === 'resolved' ? 'completed' : 'open']);
+
+        return $orders->concat($jobs)->values();
+    }
+
+    /**
      * @return array{reports: int, claims: int, done: int, signals: int, by_component: array<string, int>, unclassified: int, recurrent: bool, message: ?string, days: int}
      */
     public function forElevator(Elevator $elevator, int $days = self::DAYS, ?CarbonInterface $until = null): array
@@ -81,9 +101,7 @@ class FailureAnalysis
         $reports = Report::incidents()->where('building_id', $elevator->building_id)->where('elevator_number', $elevator->label)
             ->where('created_at', '>', $since)->where('created_at', '<=', $until)
             ->get(['id', 'component']);
-        $claims = WorkOrder::where('building_id', $elevator->building_id)->where('unit', $elevator->label)->where('type', 'claim')
-            ->where('created_at', '>', $since)->where('created_at', '<=', $until)
-            ->get(['id', 'component', 'status']);
+        $claims = $this->claimRows(fn ($q) => $q->where('created_at', '>', $since)->where('created_at', '<=', $until), $elevator);
 
         return $this->summarize($elevator, $reports, $claims, $days);
     }

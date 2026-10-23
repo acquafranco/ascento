@@ -4,12 +4,14 @@ namespace App\Filament\Resources\Reports;
 
 use App\Enums\PermissionArea;
 use App\Filament\Concerns\GuardedByPermission;
+use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
 use App\Filament\Resources\Reports\Pages\CreateReport;
 use App\Filament\Resources\Reports\Pages\EditReport;
 use App\Filament\Resources\Reports\Pages\ListReports;
 use App\Filament\Resources\Reports\Pages\ViewReport;
 use App\Filament\Resources\Reports\Schemas\ReportForm;
 use App\Filament\Resources\Reports\Tables\ReportsTable;
+use App\Filament\Resources\WorkOrders\WorkOrderResource;
 use App\Models\Company;
 use App\Models\Report;
 use BackedEnum;
@@ -93,6 +95,23 @@ class ReportResource extends Resource
                         ->label('Técnico'),
                 ]),
 
+            // Intervención que abrió el técnico: de dónde vino, en qué orden y remito quedó, y cómo terminó.
+            Section::make('Intervención del técnico')
+                ->visible(fn (Report $record) => $record->isIntervention())
+                ->columns(2)
+                ->schema([
+                    TextEntry::make('channel')->label('Reclamo recibido por')->formatStateUsing(fn (?string $state) => Report::CHANNELS[$state] ?? '—'),
+                    TextEntry::make('result')->label('Resultado')->badge()->placeholder('Pendiente del remito')
+                        ->formatStateUsing(fn (?string $state) => Report::RESULTS[$state] ?? '—'),
+                    TextEntry::make('workOrder.id')->label('Orden de trabajo')->placeholder('—')
+                        ->formatStateUsing(fn ($state, Report $record) => 'N.º '.$state.($record->workOrder?->isTechnicianInitiated() ? ' · iniciada por el técnico' : ' · creada por la oficina'))
+                        ->url(fn (Report $record) => $record->work_order_id ? WorkOrderResource::getUrl('edit', ['record' => $record->work_order_id]) : null),
+                    TextEntry::make('workOrder.deliveryNote.number')->label('Remito')->placeholder('Todavía sin remito')
+                        ->formatStateUsing(fn ($state) => 'N.º '.$state)
+                        ->url(fn (Report $record) => $record->workOrder?->deliveryNote ? DeliveryNoteResource::getUrl('view', ['record' => $record->workOrder->deliveryNote]) : null),
+                    TextEntry::make('work_done')->label('Trabajo realizado')->placeholder('Se completa al firmar el remito')->columnSpanFull(),
+                ]),
+
             Section::make('Evidencia fotográfica')
                 ->columns(2)
                 ->schema([
@@ -142,7 +161,7 @@ class ReportResource extends Resource
 
         // Reportes de inspección: exclusivos del plan Empresa (se conservan, sin acceso).
         if (! Company::hasWorkPhotosById((int) $companyId)) {
-            $query->where('kind', Report::KIND_INCIDENT);
+            $query->where('kind', '!=', Report::KIND_INSPECTION);
         }
 
         return $query;

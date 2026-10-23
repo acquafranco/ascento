@@ -32,8 +32,8 @@ class ReportController extends Controller
             ->where('company_id', $company->id)
             ->where('company_id', auth()->user()->company_id)
             ->where('user_id', auth()->id())
-            // Los reportes de inspección se ven desde su inspección (Visitas).
-            ->incidents()
+            // Fallas e intervenciones (urgencias); los de inspección se ven desde su inspección (Visitas).
+            ->technicianVisible()
             ->latest()
             ->paginate(15);
 
@@ -111,6 +111,7 @@ class ReportController extends Controller
             'user',
             'photos',
             'video',
+            'workOrder.deliveryNote',
         ]);
 
         return view('reports.show', compact('report', 'company'));

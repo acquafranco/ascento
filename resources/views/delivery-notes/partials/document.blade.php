@@ -83,8 +83,21 @@
         </div>
     </section>
 
+    @if ($doc['jobs'] ?? [])
+        <section class="rm-card" data-remito-jobs>
+            <div class="rm-label">Trabajos realizados en la visita</div>
+            @foreach ($doc['jobs'] as $job)
+                <div style="margin-top: .6rem; padding-top: .6rem; border-top: 1px solid #F1F2F5">
+                    <div style="display: flex; justify-content: space-between; gap: .75rem"><strong>{{ $job['title'] }}</strong>@if ($job['result'])<strong style="white-space: nowrap; color: {{ $job['ok'] ? '#166534' : '#92400E' }}">{{ $job['result'] }}</strong>@endif</div>
+                    <div class="rm-text"><span style="opacity: .7">Problema:</span> {{ $job['problem'] }}</div>
+                    @if ($job['done'])<div class="rm-text"><span style="opacity: .7">Realizado:</span> {{ $job['done'] }}</div>@endif
+                </div>
+            @endforeach
+        </section>
+    @endif
+
     <section class="rm-card">
-        <div class="rm-label">Trabajo realizado</div>
+        <div class="rm-label">{{ ($doc['jobs'] ?? []) ? 'Resumen' : 'Trabajo realizado' }}</div>
         <div class="rm-text">{{ $doc['description'] ?: '—' }}</div>
     </section>
 

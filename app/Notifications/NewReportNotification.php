@@ -44,6 +44,11 @@ class NewReportNotification extends Notification
 
     private function title(): string
     {
+        // Intervención que abrió el técnico (urgencia o trabajo no programado): la oficina se entera al momento.
+        if ($this->report->isIntervention()) {
+            return $this->report->priority === 'critica' ? '🚨 Urgencia atendida por un técnico' : '🛠️ Intervención de un técnico';
+        }
+
         return $this->report->priority === 'critica' ? '🚨 Reporte crítico' : '⚠️ Nuevo reporte';
     }
 
@@ -54,6 +59,7 @@ class NewReportNotification extends Notification
         return implode("\n", array_filter([
             $building ? trim("{$building->name} {$building->address}") : null,
             $this->report->user?->name ? 'Por '.$this->report->user->name : null,
+            $this->report->isIntervention() && $this->report->channelLabel() ? 'Reclamo por: '.$this->report->channelLabel() : null,
             $this->priorityLabel() ? 'Prioridad: '.$this->priorityLabel() : null,
             $this->report->description ? Str::limit(Str::squish($this->report->description), 100) : null,
         ]));
