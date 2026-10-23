@@ -21,7 +21,6 @@
             <li>Ascento es un <strong>software de gestión</strong>: sirve para registrar, organizar y comunicar información sobre el mantenimiento de ascensores. <strong>No mantiene, repara ni inspecciona ascensores</strong> y no reemplaza a la empresa conservadora, a los profesionales habilitados ni a los servicios de emergencia.</li>
             <li>Lo que se carga en Ascento (remitos, inspecciones, pruebas, fotos) lo cargan las empresas y sus técnicos. <strong>Un registro no prueba por sí solo que el trabajo se haya hecho bien</strong>.</li>
             <li>En <strong>Repuestos</strong>, Ascento conecta a empresas compradoras con proveedores: no vende, no cobra comisiones por las ventas ni procesa sus pagos, y no verifica la compatibilidad que declara cada proveedor. Pago, envío y entrega se acuerdan entre las partes (secciones 17 y 18).</li>
-            <li>En <strong>Profesionales y servicios</strong>, Ascento conecta a empresas de mantenimiento con especialistas. Publicar un perfil y recibir consultas es gratis; la información profesional la declara cada titular y Ascento no la verifica (sección 19).</li>
             <li>Ascento es una plataforma de gestión y comunicación. <strong>Un reporte desde el QR no es una solicitud de rescate</strong>: se registra e intenta avisar, pero no garantiza que alguien lo vea ni una respuesta inmediata. Ante un atrapamiento o un peligro: alarma o intercomunicador del ascensor y <strong>911</strong>.</li>
         </ul>
     </x-legal.note>
@@ -207,24 +206,11 @@
         </ul>
     </x-legal.section>
 
-    <x-legal.section n="19" title="Profesionales y servicios" id="profesionales">
-        <p>En «Profesionales y servicios», profesionales independientes, talleres y empresas de servicios publican un perfil para que las empresas de mantenimiento los contacten. <strong>Ascento conecta a las partes; no participa de la contratación.</strong></p>
-        <ul>
-            <li><strong>Gratis.</strong> Crear la cuenta, publicar el perfil, declarar especialidades y servicios, y recibir o responder solicitudes de contacto no tiene costo, sin vencimiento y sin límite de servicios. El perfil no consume publicaciones del catálogo de productos. Ascento no cobra comisiones por las contrataciones ni procesa pagos entre las partes.</li>
-            <li><strong>Una sola cuenta.</strong> Un proveedor de repuestos o una empresa de mantenimiento puede publicar su perfil con la misma cuenta. Para vender productos se necesita la identificación fiscal; para ofrecer solo servicios es opcional.</li>
-            <li><strong>Información declarada.</strong> Especialidades, experiencia, marcas, servicios y zonas los <strong>declara el titular del perfil</strong>, que es responsable de que sean ciertos. Ascento revisa cada perfil antes de publicarlo, pero <strong>no verifica títulos, matrículas, certificaciones ni experiencia</strong> y no muestra insignias de verificación. Antes de contratar, cada empresa debe pedir la documentación que necesite.</li>
-            <li><strong>Datos que se publican.</strong> El catálogo es público: muestra el nombre público, el tipo de perfil, la descripción, las especialidades, los servicios, las marcas, las zonas y el sitio web que el titular elija. Nunca muestra correos, teléfonos ni domicilios.</li>
-            <li><strong>Solicitudes de contacto.</strong> Solo las envían empresas con cuenta en Ascento. El profesional ve el nombre de la empresa y los datos de contacto que esta comparte en la solicitud; la empresa ve lo que el profesional responde. Cada parte debe usar esos datos solo para esa consulta. Hay límites de envío para frenar el spam. Ascento no abre el contenido de las solicitudes salvo por una necesidad administrativa (por ejemplo, un reporte o un posible fraude), y cada acceso queda registrado.</li>
-            <li><strong>Moderación.</strong> Ascento puede ocultar un perfil (deja de verse), suspenderlo (además, no recibe solicitudes nuevas ni puede responder) o resolver reportes cuando un perfil es engañoso, abusivo o no cumple estas reglas. El titular puede archivar su perfil cuando quiera. Las solicitudes y su historial se conservan.</li>
-            <li>Lo que acuerden las partes (presupuesto, trabajo, garantía y pago) es entre ellas y se rige por lo que pacten y por la normativa que corresponda.</li>
-        </ul>
-    </x-legal.section>
-
-    <x-legal.section n="20" title="Calculadora y servicio de implementación" id="implementacion">
+    <x-legal.section n="19" title="Calculadora y servicio de implementación" id="implementacion">
         <p>La calculadora del sitio sugiere un plan según los límites vigentes de cada uno y, cuando hay tarifas publicadas, estima el costo de que Ascento cargue los datos iniciales. Esa estimación es orientativa y no obliga a ninguna de las partes hasta que se confirme un presupuesto por escrito; si las tarifas no están publicadas, se muestra «a confirmar». El servicio de implementación, si se contrata, se presupuesta y se cobra aparte de la suscripción mensual.</p>
     </x-legal.section>
 
-    <x-legal.section n="21" title="Ley aplicable, reclamos y jurisdicción" id="ley">
+    <x-legal.section n="20" title="Ley aplicable, reclamos y jurisdicción" id="ley">
         <p>Estos términos se rigen por las leyes de la República Argentina. Si contratás o usás Ascento desde otro país, estos términos no excluyen las normas de ese país que no se puedan dejar de lado por contrato, que pueden aplicarse además de estas. Las operaciones de repuestos entre compradores y proveedores se rigen por lo que acuerden entre ellos y por la normativa que les corresponda. Antes de iniciar un reclamo, te pedimos que nos escribas a <a href="mailto:{{ $email }}">{{ $email }}</a> para intentar resolverlo.</p>
         <p>Las controversias se someten a los tribunales competentes según la ley aplicable. Si quien reclama es un consumidor, se respetan las reglas de competencia y los derechos que le reconoce la normativa de defensa del consumidor.</p>
         <p>Si alguna cláusula fuera inválida, el resto de los términos sigue vigente.</p>

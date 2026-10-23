@@ -8,8 +8,9 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Catálogo, plan y destacados del área de proveedores: solo para cuentas que
- * venden productos. Una cuenta que solo ofrece servicios va a su perfil, donde
- * puede habilitar la venta de productos cargando su identificación fiscal.
+ * venden productos (todas, salvo una anterior registrada «solo servicios», función
+ * retirada): esa va a su perfil, donde habilita la venta cargando su
+ * identificación fiscal.
  */
 class EnsureSupplierSellsProducts
 {
@@ -17,7 +18,7 @@ class EnsureSupplierSellsProducts
     {
         $supplier = $request->user()?->supplier;
         if ($supplier && ! $supplier->sellsProducts()) {
-            return redirect()->route('suppliers.profile.edit')->with('status', 'Tu cuenta ofrece solo servicios. Para vender productos, cargá tu identificación fiscal abajo.');
+            return redirect()->route('suppliers.profile.edit')->with('status', 'Tu cuenta todavía no tiene habilitada la venta de productos. Para vender repuestos, cargá tu identificación fiscal abajo.');
         }
 
         return $next($request);

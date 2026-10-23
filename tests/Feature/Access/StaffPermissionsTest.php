@@ -33,10 +33,6 @@ use App\Filament\Resources\MaintenanceServices\MaintenanceServiceResource;
 use App\Filament\Resources\Marketplace\FeaturedPlacementResource;
 use App\Filament\Resources\Marketplace\MarketplaceReportResource;
 use App\Filament\Resources\Marketplace\MarketplaceRequestResource;
-use App\Filament\Resources\Marketplace\ServiceCategoryResource;
-use App\Filament\Resources\Marketplace\ServiceContactRequestResource;
-use App\Filament\Resources\Marketplace\ServiceProfileReportResource;
-use App\Filament\Resources\Marketplace\ServiceProfileResource;
 use App\Filament\Resources\Marketplace\SupplierPaymentResource;
 use App\Filament\Resources\Marketplace\SupplierProductResource;
 use App\Filament\Resources\Marketplace\SupplierResource;
@@ -594,8 +590,7 @@ class StaffPermissionsTest extends TestCase
         $panel = Filament::getPanel('ascensores_app');
         $superAdminOnly = [CompanyResource::class, SubscriptionResource::class, SalesLeadResource::class,
             SupplierResource::class, SupplierProductResource::class, MarketplaceReportResource::class,
-            MarketplaceRequestResource::class, SupplierPaymentResource::class, FeaturedPlacementResource::class,
-            ServiceProfileResource::class, ServiceProfileReportResource::class, ServiceCategoryResource::class, ServiceContactRequestResource::class];
+            MarketplaceRequestResource::class, SupplierPaymentResource::class, FeaturedPlacementResource::class];
         $ownerOnly = [StaffUserResource::class];
 
         foreach ($panel->getResources() as $resource) {

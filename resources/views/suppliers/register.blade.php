@@ -1,15 +1,13 @@
 <x-guest-layout>
     <span class="font-mono text-xs tracking-widest text-amber-600 uppercase">Alta de proveedor</span>
-    <h1 class="mt-2 font-display font-semibold text-2xl tracking-tight text-ink">Ofrecé repuestos o servicios a empresas de ascensores</h1>
-    <p class="mt-1.5 text-sm text-ink/50">Publicá tu catálogo de repuestos, tu perfil profesional o los dos con la misma cuenta, y recibí consultas de empresas de mantenimiento. Revisamos cada cuenta antes de mostrarla.</p>
-    <p class="mt-1.5 text-sm text-ink/50" data-services-free>El perfil profesional es gratis: crearlo, publicarlo y recibir o responder solicitudes de contacto no tiene costo.</p>
+    <h1 class="mt-2 font-display font-semibold text-2xl tracking-tight text-ink">Vendé repuestos a empresas de ascensores</h1>
+    <p class="mt-1.5 text-sm text-ink/50">Publicá tu catálogo y recibí pedidos de cotización de empresas de mantenimiento. Revisamos cada cuenta antes de mostrarla.</p>
     <p class="mt-1.5 text-sm text-ink/50" data-supplier-free>Publicar es gratis para siempre: hasta {{ \App\Models\Marketplace\MarketplaceSettings::current()->freeLimit() }} productos a la vez, sin cargar una tarjeta. Ascento no cobra comisiones por tus ventas: el pago y la entrega los acordás directamente con cada comprador.</p>
 
     @include('auth.partials.account-type', ['current' => 'supplier'])
 
     @php
         $country = \App\Support\Countries::normalize(old('country', 'AR'));
-        $offer = in_array(old('offer', request('ofrezco')), ['products', 'services', 'both'], true) ? old('offer', request('ofrezco')) : 'products';
         $countryInfo = collect(\App\Support\Countries::LATAM)->map(fn ($c) => ['tax' => $c[2], 'example' => $c[3]]);
         $field = 'w-full rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink shadow-sm outline-none transition focus:border-rail-500 focus:ring-4 focus:ring-rail-100';
     @endphp
@@ -39,21 +37,8 @@
             </div>
         </div>
 
-        <fieldset>
-            <legend class="text-xs font-semibold text-ink/40 uppercase tracking-wide mb-3">¿Qué vas a ofrecer?</legend>
-            <div class="grid gap-2 sm:grid-cols-3">
-                @foreach(['products' => ['Repuestos y productos', 'Catálogo con pedidos de cotización.'], 'services' => ['Servicios profesionales', 'Perfil profesional: reparaciones, asistencia, consultoría.'], 'both' => ['Las dos cosas', 'Una sola cuenta para productos y servicios.']] as $value => [$label, $hint])
-                    <label class="flex cursor-pointer items-start gap-2 rounded-xl border border-ink/15 bg-white p-3 text-sm has-[:checked]:border-amber-500">
-                        <input type="radio" name="offer" value="{{ $value }}" @checked($offer === $value) data-supplier-offer class="mt-0.5 h-4 w-4 border-ink/20 text-amber-600">
-                        <span><span class="font-semibold text-ink">{{ $label }}</span><br><span class="text-ink/50">{{ $hint }}</span></span>
-                    </label>
-                @endforeach
-            </div>
-            <x-input-error :messages="$errors->get('offer')" class="mt-1.5" />
-        </fieldset>
-
         <div>
-            <div class="text-xs font-semibold text-ink/40 uppercase tracking-wide mb-3">Tu empresa o actividad</div>
+            <div class="text-xs font-semibold text-ink/40 uppercase tracking-wide mb-3">Tu empresa</div>
             <div class="space-y-4">
                 <div class="grid sm:grid-cols-2 gap-4">
                     <div>
@@ -79,8 +64,7 @@
                     </div>
                     <div>
                         <x-input-label for="tax_id" :value="\App\Support\Countries::taxIdLabel($country)" data-supplier-tax-label />
-                        <x-text-input id="tax_id" type="text" name="tax_id" :value="old('tax_id')" :required="$offer !== 'services'" :placeholder="\App\Support\Countries::taxIdExample($country)" />
-                        <p class="mt-1 text-xs text-ink/50" data-tax-optional @if($offer !== 'services') hidden @endif>Opcional si solo ofrecés servicios. Si después querés vender productos, la vas a tener que cargar.</p>
+                        <x-text-input id="tax_id" type="text" name="tax_id" :value="old('tax_id')" required :placeholder="\App\Support\Countries::taxIdExample($country)" />
                         <x-input-error :messages="$errors->get('tax_id')" class="mt-1.5" />
                     </div>
                 </div>
@@ -91,13 +75,13 @@
                         <x-input-error :messages="$errors->get('phone')" class="mt-1.5" />
                     </div>
                     <div>
-                        <x-input-label for="coverage" value="Zonas en las que vendés o trabajás" />
+                        <x-input-label for="coverage" value="Zonas a las que vendés o enviás" />
                         <x-text-input id="coverage" type="text" name="coverage" :value="old('coverage')" required placeholder="CABA y GBA; envíos a todo el país" />
                         <x-input-error :messages="$errors->get('coverage')" class="mt-1.5" />
                     </div>
                 </div>
-                <fieldset data-product-only @if($offer === 'services') hidden @endif>
-                    <legend class="text-sm font-medium text-ink">Rubros de repuestos</legend>
+                <fieldset>
+                    <legend class="text-sm font-medium text-ink">Rubros</legend>
                     <div class="mt-2 grid gap-1.5 sm:grid-cols-2">
                         @foreach(\App\Support\Marketplace\Catalog::CATEGORIES as $key => $label)
                             <label class="flex items-center gap-2 text-sm text-ink/80"><input type="checkbox" name="categories[]" value="{{ $key }}" @checked(in_array($key, (array) old('categories', []), true)) class="h-4 w-4 rounded border-ink/20"> {{ $label }}</label>
@@ -137,7 +121,7 @@
                 <span class="text-sm text-ink/50 leading-5">
                     Acepto los <a href="{{ route('legal.terms') }}" target="_blank" class="font-medium text-ink underline underline-offset-2 hover:text-amber-600">términos y condiciones</a>
                     y leí la <a href="{{ route('legal.privacy') }}" target="_blank" class="font-medium text-ink underline underline-offset-2 hover:text-amber-600">política de privacidad</a>.
-                    Lo que publique (precios, disponibilidad, compatibilidad y mi información profesional) es mi responsabilidad.
+                    Lo que publique (precios, disponibilidad y compatibilidad) es mi responsabilidad.
                 </span>
             </label>
             <x-input-error :messages="$errors->get('terms')" class="mt-1.5" />
@@ -145,7 +129,7 @@
 
         <div class="flex items-center justify-between gap-4 pt-2 border-t border-ink/10">
             <a class="mt-3 py-1 text-sm font-medium text-ink/50 hover:text-ink transition-colors" href="{{ route('login') }}">Ya tengo cuenta</a>
-            <x-primary-button class="mt-4">Crear cuenta</x-primary-button>
+            <x-primary-button class="mt-4">Crear cuenta de proveedor</x-primary-button>
         </div>
     </form>
     <script>
@@ -157,14 +141,6 @@
                 var c = info[country.value] || info.AR;
                 document.querySelector('[data-supplier-tax-label]').textContent = c.tax;
                 document.getElementById('tax_id').placeholder = c.example;
-            });
-            document.querySelectorAll('[data-supplier-offer]').forEach(function (radio) {
-                radio.addEventListener('change', function () {
-                    var servicesOnly = radio.value === 'services';
-                    document.getElementById('tax_id').required = !servicesOnly;
-                    document.querySelector('[data-tax-optional]').hidden = !servicesOnly;
-                    document.querySelector('[data-product-only]').hidden = servicesOnly;
-                });
             });
         })();
     </script>

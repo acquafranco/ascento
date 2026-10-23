@@ -32,9 +32,6 @@ use Illuminate\View\View;
  */
 class SupplierRegistrationController extends Controller
 {
-    /** products: vende repuestos · services: solo servicios profesionales · both: las dos cosas (misma cuenta). */
-    public const OFFERS = ['products', 'services', 'both'];
-
     public const TAX_ID_TAKEN = 'Ya hay un proveedor registrado con esa identificación fiscal. Si sos parte de esa empresa, ingresá con su cuenta o escribinos.';
 
     public function create(Request $request): View
@@ -51,26 +48,21 @@ class SupplierRegistrationController extends Controller
             $request->merge(['country' => Countries::DEFAULT]);
         }
         $country = Countries::normalize((string) $request->input('country'));
-        // Qué ofrece: productos (como siempre), solo servicios profesionales, o ambos.
-        $offer = in_array($request->input('offer'), self::OFFERS, true) ? $request->input('offer') : 'products';
-        $sellsProducts = $offer !== 'services';
 
         $data = $request->validate([
             'challenge' => [RegistrationChallenge::rule($request)],
             'supplier_name' => ['required', 'string', 'max:160'],
             'legal_name' => ['nullable', 'string', 'max:190'],
             'country' => ['required', Rule::in(array_keys(Countries::LATAM))],
-            'offer' => ['nullable', Rule::in(self::OFFERS)],
-            // Obligatoria para vender productos; opcional para quien solo ofrece servicios.
-            'tax_id' => [$sellsProducts ? 'required' : 'nullable', 'string', 'max:25', new TaxId($country),
+            'tax_id' => ['required', 'string', 'max:25', new TaxId($country),
                 function (string $attribute, $value, \Closure $fail) use ($country) {
-                    if (filled($value) && Supplier::where('country', $country)->where('tax_id', TaxId::format($country, $value))->exists()) {
+                    if (Supplier::where('country', $country)->where('tax_id', TaxId::format($country, $value))->exists()) {
                         $fail(self::TAX_ID_TAKEN);
                     }
                 }],
             'phone' => ['required', 'string', 'min:6', 'max:30', 'regex:/^[0-9+()\-\s]+$/'],
             'coverage' => ['required', 'string', 'max:255'],
-            'categories' => [$sellsProducts ? 'required' : 'nullable', 'array', 'min:1', 'max:'.count(Catalog::CATEGORIES)],
+            'categories' => ['required', 'array', 'min:1', 'max:'.count(Catalog::CATEGORIES)],
             'categories.*' => ['string', Rule::in(array_keys(Catalog::CATEGORIES))],
             'brands' => ['nullable', 'string', 'max:500'],
             'description' => ['nullable', 'string', 'max:2000'],
@@ -80,11 +72,11 @@ class SupplierRegistrationController extends Controller
             'terms' => ['accepted'],
         ], [
             'categories.required' => 'Elegí al menos un rubro.',
-            'coverage.required' => $sellsProducts ? 'Contanos a qué zonas vendés o enviás.' : 'Contanos en qué zonas trabajás.',
+            'coverage.required' => 'Contanos a qué zonas vendés o enviás.',
         ]);
 
         try {
-            [$supplier, $user] = DB::transaction(function () use ($data, $country, $sellsProducts) {
+            [$supplier, $user] = DB::transaction(function () use ($data, $country) {
                 $supplier = new Supplier([
                     'name' => trim($data['supplier_name']),
                     'legal_name' => filled($data['legal_name'] ?? null) ? trim($data['legal_name']) : null,
@@ -92,7 +84,7 @@ class SupplierRegistrationController extends Controller
                     'contact_email' => $data['email'],
                     'contact_phone' => trim($data['phone']),
                     'coverage' => trim($data['coverage']),
-                    'categories' => array_values(array_unique((array) ($data['categories'] ?? []))),
+                    'categories' => array_values(array_unique($data['categories'])),
                     'brands' => self::brands($data['brands'] ?? null),
                 ]);
                 $supplier->forceFill([
@@ -100,9 +92,8 @@ class SupplierRegistrationController extends Controller
                     'country' => $country,
                     // Moneda de sus precios según el país registrado (validado con su identificación fiscal).
                     'currency' => Supplier::currencyFor($country),
-                    'tax_id' => filled($data['tax_id'] ?? null) ? TaxId::format($country, $data['tax_id']) : null,
+                    'tax_id' => TaxId::format($country, $data['tax_id']),
                     'status' => Supplier::PENDING,
-                    'sells_products' => $sellsProducts,
                 ])->save();
 
                 $user = new User(['name' => $data['name'], 'email' => $data['email'], 'password' => Hash::make($data['password'])]);
@@ -123,16 +114,11 @@ class SupplierRegistrationController extends Controller
         $request->session()->regenerate();
 
         $notify = app(MarketplaceNotifier::class);
-        $what = match ($offer) {
-            'services' => 'para ofrecer servicios profesionales',
-            'both' => 'para vender repuestos y ofrecer servicios profesionales',
-            default => 'como proveedor de repuestos',
-        };
-        $notify->team('Proveedor nuevo para revisar', $supplier->name.' ('.Countries::name($supplier->country).') se registró '.$what.'.', '/admin/marketplace/proveedores/'.$supplier->id, 'supplier-new:'.$supplier->id, mail: true);
+        $notify->team('Proveedor nuevo para revisar', $supplier->name.' ('.Countries::name($supplier->country).') se registró como proveedor de repuestos.', '/admin/marketplace/proveedores/'.$supplier->id, 'supplier-new:'.$supplier->id, mail: true);
         // Constancia en su bandeja (el correo de confirmación de la cuenta ya sale aparte).
-        $notify->supplier($supplier, 'Recibimos tu solicitud', 'Estamos revisando tu cuenta. Te avisamos por correo cuando la aprobemos; mientras tanto podés completar tu perfil'.($sellsProducts ? ' y armar tu catálogo.' : ' profesional.'), '/proveedores', 'registered', mail: false, push: false);
+        $notify->supplier($supplier, 'Recibimos tu solicitud', 'Estamos revisando tu cuenta de proveedor. Te avisamos por correo cuando la aprobemos; mientras tanto podés completar tu perfil y armar tu catálogo.', '/proveedores', 'registered', mail: false, push: false);
 
-        return $offer === 'products' ? redirect()->route('suppliers.home') : redirect()->route('suppliers.service-profile.edit');
+        return redirect()->route('suppliers.home');
     }
 
     /** «Schindler, Otis, Orona» → lista corta, sin repetidos. */
