@@ -9,11 +9,15 @@ use App\Filament\Resources\WorkOrders\RelationManagers\JobsRelationManager;
 use App\Models\Building;
 use App\Models\BuildingVisit;
 use App\Models\DeliveryNote;
+use App\Models\Elevator;
 use App\Models\OnCallSchedule;
 use App\Models\Report;
 use App\Models\ReportPhoto;
 use App\Models\User;
 use App\Models\WorkOrder;
+use App\Services\Insights\ElevatorHistory;
+use App\Services\Insights\FailureAnalysis;
+use App\Services\Insights\Indicators;
 use App\Services\Interventions\InterventionService;
 use App\Services\OnCall\OnCallService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -398,8 +402,8 @@ class TechnicianInterventionTest extends TestCase
         WorkOrder::factory()->create(['building_id' => $this->a['building']->id, 'type' => 'claim', 'unit' => 'Ascensor 1', 'status' => 'completed']);
         Report::create(['building_id' => $this->a['building']->id, 'user_id' => $tech->id, 'elevator_number' => 'Ascensor 2', 'description' => 'Ruido en máquina', 'priority' => 'media']);
 
-        $elevator = fn (string $label) => \App\Models\Elevator::where('building_id', $this->a['building']->id)->where('label', $label)->sole();
-        $analysis = app(\App\Services\Insights\FailureAnalysis::class);
+        $elevator = fn (string $label) => Elevator::where('building_id', $this->a['building']->id)->where('label', $label)->sole();
+        $analysis = app(FailureAnalysis::class);
         $one = $analysis->forElevator($elevator('Ascensor 1'));
         $two = $analysis->forElevator($elevator('Ascensor 2'));
 
@@ -408,14 +412,14 @@ class TechnicianInterventionTest extends TestCase
         // Ascensor 2: la falla reportada + el problema atendido en la misma visita (antes se perdía: la orden decía «Ascensor 1»).
         $this->assertSame([1, 1, 0], [$two['reports'], $two['claims'], $two['done']]);
 
-        $history = app(\App\Services\Insights\ElevatorHistory::class);
+        $history = app(ElevatorHistory::class);
         $this->assertSame(1, $history->counts($elevator('Ascensor 2'))['claims']);
         $this->assertSame(2, $history->counts($elevator('Ascensor 1'))['claims']);
         $events = $history->events($elevator('Ascensor 2'), advanced: true);
         $this->assertTrue($events->contains(fn ($e) => str_contains($e['title'], 'Intervención del técnico') && $e['badge'] === 'Requiere otra visita'));
 
         // Indicadores del período: 1 falla + 1 reclamo de oficina + 2 problemas atendidos = 4 (no 5).
-        $claims = (new \ReflectionMethod(\App\Services\Insights\Indicators::class, 'claims'))->invoke(app(\App\Services\Insights\Indicators::class), now()->subDay(), now()->addDay());
+        $claims = (new \ReflectionMethod(Indicators::class, 'claims'))->invoke(app(Indicators::class), now()->subDay(), now()->addDay());
         $this->assertSame(4, $claims);
     }
 
