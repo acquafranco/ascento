@@ -1,9 +1,8 @@
 <x-supplier-layout title="Inicio">
     <h1 class="s-h1">Hola, {{ auth()->user()->name }}</h1>
-    <p class="s-sub">{{ $supplier->sellsProducts() ? 'Tu catálogo y los pedidos de cotización de empresas de mantenimiento.' : 'Para publicar repuestos, cargá tu identificación fiscal en «Mi perfil».' }}</p>
+    <p class="s-sub">Tu catálogo y los pedidos de cotización de empresas de mantenimiento.</p>
 
     @include('suppliers.partials.status-notice')
-    @if($supplier->sellsProducts())
     @include('suppliers.partials.usage', ['usage' => $usage])
 
     <div class="s-grid">
@@ -12,7 +11,6 @@
         <a class="s-card s-stat" href="{{ route('suppliers.products.index', ['estado' => 'published']) }}" style="text-decoration:none"><b>{{ $products['published'] ?? 0 }}</b><span class="s-muted">Productos publicados</span></a>
         <div class="s-card s-stat"><b>{{ $completed }}</b><span class="s-muted">Operaciones completadas (confirmadas por compradores)</span></div>
     </div>
-    @endif
     @if($hidden > 0)
         <div class="s-notice bad" style="margin-top:14px">{{ $hidden }} {{ $hidden === 1 ? 'producto está oculto' : 'productos están ocultos' }} por moderación. Abrilos en <a class="s-link" href="{{ route('suppliers.products.index') }}">Mi catálogo</a> para ver el motivo.</div>
     @endif
@@ -32,7 +30,6 @@
         @endforelse
     </section>
 
-    @if($supplier->sellsProducts())
     <section class="s-card">
         <h2 class="s-h2">Cómo funciona</h2>
         <ol class="s-muted" style="margin:0; padding-left:18px; font-size:14px; line-height:1.7">
@@ -43,5 +40,4 @@
         </ol>
         <p class="s-muted" style="margin-top:10px">Tu plan (gratuito o Premium) está en <a class="s-link" href="{{ route('suppliers.billing') }}">Plan</a>; la visibilidad adicional para un producto, en <a class="s-link" href="{{ route('suppliers.featured') }}">Destacados</a>.</p>
     </section>
-    @endif
 </x-supplier-layout>

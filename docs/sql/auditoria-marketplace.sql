@@ -73,20 +73,11 @@ HAVING publicadas > (SELECT IF(plan = 'premium', premium_product_limit, free_pro
 SELECT id, supplier_product_id, starts_at, ends_at, status FROM featured_placements
 WHERE status_reason = 'Destacado asignado antes del historial (migrado).';
 
--- 12. «Profesionales y servicios» (función retirada): ¿se llegó a aplicar su migración?
---     Sin filas: nunca se desplegó; NO ejecutes la 13 (sus tablas no existen).
-SELECT migration, batch FROM migrations WHERE migration = '2027_01_20_100000_create_service_profiles_tables';
-
--- 13. Solo si la 12 devolvió una fila: datos que hayan quedado (las tablas se conservan sin uso).
---     Lo esperado: todos los proveedores con sells_products = 1 y 0 en el resto (salvo 11 especialidades).
---     Proveedores con sells_products = 0: cuentas «solo servicios»; no ven el catálogo hasta cargar su identificación fiscal.
-SELECT sells_products, (tax_id IS NULL) AS sin_identificacion, COUNT(*) AS proveedores FROM suppliers GROUP BY sells_products, sin_identificacion;
-SELECT 'service_categories' AS tabla, COUNT(*) AS filas FROM service_categories
-UNION ALL SELECT 'service_profiles', COUNT(*) FROM service_profiles
-UNION ALL SELECT 'service_profile_terms', COUNT(*) FROM service_profile_terms
-UNION ALL SELECT 'service_profile_category', COUNT(*) FROM service_profile_category
-UNION ALL SELECT 'service_contact_requests', COUNT(*) FROM service_contact_requests
-UNION ALL SELECT 'service_contact_messages', COUNT(*) FROM service_contact_messages
-UNION ALL SELECT 'service_profile_reports', COUNT(*) FROM service_profile_reports;
+-- 12. «Profesionales y servicios» (función retirada): el inventario previo a su limpieza está en
+--     docs/sql/limpieza-profesionales-inventario.sql. Después de 2027_01_21, esto debe dar 0 y 0:
+SELECT
+  (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN
+     ('service_categories','service_profiles','service_profile_category','service_profile_terms','service_contact_requests','service_contact_messages','service_profile_reports')) AS tablas_de_servicios,
+  (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'suppliers' AND column_name = 'sells_products') AS columna_sells_products;
 
 ROLLBACK;

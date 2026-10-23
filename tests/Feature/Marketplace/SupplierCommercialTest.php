@@ -261,9 +261,13 @@ class SupplierCommercialTest extends TestCase
         $this->put(route('suppliers.profile.update'), ['name' => 'Otro', 'contact_email' => 'x@y.test', 'contact_phone' => '+56 9 1234 5678', 'coverage' => 'Santiago', 'categories' => ['doors'], 'country' => 'AR', 'currency' => 'ARS']);
         $this->assertSame(['CL', 'CLP'], [$supplier->fresh()->country, $supplier->fresh()->currency]);
 
+        // Los términos dicen dónde se cobra según la configuración (no un texto fijo).
+        $this->get(route('legal.terms'))->assertSee('(hoy, Argentina en ARS)');
+
         // Si el SuperAdmin quita Argentina de los países con cobro, tampoco se ofrece allí.
         MarketplaceSettings::current()->update(['billing_countries' => []]);
         $this->assertFalse(MarketplaceSettings::current()->chargesIn('AR'));
+        $this->get(route('legal.terms'))->assertSee('(hoy, ninguno)');
     }
 
     public function test_a_supplier_can_not_touch_another_suppliers_products_requests_or_settings(): void

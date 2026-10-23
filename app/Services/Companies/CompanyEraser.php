@@ -310,29 +310,6 @@ class CompanyEraser
             'contact_phone' => null, 'delivery_area' => null, 'notes' => null, 'updated_at' => now(),
         ]);
         $n += $of('marketplace_favorites')->delete();
-
-        // «Profesionales y servicios» (función retirada; las tablas se conservan sin uso): si quedaron
-        // datos, las solicitudes son también historial del otro lado.
-        // Se conservan cerradas y sin datos de la empresa (contacto, necesidad y sus mensajes).
-        $sent = $ids('service_contact_requests');
-        $n += DB::table('service_contact_messages')->whereIn('service_contact_request_id', $sent ?: [0])->where('side', 'company')->update(['body' => null, 'user_id' => null, 'author_name' => null, 'updated_at' => now()]);
-        $n += $of('service_contact_requests')->update([
-            'company_id' => null, 'created_by' => null, 'buyer_name' => null, 'contact_name' => 'Empresa dada de baja', 'contact_email' => '', 'contact_phone' => null,
-            'need' => 'Contenido eliminado: la empresa se dio de baja.', 'location' => null, 'status' => 'closed', 'closed_by' => DB::raw("COALESCE(closed_by, 'ascento')"), 'closed_at' => DB::raw('COALESCE(closed_at, CURRENT_TIMESTAMP)'), 'updated_at' => now(),
-        ]);
-        $n += $of('service_profile_reports')->update(['company_id' => null, 'user_id' => null, 'details' => null]);
-        // Su perfil profesional (si tenía): queda archivado y sin datos, porque otras empresas le escribieron.
-        $profiles = $ids('service_profiles');
-        if ($profiles !== []) {
-            $received = DB::table('service_contact_requests')->whereIn('service_profile_id', $profiles)->pluck('id')->all();
-            $n += DB::table('service_contact_messages')->whereIn('service_contact_request_id', $received ?: [0])->where('side', 'professional')->update(['user_id' => null, 'author_name' => null, 'updated_at' => now()]);
-            $n += DB::table('service_contact_requests')->whereIn('id', $received ?: [0])->where('status', '!=', 'closed')->update(['status' => 'closed', 'closed_by' => 'ascento', 'closed_at' => now(), 'updated_at' => now()]);
-            $n += DB::table('service_profile_terms')->whereIn('service_profile_id', $profiles)->delete();
-            $n += $of('service_profiles')->update([
-                'company_id' => null, 'status' => 'archived', 'public_name' => 'Perfil dado de baja', 'headline' => null, 'description' => '—', 'experience' => null,
-                'brands' => null, 'services' => null, 'provinces' => null, 'localities' => null, 'website' => null, 'search_text' => null, 'updated_at' => now(),
-            ]);
-        }
         $n += $of('marketplace_reports')->update(['company_id' => null, 'user_id' => null, 'details' => null]);
 
         $n += $of('portal_memberships')->delete();

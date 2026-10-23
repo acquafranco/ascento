@@ -44,7 +44,6 @@ class Supplier extends Model
         'approved_at' => 'datetime',
         'commercial_state_at' => 'datetime',
         'closed_at' => 'datetime',
-        'sells_products' => 'boolean',
     ];
 
     /** Moneda de los precios según el país registrado (config/marketplace.php). */
@@ -66,16 +65,6 @@ class Supplier extends Model
     public function requests(): HasMany
     {
         return $this->hasMany(MarketplaceRequest::class);
-    }
-
-    /**
-     * ¿Vende productos? Siempre, salvo una cuenta anterior registrada «solo
-     * servicios» (función retirada): no tiene catálogo hasta cargar su
-     * identificación fiscal desde «Mi perfil».
-     */
-    public function sellsProducts(): bool
-    {
-        return $this->sells_products !== false;
     }
 
     public function subscription(): HasOne

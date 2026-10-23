@@ -2,16 +2,14 @@
 @php
     $user = auth()->user();
     $supplier = $user?->supplier;
-    // Catálogo, pedidos, plan y destacados: solo si la cuenta vende productos (todas, salvo una anterior «solo servicios»).
-    $tabs = array_merge([['suppliers.home', 'Inicio', route('suppliers.home')]],
-        $supplier?->sellsProducts() === false ? [] : [
-            ['suppliers.products.*', 'Mi catálogo', route('suppliers.products.index')],
-            ['suppliers.requests.*', 'Pedidos', route('suppliers.requests.index')],
-            ['suppliers.billing*', 'Plan', route('suppliers.billing')],
-            ['suppliers.featured*', 'Destacados', route('suppliers.featured')],
-        ], [
-            ['suppliers.profile.*', 'Mi perfil', route('suppliers.profile.edit')],
-        ]);
+    $tabs = [
+        ['suppliers.home', 'Inicio', route('suppliers.home')],
+        ['suppliers.products.*', 'Mi catálogo', route('suppliers.products.index')],
+        ['suppliers.requests.*', 'Pedidos', route('suppliers.requests.index')],
+        ['suppliers.billing*', 'Plan', route('suppliers.billing')],
+        ['suppliers.featured*', 'Destacados', route('suppliers.featured')],
+        ['suppliers.profile.*', 'Mi perfil', route('suppliers.profile.edit')],
+    ];
     $unreadCount = $user ? $user->unreadNotifications()->count() : 0;
 @endphp
 <!DOCTYPE html>

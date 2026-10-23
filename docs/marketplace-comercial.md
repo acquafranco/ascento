@@ -175,35 +175,54 @@ Zona horaria: `America/Argentina/Buenos_Aires`. Una cotización vence a las 23:5
   - precios y venta de destacados.
 - **Auditoría:** todas las acciones quedan en `platform_audit_logs`.
 
-## 7. Decisiones comerciales pendientes
+## 7. Precios y decisiones comerciales
 
-1. Precio mensual de Premium. Hoy está vacío, así que Premium no se ofrece.
-2. Confirmar los precios de los destacados (ARS 5.000 y 15.000 preparados) y encender «Vender destacados».
-3. Confirmar los límites: 20 en el plan gratuito y 1.000 en Premium, ambos editables.
-4. La regla para cuando un Premium vuelve al plan gratuito y no eligió: «más recientes» o «más antiguas».
-5. Si en el futuro se cobra en otros países, hace falta una pasarela y precios en su moneda.
-6. Comisión por ventas: **no implementada** y fuera de alcance.
+Ventas: **apagadas**. Premium y los destacados no se ofrecen hasta que el SuperAdmin los encienda en «Configuración del marketplace» (y además el país del proveedor tenga cobro habilitado).
+
+| Concepto | Valor por defecto de la migración 2027_01_18 | Propuesta comercial (cargar en el panel; no hay migración de precios) |
+|---|---|---|
+| Plan gratuito | 20 publicaciones, para siempre | sin cambios |
+| Premium | 1.000 publicaciones, **sin precio** (no se ofrece) | ARS 19.900 por mes |
+| Destacado 7 días | ARS 5.000, apagado | ARS 4.900 |
+| Destacado 30 días | ARS 15.000, apagado | ARS 9.900 |
+| Países con cobro | Argentina (ARS) | sin cambios |
+
+- Los precios de producción reales se ven con la consulta 2 de `docs/sql/auditoria-marketplace.sql` (solo lectura).
+- Cada compra guarda su precio y su moneda: cambiar la configuración no altera suscripciones ni destacados ya creados.
+- Los términos muestran los precios vigentes solo mientras se venden, y los países con cobro según la configuración.
+
+Pendiente de decisión: la regla cuando un Premium vuelve al plan gratuito sin elegir («más recientes», por defecto, o «más antiguas»); cobrar en otros países (requiere una pasarela y precios en su moneda). Comisión por ventas: **no implementada** y fuera de alcance.
 
 ## 7b. Migraciones de esta etapa
 
 - `2027_01_18_100000_marketplace_commercial_model`: ya está en `main` (PR #118). **No se edita más**; si ya corrió en algún entorno, cualquier cambio va en una migración nueva.
 - `2027_01_19_100000_backfill_admin_featured_placements`: pasa al historial los destacados vigentes que el SuperAdmin asignó antes (solo `featured_until`). Se puede correr más de una vez, y `down()` quita solo lo que creó.
 
-## 8. Para cobrar de verdad (pendiente de verificar con credenciales reales)
+## 8. Cómo habilitar las ventas (nada de esto se hizo todavía)
 
-1. En el panel de Mercado Pago (app de producción), activar los webhooks:
-   - de **«Planes y suscripciones»**, que ya está;
-   - de **«Pagos»**, nuevo, para destacados.
+Qué se verificó en el código y con pruebas automatizadas (respuestas simuladas de Mercado Pago, nunca la API real):
 
-   La URL es la misma: `https://ascento.online/api/mercadopago/webhook`, y la clave secreta, la misma (`MERCADOPAGO_WEBHOOK_SECRET`).
-2. Probar en sandbox con usuarios de prueba:
-   - suscripción → cuota aprobada → período;
-   - destacado → pago aprobado → activo;
-   - cancelación;
-   - pago rechazado.
-3. Cargar precios y encender los cobros desde «Configuración del marketplace».
+- **Webhook** (`/api/mercadopago/webhook`): exige la firma `x-signature` (HMAC-SHA256 con `MERCADOPAGO_WEBHOOK_SECRET`); en producción, sin la clave, rechaza todo. El cuerpo nunca decide el estado: siempre se vuelve a consultar a la API.
+- **Importe, moneda y referencia:** un cobro solo cuenta si coinciden con lo que Ascento creó (`external_reference`, importe ±0,01 y moneda); si no, queda «importe distinto», no activa nada y avisa al equipo.
+- **Idempotencia:** el mismo aviso repetido no suma otro mes ni activa dos veces; un segundo pago de un mismo destacado se marca como duplicado para devolver.
+- **Devoluciones y contracargos:** son definitivos; un destacado devuelto se cancela; un aviso viejo no revive un cobro devuelto.
+- **Cancelación:** Premium sigue hasta el fin del período pago y no vuelve a cobrar.
+- **Retorno del navegador** (`?mp=return&status=approved…`): solo dispara una consulta a la API; los parámetros de la URL nunca activan nada.
+- **Conciliación:** `marketplace:reconcile-payments` (cada 6 h) relee lo que pudo perderse.
+- **Proveedores de otros países:** usan el plan gratuito sin ver opciones de pago ni poder contratar.
 
-No se probó contra la API real: las pruebas usan respuestas simuladas con el formato documentado de Mercado Pago.
+Pasos, en orden (con aprobación expresa para cada uno):
+
+1. **Credenciales de prueba.** En un entorno que NO sea producción, configurar las credenciales de un **usuario de prueba vendedor** de Mercado Pago (las de usuarios de prueba también empiezan con `APP_USR-`: confirmarlo en el panel de Mercado Pago antes de usarlas) y `MERCADOPAGO_TEST_PAYER_EMAIL` con el correo exacto del usuario de prueba comprador. `APP_URL` debe ser una dirección pública con https (Mercado Pago la exige para volver y para los webhooks).
+2. **Webhooks de la app de prueba:** temas «Planes y suscripciones» y «Pagos», con su clave secreta en `MERCADOPAGO_WEBHOOK_SECRET`.
+3. **Sandbox, con resultados esperados:**
+   - Premium: contratar → cuota aprobada → «Premium» y límite 1.000; cuota rechazada → sigue gratuito y se avisa; cancelar → Premium hasta el fin del período y sin cobros nuevos.
+   - Destacado: comprar 7 y 30 días → pago aprobado → activo con la etiqueta; pago rechazado → no se activa; devolución desde Mercado Pago → se cancela y queda «devuelto».
+   - Volver del checkout sin pagar (o tocando la URL) → no se activa nada.
+   - Repetir un webhook → sin cambios.
+4. **Producción:** `MERCADOPAGO_WEBHOOK_SECRET` cargada, webhooks «Planes y suscripciones» y «Pagos» activos en la app productiva con la URL `https://ascento.online/api/mercadopago/webhook`.
+5. **Panel:** cargar los precios aprobados y recién entonces encender «Vender Premium» y «Vender destacados» (el panel no deja encenderlos sin Mercado Pago configurado ni sin precio).
+6. **Comprobar** con la consulta 2 de `docs/sql/auditoria-marketplace.sql` y una primera compra real de bajo importe, devuelta después, si se decide.
 
 ## 9. Cláusulas que requieren revisión profesional (`LEGAL_REVIEWED=false`)
 
@@ -211,3 +230,4 @@ No se probó contra la API real: las pruebas usan respuestas simuladas con el fo
 - Términos 20 y Privacidad 01/05: ley aplicable y transferencias para usuarios de otros países.
 - Conservación de cobros a proveedores (plazo fiscal) y conservación del historial de la otra parte tras un borrado.
 - Fecha de versión (`config/legal.php`): ajustarla a la fecha de publicación real.
+- Lista completa y actualizada: `docs/marketplace-limpieza-profesionales.md`, sección «Cuestiones legales pendientes».

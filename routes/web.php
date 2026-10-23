@@ -120,38 +120,34 @@ Route::middleware(['auth', 'supplier'])->prefix('proveedores')->name('suppliers.
     Route::get('/perfil', [SupplierAreaController::class, 'edit'])->name('profile.edit');
     Route::put('/perfil', [SupplierAreaController::class, 'update'])->middleware('throttle:30,1,suppliers.profile')->name('profile.update');
 
-    Route::post('/perfil/vender-productos', [SupplierAreaController::class, 'enableProducts'])->middleware('throttle:6,1,suppliers.enable-products')->name('profile.enable-products');
-
-    Route::middleware('supplier.products')->group(function () {
-        Route::controller(SupplierProductController::class)->prefix('catalogo')->name('products.')->whereNumber(['product', 'photo'])->group(function () {
-            Route::get('/', 'index')->name('index');
-            Route::get('/nuevo', 'create')->name('create');
-            Route::post('/', 'store')->middleware('throttle:60,1,suppliers.products.store')->name('store');
-            Route::get('/{product}', 'edit')->name('edit');
-            Route::put('/{product}', 'update')->middleware('throttle:60,1,suppliers.products.update')->name('update');
-            Route::post('/{product}/estado', 'status')->middleware('throttle:60,1,suppliers.products.status')->name('status');
-            Route::post('/{product}/conservar', 'keep')->middleware('throttle:60,1,suppliers.products.keep')->name('keep');
-            Route::post('/fuera-del-limite/publicar', 'restoreOverLimit')->middleware('throttle:10,1,suppliers.products.restore')->name('restore');
-            Route::post('/{product}/fotos', 'storePhoto')->middleware('throttle:30,1,suppliers.products.photo')->name('photos.store');
-            Route::delete('/{product}/fotos/{photo}', 'destroyPhoto')->middleware('throttle:30,1,suppliers.products.photo-delete')->name('photos.destroy');
-        });
-
-        Route::controller(SupplierRequestController::class)->prefix('pedidos')->name('requests.')->where(['reference' => 'R-[A-Z0-9]{8}'])->group(function () {
-            Route::get('/', 'index')->name('index');
-            Route::get('/{reference}', 'show')->name('show');
-            Route::post('/{reference}/cotizar', 'quote')->middleware('throttle:30,1,suppliers.requests.quote')->name('quote');
-            Route::post('/{reference}/rechazar', 'decline')->middleware('throttle:30,1,suppliers.requests.decline')->name('decline');
-            Route::post('/{reference}/comentar', 'comment')->middleware('throttle:20,1,suppliers.requests.comment')->name('comment');
-            Route::post('/{reference}/incidencia', 'incident')->middleware('throttle:5,10,suppliers.requests.incident')->name('incident');
-        });
-
-        // Suscripción al marketplace y destacados (cobros de Ascento al proveedor; nunca pagos de repuestos).
-        Route::get('/suscripcion', [SupplierBillingController::class, 'show'])->name('billing');
-        Route::post('/suscripcion', [SupplierBillingController::class, 'subscribe'])->middleware('throttle:6,1,suppliers.billing.subscribe')->name('billing.subscribe');
-        Route::post('/suscripcion/cancelar', [SupplierBillingController::class, 'cancel'])->middleware('throttle:6,1,suppliers.billing.cancel')->name('billing.cancel');
-        Route::get('/destacados', [SupplierFeaturedController::class, 'index'])->name('featured');
-        Route::post('/destacados', [SupplierFeaturedController::class, 'purchase'])->middleware('throttle:10,1,suppliers.featured.purchase')->name('featured.purchase');
+    Route::controller(SupplierProductController::class)->prefix('catalogo')->name('products.')->whereNumber(['product', 'photo'])->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/nuevo', 'create')->name('create');
+        Route::post('/', 'store')->middleware('throttle:60,1,suppliers.products.store')->name('store');
+        Route::get('/{product}', 'edit')->name('edit');
+        Route::put('/{product}', 'update')->middleware('throttle:60,1,suppliers.products.update')->name('update');
+        Route::post('/{product}/estado', 'status')->middleware('throttle:60,1,suppliers.products.status')->name('status');
+        Route::post('/{product}/conservar', 'keep')->middleware('throttle:60,1,suppliers.products.keep')->name('keep');
+        Route::post('/fuera-del-limite/publicar', 'restoreOverLimit')->middleware('throttle:10,1,suppliers.products.restore')->name('restore');
+        Route::post('/{product}/fotos', 'storePhoto')->middleware('throttle:30,1,suppliers.products.photo')->name('photos.store');
+        Route::delete('/{product}/fotos/{photo}', 'destroyPhoto')->middleware('throttle:30,1,suppliers.products.photo-delete')->name('photos.destroy');
     });
+
+    Route::controller(SupplierRequestController::class)->prefix('pedidos')->name('requests.')->where(['reference' => 'R-[A-Z0-9]{8}'])->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/{reference}', 'show')->name('show');
+        Route::post('/{reference}/cotizar', 'quote')->middleware('throttle:30,1,suppliers.requests.quote')->name('quote');
+        Route::post('/{reference}/rechazar', 'decline')->middleware('throttle:30,1,suppliers.requests.decline')->name('decline');
+        Route::post('/{reference}/comentar', 'comment')->middleware('throttle:20,1,suppliers.requests.comment')->name('comment');
+        Route::post('/{reference}/incidencia', 'incident')->middleware('throttle:5,10,suppliers.requests.incident')->name('incident');
+    });
+
+    // Suscripción al marketplace y destacados (cobros de Ascento al proveedor; nunca pagos de repuestos).
+    Route::get('/suscripcion', [SupplierBillingController::class, 'show'])->name('billing');
+    Route::post('/suscripcion', [SupplierBillingController::class, 'subscribe'])->middleware('throttle:6,1,suppliers.billing.subscribe')->name('billing.subscribe');
+    Route::post('/suscripcion/cancelar', [SupplierBillingController::class, 'cancel'])->middleware('throttle:6,1,suppliers.billing.cancel')->name('billing.cancel');
+    Route::get('/destacados', [SupplierFeaturedController::class, 'index'])->name('featured');
+    Route::post('/destacados', [SupplierFeaturedController::class, 'purchase'])->middleware('throttle:10,1,suppliers.featured.purchase')->name('featured.purchase');
 
     // Avisos (misma lógica que las bandejas de técnicos y clientes) y push en este dispositivo.
     Route::controller(SupplierNotificationController::class)->prefix('avisos')->name('notifications.')->group(function () {
