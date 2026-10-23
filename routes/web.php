@@ -50,6 +50,7 @@ use App\Http\Controllers\TechnicianPhotoController;
 use App\Http\Controllers\TechnicianQrReportController;
 use App\Http\Controllers\TelegramLinkController;
 use App\Http\Controllers\TemplateController;
+use App\Http\Controllers\SiteVisitController;
 use App\Http\Controllers\VisitController;
 use App\Http\Controllers\VisitPhotoController;
 use App\Http\Controllers\WorkOrderController;
@@ -464,6 +465,14 @@ Route::prefix('{company:slug}')
             ->whereNumber('workOrder')->middleware('throttle:20,1,work-orders.arrive')->name('work-orders.arrive');
         Route::post('/work-orders/{workOrder}/salida', [WorkOrderController::class, 'leave'])
             ->whereNumber('workOrder')->middleware('throttle:20,1,work-orders.leave')->name('work-orders.leave');
+
+        // Visita técnica (un técnico en un edificio): llegada, salida y cierre sin salida.
+        Route::post('/visitas-tecnicas/llegada', [SiteVisitController::class, 'arrive'])
+            ->middleware('throttle:20,1,site-visits.arrive')->name('site-visits.arrive');
+        Route::post('/visitas-tecnicas/{siteVisit}/salida', [SiteVisitController::class, 'leave'])
+            ->whereNumber('siteVisit')->middleware('throttle:20,1,site-visits.leave')->name('site-visits.leave');
+        Route::post('/visitas-tecnicas/{siteVisit}/cerrar', [SiteVisitController::class, 'close'])
+            ->whereNumber('siteVisit')->middleware('throttle:10,1,site-visits.close')->name('site-visits.close');
 
         /*
         |--------------------------------------------------------------------------

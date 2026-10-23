@@ -137,9 +137,14 @@ class TechnicianInterventionTest extends TestCase
         $this->assertSame([Report::KIND_INTERVENTION, $order->id, 'whatsapp', 'critica', 'pendiente', $tech->id], [$job->kind, $job->work_order_id, $job->channel, $job->priority, $job->status, $job->user_id]);
         $this->assertSame(1, $job->photos()->count());
 
-        // La orden muestra el trabajo y deja sumar otro antes del remito.
-        $this->get(route('work-orders.show', ['company' => $this->slug(), 'workOrder' => $order->id]))->assertOk()
-            ->assertSee('Trabajos de esta visita (1)')->assertSee('Iniciada por vos')->assertSee('Agregar otro trabajo de esta visita')->assertSee('Hacer remito y finalizar');
+        // La orden muestra el trabajo. Visita técnica: primero la llegada al edificio;
+        // después se suman otros trabajos y aparece el remito.
+        $show = route('work-orders.show', ['company' => $this->slug(), 'workOrder' => $order->id]);
+        $this->get($show)->assertOk()
+            ->assertSee('Trabajos de esta visita (1)')->assertSee('Iniciada por vos')
+            ->assertSee('Llegué al edificio')->assertDontSee('Hacer remito de esta orden')->assertDontSee('Agregar otro trabajo de esta visita');
+        $this->post(route('work-orders.arrive', ['company' => $this->slug(), 'workOrder' => $order->id]))->assertSessionHas('success');
+        $this->get($show)->assertSee('Agregar otro trabajo de esta visita')->assertSee('Hacer remito de esta orden');
 
         // 4–5. El remito sale desde su portal, con el formulario de siempre y la firma del cliente.
         $this->get(route('delivery-notes.work-order', ['company' => $this->slug(), 'workOrder' => $order->id]))->assertOk()

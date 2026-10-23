@@ -26,6 +26,8 @@ const release = (form) => {
         button.removeAttribute('aria-busy');
     });
     stop();
+    // La página que maneja su propio envío (p. ej. el remito) vuelve a quedar lista.
+    form.dispatchEvent(new CustomEvent('ascento:released'));
 };
 
 export function initTechUi() {

@@ -13,12 +13,14 @@ use App\Models\Report;
 use App\Models\StockItem;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderMaterial;
+use App\Services\Activity\ActivityLogger;
 use App\Services\Interventions\InterventionService;
 use App\Services\Parachute\ParachuteService;
 use App\Services\Visits\VisitPhotoService;
 use App\Services\Visits\VisitSchedule;
 use App\Services\Visits\VisitService;
 use App\Services\WorkOrders\AttendanceTimes;
+use App\Services\WorkOrders\SiteVisits;
 use App\Support\Access\Access;
 use App\Support\DeliveryNotes\DeliveryNoteDocument;
 use App\Support\DeliveryNotes\SignatureImage;
@@ -111,9 +113,12 @@ class DeliveryNoteController extends Controller
             [
                 'deliveryNotes' => $deliveryNotes,
                 // Llegadas suyas sin salida registrada (p. ej. recién firmó el remito): recordatorio para registrarla.
-                'pendingExits' => WorkOrder::where('company_id', $company->id)->where('arrived_by', $user->id)
+                // Solo órdenes con llegada propia (anteriores a las visitas técnicas); las demás salen con la visita.
+                'pendingExits' => WorkOrder::where('company_id', $company->id)->where('arrived_by', $user->id)->whereNull('site_visit_id')
                     ->whereNull('left_at')->whereNotNull('arrived_at')->with('building:id,name')->latest('arrived_at')->limit(3)->get()
                     ->filter(fn (WorkOrder $o) => AttendanceTimes::canLeave($user, $o))->values(),
+                // Visita técnica abierta: después del remito, el paso final (o el siguiente remito).
+                'siteVisit' => SiteVisits::openFor($user),
             ]
 
         );
@@ -276,6 +281,8 @@ class DeliveryNoteController extends Controller
                     ? 'inspection'
                     : 'maintenance',
                 'parachuteRows' => app(ParachuteService::class)->registrableInDeliveryNote($user, $workOrder->building, $workOrder, 'work_order'),
+                // Identidad del formulario: un reintento (respuesta perdida, otro toque) no choca con «ya tiene un remito».
+                'submissionToken' => Str::isUuid((string) old('submission_token')) ? (string) old('submission_token') : (string) Str::uuid(),
             ]
         );
     }
@@ -327,6 +334,9 @@ class DeliveryNoteController extends Controller
                 'materials.*.quantity' => 'required|numeric|gt:0|max:99999|decimal:0,2',
                 // Identidad del formulario: un reenvío del mismo remito no crea otra visita.
                 'submission_token' => 'nullable|uuid',
+                // Visita técnica: el formulario sigue el flujo de llegada; motivo si se firma sin llegada.
+                'visit_flow' => 'nullable|boolean',
+                'arrival_exception' => 'nullable|string|max:500',
                 // Prueba de paracaídas (opcional): ascensor => resultado; vacío = no se hizo.
                 // Qué ascensores puede registrar quien firma lo decide ParachuteService.
                 'parachute' => 'nullable|array|max:100',
@@ -431,6 +441,12 @@ class DeliveryNoteController extends Controller
                     abort(403, 'No estás autorizado para finalizar esta orden.');
                 }
 
+                // Reintento del MISMO formulario (no llegó la respuesta del primero o
+                // se tocó otra vez): ya está guardado; misma confirmación, sin el 409.
+                if ($this->alreadySubmitted($request)) {
+                    return $this->submittedResponse();
+                }
+
                 // IMPORTANTE: no validar `technician` ni `hasValidSignature()` en este POST.
                 // `signature` es el campo de firma dibujada del formulario y NO es la firma
                 // criptográfica de una URL firmada. Comprobar hasValidSignature() aquí provoca
@@ -471,6 +487,37 @@ class DeliveryNoteController extends Controller
             $assignmentType = $request->filled('work_order_id')
             ? 'work_order'
             : $request->assignment_type;
+
+            /*
+            |--------------------------------------------------------------------------
+            | VISITA TÉCNICA (llegada al edificio)
+            |--------------------------------------------------------------------------
+            | El técnico firma remitos DESPUÉS de «Llegué al edificio»: el remito
+            | queda en su visita abierta (SiteVisits) y NO registra la salida ni la
+            | cierra. Sin llegada, solo con un motivo explícito (queda guardado y la
+            | oficina lo ve). La oficina (Documentos) no registra llegadas. Una orden
+            | con llegada propia (anterior a las visitas) sigue como antes. Un
+            | formulario anterior a este flujo (sin visit_flow) se acepta igual que
+            | antes: sin visita y sin llegada («Sin registrar»).
+            */
+            if ($this->alreadySubmitted($request)) {
+                return $this->submittedResponse();
+            }
+            $siteVisit = null;
+            $arrivalException = null;
+            if (! Access::can(auth()->user(), PermissionArea::Documents)) {
+                $siteVisit = SiteVisits::openIn(auth()->user(), $building);
+                if ($siteVisit && $workOrder) {
+                    app(SiteVisits::class)->attach(auth()->user(), $workOrder);
+                }
+                if (! $siteVisit && ! $workOrder?->arrived_at && $request->boolean('visit_flow')) {
+                    $arrivalException = trim((string) $request->input('arrival_exception'));
+                    if (mb_strlen($arrivalException) < 10) {
+                        throw ValidationException::withMessages(['arrival_exception' => 'Primero registrá la llegada al edificio («Llegué al edificio», arriba). Si no pudiste, contá por qué (al menos 10 caracteres).']);
+                    }
+                    $arrivalException = mb_substr($arrivalException, 0, 500);
+                }
+            }
 
             /*
             |--------------------------------------------------------------------------
@@ -651,6 +698,7 @@ class DeliveryNoteController extends Controller
                     'source' => 'work_order',
                     'visit_type' => 'work_order',
                     'work_order_id' => $workOrder->id,
+                    'submission_token' => Str::isUuid((string) $request->input('submission_token')) ? $request->input('submission_token') : null,
                     'assignment_type' => 'work_order',
                     'month' => $finishedAt->month,
                     'year' => $finishedAt->year,
@@ -690,6 +738,14 @@ class DeliveryNoteController extends Controller
 
                 // Fotos de la orden (cargadas antes del remito): pasan a su visita y a este remito.
                 app(VisitPhotoService::class)->linkToDeliveryNote($visit, $deliveryNote, $workOrder);
+            }
+
+            // El remito queda en la visita técnica (o con el motivo de por qué no hubo llegada).
+            if ($visit && ($siteVisit || $arrivalException)) {
+                $visit->forceFill(['site_visit_id' => $siteVisit?->id, 'arrival_exception' => $arrivalException])->save();
+                if ($arrivalException) {
+                    ActivityLogger::record('delivery_note.without_arrival', $deliveryNote, ['motivo' => $arrivalException], 'Remito '.$deliveryNote->number);
+                }
             }
 
             // "Trabajo terminado" a los admins (después de responder).

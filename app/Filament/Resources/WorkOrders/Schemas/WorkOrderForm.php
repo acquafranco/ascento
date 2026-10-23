@@ -275,7 +275,28 @@ class WorkOrderForm
                     ->state(fn (?WorkOrder $record) => AttendanceTimes::duration($times($record)['on_site'] ?? null)),
                 TextEntry::make('attention_total')->label('Tiempo total')
                     ->state(fn (?WorkOrder $record) => AttendanceTimes::duration($times($record)['total'] ?? null)),
+                // Visita técnica (un técnico en el edificio): la llegada y la salida de arriba son las de la visita.
+                TextEntry::make('attention_site_visit')->label('Visita técnica')
+                    ->columnSpanFull()
+                    ->state(fn (?WorkOrder $record) => static::siteVisitSummary($record)),
             ]);
+    }
+
+    /** «Llegada 10/03 09:12 · salida 10/03 11:40 · 3 órdenes, 2 remitos», o el cierre sin salida con su motivo. */
+    public static function siteVisitSummary(?WorkOrder $record): string
+    {
+        $visit = $record?->site_visit_id ? \App\Models\SiteVisit::with(['user', 'closedBy'])->withCount(['workOrders', 'buildingVisits'])->find($record->site_visit_id) : null;
+        if (! $visit) {
+            return $record?->arrived_at ? 'Llegada registrada en la orden (antes de las visitas técnicas).' : 'Sin visita registrada.';
+        }
+        $text = ($visit->user?->name ?? 'Técnico').' · llegada '.AttendanceTimes::time($visit->arrived_at).' · salida '.AttendanceTimes::time($visit->left_at)
+            .' · '.$visit->work_orders_count.' '.($visit->work_orders_count === 1 ? 'orden' : 'órdenes').', '.$visit->building_visits_count.' '.($visit->building_visits_count === 1 ? 'remito' : 'remitos');
+
+        return match (true) {
+            $visit->closed_at === null => $text.' · en curso',
+            $visit->left_at === null => $text.' · cerrada sin salida por '.($visit->closedBy?->name ?? '—').' ('.AttendanceTimes::time($visit->closed_at).'): '.$visit->close_note,
+            default => $text,
+        };
     }
 
     public static function typeField(): Forms\Components\Select

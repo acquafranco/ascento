@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\Parachute\ParachuteService;
 use App\Services\Technicians\TechnicianWorkload;
+use App\Services\WorkOrders\SiteVisits;
 use Illuminate\Http\Request;
 
 /**
@@ -28,6 +29,9 @@ class DashboardController extends Controller
             'visitsToday' => $workload->visitsToday($user),
             'recentNotes' => $workload->recentDeliveryNotes($user),
             'parachuteDue' => $this->parachuteDue($parachute, $user),
+            // Visita técnica: la abierta (paso final) y los trabajos tomados sin llegada (paso 2).
+            'siteVisit' => SiteVisits::openFor($user),
+            'awaitingArrival' => SiteVisits::awaitingArrival($user),
         ]);
     }
 

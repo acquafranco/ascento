@@ -44,6 +44,9 @@ class BuildingVisit extends Model
         'submission_token',
         // Visita en curso: existe para cargarle fotos, todavía sin remito.
         'in_progress',
+        // Visita técnica (presencia en el edificio) en la que se firmó; motivo si fue sin llegada registrada.
+        'site_visit_id',
+        'arrival_exception',
     ];
 
 
@@ -120,6 +123,11 @@ class BuildingVisit extends Model
     public function building()
     {
         return $this->belongsTo(Building::class)->withTrashed();
+    }
+
+    public function siteVisit()
+    {
+        return $this->belongsTo(SiteVisit::class);
     }
 
 

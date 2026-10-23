@@ -93,7 +93,7 @@ class AttentionTimesTest extends TestCase
         Carbon::setTestNow('2026-10-24 14:00:00');
         $this->arrive($tech, $order, ['arrived_at' => '2026-10-24 13:11:00'])->assertRedirect($show)->assertSessionHas('success', 'Llegada registrada: 24/10 14:00.');
         Carbon::setTestNow('2026-10-24 14:40:00');
-        $this->leave($tech, $order)->assertSessionHas('success', 'Salida registrada: 24/10 14:40.');
+        $this->leave($tech, $order)->assertSessionHas('success', 'Visita finalizada. Salida registrada: 24/10 14:40.');
 
         $order = $order->fresh();
         $this->assertSame(['14:00', $tech->id, '14:40', $tech->id], [$order->arrived_at->format('H:i'), $order->arrived_by, $order->left_at->format('H:i'), $order->left_by]);
@@ -177,22 +177,22 @@ class AttentionTimesTest extends TestCase
             'jobs' => [$job->id => ['work_done' => 'Listo.', 'result' => 'resolved', 'elevator_state' => 'in_service']],
         ])->assertSessionHasNoErrors();
         $this->assertSame('completed', $order->fresh()->status);
-        // Firmar el remito no registra la salida; el listado de remitos la recuerda.
+        // Firmar el remito no registra la salida ni cierra la visita; el listado de remitos muestra el paso final.
         $this->assertNull($order->fresh()->left_at);
-        $this->get(route('delivery-notes.index', ['company' => $this->slug()]))->assertSee('Registrá la salida');
+        $this->get(route('delivery-notes.index', ['company' => $this->slug()]))->assertSee('Finalizar visita y retirarme');
 
-        // Tarde, pero dentro de las 24 h del remito: sí. Ya registrada no se puede llegar de nuevo.
+        // Después del remito, dentro del plazo: sí. Ya registrada no se puede llegar de nuevo.
         Carbon::setTestNow('2026-10-24 14:20:00');
         $this->leave($tech, $order)->assertSessionHas('success');
         $this->arrive($tech, $order)->assertSessionHas('warning');
 
-        // Otra orden: dos días después del remito, ya no.
+        // Otra orden (otra visita): dos días después de la llegada, ya no; se cierra sin salida con motivo.
         $this->open($tech, ['description' => 'Otra urgencia en el mismo edificio.']);
         $second = WorkOrder::withoutGlobalScopes()->latest('id')->first();
         $this->arrive($tech, $second);
         $second->forceFill(['status' => 'completed', 'finished_at' => now()])->save();
         Carbon::setTestNow('2026-10-26 15:00:00');
-        $this->leave($tech, $second)->assertSessionHas('warning', 'Ya no se puede registrar la salida de esta orden.');
+        $this->leave($tech, $second)->assertSessionHas('warning', 'Pasaron más de 24 h desde la llegada: ya no se registra la salida. Cerrá la visita indicando el motivo.');
         $this->assertNull($second->fresh()->left_at);
     }
 
