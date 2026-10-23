@@ -2,7 +2,7 @@
 @php
     $user = auth()->user();
     $supplier = $user?->supplier;
-    // Productos (catálogo, pedidos, plan y destacados) y servicios (perfil profesional y consultas): áreas separadas.
+    // Catálogo, pedidos, plan y destacados: solo si la cuenta vende productos (todas, salvo una anterior «solo servicios»).
     $tabs = array_merge([['suppliers.home', 'Inicio', route('suppliers.home')]],
         $supplier?->sellsProducts() === false ? [] : [
             ['suppliers.products.*', 'Mi catálogo', route('suppliers.products.index')],
@@ -10,9 +10,7 @@
             ['suppliers.billing*', 'Plan', route('suppliers.billing')],
             ['suppliers.featured*', 'Destacados', route('suppliers.featured')],
         ], [
-            ['suppliers.service-profile.*', 'Perfil profesional', route('suppliers.service-profile.edit')],
-            ['suppliers.service-requests.*', 'Consultas', route('suppliers.service-requests.index')],
-            ['suppliers.profile.*', 'Mi cuenta', route('suppliers.profile.edit')],
+            ['suppliers.profile.*', 'Mi perfil', route('suppliers.profile.edit')],
         ]);
     $unreadCount = $user ? $user->unreadNotifications()->count() : 0;
 @endphp
@@ -115,7 +113,7 @@
         <div class="s-top-in">
             <a class="s-brand" href="{{ route('suppliers.home') }}">
                 <img src="{{ asset('images/brand/logo-64.png') }}" alt="">
-                <span style="min-width:0"><b>{{ $supplier?->name ?? 'Ascento' }}</b><small>Ascento · Proveedores y profesionales</small></span>
+                <span style="min-width:0"><b>{{ $supplier?->name ?? 'Ascento' }}</b><small>Ascento · Proveedores de repuestos</small></span>
             </a>
             <span style="display:flex; gap:8px; align-items:center">
                 <a class="s-bell" href="{{ route('suppliers.notifications.index') }}" aria-label="Avisos">🔔 <span class="s-count" data-unread-count @if($unreadCount === 0) hidden @endif>{{ $unreadCount > 99 ? '99+' : $unreadCount }}</span></a>

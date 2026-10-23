@@ -1,6 +1,6 @@
 <x-supplier-layout title="Inicio">
     <h1 class="s-h1">Hola, {{ auth()->user()->name }}</h1>
-    <p class="s-sub">{{ $supplier->sellsProducts() ? 'Tu catálogo, tu perfil profesional y las consultas de empresas de mantenimiento.' : 'Tu perfil profesional y las consultas de empresas de mantenimiento.' }}</p>
+    <p class="s-sub">{{ $supplier->sellsProducts() ? 'Tu catálogo y los pedidos de cotización de empresas de mantenimiento.' : 'Para publicar repuestos, cargá tu identificación fiscal en «Mi perfil».' }}</p>
 
     @include('suppliers.partials.status-notice')
     @if($supplier->sellsProducts())
@@ -13,15 +13,6 @@
         <div class="s-card s-stat"><b>{{ $completed }}</b><span class="s-muted">Operaciones completadas (confirmadas por compradores)</span></div>
     </div>
     @endif
-    <section class="s-card" style="margin-top:14px" data-home-services>
-        <div class="s-row"><h2 class="s-h2" style="margin:0">Profesionales y servicios</h2>
-            @if($serviceProfile)<span class="s-tag {{ $serviceProfile->stateTone() }}">{{ $serviceProfile->stateLabel() }}</span>@endif</div>
-        @if($serviceProfile)
-            <p class="s-muted">{{ $openConsultations }} {{ $openConsultations === 1 ? 'consulta esperando respuesta' : 'consultas esperando respuesta' }}. <a class="s-link" href="{{ route('suppliers.service-requests.index') }}">Ver consultas</a> · <a class="s-link" href="{{ route('suppliers.service-profile.edit') }}">Editar perfil</a></p>
-        @else
-            <p class="s-muted">¿Ofrecés reparaciones, asistencia técnica o consultoría? Publicá un perfil profesional gratis con esta misma cuenta (no consume publicaciones de productos). <a class="s-link" href="{{ route('suppliers.service-profile.edit') }}">Crear perfil</a></p>
-        @endif
-    </section>
     @if($hidden > 0)
         <div class="s-notice bad" style="margin-top:14px">{{ $hidden }} {{ $hidden === 1 ? 'producto está oculto' : 'productos están ocultos' }} por moderación. Abrilos en <a class="s-link" href="{{ route('suppliers.products.index') }}">Mi catálogo</a> para ver el motivo.</div>
     @endif

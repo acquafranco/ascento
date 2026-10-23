@@ -28,7 +28,8 @@ use Illuminate\Validation\ValidationException;
  * - los pedidos y cotizaciones (copias de los productos incluidas): son
  *   también historial de cada empresa compradora;
  * - los cobros y destacados (supplier_payments, featured_placements);
- * - las solicitudes de contacto a su perfil profesional (cerradas; el perfil
+ * - las solicitudes de contacto a su perfil profesional, si quedaron de la
+ *   función retirada «Profesionales y servicios» (cerradas; el perfil
  *   queda archivado y sin descripción ni datos).
  *
  * No se puede cerrar con una suscripción que la pasarela pueda seguir
@@ -60,7 +61,7 @@ class SupplierEraser
 
             FeaturedPlacement::where('supplier_id', $supplier->id)->whereIn('status', [FeaturedPlacement::ACTIVE, FeaturedPlacement::PENDING_PAYMENT])
                 ->update(['status' => FeaturedPlacement::CANCELLED, 'status_reason' => 'Cuenta del proveedor cerrada.', 'checkout_url' => null]);
-            // Perfil profesional (si tenía): archivado y sin datos; las solicitudes de las empresas se conservan cerradas.
+            // Perfil profesional (función retirada; si quedó alguno): archivado y sin datos; las solicitudes de las empresas se conservan cerradas.
             if ($profileId = DB::table('service_profiles')->where('supplier_id', $supplier->id)->value('id')) {
                 $received = DB::table('service_contact_requests')->where('service_profile_id', $profileId)->pluck('id')->all();
                 DB::table('service_contact_messages')->whereIn('service_contact_request_id', $received ?: [0])->where('side', 'professional')->update(['user_id' => null, 'author_name' => null, 'updated_at' => now()]);

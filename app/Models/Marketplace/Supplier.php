@@ -68,13 +68,11 @@ class Supplier extends Model
         return $this->hasMany(MarketplaceRequest::class);
     }
 
-    /** Perfil profesional de la misma cuenta («Profesionales y servicios»), si lo creó. */
-    public function serviceProfile(): HasOne
-    {
-        return $this->hasOne(ServiceProfile::class);
-    }
-
-    /** ¿Vende productos? (las cuentas solo de servicios no tienen catálogo ni identificación fiscal obligatoria). */
+    /**
+     * ¿Vende productos? Siempre, salvo una cuenta anterior registrada «solo
+     * servicios» (función retirada): no tiene catálogo hasta cargar su
+     * identificación fiscal desde «Mi perfil».
+     */
     public function sellsProducts(): bool
     {
         return $this->sells_products !== false;

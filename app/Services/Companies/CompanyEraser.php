@@ -311,7 +311,8 @@ class CompanyEraser
         ]);
         $n += $of('marketplace_favorites')->delete();
 
-        // Profesionales y servicios: las solicitudes son también historial del otro lado.
+        // «Profesionales y servicios» (función retirada; las tablas se conservan sin uso): si quedaron
+        // datos, las solicitudes son también historial del otro lado.
         // Se conservan cerradas y sin datos de la empresa (contacto, necesidad y sus mensajes).
         $sent = $ids('service_contact_requests');
         $n += DB::table('service_contact_messages')->whereIn('service_contact_request_id', $sent ?: [0])->where('side', 'company')->update(['body' => null, 'user_id' => null, 'author_name' => null, 'updated_at' => now()]);

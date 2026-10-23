@@ -14,7 +14,6 @@ use App\Http\Controllers\DeliveryNoteController;
 use App\Http\Controllers\ElevatorDocumentController;
 use App\Http\Controllers\HelpController;
 use App\Http\Controllers\InspectionReportController;
-use App\Http\Controllers\Marketplace\ServiceDirectoryController;
 use App\Http\Controllers\Marketplace\SupplierPhotoController;
 use App\Http\Controllers\NotificationInboxController;
 use App\Http\Controllers\OnCallController;
@@ -42,7 +41,6 @@ use App\Http\Controllers\Supplier\SupplierNotificationController;
 use App\Http\Controllers\Supplier\SupplierProductController;
 use App\Http\Controllers\Supplier\SupplierRegistrationController;
 use App\Http\Controllers\Supplier\SupplierRequestController;
-use App\Http\Controllers\Supplier\SupplierServiceController;
 use App\Http\Controllers\TechnicianCountersController;
 use App\Http\Controllers\TechnicianLocationController;
 use App\Http\Controllers\TechnicianPhotoController;
@@ -111,12 +109,6 @@ Route::get('/calculadora/resultado', [SalesCalculatorController::class, 'fragmen
 Route::post('/calculadora/solicitud', [SalesCalculatorController::class, 'lead'])
     ->middleware(['throttle:5,1,sales.lead', 'throttle:20,60,sales.lead-hour'])->name('sales.lead');
 
-// «Profesionales y servicios»: catálogo público (sin cuenta) de perfiles publicados y aprobados.
-// Sin correos ni teléfonos: contactar pide ingresar con una cuenta de empresa (panel).
-Route::get('/profesionales', [ServiceDirectoryController::class, 'index'])->middleware('throttle:60,1,services.directory')->name('services.index');
-Route::get('/profesionales/{slug}', [ServiceDirectoryController::class, 'show'])->middleware('throttle:60,1,services.profile')
-    ->where('slug', '[a-z0-9\-]{3,190}')->name('services.show');
-
 // Marketplace de repuestos: registro y área de los proveedores (sin empresa:
 // no entran al panel, a la app del técnico ni al portal).
 Route::middleware('guest')->group(function () {
@@ -129,20 +121,6 @@ Route::middleware(['auth', 'supplier'])->prefix('proveedores')->name('suppliers.
     Route::put('/perfil', [SupplierAreaController::class, 'update'])->middleware('throttle:30,1,suppliers.profile')->name('profile.update');
 
     Route::post('/perfil/vender-productos', [SupplierAreaController::class, 'enableProducts'])->middleware('throttle:6,1,suppliers.enable-products')->name('profile.enable-products');
-
-    // Perfil profesional y consultas recibidas («Profesionales y servicios»; gratis, aparte de productos y pedidos).
-    Route::controller(SupplierServiceController::class)->group(function () {
-        Route::get('/perfil-profesional', 'edit')->name('service-profile.edit');
-        Route::put('/perfil-profesional', 'update')->middleware('throttle:30,1,suppliers.service-profile')->name('service-profile.update');
-        Route::post('/perfil-profesional/publicar', 'publish')->middleware('throttle:10,1,suppliers.service-profile.publish')->name('service-profile.publish');
-        Route::post('/perfil-profesional/archivar', 'archive')->middleware('throttle:10,1,suppliers.service-profile.archive')->name('service-profile.archive');
-        Route::prefix('solicitudes')->name('service-requests.')->where(['reference' => 'P-[A-Z0-9]{8}'])->group(function () {
-            Route::get('/', 'index')->name('index');
-            Route::get('/{reference}', 'show')->name('show');
-            Route::post('/{reference}/responder', 'reply')->middleware('throttle:30,1,suppliers.service-requests.reply')->name('reply');
-            Route::post('/{reference}/cerrar', 'close')->middleware('throttle:20,1,suppliers.service-requests.close')->name('close');
-        });
-    });
 
     Route::middleware('supplier.products')->group(function () {
         Route::controller(SupplierProductController::class)->prefix('catalogo')->name('products.')->whereNumber(['product', 'photo'])->group(function () {

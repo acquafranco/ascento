@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Supplier;
 
 use App\Http\Controllers\Controller;
 use App\Models\Marketplace\MarketplaceRequest;
-use App\Models\Marketplace\ServiceContactRequest;
 use App\Models\Marketplace\Supplier;
 use App\Models\Marketplace\SupplierProduct;
 use App\Rules\TaxId;
@@ -35,8 +34,6 @@ class SupplierAreaController extends Controller
             'accepted' => MarketplaceRequest::forSupplier($supplier->id)->where('status', MarketplaceRequest::ACCEPTED)->count(),
             'completed' => $supplier->completedOperations(),
             'notifications' => $notifications,
-            'serviceProfile' => $profile = $supplier->serviceProfile,
-            'openConsultations' => $profile ? ServiceContactRequest::forProfile($profile->id)->where('status', ServiceContactRequest::OPEN)->count() : 0,
         ]);
     }
 
@@ -72,7 +69,7 @@ class SupplierAreaController extends Controller
     }
 
     /**
-     * Una cuenta que solo ofrecía servicios empieza a vender productos: carga su
+     * Una cuenta anterior registrada «solo servicios» (función retirada) empieza a vender productos: carga su
      * identificación fiscal (la misma regla que el registro) y se avisa al equipo.
      */
     public function enableProducts(Request $request): RedirectResponse
