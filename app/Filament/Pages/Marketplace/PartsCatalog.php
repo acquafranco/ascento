@@ -12,6 +12,7 @@ use App\Services\Marketplace\RequestCart;
 use App\Support\Marketplace\BuyerAccess;
 use App\Support\Marketplace\Catalog;
 use App\Support\Marketplace\CatalogRanking;
+use App\Support\Marketplace\CatalogSearch;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -261,22 +262,11 @@ class PartsCatalog extends Page
 
     private function query(array $favorites): Builder
     {
-        $like = fn (string $v) => '%'.addcslashes($v, '\\%_').'%';
-        $words = trim($this->q) === '' ? [] : array_slice(preg_split('/\s+/', trim(mb_substr($this->q, 0, 120))), 0, 6);
+        $words = CatalogSearch::words($this->q);
 
-        $query = SupplierProduct::visible()->with(['supplier:id,name', 'photos'])
-            ->when($words !== [], function (Builder $q) use ($like, $words) {
-                foreach ($words as $word) {
-                    $q->where(fn (Builder $w) => $w->where('name', 'like', $like($word))->orWhere('brand', 'like', $like($word))->orWhere('model', 'like', $like($word))
-                        ->orWhere('part_number', 'like', $like($word))->orWhere('compatibility', 'like', $like($word))->orWhere('description', 'like', $like($word)));
-                }
-            })
-            ->when(isset(Catalog::CATEGORIES[$this->rubro]), fn (Builder $q) => $q->where('category', $this->rubro))
-            ->when($this->marca !== '', fn (Builder $q) => $q->where('brand', $this->marca))
-            ->when(isset(Catalog::AVAILABILITY[$this->disponibilidad]), fn (Builder $q) => $q->where('availability', $this->disponibilidad))
-            ->when(isset(Catalog::PRICE_MODES[$this->precio]), fn (Builder $q) => $q->where('price_mode', $this->precio))
-            ->when($this->proveedor, fn (Builder $q) => $q->where('supplier_id', $this->proveedor))
-            ->when($this->favoritos, fn (Builder $q) => $q->whereIn('supplier_products.id', $favorites ?: [0]));
+        $query = CatalogSearch::apply(SupplierProduct::visible()->with(['supplier:id,name', 'photos']), $words, [
+            'rubro' => $this->rubro, 'marca' => $this->marca, 'disponibilidad' => $this->disponibilidad, 'precio' => $this->precio, 'proveedor' => $this->proveedor,
+        ])->when($this->favoritos, fn (Builder $q) => $q->whereIn('supplier_products.id', $favorites ?: [0]));
 
         // Relevancia, compatibilidad, disponibilidad, destacado y rotación (CatalogRanking).
         return CatalogRanking::apply($query, $words, $this->companyId());

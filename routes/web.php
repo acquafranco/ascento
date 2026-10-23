@@ -15,6 +15,7 @@ use App\Http\Controllers\ElevatorDocumentController;
 use App\Http\Controllers\HelpController;
 use App\Http\Controllers\InspectionReportController;
 use App\Http\Controllers\InterventionController;
+use App\Http\Controllers\Marketplace\PublicCatalogController;
 use App\Http\Controllers\Marketplace\SupplierPhotoController;
 use App\Http\Controllers\NotificationInboxController;
 use App\Http\Controllers\OnCallController;
@@ -35,6 +36,7 @@ use App\Http\Controllers\ReportPdfController;
 use App\Http\Controllers\ReportPhotoController;
 use App\Http\Controllers\ReportVideoController;
 use App\Http\Controllers\SalesCalculatorController;
+use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\Supplier\SupplierAreaController;
 use App\Http\Controllers\Supplier\SupplierBillingController;
 use App\Http\Controllers\Supplier\SupplierFeaturedController;
@@ -88,6 +90,18 @@ Route::get('/', function () {
 // Marketplace de repuestos: página comercial pública (la Welcome sigue presentando la gestión
 // y lo enlaza desde su propia sección). Sin lógica propia: usa las rutas reales del catálogo y los registros.
 Route::get('/marketplace', fn () => view('marketplace.landing'))->name('marketplace');
+
+// Catálogo de repuestos sin cuenta: solo productos visibles y el perfil comercial del proveedor
+// (PublicCatalogController). Pedir cotizaciones y favoritos siguen en el panel, con cuenta.
+Route::prefix('marketplace')->name('marketplace.')->controller(PublicCatalogController::class)->group(function () {
+    Route::get('/repuestos', 'index')->middleware('throttle:120,1,marketplace.public.catalog')->name('catalog');
+    Route::get('/repuestos/{product}/{slug?}', 'product')->whereNumber('product')->middleware('throttle:120,1,marketplace.public.product')->name('product');
+    Route::get('/proveedores/{supplier}', 'supplier')->where('supplier', '[A-Za-z0-9-]{1,190}')->middleware('throttle:60,1,marketplace.public.supplier')->name('supplier');
+    Route::get('/imagenes/{photo}', 'photo')->whereNumber('photo')->middleware('throttle:600,1,marketplace.public.image')->name('image');
+});
+
+// Mapa del sitio para buscadores: solo páginas públicas (sin paneles ni datos de clientes).
+Route::get('/sitemap.xml', SitemapController::class)->middleware('throttle:30,1,sitemap')->name('sitemap');
 
 Route::get('/legal/terminos', fn () => view('legal.terms'))->name('legal.terms');
 Route::get('/legal/privacidad', fn () => view('legal.privacy'))->name('legal.privacy');

@@ -88,6 +88,9 @@
                 <a href="#como-funciona" class="hover:text-ink transition-colors">Cómo funciona</a>
                 <a href="#planes" class="hover:text-ink transition-colors">Planes</a>
                 <a href="#faq" class="hover:text-ink transition-colors">Preguntas frecuentes</a>
+                <a href="{{ route('marketplace') }}" data-nav-marketplace class="inline-flex items-center gap-1.5 hover:text-ink transition-colors">
+                    <span class="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden="true"></span>Marketplace
+                </a>
             </div>
 
             <div class="hidden lg:flex items-center gap-3">
@@ -111,6 +114,7 @@
                 <a @click="open=false" href="#como-funciona" class="py-2.5 text-ink/75">Cómo funciona</a>
                 <a @click="open=false" href="#planes" class="py-2.5 text-ink/75">Planes</a>
                 <a @click="open=false" href="#faq" class="py-2.5 text-ink/75">Preguntas frecuentes</a>
+                <a href="{{ route('marketplace') }}" data-nav-marketplace-mobile class="py-2.5 text-ink/75">Marketplace de repuestos</a>
                 <button type="button" data-whatsapp-open @click="open=false" class="py-2.5 text-left text-ink/75">Hablemos por WhatsApp</button>
                 <div class="flex gap-2 pt-3">
                     <a href="{{ Route::has('login') ? route('login') : '/login' }}" class="flex-1 text-center rounded-full bg-graphite text-white px-4 py-2.5 text-sm font-semibold">Entrar</a>
@@ -557,7 +561,10 @@
                                 $phoneShots = [
                                     ['tecnico-inicio', 'App del técnico', 'Lo próximo que tiene que hacer'],
                                     ['tecnico-trabajos', 'Órdenes de trabajo', 'Tomar y finalizar con el remito'],
+                                    ['tecnico-orden', 'Detalle de la orden', 'Qué hacer, dónde y cómo llegar'],
+                                    ['tecnico-remito', 'Remito digital', 'Con la firma del técnico y del cliente'],
                                     ['tecnico-visitas', 'Visitas del mes', 'Mantenimientos e inspecciones'],
+                                    ['tecnico-paracaidas', 'Pruebas de paracaídas', 'Próximas y sin registrar, por ascensor'],
                                     ['tecnico-reporte', 'Nuevo reporte', 'Edificio, fotos y video'],
                                     ['portal-inicio', 'Portal del cliente', 'Lo que la empresa comparte'],
                                     ['portal-documentos', 'Documentos del cliente', 'Remitos, reportes y presupuestos'],

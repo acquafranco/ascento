@@ -14,6 +14,7 @@ use App\Support\Auth\RegistrationChallenge;
 use App\Support\Auth\UserEmail;
 use App\Support\Countries;
 use App\Support\Provinces;
+use App\Support\RegistrationCountries;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
@@ -51,10 +52,11 @@ class RegisteredUserController extends Controller
 
         // Mismo correo con otras mayúsculas o espacios = la misma cuenta.
         $request->merge(['email' => UserEmail::normalize((string) $request->input('email'))]);
-        // País de la empresa (Latinoamérica). Sin elegir (formulario viejo), Argentina como
-        // hasta ahora; un código que no está en la lista se rechaza al validar.
+        // País de la empresa: solo los habilitados para registrarse (RegistrationCountries; por
+        // defecto, Argentina). Sin elegir (formulario sin selector), Argentina; cualquier otro
+        // código enviado a mano se rechaza al validar.
         if (blank($request->input('country'))) {
-            $request->merge(['country' => Countries::DEFAULT]);
+            $request->merge(['country' => RegistrationCountries::HOME]);
         }
         $country = Countries::normalize((string) $request->input('country'));
 
@@ -78,7 +80,7 @@ class RegisteredUserController extends Controller
             // Lo mínimo para crear bien la empresa. El resto (razón social,
             // domicilio, condición fiscal, datos bancarios…) se completa después
             // desde "Mi empresa".
-            'country' => ['required', Rule::in(array_keys(Countries::LATAM))],
+            'country' => ['required', Rule::in(RegistrationCountries::enabled())],
 
             // Identificación fiscal según el país: CUIT en Argentina; RUT, RFC, NIT, RUC… en el resto.
             'cuit' => [
@@ -132,7 +134,7 @@ class RegisteredUserController extends Controller
 
             'password' => PasswordPolicy::rules([$request->input('name'), $request->input('email'), $request->input('company_name')]),
 
-        ]);
+        ], ['country.in' => RegistrationCountries::rejectedMessage()]);
 
         /*
         |--------------------------------------------------------------------------

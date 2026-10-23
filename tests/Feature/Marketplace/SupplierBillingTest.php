@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Tests\Concerns\InteractsWithTenants;
+use Tests\Concerns\VerifiesMercadoPagoAccount;
 use Tests\Feature\Marketplace\Concerns\MakesMarketplace;
 use Tests\TestCase;
 
@@ -29,7 +30,7 @@ use Tests\TestCase;
  */
 class SupplierBillingTest extends TestCase
 {
-    use InteractsWithTenants, MakesMarketplace, RefreshDatabase;
+    use InteractsWithTenants, MakesMarketplace, RefreshDatabase, VerifiesMercadoPagoAccount;
 
     private const SECRET = 'secreto-webhook-proveedores';
 
@@ -40,6 +41,7 @@ class SupplierBillingTest extends TestCase
     {
         parent::setUp();
         config(['services.mercadopago.access_token' => 'APP_USR-TEST', 'services.mercadopago.webhook_secret' => self::SECRET, 'services.mercadopago.test_payer_email' => null]);
+        $this->markMercadoPagoVerified();
         MarketplaceSettings::current()->update(['premium_enabled' => true, 'premium_price' => 25000, 'featured_enabled' => true, 'featured_price_7' => 5000, 'featured_price_30' => 15000]);
 
         Http::preventStrayRequests();

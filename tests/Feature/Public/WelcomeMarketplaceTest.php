@@ -79,4 +79,45 @@ class WelcomeMarketplaceTest extends TestCase
 
         $this->assertStringContainsString('Gratis hasta 25 productos publicados.', $this->section($this->get('/')->getContent(), 'marketplace'));
     }
+
+    public function test_the_top_bar_links_to_the_marketplace_on_desktop_and_mobile_without_replacing_login(): void
+    {
+        $html = $this->get('/')->assertOk()->getContent();
+        $this->assertSame(1, preg_match('#<header.*?</header>#s', $html, $m));
+        $header = $m[0];
+
+        $this->assertStringContainsString('href="'.route('marketplace').'" data-nav-marketplace ', $header);
+        $this->assertStringContainsString('href="'.route('marketplace').'" data-nav-marketplace-mobile', $header);
+        // Una vez en cada menú, y «Entrar» sigue siendo el botón principal.
+        $this->assertSame(2, substr_count($header, 'href="'.route('marketplace').'"'));
+        $this->assertSame(2, substr_count($header, 'href="'.route('login').'"'));
+        $this->assertStringContainsString('#beneficios', $header);
+        $this->assertStringContainsString('#planes', $header);
+    }
+
+    public function test_the_section_offers_the_public_catalog_without_an_account(): void
+    {
+        $section = $this->section($this->get('/')->getContent(), 'marketplace');
+        $this->assertStringContainsString('href="'.route('marketplace.catalog').'" data-marketplace-catalog', $section);
+
+        MarketplaceSettings::current()->update(['public_catalog_enabled' => false]);
+        $this->assertStringNotContainsString('data-marketplace-catalog', $this->section($this->get('/')->getContent(), 'marketplace'));
+    }
+
+    public function test_the_app_screenshots_respect_reduced_motion_and_have_alt_texts(): void
+    {
+        $html = $this->get('/')->getContent();
+
+        $this->assertStringContainsString('prefers-reduced-motion', $html);
+        preg_match_all('#<img src="[^"]*/images/landing/([a-z-]+)\.jpg" alt="([^"]*)"#', $html, $m);
+        $this->assertContains('tecnico-remito', $m[1]);
+        $this->assertContains('tecnico-orden', $m[1]);
+        $this->assertContains('tecnico-paracaidas', $m[1]);
+        foreach ($m[2] as $alt) {
+            $this->assertNotSame('', trim($alt));
+        }
+        foreach (array_unique($m[1]) as $file) {
+            $this->assertFileExists(public_path('images/landing/'.$file.'.jpg'));
+        }
+    }
 }

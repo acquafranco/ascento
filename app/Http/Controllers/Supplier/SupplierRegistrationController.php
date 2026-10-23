@@ -13,6 +13,7 @@ use App\Support\Auth\RegistrationChallenge;
 use App\Support\Auth\UserEmail;
 use App\Support\Countries;
 use App\Support\Marketplace\Catalog;
+use App\Support\RegistrationCountries;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
@@ -44,8 +45,9 @@ class SupplierRegistrationController extends Controller
         RegistrationChallenge::ensureHuman($request);
 
         $request->merge(['email' => UserEmail::normalize((string) $request->input('email'))]);
+        // Solo países habilitados para registrarse (RegistrationCountries; por defecto, Argentina).
         if (blank($request->input('country'))) {
-            $request->merge(['country' => Countries::DEFAULT]);
+            $request->merge(['country' => RegistrationCountries::HOME]);
         }
         $country = Countries::normalize((string) $request->input('country'));
 
@@ -53,7 +55,7 @@ class SupplierRegistrationController extends Controller
             'challenge' => [RegistrationChallenge::rule($request)],
             'supplier_name' => ['required', 'string', 'max:160'],
             'legal_name' => ['nullable', 'string', 'max:190'],
-            'country' => ['required', Rule::in(array_keys(Countries::LATAM))],
+            'country' => ['required', Rule::in(RegistrationCountries::enabled())],
             'tax_id' => ['required', 'string', 'max:25', new TaxId($country),
                 function (string $attribute, $value, \Closure $fail) use ($country) {
                     if (Supplier::where('country', $country)->where('tax_id', TaxId::format($country, $value))->exists()) {
@@ -73,6 +75,7 @@ class SupplierRegistrationController extends Controller
         ], [
             'categories.required' => 'Elegí al menos un rubro.',
             'coverage.required' => 'Contanos a qué zonas vendés o enviás.',
+            'country.in' => RegistrationCountries::rejectedMessage(),
         ]);
 
         try {

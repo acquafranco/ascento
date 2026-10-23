@@ -52,8 +52,8 @@ class LandingLayoutTest extends TestCase
         $this->assertStringNotContainsString('animation-play-state: paused', $html);
         $this->assertStringNotContainsString('animate-marquee', $html);
         $this->assertStringContainsString('data-marquee-track', $html);
-        // 7 capturas reales y su copia para el loop, fuera de la lectura y del teclado.
-        $this->assertSame(7, substr_count($html, 'aria-hidden="true" inert data-marquee-copy'));
+        // 10 capturas reales (7 del técnico) y su copia para el loop, fuera de la lectura y del teclado.
+        $this->assertSame(10, substr_count($html, 'aria-hidden="true" inert data-marquee-copy'));
         $this->assertStringContainsString('data-marquee-prev', $html);
         $this->assertStringContainsString('data-marquee-next', $html);
     }

@@ -16,7 +16,11 @@
         : null;
     $mkPhotos = \App\Support\Marketplace\Catalog::MAX_PHOTOS;
     $mkCategories = count(\App\Support\Marketplace\Catalog::CATEGORIES);
-    $catalogUrl = \App\Filament\Pages\Marketplace\PartsCatalog::getUrl(panel: 'ascensores_app');
+    // Catálogo sin cuenta (si el SuperAdmin no lo apagó); si no, el del panel, que pide ingresar.
+    $mkPublic = $mkSettings->publicCatalog();
+    $catalogUrl = $mkPublic ? route('marketplace.catalog') : \App\Filament\Pages\Marketplace\PartsCatalog::getUrl(panel: 'ascensores_app');
+    $mkCounts = $mkPublic ? \App\Http\Controllers\Marketplace\PublicCatalogController::categoryCounts() : [];
+    $mkLatest = $mkPublic ? \App\Models\Marketplace\SupplierProduct::visible()->with(['supplier:id,name,slug', 'photos'])->reorder()->latest('supplier_products.published_at')->limit(8)->get() : collect();
     $loginUrl = route('login');
     $supplierUrl = route('suppliers.register');
     $arrow = '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -30,6 +34,7 @@
 
     <title>Marketplace de repuestos para ascensores | Ascento</title>
     <meta name="description" content="Las empresas de ascensores encuentran repuestos, comparan opciones y piden cotizaciones a proveedores del sector. Los proveedores publican su catálogo gratis en Ascento.">
+    <link rel="canonical" href="{{ route('marketplace') }}">
 
     @include('partials.brand-head')
 
@@ -38,7 +43,7 @@
     <meta property="og:image" content="https://ascento.online/images/brand/og-1200x630.jpg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:url" content="https://ascento.online/marketplace">
+    <meta property="og:url" content="{{ route('marketplace') }}">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
 
@@ -94,7 +99,7 @@
             </a>
 
             <div class="hidden lg:flex items-center gap-8 text-sm font-medium text-ink/70">
-                <a href="#capturas" class="hover:text-ink transition-colors">El catálogo</a>
+                <a href="{{ $catalogUrl }}" class="hover:text-ink transition-colors" data-nav-catalog>Catálogo</a>
                 <a href="#como-funciona" class="hover:text-ink transition-colors">Cómo funciona</a>
                 <a href="#proveedores" class="hover:text-ink transition-colors">Proveedores</a>
                 <a href="#faq" class="hover:text-ink transition-colors">Preguntas</a>
@@ -116,7 +121,7 @@
 
         <div x-show="open" x-cloak x-transition class="lg:hidden bg-paper border-b border-ink/10 px-5 pb-5 pt-1">
             <div class="flex flex-col gap-1 text-[15px] font-medium">
-                <a @click="open=false" href="#capturas" class="py-2.5 text-ink/75">El catálogo</a>
+                <a href="{{ $catalogUrl }}" class="py-2.5 text-ink/75">Catálogo</a>
                 <a @click="open=false" href="#como-funciona" class="py-2.5 text-ink/75">Cómo funciona</a>
                 <a @click="open=false" href="#proveedores" class="py-2.5 text-ink/75">Proveedores</a>
                 <a @click="open=false" href="#faq" class="py-2.5 text-ink/75">Preguntas</a>
@@ -172,8 +177,20 @@
                                 Ya tengo cuenta
                             </a>
                         </div>
+                        @if ($mkPublic)
+                            <form method="GET" action="{{ route('marketplace.catalog') }}" role="search" class="mt-6 flex max-w-lg gap-2" data-hero-search>
+                                <label for="mk-hero-q" class="sr-only">Buscar repuestos</label>
+                                <input id="mk-hero-q" type="search" name="q" maxlength="120" placeholder="Buscá por nombre, marca, modelo o código"
+                                       class="min-w-0 flex-1 rounded-full border border-ink/15 bg-white px-5 py-3 text-sm shadow-sm outline-none transition focus:border-rail-500 focus:ring-4 focus:ring-rail-100">
+                                <button type="submit" class="shrink-0 rounded-full border border-ink/15 bg-white px-5 py-3 text-sm font-semibold transition hover:border-ink/35">Buscar</button>
+                            </form>
+                        @endif
                         <p class="mt-4 text-xs leading-relaxed text-ink/45 max-w-md">
-                            Las empresas exploran el catálogo con su cuenta de Ascento. Publicar es gratis, hasta {{ $mkFree }} productos.
+                            @if ($mkPublic)
+                                Explorá el catálogo sin cuenta. Para pedir cotizaciones, entrá con la cuenta de tu empresa. Publicar es gratis, hasta {{ $mkFree }} productos.
+                            @else
+                                Las empresas exploran el catálogo con su cuenta de Ascento. Publicar es gratis, hasta {{ $mkFree }} productos.
+                            @endif
                         </p>
                     </div>
 
@@ -220,6 +237,37 @@
                 <span>Sin comisiones sobre las ventas</span>
             </div>
         </section>
+
+        {{-- ============ EXPLORAR: rubros con productos y lo último publicado (datos reales, sin cuenta) ============ --}}
+        @if ($mkPublic && ($mkCounts || $mkLatest->isNotEmpty()))
+            <section id="explorar" class="py-20 sm:py-24" data-floor="PB" data-explore>
+                <div class="mx-auto max-w-7xl px-5 sm:px-8">
+                    <div data-reveal class="flex flex-wrap items-end justify-between gap-4">
+                        <div class="max-w-2xl">
+                            <span class="font-mono text-xs tracking-widest text-amber-600 uppercase">Planta baja · Explorá el catálogo</span>
+                            <h2 class="mt-3 font-display font-semibold text-3xl sm:text-4xl tracking-tight">Recién publicados por los proveedores.</h2>
+                        </div>
+                        <a href="{{ route('marketplace.catalog') }}" class="inline-flex items-center gap-2 text-sm font-semibold text-ink/70 hover:text-ink">Ver todo el catálogo {!! $arrow !!}</a>
+                    </div>
+                    @if ($mkCounts)
+                        <div data-reveal class="mt-7 flex flex-wrap gap-2" data-explore-categories>
+                            @foreach (\App\Support\Marketplace\Catalog::CATEGORIES as $key => $label)
+                                @if (($mkCounts[$key] ?? 0) > 0)
+                                    <a href="{{ route('marketplace.catalog', ['rubro' => $key]) }}" class="rounded-full border border-ink/15 bg-white px-3.5 py-1.5 text-xs font-semibold text-ink/70 transition hover:border-amber-500 hover:text-ink">{{ $label }} <span class="font-normal opacity-60">{{ $mkCounts[$key] }}</span></a>
+                                @endif
+                            @endforeach
+                        </div>
+                    @endif
+                    @if ($mkLatest->isNotEmpty())
+                        <div data-reveal class="mt-8 grid gap-4 min-[480px]:grid-cols-2 lg:grid-cols-4">
+                            @foreach ($mkLatest as $product)
+                                @include('marketplace.public.partials.card', ['product' => $product])
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+            </section>
+        @endif
 
         {{-- ============ EL CATÁLOGO POR DENTRO (capturas reales) ============ --}}
         @php
@@ -393,7 +441,9 @@
                 ['¿Cuánto cuesta publicar mi catálogo?', 'Publicar es gratis, hasta '.$mkFree.' productos publicados a la vez y sin tarjeta. Los borradores y los productos pausados no cuentan.'.($mkPremium ? ' '.$mkPremium : '')],
                 ['¿Ascento cobra comisión por las ventas?', 'No. Ascento no vende los repuestos, no cobra comisiones por las ventas ni procesa sus pagos. El precio, el pago, la factura, el envío y la garantía se acuerdan entre la empresa y el proveedor.'],
                 ['¿Quién verifica la información de los productos?', 'Cada proveedor declara el precio, la disponibilidad y la compatibilidad de sus productos; Ascento no los verifica. Lo que sí revisa Ascento es la cuenta de cada proveedor antes de que sus productos se vean en el catálogo.'],
-                ['¿Cómo entra una empresa al catálogo?', 'Desde su cuenta de Ascento: el dueño de la cuenta y quienes tengan permiso sobre Stock ven el catálogo y, según su permiso, piden cotizaciones.'],
+                $mkPublic
+                    ? ['¿Necesito una cuenta para ver los repuestos?', 'No. Cualquiera puede explorar el catálogo, buscar y ver las fichas. Para pedir cotizaciones y guardar favoritos hace falta la cuenta de una empresa de ascensores: el dueño y quienes tengan permiso sobre Stock.']
+                    : ['¿Cómo entra una empresa al catálogo?', 'Desde su cuenta de Ascento: el dueño de la cuenta y quienes tengan permiso sobre Stock ven el catálogo y, según su permiso, piden cotizaciones.'],
             ];
         @endphp
         <section id="faq" class="py-24 sm:py-28 bg-white border-y border-ink/10" data-floor="04">

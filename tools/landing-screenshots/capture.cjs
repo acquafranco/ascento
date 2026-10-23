@@ -22,12 +22,30 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const PHONE = { width: 390, height: 760, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
 const DESKTOP = { width: 1440, height: 900, deviceScaleFactor: 1 };
 
+// El primer link de una lista que coincide con el patrón (los ids de la demo no son fijos).
+const firstLink = (listPath, pattern) => async (browser, page) => {
+    await page.goto(BASE + listPath, { waitUntil: 'networkidle2' });
+    const href = await page.evaluate((re) => [...document.querySelectorAll('a[href]')].map((a) => a.href).find((h) => new RegExp(re).test(h)) || null, pattern);
+    if (!href) throw new Error('No hay ' + pattern + ' en ' + listPath);
+    return href;
+};
+
+// La bienvenida de la app (una sola vez por técnico) se descarta como lo haría él: «Entendido».
+const dismissWelcome = async (p) => {
+    // Todos los «Entendido» (la bienvenida y, si aparece, el aviso de cookies).
+    const clicked = await p.evaluate(() => { const bs = [...document.querySelectorAll('button')].filter((x) => x.textContent.trim() === 'Entendido'); bs.forEach((b) => b.click()); return bs.length > 0; });
+    if (clicked) { await wait(800); await p.reload({ waitUntil: 'networkidle2' }); await p.addStyleTag({ content: HIDE }); }
+};
+
 const shots = [
-    { who: 'lucas@demo-norte.test', vp: PHONE, path: '/demo-norte/dashboard', file: 'tecnico-inicio' },
+    { who: 'lucas@demo-norte.test', vp: PHONE, path: '/demo-norte/dashboard', file: 'tecnico-inicio', before: dismissWelcome },
     { who: 'lucas@demo-norte.test', vp: PHONE, path: '/demo-norte/work-orders', file: 'tecnico-trabajos' },
+    { who: 'lucas@demo-norte.test', vp: PHONE, file: 'tecnico-orden', resolve: firstLink('/demo-norte/work-orders', '/work-orders/\\d+$') },
+    { who: 'lucas@demo-norte.test', vp: PHONE, file: 'tecnico-remito', resolve: firstLink('/demo-norte/delivery-notes', '/delivery-notes/\\d+$'), before: async (p) => { await p.evaluate(() => { const f = [...document.querySelectorAll('*')].find((e) => e.children.length === 0 && e.textContent.trim() === 'Firmas'); if (f) f.scrollIntoView({ block: 'start' }); window.scrollBy(0, -330); }); } },
+    { who: 'carla@demo-norte.test', vp: PHONE, path: '/demo-norte/paracaidas', file: 'tecnico-paracaidas' },
     { who: 'lucas@demo-norte.test', vp: PHONE, path: '/demo-norte/buildings', file: 'tecnico-visitas' },
     { who: 'lucas@demo-norte.test', vp: PHONE, path: '/demo-norte/reports/create', file: 'tecnico-reporte', before: async (p) => { await p.focus('#buildingSearch'); await wait(300); } },
-    { who: 'admin@adm-rivadavia.test', vp: PHONE, path: '/portal', file: 'portal-inicio' },
+    { who: 'admin@adm-rivadavia.test', vp: PHONE, path: '/portal', file: 'portal-inicio', before: dismissWelcome },
     { who: 'admin@adm-rivadavia.test', vp: PHONE, path: '/portal/documentos', file: 'portal-documentos' },
     { who: 'admin@demo-norte.test', vp: DESKTOP, path: '/admin/dashboard', file: 'admin-inicio' },
     { who: 'admin@demo-norte.test', vp: DESKTOP, path: '/admin/mapa', file: 'admin-mapa', settle: 3500 },
@@ -83,7 +101,7 @@ const HIDE = `[x-data="pushNotifications"], .asc-tip, #asc-live, .wa-launch { di
             sessions[key] = page;
         }
         const page = sessions[key];
-        const url = shot.resolve ? await shot.resolve(browser) : BASE + shot.path;
+        const url = shot.resolve ? await shot.resolve(browser, page) : BASE + shot.path;
         await page.goto(url, { waitUntil: 'networkidle2' });
         await page.addStyleTag({ content: HIDE });
         if (shot.before) await shot.before(page);

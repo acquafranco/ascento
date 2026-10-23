@@ -3,6 +3,7 @@
 namespace App\Services\Marketplace\Billing;
 
 use App\Models\Marketplace\FeaturedPlacement;
+use App\Models\Marketplace\MarketplaceSettings;
 use App\Models\Marketplace\Supplier;
 use App\Models\Marketplace\SupplierSubscription;
 use App\Models\User;
@@ -69,7 +70,7 @@ class MercadoPagoSupplierGateway implements SupplierBillingGateway
 
         $reference = SupplierBillingSync::subscriptionReference($supplier->id);
         $response = $this->api()->createPreapproval([
-            'reason' => 'Ascento - Marketplace de repuestos (proveedor)',
+            'reason' => 'Ascento - Marketplace de repuestos: Premium para proveedores ('.MarketplaceSettings::PREMIUM_PLAN_CODE.')',
             'external_reference' => $reference,
             'payer_email' => $this->payerEmail($supplier, $user),
             'back_url' => $backUrl,
