@@ -63,7 +63,7 @@ class UrgentCoverageTest extends TestCase
     private function open(User $tech, int $buildingId)
     {
         return $this->actingAs($tech)->post(route('interventions.store', ['company' => $tech->company->slug]), [
-            'building_id' => $buildingId, 'elevator_number' => 'Ascensor 1', 'channel' => 'whatsapp', 'kind' => 'urgent',
+            'building_id' => $buildingId, 'work_type' => 'claim', 'elevator_number' => 'Ascensor 1', 'channel' => 'whatsapp', 'kind' => 'urgent',
             'description' => 'Reclamo por WhatsApp: ascensor detenido.', 'submission_token' => (string) Str::uuid(),
         ]);
     }
@@ -138,7 +138,7 @@ class UrgentCoverageTest extends TestCase
             ->assertViewHas('buildings', fn ($list) => ! $list->pluck('id')->contains($this->unassigned->id));
         $this->open($tech, $this->unassigned->id)->assertSessionHasErrors('building_id');
         $this->postJson(route('interventions.store', ['company' => $this->slug()]), [
-            'building_id' => $this->unassigned->id, 'elevator_number' => 'Ascensor 1', 'channel' => 'phone', 'kind' => 'urgent',
+            'building_id' => $this->unassigned->id, 'work_type' => 'claim', 'elevator_number' => 'Ascensor 1', 'channel' => 'phone', 'kind' => 'urgent',
             'description' => 'Intento directo al backend', 'submission_token' => (string) Str::uuid(),
         ])->assertStatus(422);
         $this->assertSame(1, WorkOrder::withoutGlobalScopes()->count());

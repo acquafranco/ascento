@@ -36,6 +36,9 @@
     .t-chip-neutral { @apply t-chip bg-ink-50 text-ink-700; }
 
     .t-input { @apply block w-full rounded-xl border-ink-100 bg-white px-3.5 py-3 text-ink shadow-none placeholder:text-ink-300 focus:border-brand focus:ring-brand; }
+    /* Campo con error (validación del formulario o del servidor): borde rojo y su mensaje debajo (.t-field-error). */
+    .t-input-invalid { @apply border-red-500 bg-red-50/40 ring-1 ring-red-200 focus:border-red-500 focus:ring-red-500; }
+    .t-field-error { @apply mt-1.5 text-sm font-semibold text-red-700; }
     .t-label { @apply mb-1.5 block text-sm font-semibold text-ink-700; }
     .t-empty { @apply rounded-2xl border border-dashed border-ink-100 bg-white px-5 py-8 text-center text-sm text-ink-500; }
     .t-alert-success { @apply rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800; }

@@ -11,6 +11,7 @@ use App\Models\WorkOrder;
 use App\Services\OnCall\OnCallService;
 use App\Services\Reports\ReportPhotoService;
 use App\Support\Access\Access;
+use App\Support\WorkOrderLabels;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\UploadedFile;
@@ -23,7 +24,8 @@ use Illuminate\Validation\ValidationException;
  * detectó en la visita), sin esperar a que la oficina cree la orden.
  *
  * Modelo (integrado con lo que ya existe):
- * - La VISITA es una orden de trabajo de tipo «Reclamo», origen 'technician',
+ * - La VISITA es una orden de trabajo del tipo que elige el técnico
+ *   (mantenimiento, inspección, reclamo, reparación…), origen 'technician',
  *   creada por el técnico, asignada a él y ya en curso. Desde ahí sigue el
  *   flujo de siempre: «Hacer remito y finalizar» (DeliveryNoteController),
  *   con firma del técnico y del cliente, materiales, fotos y participantes.
@@ -105,7 +107,7 @@ class InterventionService
     /**
      * Abre la intervención: crea la orden (la visita) y su primer trabajo.
      *
-     * @param  array{building_id: int, elevator_number: string, channel: string, kind: string, description: string, component?: ?string}  $data
+     * @param  array{building_id: int, work_type: string, elevator_number: string, channel: string, kind: string, description: string, component?: ?string}  $data
      * @param  list<UploadedFile>  $photos
      */
     public function start(User $user, array $data, array $photos, string $idempotencyKey): WorkOrder
@@ -119,6 +121,9 @@ class InterventionService
             throw ValidationException::withMessages(['building_id' => 'No podés registrar intervenciones en ese edificio.']);
         }
         $this->ensureUnit($building, $data['elevator_number']);
+        if (! array_key_exists((string) ($data['work_type'] ?? ''), WorkOrderLabels::TYPES)) {
+            throw ValidationException::withMessages(['work_type' => 'Elegí el tipo de trabajo.']);
+        }
         $kind = self::KINDS[$data['kind']];
 
         try {
@@ -130,7 +135,8 @@ class InterventionService
                 $order->forceFill([
                     'company_id' => $user->company_id,
                     'building_id' => $building->id,
-                    'type' => 'claim',
+                    // Lo elige el técnico (WorkOrderLabels::TYPES, validado en el controlador y acá).
+                    'type' => $data['work_type'],
                     'origin' => WorkOrder::ORIGIN_TECHNICIAN,
                     'created_by' => $user->id,
                     'status' => 'in_progress',

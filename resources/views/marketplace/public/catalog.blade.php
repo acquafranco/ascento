@@ -5,7 +5,8 @@
     $catName = $filters['rubro'] !== '' ? $cats[$filters['rubro']] : null;
     $pageTitle = $catName ? $catName.' para ascensores' : ($q !== '' ? 'Repuestos: «'.$q.'»' : 'Catálogo de repuestos para ascensores');
     $activeCount = count(array_filter($filters));
-    $select = 'mt-1.5 w-full rounded-xl border border-ink/15 bg-white px-3.5 py-2.5 text-sm text-ink shadow-sm outline-none transition focus:border-rail-500 focus:ring-4 focus:ring-rail-100';
+    // Flecha propia (mk-select): la nativa quedaba pegada al borde derecho. Mismos colores y tamaños.
+    $select = 'mk-select mt-1.5 w-full rounded-xl border border-ink/15 bg-white py-2.5 pl-3.5 pr-10 text-sm text-ink shadow-sm outline-none transition focus:border-rail-500 focus:ring-4 focus:ring-rail-100';
     $canonical = $filtered ? route('marketplace.catalog') : ($products->currentPage() > 1 ? route('marketplace.catalog', ['page' => $products->currentPage()]) : route('marketplace.catalog'));
 @endphp
 

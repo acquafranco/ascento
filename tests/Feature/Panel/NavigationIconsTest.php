@@ -42,7 +42,7 @@ class NavigationIconsTest extends TestCase
     {
         $icons = $this->menuIcons();
 
-        foreach (['Clientes', 'Edificios', 'Mantenimientos', 'Inspecciones', 'Órdenes de trabajo', 'Remitos', 'Reportes', 'Guardias', 'Pruebas de paracaídas'] as $section) {
+        foreach (['Clientes', 'Edificios', 'Mantenimientos', 'Inspecciones', 'Órdenes de trabajo', 'Remitos', 'Reportes de técnicos', 'Guardias', 'Pruebas de paracaídas'] as $section) {
             $this->assertArrayHasKey($section, $icons, "Falta «{$section}» en el menú");
         }
 

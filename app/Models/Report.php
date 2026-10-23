@@ -189,6 +189,17 @@ class Report extends Model
         return $query->where($query->qualifyColumn('kind'), self::KIND_INTERVENTION);
     }
 
+    /**
+     * Trabajos de intervenciones cuya orden es de tipo «Reclamo»: los que
+     * cuentan como reclamos en indicadores y análisis de fallas. Los de una
+     * reparación, un mantenimiento o una instalación no son reclamos.
+     */
+    public function scopeClaimJobs(Builder $query): Builder
+    {
+        return $query->where($query->qualifyColumn('kind'), self::KIND_INTERVENTION)
+            ->whereIn($query->qualifyColumn('work_order_id'), WorkOrder::withoutGlobalScopes()->withTrashed()->where('type', 'claim')->select('id'));
+    }
+
     /** Orden de la visita en la que se hizo este trabajo (solo intervenciones). */
     public function workOrder()
     {

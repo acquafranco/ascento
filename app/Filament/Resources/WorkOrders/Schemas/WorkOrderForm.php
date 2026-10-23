@@ -9,6 +9,7 @@ use App\Models\WorkOrder;
 use App\Services\Visits\WorkPhotoGallery;
 use App\Support\ElevatorComponents;
 use App\Support\Plans\PlanGuard;
+use App\Support\WorkOrderLabels;
 use Filament\Forms;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\View;
@@ -232,18 +233,11 @@ class WorkOrderForm
         return Forms\Components\Select::make(
             'type'
         )
-            ->options([
-                'maintenance' => 'Mantenimiento',
-
-                'inspection' => 'Inspección',
-
-                'claim' => 'Reclamo',
-
-                'installation' => 'Instalación',
-
-                'modernization' => 'Modernización',
-            ])
+            // Lista única de tipos (WorkOrderLabels::TYPES), validada también en el servidor.
+            ->options(WorkOrderLabels::TYPES)
+            ->in(array_keys(WorkOrderLabels::TYPES))
             ->required()
+            ->helperText('Reclamo: un aviso que necesita atención. Reparación: un trabajo hecho (puede llevar repuestos y facturarse aparte).')
             ->label('Tipo');
     }
 

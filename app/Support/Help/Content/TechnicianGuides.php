@@ -21,7 +21,7 @@ final class TechnicianGuides
                 '«Inicio»: lo próximo que tenés que hacer.',
                 '«Visitas»: los mantenimientos e inspecciones del mes en tus edificios.',
                 '«Trabajos»: las órdenes que te asignó la oficina.',
-                '«Reportes»: las fallas que cargaste.',
+                '«Reportes»: las fallas que cargaste y las intervenciones o urgencias que atendiste.',
                 '«Guardias»: cuándo te toca cubrir fuera de horario y los cambios de guardia.',
                 'En «Más» están los remitos, la planilla del mes, todos los edificios, tu perfil y esta ayuda.',
             ], ['keywords' => ['app', 'menu', 'inicio', 'donde esta'], 'related' => ['t_visit', 't_work_order']]),
@@ -59,11 +59,19 @@ final class TechnicianGuides
             ]),
 
             $a('t-ordenes', 't_report', 'Cargar un reporte de falla', 'Para que la oficina sepa qué falla y dónde.', [
-                'En «Reportes», tocá «Nuevo».',
+                'En «Reportes», tocá «Reportar falla».',
                 'Elegí el edificio y el equipo, contá qué parte falla y la prioridad.',
                 'Sacá una foto o elegí una de la galería.',
                 'Tocá «Enviar reporte».',
-            ], ['after' => 'A la oficina le llega un aviso.', 'keywords' => ['reporte', 'falla', 'problema', 'averia', 'foto'], 'related' => ['t_video']]),
+            ], ['after' => 'A la oficina le llega un aviso.', 'keywords' => ['reporte', 'falla', 'problema', 'averia', 'foto'], 'related' => ['t_video', 't_intervention']]),
+
+            $a('t-ordenes', 't_intervention', 'Registrar una urgencia o un trabajo no programado', 'Un reclamo por WhatsApp, por teléfono o del encargado, o una reparación que hiciste en la visita: lo documentás y hacés el remito sin esperar a la oficina.', [
+                'En «Reportes», tocá «Registrar intervención o urgencia».',
+                'Elegí el edificio, el equipo y el «Tipo de trabajo» (por ejemplo, Reclamo o Reparación), cómo te llegó y qué problema te informaron.',
+                'Si en la misma visita resolvés otra cosa, en la orden tocá «Agregar otro trabajo de esta visita».',
+                'Al terminar, «Hacer remito y finalizar»: contá qué hiciste y cómo quedó cada trabajo, y pedí la firma.',
+                'Si falta algo, el campo se marca en rojo con lo que tenés que completar.',
+            ], ['after' => 'La oficina ve la orden, los trabajos y el remito firmado.', 'keywords' => ['urgencia', 'intervencion', 'reparacion', 'whatsapp', 'remito', 'reclamo'], 'related' => ['t_report']]),
 
             $a('t-ordenes', 't_video', 'Agregar un video al reporte', 'Un video corto donde se vea la falla.', [
                 'Al crear el reporte, tocá «Agregar video» y grabá uno corto.',
