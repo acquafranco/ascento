@@ -14,8 +14,49 @@
     @if(session('success'))
         <div class="t-alert-success mb-4" role="status">{{ session('success') }}</div>
     @endif
+    @if(session('warning'))
+        <div class="t-alert-warning mb-4" role="status">{{ session('warning') }}</div>
+    @endif
 
     @include('work-orders.partials.card', ['workOrder' => $workOrder])
+
+    {{-- Tiempos de atención: aviso, llegada y salida (hora del servidor; no se editan). Sin dato: «Sin registrar». --}}
+    @php
+        $times = \App\Services\WorkOrders\AttendanceTimes::summary($workOrder);
+        $canArrive = \App\Services\WorkOrders\AttendanceTimes::canArrive(auth()->user(), $workOrder);
+        $canLeave = \App\Services\WorkOrders\AttendanceTimes::canLeave(auth()->user(), $workOrder);
+        $fmt = fn ($at) => \App\Services\WorkOrders\AttendanceTimes::time($at);
+        $dur = fn ($m) => \App\Services\WorkOrders\AttendanceTimes::duration($m);
+    @endphp
+    <section class="t-card mt-3 p-4" data-attention-times>
+        <h2 class="text-xs font-bold uppercase tracking-wider text-ink-500">Tiempos de atención</h2>
+        <dl class="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+            <dt class="text-ink-500">Aviso</dt>
+            <dd class="font-semibold text-ink" data-time="call">{{ $fmt($times['call']) }}@if($times['call_source'])<span class="block text-xs font-normal text-ink-500">{{ ucfirst($times['call_source']) }}{{ $times['call_by'] ? ' · '.$times['call_by'] : '' }}</span>@endif</dd>
+            <dt class="text-ink-500">Llegada</dt>
+            <dd class="font-semibold text-ink" data-time="arrived">{{ $fmt($times['arrived']) }}@if($times['arrived_by'])<span class="block text-xs font-normal text-ink-500">{{ $times['arrived_by'] }}</span>@endif</dd>
+            <dt class="text-ink-500">Salida</dt>
+            <dd class="font-semibold text-ink" data-time="left">{{ $fmt($times['left']) }}@if($times['left_by'])<span class="block text-xs font-normal text-ink-500">{{ $times['left_by'] }}</span>@endif</dd>
+        </dl>
+        <dl class="mt-3 grid grid-cols-3 gap-2 border-t border-ink-100 pt-3 text-center text-xs">
+            <div><dt class="text-ink-500">Respuesta</dt><dd class="mt-0.5 font-bold text-ink" data-duration="response">{{ $dur($times['response']) }}</dd></div>
+            <div><dt class="text-ink-500">En el lugar</dt><dd class="mt-0.5 font-bold text-ink" data-duration="on_site">{{ $dur($times['on_site']) }}</dd></div>
+            <div><dt class="text-ink-500">Total</dt><dd class="mt-0.5 font-bold text-ink" data-duration="total">{{ $dur($times['total']) }}</dd></div>
+        </dl>
+        @if($canArrive)
+            <div class="mt-4">
+                @include('partials.slide-confirm', ['action' => route('work-orders.arrive', ['company' => auth()->user()->company->slug, 'workOrder' => $workOrder->id]), 'label' => 'Llegué al edificio', 'name' => 'arrive'])
+                <p class="mt-1.5 text-xs text-ink-500">Deslizalo cuando estés en el edificio. Se guarda la hora de ahora y no se puede cambiar.</p>
+            </div>
+        @elseif($canLeave)
+            <div class="mt-4">
+                @include('partials.slide-confirm', ['action' => route('work-orders.leave', ['company' => auth()->user()->company->slug, 'workOrder' => $workOrder->id]), 'label' => 'Terminé y me retiro', 'name' => 'leave'])
+                <p class="mt-1.5 text-xs text-ink-500">Cuando termines y te vayas del edificio. No cierra la orden ni reemplaza el remito con la firma.</p>
+            </div>
+        @elseif($workOrder->status === 'pending' && $workOrder->users->contains(auth()->id()))
+            <p class="mt-3 text-xs text-ink-500">Tomá el trabajo para poder registrar la llegada.</p>
+        @endif
+    </section>
 
     {{-- Trabajos de esta visita (intervenciones): cada problema por separado, en el mismo remito. --}}
     @php
@@ -39,6 +80,8 @@
                     @if($job->work_done)
                         <p class="mt-1 whitespace-pre-line text-sm text-ink"><span class="font-semibold">Hecho:</span> {{ $job->work_done }}</p>
                     @endif
+                    @if($job->elevatorStateLabel())<p class="mt-1 text-sm text-ink"><span class="font-semibold">Equipo:</span> {{ $job->elevatorStateLabel() }}</p>@endif
+                    @if($job->pending_work)<p class="mt-1 whitespace-pre-line text-sm text-amber-800"><span class="font-semibold">Pendiente:</span> {{ $job->pending_work }}</p>@endif
                     @if($job->photos->isNotEmpty())<p class="mt-1 text-xs text-ink-500">{{ $job->photos->count() }} {{ $job->photos->count() === 1 ? 'foto' : 'fotos' }}</p>@endif
                 </div>
             @endforeach

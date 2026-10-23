@@ -102,7 +102,7 @@ class WorkTypeAndRepairTest extends TestCase
         $this->post("/{$this->a['company']->slug}/delivery-notes/store", [
             'building_id' => $order->building_id, 'work_order_id' => $order->id, 'assignment_type' => 'work_order',
             'elevator_quantity' => 2, 'freight_elevator_quantity' => 0, 'signature_name' => $tech->name, 'signature' => $this->validSignature(),
-            'jobs' => [$jobs[0] => ['work_done' => 'Pulsador cambiado.', 'result' => 'resolved'], $jobs[1] => ['work_done' => 'Puerta ajustada.', 'result' => 'resolved']],
+            'jobs' => [$jobs[0] => ['work_done' => 'Pulsador cambiado.', 'result' => 'resolved', 'elevator_state' => 'in_service'], $jobs[1] => ['work_done' => 'Puerta ajustada.', 'result' => 'resolved', 'elevator_state' => 'in_service']],
         ])->assertSessionHasNoErrors();
         $note = DeliveryNote::withoutGlobalScopes()->sole();
         $this->get(route('delivery-notes.show', ['company' => $this->a['company']->slug, 'deliveryNote' => $note]))->assertSee('Intervención del técnico: Reparación');

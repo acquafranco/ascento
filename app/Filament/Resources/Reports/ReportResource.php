@@ -111,6 +111,9 @@ class ReportResource extends Resource
                         ->formatStateUsing(fn ($state) => 'N.º '.$state)
                         ->url(fn (Report $record) => $record->workOrder?->deliveryNote ? DeliveryNoteResource::getUrl('view', ['record' => $record->workOrder->deliveryNote]) : null),
                     TextEntry::make('work_done')->label('Trabajo realizado')->placeholder('Se completa al firmar el remito')->columnSpanFull(),
+                    TextEntry::make('elevator_state')->label('Estado en que quedó el equipo')->placeholder('Sin registrar')
+                        ->formatStateUsing(fn (?string $state) => Report::ELEVATOR_STATES[$state] ?? '—'),
+                    TextEntry::make('pending_work')->label('Pendiente')->placeholder('Nada pendiente'),
                 ]),
 
             Section::make('Evidencia fotográfica')

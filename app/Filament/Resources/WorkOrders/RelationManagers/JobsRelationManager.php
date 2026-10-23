@@ -53,6 +53,8 @@ class JobsRelationManager extends RelationManager
                     ->formatStateUsing(fn (?string $state) => Report::RESULTS[$state] ?? '—')
                     ->color(fn (?string $state) => $state === 'resolved' ? 'success' : ($state ? 'warning' : 'gray'))
                     ->placeholder('Pendiente'),
+                TextColumn::make('elevator_state')->label('Estado del equipo')->formatStateUsing(fn (?string $state) => Report::ELEVATOR_STATES[$state] ?? '—')->placeholder('—'),
+                TextColumn::make('pending_work')->label('Pendiente')->limit(60)->wrap()->placeholder('—'),
                 TextColumn::make('photos_count')->label('Fotos'),
             ])
             ->recordUrl(fn (Report $record) => ReportResource::getUrl('view', ['record' => $record]))

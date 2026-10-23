@@ -122,7 +122,8 @@ class InterventionController extends Controller
     {
         return $request->validate([
             // Tipo de trabajo de la orden (solo al abrir la visita): la lista única de tipos.
-            ...($withBuilding ? ['building_id' => 'required|integer', 'work_type' => ['required', Rule::in(array_keys(WorkOrderLabels::TYPES))]] : []),
+            // Al abrir la visita: tipo de trabajo y, si lo sabe, cuándo le avisaron (AttendanceTimes lo valida).
+            ...($withBuilding ? ['building_id' => 'required|integer', 'work_type' => ['required', Rule::in(array_keys(WorkOrderLabels::TYPES))], 'call_received_at' => ['nullable', 'date']] : []),
             'elevator_number' => 'required|string|max:255',
             'channel' => ['required', Rule::in(array_keys(Report::CHANNELS))],
             'kind' => ['required', Rule::in(array_keys(InterventionService::KINDS))],
@@ -134,6 +135,7 @@ class InterventionController extends Controller
             'building_id.required' => 'Elegí el edificio.',
             'work_type.required' => 'Elegí el tipo de trabajo.',
             'work_type.in' => 'Elegí un tipo de trabajo de la lista.',
+            'call_received_at.date' => 'La hora del aviso no es válida.',
             'elevator_number.required' => 'Elegí el equipo.',
             'channel.required' => 'Indicá por dónde llegó el reclamo.',
             'kind.required' => 'Indicá si es una urgencia.',

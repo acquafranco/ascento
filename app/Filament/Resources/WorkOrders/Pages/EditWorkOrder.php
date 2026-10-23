@@ -3,10 +3,13 @@
 namespace App\Filament\Resources\WorkOrders\Pages;
 
 use App\Filament\Resources\WorkOrders\WorkOrderResource;
+use App\Services\Activity\ActivityLogger;
 use App\Services\Notifications\AssignmentNotifier;
 use App\Services\WorkOrderAssignmentNotifier;
+use App\Services\WorkOrders\AttendanceTimes;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Support\Carbon;
 
 class EditWorkOrder extends EditRecord
 {
@@ -27,6 +30,8 @@ class EditWorkOrder extends EditRecord
 
     protected function afterSave(): void
     {
+        $this->saveCallTime();
+
         $notifier = app(WorkOrderAssignmentNotifier::class);
 
         // Técnicos agregados en esta edición: "Nueva orden de trabajo".
@@ -50,5 +55,18 @@ class EditWorkOrder extends EditRecord
             DeleteAction::make()
                 ->visible(fn ($record) => $record->canBeDeleted()),
         ];
+    }
+
+    /** Hora del aviso: se guarda aparte, con quién la cargó, solo si cambió (AttendanceTimes). */
+    private function saveCallTime(): void
+    {
+        $value = $this->data['call_received_at'] ?? null;
+        $at = filled($value) ? Carbon::parse($value, config('app.timezone')) : null;
+        $current = $this->record->call_received_at;
+        if (($at === null && $current === null) || ($at && $current && $at->equalTo($current))) {
+            return;
+        }
+        app(AttendanceTimes::class)->recordCall(auth()->user(), $this->record, $at);
+        ActivityLogger::record('work_order.call_time', $this->record, ['aviso' => $at?->format('d/m/Y H:i') ?? 'sin registrar'], 'Orden #'.$this->record->id);
     }
 }

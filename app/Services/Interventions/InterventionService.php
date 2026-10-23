@@ -10,11 +10,13 @@ use App\Models\User;
 use App\Models\WorkOrder;
 use App\Services\OnCall\OnCallService;
 use App\Services\Reports\ReportPhotoService;
+use App\Services\WorkOrders\AttendanceTimes;
 use App\Support\Access\Access;
 use App\Support\WorkOrderLabels;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -124,13 +126,16 @@ class InterventionService
         if (! array_key_exists((string) ($data['work_type'] ?? ''), WorkOrderLabels::TYPES)) {
             throw ValidationException::withMessages(['work_type' => 'Elegí el tipo de trabajo.']);
         }
+        // Cuándo le avisaron (opcional): lo dice el técnico; nunca se toma la hora de carga como hora del aviso.
+        $callAt = filled($data['call_received_at'] ?? null) ? Carbon::parse($data['call_received_at'], config('app.timezone')) : null;
+        AttendanceTimes::validateCall($callAt);
         $kind = self::KINDS[$data['kind']];
 
         try {
             // De guardia ahora: la orden queda en «Trabajos durante la guardia» de ese turno.
             $shift = $this->currentShift($user);
 
-            [$order, $report] = DB::transaction(function () use ($user, $building, $data, $photos, $idempotencyKey, $kind, $shift) {
+            [$order, $report] = DB::transaction(function () use ($user, $building, $data, $photos, $idempotencyKey, $kind, $shift, $callAt) {
                 $order = new WorkOrder;
                 $order->forceFill([
                     'company_id' => $user->company_id,
@@ -145,6 +150,9 @@ class InterventionService
                     'component' => $data['component'] ?? null,
                     'started_at' => now(),
                     'on_call_shift_id' => $shift?->id,
+                    'call_received_at' => $callAt,
+                    'call_source' => $callAt ? 'technician' : null,
+                    'call_recorded_by' => $callAt ? $user->id : null,
                     'notes' => $kind['label'].' ('.Report::CHANNELS[$data['channel']].'): '.$data['description'],
                 ])->save();
                 // Asignada a quien la abrió (las reglas del remito exigen la asignación).
@@ -244,7 +252,7 @@ class InterventionService
      * Al firmar el remito: lo que se hizo en cada trabajo y cómo quedó. Solo
      * los trabajos de ESTA orden; todos tienen que venir.
      *
-     * @param  array<int|string, array{work_done?: mixed, result?: mixed}>  $input
+     * @param  array<int|string, array{work_done?: mixed, result?: mixed, elevator_state?: mixed, pending_work?: mixed}>  $input
      */
     public function closeJobs(WorkOrder $order, array $input): void
     {
@@ -262,6 +270,16 @@ class InterventionService
             if (! array_key_exists($result, Report::RESULTS)) {
                 $errors["jobs.{$job->id}.result"] = 'Elegí cómo quedó el trabajo '.($i + 1).'.';
             }
+            if (! array_key_exists((string) ($row['elevator_state'] ?? ''), Report::ELEVATOR_STATES)) {
+                $errors["jobs.{$job->id}.elevator_state"] = 'Elegí en qué estado quedó el equipo del trabajo '.($i + 1).'.';
+            }
+            $pending = trim((string) ($row['pending_work'] ?? ''));
+            if ($result !== 'resolved' && $pending === '') {
+                $errors["jobs.{$job->id}.pending_work"] = 'Contá qué quedó pendiente en el trabajo '.($i + 1).'.';
+            }
+            if (mb_strlen($pending) > 2000) {
+                $errors["jobs.{$job->id}.pending_work"] = 'Lo pendiente del trabajo '.($i + 1).' es demasiado largo.';
+            }
         }
         if ($errors) {
             throw ValidationException::withMessages($errors);
@@ -270,9 +288,13 @@ class InterventionService
         foreach ($jobs as $job) {
             $row = $input[$job->id];
             $result = (string) $row['result'];
+            $pending = trim((string) ($row['pending_work'] ?? ''));
             $job->forceFill([
                 'work_done' => trim((string) $row['work_done']),
                 'result' => $result,
+                'elevator_state' => (string) $row['elevator_state'],
+                // Resuelto: nada pendiente (aunque se haya escrito algo).
+                'pending_work' => $result === 'resolved' || $pending === '' ? null : $pending,
                 // Resuelto: listo. Lo demás queda «en revisión» para que la oficina lo siga.
                 'status' => $result === 'resolved' ? 'resuelto' : 'en_revision',
             ])->save();

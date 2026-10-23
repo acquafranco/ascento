@@ -157,6 +157,16 @@
                                 <option value="{{ $value }}" @selected(old('jobs.'.$job->id.'.result') === $value)>{{ $label }}</option>
                             @endforeach
                         </select>
+                        <label class="t-label mt-3" for="job-{{ $job->id }}-state">Cómo quedó el equipo</label>
+                        <select id="job-{{ $job->id }}-state" name="jobs[{{ $job->id }}][elevator_state]" required class="t-input" data-job-state data-field="jobs.{{ $job->id }}.elevator_state" data-required-message="Elegí en qué estado quedó el equipo del trabajo {{ $i + 1 }}.">
+                            <option value="">Elegí el estado</option>
+                            @foreach(\App\Models\Report::ELEVATOR_STATES as $value => $label)
+                                <option value="{{ $value }}" @selected(old('jobs.'.$job->id.'.elevator_state') === $value)>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                        {{-- Pendientes: obligatorios si el trabajo no quedó resuelto. --}}
+                        <label class="t-label mt-3" for="job-{{ $job->id }}-pending">Qué quedó pendiente <span class="font-normal text-ink-500" data-pending-hint>(si no quedó resuelto)</span></label>
+                        <textarea id="job-{{ $job->id }}-pending" name="jobs[{{ $job->id }}][pending_work]" rows="2" maxlength="2000" class="t-input resize-y" data-job-pending data-field="jobs.{{ $job->id }}.pending_work" data-required-message="Contá qué quedó pendiente en el trabajo {{ $i + 1 }}." placeholder="Ej.: falta el repuesto; volver a cambiar el operador">{{ old('jobs.'.$job->id.'.pending_work') }}</textarea>
                     </div>
                 @endforeach
             </section>
@@ -625,9 +635,13 @@ document.addEventListener('DOMContentLoaded', function () {
         const problems = [];
         const add = function (el, message) { problems.push({ el: el, message: message }); };
 
-        // Trabajos de la visita: cada uno con lo que se hizo y su resultado.
-        form.querySelectorAll('[data-job-done], [data-job-result]').forEach(function (field) {
+        // Trabajos de la visita: lo que se hizo, el resultado, cómo quedó el equipo y, si no quedó resuelto, lo pendiente.
+        form.querySelectorAll('[data-job-done], [data-job-result], [data-job-state]').forEach(function (field) {
             if (!field.value.trim()) add(field, field.dataset.requiredMessage);
+        });
+        form.querySelectorAll('[data-job-pending]').forEach(function (field) {
+            const result = form.querySelector('[name="' + field.name.replace('[pending_work]', '[result]') + '"]');
+            if (result && result.value && result.value !== 'resolved' && !field.value.trim()) add(field, field.dataset.requiredMessage);
         });
 
         const description = document.getElementById('description');

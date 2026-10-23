@@ -575,6 +575,9 @@ final class ClientClaimService
                 'priority' => $fresh->category === 'stopped' ? 'urgent' : ($fresh->category === 'request' ? 'medium' : 'high'),
                 'unit' => $fresh->elevator?->label,
                 'notes' => ($fresh->isFromQr() ? 'Reporte del QR ' : 'Reclamo ').$fresh->reference().' ('.$fresh->categoryLabel().'): '.$fresh->description,
+                // Aviso = cuándo llegó este reclamo a Ascento (no occurred_at, que es cuándo pasó según quien reclama).
+                'call_received_at' => $fresh->created_at,
+                'call_source' => $fresh->isFromQr() ? 'qr' : 'portal',
             ])->save();
 
             $from = $fresh->status;

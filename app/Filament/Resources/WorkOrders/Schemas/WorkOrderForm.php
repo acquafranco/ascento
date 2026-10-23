@@ -7,14 +7,18 @@ use App\Filament\Support\JobDetail;
 use App\Models\Building;
 use App\Models\WorkOrder;
 use App\Services\Visits\WorkPhotoGallery;
+use App\Services\WorkOrders\AttendanceTimes;
 use App\Support\ElevatorComponents;
 use App\Support\Plans\PlanGuard;
 use App\Support\WorkOrderLabels;
 use Filament\Forms;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 class WorkOrderForm
 {
@@ -114,6 +118,8 @@ class WorkOrderForm
                     ->required(),
 
                 static::notesField(),
+
+                static::attentionTimesSection(),
 
                 // Fotos de antes y después de ESTA orden (solo lectura; las
                 // carga el técnico desde la orden en su celular).
@@ -226,6 +232,50 @@ class WorkOrderForm
             ->placeholder('Elegí edificio primero')
             ->required()
             ->label('Unidad');
+    }
+
+    /**
+     * Tiempos de atención: la hora del AVISO la carga la oficina (no se deduce de
+     * cuándo se creó la orden); LLEGADA y SALIDA las registra el técnico desde su
+     * celular con la hora del servidor y acá solo se ven (AttendanceTimes).
+     */
+    public static function attentionTimesSection(): Section
+    {
+        $times = fn (?WorkOrder $record) => $record ? AttendanceTimes::summary($record) : null;
+
+        return Section::make('Tiempos de atención')
+            ->description('Aviso, llegada al edificio y salida. Las duraciones se calculan solo con los dos horarios necesarios; si falta uno, «Sin registrar».')
+            ->columnSpanFull()
+            ->columns(['default' => 1, 'md' => 3])
+            ->schema([
+                Forms\Components\DateTimePicker::make('call_received_at')
+                    ->label('Aviso recibido')
+                    ->seconds(false)
+                    ->native(false)
+                    ->maxDate(now()->addMinute())
+                    ->helperText('Cuándo llegó el reclamo o la llamada (no cuándo se cargó la orden). Vacío: sin registrar.')
+                    // Se guarda aparte (AttendanceTimes::recordCall) con quién lo cargó.
+                    ->dehydrated(false)
+                    ->rule(fn (?WorkOrder $record) => function (string $attribute, $value, \Closure $fail) use ($record) {
+                        try {
+                            AttendanceTimes::validateCall(filled($value) ? Carbon::parse($value, config('app.timezone')) : null, $record);
+                        } catch (ValidationException $e) {
+                            $fail(collect($e->errors())->flatten()->first());
+                        }
+                    }),
+                TextEntry::make('attention_arrived')->label('Llegada al edificio')
+                    ->state(fn (?WorkOrder $record) => $record ? AttendanceTimes::time($record->arrived_at).($record->arrivedBy ? ' · '.$record->arrivedBy->name : '') : 'Sin registrar'),
+                TextEntry::make('attention_left')->label('Salida')
+                    ->state(fn (?WorkOrder $record) => $record ? AttendanceTimes::time($record->left_at).($record->leftBy ? ' · '.$record->leftBy->name : '') : 'Sin registrar'),
+                TextEntry::make('attention_call_source')->label('Origen del aviso')
+                    ->state(fn (?WorkOrder $record) => ($t = $times($record)) && $t['call_source'] ? ucfirst($t['call_source']).($t['call_by'] ? ' · '.$t['call_by'] : '') : 'Sin registrar'),
+                TextEntry::make('attention_response')->label('Tiempo de respuesta')
+                    ->state(fn (?WorkOrder $record) => AttendanceTimes::duration($times($record)['response'] ?? null)),
+                TextEntry::make('attention_on_site')->label('Tiempo en el lugar')
+                    ->state(fn (?WorkOrder $record) => AttendanceTimes::duration($times($record)['on_site'] ?? null)),
+                TextEntry::make('attention_total')->label('Tiempo total')
+                    ->state(fn (?WorkOrder $record) => AttendanceTimes::duration($times($record)['total'] ?? null)),
+            ]);
     }
 
     public static function typeField(): Forms\Components\Select

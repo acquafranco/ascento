@@ -12,6 +12,7 @@ use App\Models\Elevator;
 use App\Models\Quote;
 use App\Models\Report;
 use App\Models\WorkOrder;
+use App\Services\WorkOrders\AttendanceTimes;
 use App\Support\ElevatorComponents;
 use App\Support\Plans\PlanGuard;
 use App\Support\WorkOrderLabels;
@@ -81,7 +82,7 @@ class ElevatorHistory
                         'date' => $o->finished_at ?? $o->created_at,
                         'type' => 'work_order',
                         'title' => 'Orden #'.$o->id.': '.WorkOrderLabels::type($o->type),
-                        'detail' => trim($o->users->pluck('name')->implode(', ').' · '.ElevatorComponents::label($o->component).($o->deliveryNote ? ' · Remito '.$o->deliveryNote->number : ''), ' ·').$materials,
+                        'detail' => trim($o->users->pluck('name')->implode(', ').' · '.ElevatorComponents::label($o->component).($o->deliveryNote ? ' · Remito '.$o->deliveryNote->number : ''), ' ·').$materials.$this->times($o),
                         'badge' => WorkOrderLabels::status($o->status),
                         'url' => WorkOrderResource::canEdit($o) ? WorkOrderResource::getUrl('edit', ['record' => $o]) : null,
                     ]);
@@ -138,6 +139,18 @@ class ElevatorHistory
         $events = $events->filter(fn ($e) => $e['date'] !== null)->sortByDesc('date')->values();
 
         return $advanced ? $events : $events->take(self::BASIC_LIMIT);
+    }
+
+    /** « · Respuesta 50 min · En el lugar 40 min» (solo lo que está registrado). */
+    private function times(WorkOrder $order): string
+    {
+        $t = AttendanceTimes::durations($order);
+        $parts = array_filter([
+            $t['response'] !== null ? 'Respuesta '.AttendanceTimes::duration($t['response']) : null,
+            $t['on_site'] !== null ? 'En el lugar '.AttendanceTimes::duration($t['on_site']) : null,
+        ]);
+
+        return $parts ? ' · '.implode(' · ', $parts) : '';
     }
 
     /** Totales del legajo (todos los planes). */

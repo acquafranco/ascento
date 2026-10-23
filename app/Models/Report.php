@@ -53,6 +53,9 @@ class Report extends Model
         'other' => 'Otro',
     ];
 
+    /** En qué estado quedó el equipo al terminar el trabajo (mismos estados que el QR público). */
+    public const ELEVATOR_STATES = Elevator::PUBLIC_STATUSES;
+
     /** Cómo quedó cada trabajo (se indica al firmar el remito). */
     public const RESULTS = [
         'resolved' => 'Resuelto',
@@ -214,6 +217,11 @@ class Report extends Model
     public function resultLabel(): ?string
     {
         return self::RESULTS[$this->result] ?? null;
+    }
+
+    public function elevatorStateLabel(): ?string
+    {
+        return self::ELEVATOR_STATES[$this->elevator_state] ?? null;
     }
 
     /** Solo reportes de falla (los de siempre). */

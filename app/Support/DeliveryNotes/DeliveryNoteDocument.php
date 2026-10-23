@@ -82,6 +82,8 @@ final class DeliveryNoteDocument
                     'done' => (string) $job->work_done,
                     'result' => $job->resultLabel(),
                     'ok' => $job->result === 'resolved',
+                    'state' => $job->elevatorStateLabel(),
+                    'pending' => (string) $job->pending_work,
                 ])->all() : [],
             'materials' => $order?->materials?->map(fn ($m) => [
                 'name' => $m->stockItem?->name ?? 'Material',

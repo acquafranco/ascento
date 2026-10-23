@@ -36,9 +36,25 @@ class WorkOrder extends Model
     /** Abierta por el técnico desde Reportes (urgencia o trabajo no programado). null = la creó la oficina. */
     public const ORIGIN_TECHNICIAN = 'technician';
 
+    /** De dónde salió la hora del aviso (call_received_at). */
+    public const CALL_SOURCES = [
+        'office' => 'cargado por la oficina',
+        'technician' => 'cargado por el técnico',
+        'portal' => 'hora del reclamo del portal',
+        'qr' => 'hora del reporte del QR',
+    ];
+
+    /**
+     * started_at: «Tomar trabajo» (o la hora en que el técnico abrió su intervención).
+     * finished_at: firma del remito. Llegada y salida del edificio son otra cosa:
+     * arrived_at / left_at (AttendanceTimes). Ninguno de estos es asignable desde un formulario.
+     */
     protected $casts = [
         'started_at' => 'datetime',
         'finished_at' => 'datetime',
+        'call_received_at' => 'datetime',
+        'arrived_at' => 'datetime',
+        'left_at' => 'datetime',
     ];
 
     protected static function booted(): void
@@ -212,6 +228,21 @@ class WorkOrder extends Model
     {
         return $query->where($query->qualifyColumn('type'), 'claim')
             ->where(fn (Builder $q) => $q->whereNull($q->qualifyColumn('origin'))->orWhere($q->qualifyColumn('origin'), '!=', self::ORIGIN_TECHNICIAN));
+    }
+
+    public function arrivedBy()
+    {
+        return $this->belongsTo(User::class, 'arrived_by')->withTrashed();
+    }
+
+    public function leftBy()
+    {
+        return $this->belongsTo(User::class, 'left_by')->withTrashed();
+    }
+
+    public function callRecordedBy()
+    {
+        return $this->belongsTo(User::class, 'call_recorded_by')->withTrashed();
     }
 
     /** Quién la creó (solo se registra desde las intervenciones del técnico). */

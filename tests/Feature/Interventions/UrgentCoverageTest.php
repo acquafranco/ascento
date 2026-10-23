@@ -151,7 +151,7 @@ class UrgentCoverageTest extends TestCase
         $this->actingAs($tech)->post("/{$this->slug()}/delivery-notes/store", [
             'building_id' => $first->building_id, 'work_order_id' => $first->id, 'assignment_type' => 'work_order',
             'elevator_quantity' => 2, 'freight_elevator_quantity' => 0, 'signature_name' => $tech->name, 'signature' => $this->validSignature(),
-            'jobs' => [$job->id => ['work_done' => 'Se liberó el freno y se probó.', 'result' => 'resolved']],
+            'jobs' => [$job->id => ['work_done' => 'Se liberó el freno y se probó.', 'result' => 'resolved', 'elevator_state' => 'in_service']],
         ])->assertSessionHasNoErrors();
         $this->assertSame('completed', $first->fresh()->status);
         $this->assertSame([$first->id, $tech->id], [DeliveryNote::withoutGlobalScopes()->sole()->work_order_id, DeliveryNote::withoutGlobalScopes()->sole()->user_id]);

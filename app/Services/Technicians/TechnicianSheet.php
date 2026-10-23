@@ -75,7 +75,7 @@ final class TechnicianSheet
                 'user' => fn ($q) => $q->withoutGlobalScopes()->withTrashed()->select('id', 'name'),
                 'participants' => fn ($q) => $q->withoutGlobalScopes()->select('users.id', 'users.name'),
                 'deliveryNote' => fn ($q) => $q->withoutGlobalScopes()->select('id', 'company_id', 'building_visit_id', 'number', 'user_id', 'public_token'),
-                'workOrder' => fn ($q) => $q->withoutGlobalScopes()->select('id', 'company_id', 'started_at', 'finished_at'),
+                'workOrder' => fn ($q) => $q->withoutGlobalScopes()->select('id', 'company_id', 'started_at', 'finished_at', 'arrived_at', 'left_at'),
                 'workOrder.deliveryNote' => fn ($q) => $q->withoutGlobalScopes()->select('id', 'company_id', 'work_order_id', 'number', 'user_id', 'public_token'),
             ])
             ->orderBy('visited_at')->orderBy('id')
@@ -138,8 +138,9 @@ final class TechnicianSheet
         $mine = (int) $visit->user_id === (int) $technician->id;
         $others = $visit->participants->reject(fn ($p) => (int) $p->id === (int) $technician->id)->pluck('name');
 
-        $started = $visit->workOrder?->started_at ?? $visit->started_at;
-        $finished = $visit->workOrder?->finished_at ?? $visit->finished_at;
+        // Llegada y salida del edificio si se registraron; si no, como antes (tomar trabajo y remito).
+        $started = $visit->workOrder?->arrived_at ?? $visit->workOrder?->started_at ?? $visit->started_at;
+        $finished = $visit->workOrder?->left_at ?? $visit->workOrder?->finished_at ?? $visit->finished_at;
 
         return [
             'id' => $visit->id,

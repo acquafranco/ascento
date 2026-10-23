@@ -459,6 +459,12 @@ Route::prefix('{company:slug}')
             'finish',
         ])->name('work-orders.finish');
 
+        // Tiempos de atención: «Llegué al edificio» y «Terminé y me retiro» (hora del servidor, una vez cada uno).
+        Route::post('/work-orders/{workOrder}/llegada', [WorkOrderController::class, 'arrive'])
+            ->whereNumber('workOrder')->middleware('throttle:20,1,work-orders.arrive')->name('work-orders.arrive');
+        Route::post('/work-orders/{workOrder}/salida', [WorkOrderController::class, 'leave'])
+            ->whereNumber('workOrder')->middleware('throttle:20,1,work-orders.leave')->name('work-orders.leave');
+
         /*
         |--------------------------------------------------------------------------
         | BUILDING CHECK

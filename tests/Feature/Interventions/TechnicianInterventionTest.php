@@ -144,7 +144,7 @@ class TechnicianInterventionTest extends TestCase
         // 4–5. El remito sale desde su portal, con el formulario de siempre y la firma del cliente.
         $this->get(route('delivery-notes.work-order', ['company' => $this->slug(), 'workOrder' => $order->id]))->assertOk()
             ->assertSee('Trabajos de esta visita (1)')->assertSee('Cómo quedó');
-        $this->remito($tech, $order, [$job->id => ['work_done' => 'Se reseteó el variador y se cambió el contactor de bajada.', 'result' => 'resolved']])
+        $this->remito($tech, $order, [$job->id => ['work_done' => 'Se reseteó el variador y se cambió el contactor de bajada.', 'result' => 'resolved', 'elevator_state' => 'in_service']])
             ->assertSessionHasNoErrors()->assertRedirect();
 
         $note = DeliveryNote::withoutGlobalScopes()->sole();
@@ -181,15 +181,15 @@ class TechnicianInterventionTest extends TestCase
         [$other] = [$this->open($tech, ['submission_token' => (string) Str::uuid(), 'description' => 'Otra visita distinta, otro día.'])];
         $otherOrder = WorkOrder::withoutGlobalScopes()->latest('id')->first();
         $otherJob = Report::withoutGlobalScopes()->where('work_order_id', $otherOrder->id)->sole();
-        $this->remito($tech, $order, [$jobs[0]->id => ['work_done' => 'Listo el primero.', 'result' => 'resolved']])
+        $this->remito($tech, $order, [$jobs[0]->id => ['work_done' => 'Listo el primero.', 'result' => 'resolved', 'elevator_state' => 'in_service']])
             ->assertSessionHasErrors(["jobs.{$jobs[1]->id}.work_done", "jobs.{$jobs[2]->id}.result"]);
         $this->assertSame(0, DeliveryNote::withoutGlobalScopes()->count());
 
         $this->remito($tech, $order, [
-            $jobs[0]->id => ['work_done' => 'Contactor de bajada cambiado.', 'result' => 'resolved'],
-            $jobs[1]->id => ['work_done' => 'Se cambió la lámpara de la botonera.', 'result' => 'resolved'],
-            $jobs[2]->id => ['work_done' => 'Se ajustó el patín, falta repuesto.', 'result' => 'follow_up'],
-            $otherJob->id => ['work_done' => 'Intento de cerrar un trabajo ajeno.', 'result' => 'resolved'],
+            $jobs[0]->id => ['work_done' => 'Contactor de bajada cambiado.', 'result' => 'resolved', 'elevator_state' => 'in_service'],
+            $jobs[1]->id => ['work_done' => 'Se cambió la lámpara de la botonera.', 'result' => 'resolved', 'elevator_state' => 'in_service'],
+            $jobs[2]->id => ['work_done' => 'Se ajustó el patín, falta repuesto.', 'result' => 'follow_up', 'elevator_state' => 'out_of_service', 'pending_work' => 'Falta el repuesto.'],
+            $otherJob->id => ['work_done' => 'Intento de cerrar un trabajo ajeno.', 'result' => 'resolved', 'elevator_state' => 'in_service'],
         ], ['description' => 'Visita por urgencia; se resolvieron dos temas más.'])->assertSessionHasNoErrors();
 
         $note = DeliveryNote::withoutGlobalScopes()->sole();
@@ -262,7 +262,7 @@ class TechnicianInterventionTest extends TestCase
         $this->addJob($other, $order)->assertSessionHasErrors('general');
         $this->get(route('interventions.job.create', ['company' => $this->slug(), 'workOrder' => $order->id]))->assertForbidden();
         $this->get(route('delivery-notes.work-order', ['company' => $this->slug(), 'workOrder' => $order->id]))->assertForbidden();
-        $this->remito($other, $order, [$job->id => ['work_done' => 'Firmo por otro.', 'result' => 'resolved']])->assertForbidden();
+        $this->remito($other, $order, [$job->id => ['work_done' => 'Firmo por otro.', 'result' => 'resolved', 'elevator_state' => 'in_service']])->assertForbidden();
         $this->get(route('reports.show', ['company' => $this->slug(), 'report' => $job->id]))->assertForbidden();
 
         // Un técnico de OTRA empresa: ni con la URL de su empresa ni con la de la ajena.
@@ -321,7 +321,7 @@ class TechnicianInterventionTest extends TestCase
         auth()->logout();
 
         // Firmado el remito: deja de figurar como pendiente y la oficina ve el resultado.
-        $this->remito($tech, $pendingOrder, [$job->id => ['work_done' => 'Reparado.', 'result' => 'partial']]);
+        $this->remito($tech, $pendingOrder, [$job->id => ['work_done' => 'Reparado.', 'result' => 'partial', 'elevator_state' => 'out_of_service', 'pending_work' => 'Falta el repuesto.']]);
         auth()->logout();
         $this->actingInPanel($this->a['admin']);
         Livewire::test(ListWorkOrders::class)->filterTable('pending_documentation')->assertCanNotSeeTableRecords([$pendingOrder]);
@@ -393,8 +393,8 @@ class TechnicianInterventionTest extends TestCase
         $this->addJob($tech, $order);
         $jobs = Report::withoutGlobalScopes()->orderBy('id')->get();
         $this->remito($tech, $order, [
-            $jobs[0]->id => ['work_done' => 'Contactor cambiado.', 'result' => 'resolved'],
-            $jobs[1]->id => ['work_done' => 'Falta repuesto.', 'result' => 'follow_up'],
+            $jobs[0]->id => ['work_done' => 'Contactor cambiado.', 'result' => 'resolved', 'elevator_state' => 'in_service'],
+            $jobs[1]->id => ['work_done' => 'Falta repuesto.', 'result' => 'follow_up', 'elevator_state' => 'out_of_service', 'pending_work' => 'Falta el repuesto.'],
         ]);
         auth()->logout();
 

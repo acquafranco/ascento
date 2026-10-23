@@ -18,6 +18,7 @@ use App\Services\Parachute\ParachuteService;
 use App\Services\Visits\VisitPhotoService;
 use App\Services\Visits\VisitSchedule;
 use App\Services\Visits\VisitService;
+use App\Services\WorkOrders\AttendanceTimes;
 use App\Support\Access\Access;
 use App\Support\DeliveryNotes\DeliveryNoteDocument;
 use App\Support\DeliveryNotes\SignatureImage;
@@ -107,7 +108,13 @@ class DeliveryNoteController extends Controller
 
             'delivery-notes.index',
 
-            compact('deliveryNotes')
+            [
+                'deliveryNotes' => $deliveryNotes,
+                // Llegadas suyas sin salida registrada (p. ej. recién firmó el remito): recordatorio para registrarla.
+                'pendingExits' => WorkOrder::where('company_id', $company->id)->where('arrived_by', $user->id)
+                    ->whereNull('left_at')->whereNotNull('arrived_at')->with('building:id,name')->latest('arrived_at')->limit(3)->get()
+                    ->filter(fn (WorkOrder $o) => AttendanceTimes::canLeave($user, $o))->values(),
+            ]
 
         );
 
@@ -721,6 +728,12 @@ class DeliveryNoteController extends Controller
             $n = $i + 1;
             $rules["jobs.{$id}.work_done"] = ['required', 'string', 'min:3', 'max:5000'];
             $rules["jobs.{$id}.result"] = ['required', Rule::in(array_keys(Report::RESULTS))];
+            $rules["jobs.{$id}.elevator_state"] = ['required', Rule::in(array_keys(Report::ELEVATOR_STATES))];
+            // Lo pendiente: obligatorio si el trabajo no quedó resuelto.
+            $rules["jobs.{$id}.pending_work"] = ["exclude_if:jobs.{$id}.result,resolved", "required_unless:jobs.{$id}.result,resolved", 'nullable', 'string', 'max:2000'];
+            $messages["jobs.{$id}.elevator_state.required"] = $messages["jobs.{$id}.elevator_state.in"] = "Elegí en qué estado quedó el equipo del trabajo {$n}.";
+            $messages["jobs.{$id}.pending_work.required_unless"] = "Contá qué quedó pendiente en el trabajo {$n}.";
+            $messages["jobs.{$id}.pending_work.max"] = "Lo pendiente del trabajo {$n} es demasiado largo.";
             $messages["jobs.{$id}.work_done.required"] = $messages["jobs.{$id}.work_done.min"] = "Contá qué hiciste en el trabajo {$n}.";
             $messages["jobs.{$id}.work_done.max"] = "Lo que hiciste en el trabajo {$n} es demasiado largo.";
             $messages["jobs.{$id}.result.required"] = $messages["jobs.{$id}.result.in"] = "Elegí cómo quedó el trabajo {$n}.";
