@@ -62,7 +62,11 @@
                 <p class="mt-1.5 text-xs text-ink-500">Deslizalo cuando estés en el edificio. Se guarda la hora de ahora y no se puede cambiar. Después vas a poder hacer los trabajos y los remitos.</p>
             </div>
         @elseif($visitHere && $workOrder->status === 'in_progress' && ! $workOrder->deliveryNote)
-            <p class="mt-3 text-sm text-ink-700" data-next-step-hint>Siguiente paso: hacé el trabajo y su remito (botón de arriba). La salida se registra al final de la visita, con «Finalizar visita y retirarme».</p>
+            <p class="mt-4 flex items-center gap-1.5 text-sm font-semibold text-emerald-800" data-arrival-registered>
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
+                Llegada registrada · {{ $visitHere->arrived_at->format('H:i') }}
+            </p>
+            <p class="mt-1 text-sm text-ink-700" data-next-step-hint>Siguiente paso: hacé el trabajo y su remito (botón de arriba). La salida se registra al final de la visita, con «Finalizar visita y retirarme».</p>
         @elseif($canLegacyLeave)
             {{-- Orden con llegada propia, anterior a las visitas técnicas. --}}
             <div class="mt-4">

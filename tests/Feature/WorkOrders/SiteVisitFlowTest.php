@@ -144,7 +144,9 @@ class SiteVisitFlowTest extends TestCase
         // La orden muestra el paso 2, no el remito; el listado también.
         $show = route('work-orders.show', ['company' => $this->slug(), 'workOrder' => $order->id]);
         $this->get($show)->assertSee('Llegué al edificio')->assertDontSee('Hacer remito de esta orden')->assertDontSee('Finalizar visita y retirarme');
-        $this->get(route('work-orders.index', ['company' => $this->slug(), 'status' => 'in_progress']))->assertSee('data-next-step="arrive"', false);
+        // En el listado, el mismo deslizador (no un botón aparte que lleve al detalle).
+        $this->get(route('work-orders.index', ['company' => $this->slug(), 'status' => 'in_progress']))
+            ->assertSee('data-slide-confirm="arrive-'.$order->id.'"', false)->assertDontSee('#llegada', false);
 
         // 3 · Sin llegada, el remito no se firma (salvo con motivo explícito).
         $this->remitoForOrder($tech, $order)->assertSessionHasErrors('arrival_exception');
