@@ -9,7 +9,7 @@
     $fmt = fn ($d) => ucfirst($d->translatedFormat('D d/m H:i'));
     $woStatus = fn ($wo) => match (true) {
         $wo->status === 'completed' => ['Realizado', 't-chip-done'],
-        $wo->status === 'in_progress' => ['En curso', 't-chip-progress'],
+        $wo->status === 'in_progress' => ['En curso', \App\Support\WorkOrderLabels::statusChip('in_progress')],
         $wo->status === 'failed' => ['No realizado', 't-chip-failed'],
         default => ['Asignado, sin empezar', 't-chip-pending'],
     };

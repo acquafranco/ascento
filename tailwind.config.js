@@ -7,6 +7,8 @@ export default {
         './vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php',
         './storage/framework/views/*.php',
         './resources/views/**/*.blade.php',
+        // Clases de estado de las órdenes (t-chip-*) definidas en PHP.
+        './app/Support/WorkOrderLabels.php',
     ],
 
     theme: {

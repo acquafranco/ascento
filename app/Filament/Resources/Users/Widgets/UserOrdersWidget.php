@@ -3,11 +3,11 @@
 namespace App\Filament\Resources\Users\Widgets;
 
 use App\Models\WorkOrder;
-use Livewire\Attributes\Locked;
+use App\Support\WorkOrderLabels;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
-use App\Support\WorkOrderLabels;
+use Livewire\Attributes\Locked;
 
 class UserOrdersWidget extends TableWidget
 {
@@ -40,27 +40,24 @@ class UserOrdersWidget extends TableWidget
                 Tables\Columns\TextColumn::make(
                     'building.name'
                 )
-                ->label('Edificio'),
+                    ->label('Edificio'),
 
                 Tables\Columns\TextColumn::make(
                     'building.address'
                 )
-                ->label('Dirección'),
+                    ->label('Dirección'),
 
                 Tables\Columns\TextColumn::make('type')
                     ->label('Tipo')
                     ->badge()
                     ->formatStateUsing(fn ($state) => WorkOrderLabels::type($state)),
 
-                Tables\Columns\BadgeColumn::make('status')
+                Tables\Columns\TextColumn::make('status')
                     ->label('Estado')
+                    ->badge()
                     ->formatStateUsing(fn ($state) => WorkOrderLabels::status($state))
-                    ->colors([
-                        'warning' => 'pending',
-                        'primary' => 'in_progress',
-                        'success' => 'completed',
-                        'danger' => 'failed',
-                    ]),
+                    ->color(fn ($state) => WorkOrderLabels::statusColor($state))
+                    ->icon(fn ($state) => WorkOrderLabels::statusIcon($state)),
             ]);
     }
 }

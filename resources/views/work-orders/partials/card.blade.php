@@ -3,15 +3,15 @@
     Opcional $linkToDetail (true en el listado): el encabezado abre el detalle.
     Opcional $quickPhotos (listado): «Tomar foto» / «Elegir de la galería» en
     la tarjeta, si la empresa habilitó las fotos de órdenes.
-    Acciones, en orden: "Tomar trabajo" (pendiente), "Llegué al edificio" (en
-    curso, sin llegada: lleva al detalle) y "Hacer remito de esta orden" (con
-    llegada). La salida es de la visita, no de la orden (Inicio). Las reglas las
+    Acciones, en orden: "Tomar trabajo" (pendiente), el deslizador "Llegué al
+    edificio" (en curso, sin llegada; en el listado, porque en el detalle está en
+    «Tiempos de atención») y "Hacer remito de esta orden" (con la llegada
+    registrada a la vista). La salida es de la visita, no de la orden (Inicio). Las reglas las
     vuelve a validar el servidor.
 --}}
 @php
     use App\Support\WorkOrderLabels;
     $slug = auth()->user()->company->slug;
-    $statusChip = ['pending' => 't-chip-pending', 'in_progress' => 't-chip-progress', 'completed' => 't-chip-done', 'failed' => 't-chip-failed'];
     $priorityChip = ['urgent' => 't-chip-failed', 'high' => 't-chip-progress', 'medium' => 't-chip-pending', 'low' => 't-chip-neutral'];
     $linkToDetail = $linkToDetail ?? false;
     $detail = route('work-orders.show', ['company' => $slug, 'workOrder' => $workOrder]);
@@ -20,7 +20,7 @@
 <article class="t-card overflow-hidden">
     <div class="p-4">
         <div class="flex flex-wrap items-center gap-1.5">
-            <span class="{{ $statusChip[$workOrder->status] ?? 't-chip-neutral' }}">{{ WorkOrderLabels::status($workOrder->status) }}</span>
+            <span class="{{ WorkOrderLabels::statusChip($workOrder->status) }}" data-status="{{ $workOrder->status }}">{{ WorkOrderLabels::status($workOrder->status) }}</span>
             <span class="{{ $priorityChip[$workOrder->priority] ?? 't-chip-neutral' }}">Prioridad {{ mb_strtolower(WorkOrderLabels::priority($workOrder->priority)) }}</span>
             <span class="t-chip-neutral">{{ WorkOrderLabels::type($workOrder->type) }}</span>
             @if($workOrder->isTechnicianInitiated())<span class="t-chip-neutral" data-technician-initiated>Iniciada por {{ (int) $workOrder->created_by === (int) auth()->id() ? 'vos' : 'un técnico' }}</span>@endif
@@ -83,11 +83,23 @@
                     <button type="submit" class="t-btn-primary w-full">Tomar trabajo</button>
                 </form>
             @elseif($workOrder->arrived_at === null && $workOrder->users->contains(auth()->id()))
-                {{-- Paso 2 antes que el remito: la llegada al edificio (en el detalle). --}}
+                {{-- Paso 2: la llegada, con el mismo deslizador de siempre (el único control
+                     de llegada). En el detalle está en «Tiempos de atención», no acá. --}}
                 @if($linkToDetail)
-                    <a href="{{ $detail }}#llegada" class="t-btn-primary w-full" data-next-step="arrive">Llegué al edificio</a>
+                    @php $openVisit = once(fn () => \App\Services\WorkOrders\SiteVisits::openFor(auth()->user())); @endphp
+                    @if($openVisit && ! \App\Services\WorkOrders\SiteVisits::openIn(auth()->user(), (int) $workOrder->building_id))
+                        <p class="text-sm text-amber-900" data-other-visit>Tenés una visita abierta en <strong>{{ $openVisit->building?->name }}</strong>. <a class="font-semibold underline" href="{{ route('dashboard', ['company' => $slug]) }}">Finalizala</a> para registrar la llegada acá.</p>
+                    @else
+                        @include('partials.slide-confirm', ['action' => route('work-orders.arrive', ['company' => $slug, 'workOrder' => $workOrder->id]), 'label' => 'Llegué al edificio', 'name' => 'arrive-'.$workOrder->id])
+                    @endif
                 @endif
             @else
+                @if($workOrder->arrived_at && $linkToDetail) {{-- en el detalle lo dice «Tiempos de atención» --}}
+                    <p class="mb-2 flex items-center gap-1.5 text-sm font-semibold text-emerald-800" data-arrival-registered>
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
+                        Llegada registrada · {{ $workOrder->arrived_at->format('H:i') }}
+                    </p>
+                @endif
                 <a href="{{ route('delivery-notes.work-order', ['company' => $slug, 'workOrder' => $workOrder]) }}" class="t-btn-dark w-full" data-next-step="remito">Hacer remito de esta orden</a>
             @endif
         </div>

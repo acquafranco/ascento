@@ -41,8 +41,8 @@
     @foreach($awaitingArrival as $order)
         @continue($siteVisit && (int) $siteVisit->building_id === (int) $order->building_id)
         <a href="{{ route('work-orders.show', ['company' => $slug, 'workOrder' => $order->id]) }}#llegada" class="t-alert-warning mb-3 flex items-center justify-between gap-3" data-awaiting-arrival="{{ $order->id }}">
-            <span>Tomaste la orden #{{ $order->id }} en {{ $order->building?->name ?? 'un edificio' }}. Cuando llegues, registrá la llegada.</span>
-            <span class="shrink-0 underline">Ir</span>
+            <span>Tomaste la orden #{{ $order->id }} en {{ $order->building?->name ?? 'un edificio' }}. Cuando llegues, deslizá «Llegué al edificio» en la orden.</span>
+            <span class="shrink-0 underline">Ver orden</span>
         </a>
     @endforeach
 
@@ -110,7 +110,7 @@
                             <span class="min-w-0 flex-1">
                                 <span class="flex flex-wrap items-center gap-1.5">
                                     @if($order->status === 'in_progress')
-                                        <span class="t-chip-progress">En curso</span>
+                                        <span class="{{ WorkOrderLabels::statusChip('in_progress') }}">En curso</span>
                                     @endif
                                     <span class="{{ $priorityChip[$order->priority] ?? 't-chip-neutral' }}">{{ WorkOrderLabels::priority($order->priority) }}</span>
                                     <span class="text-xs font-semibold text-ink-500">{{ WorkOrderLabels::type($order->type) }}{{ $order->unit ? ' · '.$order->unit : '' }}</span>

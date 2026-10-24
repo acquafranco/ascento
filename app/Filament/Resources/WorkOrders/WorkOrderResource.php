@@ -45,6 +45,15 @@ class WorkOrderResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Órdenes de trabajo';
 
+    // «Crear orden de trabajo», no «Crear Orden De Trabajo».
+    protected static bool $hasTitleCaseModelLabel = false;
+
+    /** Título de una orden (encabezado, migas): «Orden #21», no el estado interno («in_progress»). */
+    public static function getRecordTitle(?Model $record): string
+    {
+        return $record ? 'Orden #'.$record->getKey() : static::getModelLabel();
+    }
+
     protected static string|\UnitEnum|null $navigationGroup = 'Operaciones';
 
     public static function form(Schema $schema): Schema
@@ -112,12 +121,8 @@ class WorkOrderResource extends Resource
                     ->label('Estado')
                     ->badge()
                     ->formatStateUsing(fn ($state) => WorkOrderLabels::status($state))
-                    ->colors([
-                        'warning' => 'pending',
-                        'primary' => 'in_progress',
-                        'success' => 'completed',
-                        'danger' => 'failed',
-                    ]),
+                    ->color(fn ($state) => WorkOrderLabels::statusColor($state))
+                    ->icon(fn ($state) => WorkOrderLabels::statusIcon($state)),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Creado')
                     ->dateTime('d/m/Y H:i')

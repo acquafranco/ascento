@@ -29,12 +29,12 @@ Siempre son del **mismo técnico**, la **misma empresa** y el **mismo edificio**
 
 ## Qué ve el técnico en cada paso
 
-1. **Tomar el trabajo.** Como siempre; no registra la llegada. En el listado, la orden muestra «Llegué al edificio» (lleva al detalle), no el remito. En Inicio: «Tomaste la orden #N en X. Cuando llegues, registrá la llegada.»
+1. **Tomar el trabajo.** Como siempre; no registra la llegada. Lleva al listado «En curso», donde la tarjeta de la orden ya muestra el deslizador «Llegué al edificio». No hay ningún botón aparte que haga lo mismo: el deslizador es el único control de llegada (en el listado, en el detalle de la orden y, si llega por ahí, en el formulario del remito). En Inicio solo queda un recordatorio que lleva a la orden.
 2. **Llegué al edificio.** El deslizador está en la orden y también en el formulario del remito, si llega por ahí.
    - Guarda la hora del servidor, una sola vez, y no es editable.
    - No usa GPS. Abrir la orden no registra nada.
    - Si tiene una visita abierta en otro edificio, se le avisa y se le lleva a finalizarla.
-3. **Trabajos y remitos.** Después de la llegada aparecen «Hacer remito de esta orden» y «Agregar otro trabajo de esta visita». El formulario del remito muestra «En el edificio desde HH:MM».
+3. **Trabajos y remitos.** Después de la llegada, el deslizador desaparece y queda el indicador «Llegada registrada · HH:MM». Aparecen «Hacer remito de esta orden» y «Agregar otro trabajo de esta visita». El formulario del remito muestra «En el edificio desde HH:MM».
    - Sin llegada, el formulario queda oculto detrás del paso «Primero, la llegada».
    - La excepción es «No pude registrar la llegada», que exige un motivo (mínimo 10 caracteres). El motivo queda en `building_visits.arrival_exception` y la llegada queda «Sin registrar».
    - Firmas y validaciones, sin cambios. **El remito no registra la salida ni cierra la visita.**
@@ -61,8 +61,28 @@ Una orden con llegada propia, de antes de las visitas, conserva su «Terminé y 
 ## Administrador
 
 - Crea y asigna órdenes como siempre. **Nunca carga** la llegada ni la salida.
-- En la orden, «Tiempos de atención» muestra el aviso y su origen, la llegada, la salida y las tres duraciones («Sin registrar» si falta un horario). Ahora también muestra **«Visita técnica»**: técnico, llegada, salida, cuántas órdenes y remitos, y si sigue en curso o se cerró sin salida (quién, cuándo y motivo).
+- **Formulario de la orden.** A la izquierda, lo que define el trabajo: «Edificio y equipo» y «Trabajo» (tipo, prioridad, detalle). A la derecha, cómo está: «Estado», «Asignación» y «Aviso recibido». En el celular, todo en una columna, en ese mismo orden. Los campos y las reglas son los de siempre.
+- **«Aviso recibido».** Lo único de los tiempos que carga la oficina. Pregunta «¿Cuándo recibiste el aviso?», con un selector de fecha y hora y el atajo «Ahora». Vacío queda «Sin registrar». Abajo dice para qué sirve y, si ya se cargó, de dónde salió y quién lo cargó.
+- **«Tiempos de atención».** Solo lectura y solo en una orden existente. Muestra pequeñas tarjetas para el aviso, la llegada y la salida (cada una con quién la registró) y una línea con respuesta, tiempo en el edificio y total.
+  - Antes de que el técnico registre algo, ocupa una sola línea: «Llegada y salida: Pendiente de llegada».
+  - **Pendiente** quiere decir que todavía puede pasar (la orden sigue abierta o la visita en curso). **Sin registrar** quiere decir que no se registró y ya no va a llegar.
+  - Una duración aparece solo con los dos horarios necesarios.
+  - Abajo, el resumen de la visita técnica: cierres sin salida y remitos sin llegada, con su motivo.
 - **«Cerrar visita sin salida».** Acción del encabezado de la orden, solo con permiso de gestionar Órdenes. Exige motivo, queda en la Actividad y nunca inventa una hora.
+- **Título.** La orden se titula «Orden #N»; antes mostraba el estado interno («in_progress»).
+
+## Estados de las órdenes
+
+Son los mismos cuatro de siempre, con las mismas reglas. Ahora se distinguen por color y por icono, y el texto se ve siempre:
+
+| Estado | Panel | App del técnico |
+|---|---|---|
+| Pendiente | ámbar, reloj | ámbar |
+| En progreso | azul, flechas | azul (antes naranja, igual que la prioridad «Alta») |
+| Completado | verde, tilde | verde |
+| No realizado | rojo, cruz | rojo |
+
+La definición está en un solo lugar: `WorkOrderLabels::STATUSES`, `STATUS_COLORS`, `STATUS_ICONS` y `STATUS_CHIPS`. La usan el formulario (botones de estado), los listados del panel y la app del técnico. No existe un estado «Cancelada», así que no se agregó.
 
 ## Recordatorios
 

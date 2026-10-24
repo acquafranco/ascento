@@ -49,6 +49,7 @@ class WorkOrdersRelationManager extends RelationManager
                 TextColumn::make('guard')->label('De guardia')->state(fn (WorkOrder $r) => $r->onCallShift?->user?->name),
                 TextColumn::make('users')->label('Lo hizo')->state(fn (WorkOrder $r) => $r->users->pluck('name')->implode(', '))->wrap(),
                 TextColumn::make('status')->label('Estado')->badge()->formatStateUsing(fn ($state) => WorkOrderLabels::status($state))
+                    ->color(fn ($state) => WorkOrderLabels::statusColor($state))->icon(fn ($state) => WorkOrderLabels::statusIcon($state))
                     ->description(fn (WorkOrder $r) => $r->deliveryNote ? 'Con remito' : null),
             ])
             ->recordUrl(fn (WorkOrder $r) => WorkOrderResource::canEdit($r) ? WorkOrderResource::getUrl('edit', ['record' => $r]) : null)
